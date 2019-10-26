@@ -1,0 +1,93 @@
+swagger: '2.0'
+info:
+  title: Robot (cobot) Example API
+  version: "0.1"
+  description: Simple example API to execute operations on a robot
+consumes:
+  - application/json
+produces:
+  - application/json
+paths:
+  /execute_no1:
+    get:
+      tags: [execute_no1]
+      operationId: cobot.execute_no1
+      summary: Executes operation no1 on the robot
+      responses:
+        200:
+          description: Return response
+          schema:
+            $ref: '#/definitions/RobotResponse'
+
+  /execute_no2:
+    get:
+      tags: [execute_no2]
+      operationId: cobot.execute_no2
+      summary: Executes operation no2 on the robot
+      responses:
+        200:
+          description: Return response
+          schema:
+            $ref: '#/definitions/RobotResponse'
+
+  /execute_prog/{prog_id}:
+    get:
+      tags: [execute_prog]
+      operationId: cobot.execute_prog
+      summary: Executes a specified program on a robot
+      parameters:
+        - $ref: '#/parameters/prog_id'
+      responses:
+        200:
+          description: Return response
+          schema:
+            $ref: '#/definitions/RobotResponse'
+        404:
+          description: prog_id does not exist
+
+
+parameters:
+  prog_id:
+    name: prog_id
+    description: Robot program unique identifier
+    in: path
+    type: string
+    required: true
+    pattern: "^[a-zA-Z0-9-]+$"
+
+definitions:
+  RobotResponse:
+    type: object
+    required:
+      - stdout
+      - response_code
+      - description
+    properties:
+      stdout:
+        type: string
+        description: complete backend stdoutput from command
+        example: "Execution successful OK"
+        readOnly: true
+      response_code:
+        type: string
+        description: The response code from robot
+        example: "43"
+        minLength: 1
+      description:
+        type: string
+        description: Response described in cleartext
+        example: "Execution was OK"
+        minLength: 1
+
+#security:
+#  # enable OAuth protection for all REST endpoints
+#  # (only active if the TOKENINFO_URL environment variable is set)
+#  - oauth2: [uid]
+
+#securityDefinitions:
+#  oauth2:
+#    type: oauth2
+#    flow: implicit
+#    authorizationUrl: https://example.com/oauth2/dialog
+#    scopes:
+#      uid: Unique identifier of the user accessing the service.

@@ -1,0 +1,4 @@
+connexion
+gevent
+greenlet
+swagger-ui-bundle
