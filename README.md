@@ -1,8 +1,15 @@
-Robot rest-api project
+# Robot REST-api
+This project is built upon the python-flask-swagger REST API framework **connexion**, https://github.com/zalando/connexion
 
-# Requirements
+Define your api-endpoints and their mapping to the python functions in `swagger.yml`
+
+Create your python functions (`cobot.py`)
+
+## Requirements
 Python version >= 3.6
 
+## Installation and test
+```
 # Create a virtualenv for your project
 virtualenv -p python3 venv
 source venv/bin/activate
@@ -18,3 +25,4 @@ http://localhost:8087/ui/
 
 # example execute program with id=12 on robot
 curl -X GET --header 'Accept: application/json' 'http://localhost:8087/execute_prog/12'
+```
