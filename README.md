@@ -1,13 +1,13 @@
 # Robot REST-api
 This project is built upon the python-flask-swagger REST API framework **connexion**, https://github.com/zalando/connexion
 
-Define your api-endpoints and their mapping to the python functions in `swagger.yml`
+Define your api-endpoints and their mapping to the python functions in `swagger-cobot.yml`
 
 Create your python functions (`cobot.py`)
 
 ## Requirements
-Python version >= 3.6
-venv (should be included in Python > 3.3 (`sudo apt install python3.6-venv`)
+- Python version >= 3.6
+- venv (should be included in Python > 3.3 (`sudo apt install python3.6-venv`)
 
 ## Installation and test
 ```
@@ -17,7 +17,7 @@ git clone git@github.com:pharmbio/labrobots-restserver.git
 cd labrobots-restserver
 
 # Create a virtualenv for your project
-python3.6 -m venv venv
+python3 -m venv venv
 source venv/bin/activate
 
 # Install python requirements
