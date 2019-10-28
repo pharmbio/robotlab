@@ -4,7 +4,6 @@ import logging
 
 logging.basicConfig(level=logging.INFO)
 app = connexion.App(__name__)
-# specify non-default api-file
 app.add_api('swagger-cobot.yaml')
 # set the WSGI application callable to allow using uWSGI:
 # uwsgi --http :8080 -w app
