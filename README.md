@@ -7,7 +7,7 @@ Create your python functions (`cobot.py`)
 
 ## Requirements
 - Python version >= 3.6
-- venv (should be included in Python > 3.3 (`sudo apt install python3.6-venv`)
+- venv (should be included in Python > 3.3 (if not... `sudo apt install python3.6-venv`)
 
 ## Installation and test
 ```
