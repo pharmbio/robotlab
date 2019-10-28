@@ -7,11 +7,17 @@ Create your python functions (`cobot.py`)
 
 ## Requirements
 Python version >= 3.6
+venv (should be included in Python > 3.3 (`sudo apt install python3.6-venv`)
 
 ## Installation and test
 ```
+# Clone
+git clone git@github.com:pharmbio/labrobots-restserver.git
+
+cd labrobots-restserver
+
 # Create a virtualenv for your project
-virtualenv -p python3 venv
+python3.6 -m venv venv
 source venv/bin/activate
 
 # Install python requirements
