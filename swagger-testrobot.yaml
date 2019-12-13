@@ -1,6 +1,6 @@
 swagger: '2.0'
 info:
-  title: Robot (cobot) Example API
+  title: Robot (testrobot) Example API
   version: "0.1"
   description: Simple example API to execute operations on a robot
 consumes:
@@ -11,7 +11,7 @@ paths:
   /execute_no1:
     get:
       tags: [execute_no1]
-      operationId: cobot.execute_no1
+      operationId: testrobot.execute_no1
       summary: Executes operation no1 on the robot
       responses:
         200:
@@ -22,7 +22,7 @@ paths:
   /execute_no2:
     get:
       tags: [execute_no2]
-      operationId: cobot.execute_no2
+      operationId: testrobot.execute_no2
       summary: Executes operation no2 on the robot
       responses:
         200:
@@ -33,7 +33,7 @@ paths:
   /execute_prog/{prog_id}:
     get:
       tags: [execute_prog]
-      operationId: cobot.execute_prog
+      operationId: testrobot.execute_prog
       summary: Executes a specified program on a robot
       parameters:
         - $ref: '#/parameters/prog_id'
