@@ -1,8 +1,8 @@
 swagger: '2.0'
 info:
-  title: BioTek Washer API
+  title: Automatized Fisher Brand Shaker API
   version: "0.1"
-  description: API to execute operations on washer
+  description: API to execute operations on shaker
 consumes:
   - application/json
 produces:
@@ -11,7 +11,7 @@ paths:
   /status:
     get:
       tags: [status]
-      operationId: washer.status
+      operationId: shaker.status
       summary: Queries for status
       responses:
         200:
@@ -22,7 +22,7 @@ paths:
   /is_ready:
     get:
       tags: [is_ready]
-      operationId: washer.is_ready
+      operationId: shaker.is_ready
       summary: Queries for ready status
       responses:
         200:
@@ -31,14 +31,24 @@ paths:
             $ref: '#/definitions/RobotResponse'
         404:
           description: Some kind of error, verbose output should be attached
-
-  /execute_protocol/{protocol_name}:
+  /start:
     get:
-      tags: [execute_protocol]
-      operationId: washer.execute_protocol
-      summary: Executes a specified protocol
-      parameters:
-        - $ref: '#/parameters/protocol_name'
+      tags: [start]
+      operationId: shaker.start
+      summary: Starts shaker
+      responses:
+        200:
+          description: Return response
+          schema:
+            $ref: '#/definitions/RobotResponse'
+        404:
+          description: Some kind of error, verbose output should be attached
+
+  /stop:
+    get:
+      tags: [stop]
+      operationId: shaker.stop
+      summary: Stops shaker
       responses:
         200:
           description: Return response
@@ -49,13 +59,6 @@ paths:
 
 
 parameters:
-  prog_id:
-    name: protocol_name
-    description: Protocol name
-    in: path
-    type: string
-    required: true
-    pattern: "^[a-zA-Z0-9-]+$"
 
 definitions:
   RobotResponse:

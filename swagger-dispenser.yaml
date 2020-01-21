@@ -1,8 +1,8 @@
 swagger: '2.0'
 info:
-  title: BioTek Washer API
+  title: BioTek Dispenser API
   version: "0.1"
-  description: API to execute operations on washer
+  description: API to execute operations on dispenser
 consumes:
   - application/json
 produces:
@@ -11,7 +11,7 @@ paths:
   /status:
     get:
       tags: [status]
-      operationId: washer.status
+      operationId: dispenser.status
       summary: Queries for status
       responses:
         200:
@@ -22,7 +22,7 @@ paths:
   /is_ready:
     get:
       tags: [is_ready]
-      operationId: washer.is_ready
+      operationId: dispenser.is_ready
       summary: Queries for ready status
       responses:
         200:
@@ -35,7 +35,7 @@ paths:
   /execute_protocol/{protocol_name}:
     get:
       tags: [execute_protocol]
-      operationId: washer.execute_protocol
+      operationId: dispenser.execute_protocol
       summary: Executes a specified protocol
       parameters:
         - $ref: '#/parameters/protocol_name'
