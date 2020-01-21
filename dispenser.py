@@ -14,7 +14,7 @@ def execute_protocol(protocol_name):
   #
   # Execute on server an then return response
   #
-  proc_out = subprocess.Popen(["C:\Program Files (x86)\BioTek\Liquid Handling Control 2.22\LHC_CallerCLI.exe", "LHC_SetProductName", "MultiFloFX"],
+  proc_out = subprocess.Popen(["C:\Program Files (x86)\BioTek\Liquid Handling Control 2.22\LHC_CallerCLI.exe", "LHC_SetProductName", "Dispenser"],
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT)
   stdout,stderr = proc_out.communicate()
