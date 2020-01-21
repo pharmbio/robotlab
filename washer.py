@@ -7,9 +7,25 @@ import sys
 from connexion import NoContent
 
 
-def execute_prog(prog_id):
+def execute_protocol(protocol_name):
 
-  logging.info("Inside execute_prog, prog_id=" + prog_id)
+  logging.info("Inside execute_protocol, protocol_name=" + protocol_name)
+
+  #
+  # Execute on server an then return response
+  #
+  proc_out = subprocess.Popen(["C:\Program Files (x86)\BioTek\Liquid Handling Control 2.22\LHC_CallerCLI.exe", "LHC_SetProductName", "MultiFloFX"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT)
+  stdout,stderr = proc_out.communicate()
+
+  response = stdout
+
+  return response
+
+def status():
+
+  logging.info("Inside status")
 
   #
   # Execute on server an then return response
@@ -23,44 +39,29 @@ def execute_prog(prog_id):
 
   return response
 
-def execute_no1():
 
-  logging.info("Inside execute_no1")
-  
-  #
-  # Execute on server an then return response
-  #
-  proc_out = subprocess.Popen(["C:\Program Files (x86)\BioTek\Liquid Handling Control 2.22\LHC_CallerCLI.exe", "LHC_SetProductName", "MultiFloFX"], 
-            stdout=subprocess.PIPE, 
-            stderr=subprocess.STDOUT)
-  stdout,stderr = proc_out.communicate()
+def is_ready():
 
-  response = stdout
-
-  return response
-
-def execute_no2():
-
-  logging.info("Inside execute_no2")
+  logging.info("Inside status")
 
   #
   # Execute on server an then return response
   #
-  cLHC = ClassLHCRunner()
-  productName = "MultiFloFX"
-  nRetCode = cLHC.LHC_SetProductName(productName)
+  stdout = "Ready"
 
-
-  response = "RetVal=" + str(nRetCode)
+  #
+  # Maybe parse stdout
+  #
+  response = "Ready"
 
   return response
-  
-  
-  
+
+
+
 if __name__ == '__main__':
     # Testrun
-    retval = execute_no2()
+    retval = is_ready()
     print(str(retval))
-  
+
 
 
