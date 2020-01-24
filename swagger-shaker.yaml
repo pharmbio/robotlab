@@ -71,7 +71,7 @@ definitions:
       stdout:
         type: string
         description: Complete backend stdoutput/stderror from command
-        example: "Execution successful OK"
+        example: "Busy"
         readOnly: true
       response_code:
         type: string

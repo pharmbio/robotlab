@@ -31,15 +31,20 @@ python3 server-washer.py # Or in Windows something like: python.exe server-washe
 #
 
 # look at api in swagger ui
-http://localhost:5001/ui/
+http://localhost:5000/ui/
 
 # example execute program with id=12 on robot
-curl -X GET --header 'Accept: application/json' 'http://localhost:5001/execute_prog/12'
+curl -X GET --header 'Accept: application/json' 'http://localhost:5000/execute_prog/12'
 
 # Add as windows service (with nssm.exe - need to be installed in "c:\pharmbio\nssm\" first)
 c:\pharmbio\nssm\nssm.exe install restserver-washer powershell -File "C:\pharmbio\labrobots-restserver\start-server-washer.ps1"
 c:\pharmbio\nssm\nssm.exe set restserver-washer AppStdout "C:\pharmbio\labrobots-restserver\server-washer-service.log"
 c:\pharmbio\nssm\nssm.exe set restserver-washer AppStderr "C:\pharmbio\labrobots-restserver\server-washer-service.log"
 c:\pharmbio\nssm\nssm.exe start restserver-washer
+
+c:\pharmbio\nssm\nssm.exe install restserver-dispenser powershell -File "C:\pharmbio\labrobots-restserver\start-server-dispenser.ps1"
+c:\pharmbio\nssm\nssm.exe set restserver-dispenser AppStdout "C:\pharmbio\labrobots-restserver\server-dispenser-service.log"
+c:\pharmbio\nssm\nssm.exe set restserver-dispenser AppStderr "C:\pharmbio\labrobots-restserver\server-dispenser-service.log"
+c:\pharmbio\nssm\nssm.exe start restserver-dispenser
  
 ```
