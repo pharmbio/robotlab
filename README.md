@@ -1,5 +1,7 @@
 # Robot REST-api
-This project is built upon the python-flask-swagger REST API framework **connexion**, https://github.com/zalando/connexion
+The goal of this project is to provide a unified REST-api to all robots in the AROS system. The REST Api will wrap around various existing or non-existing vendor-specific api:s for communication.
+
+It is built with the python-flask-swagger REST API framework **connexion**, https://github.com/zalando/connexion
 
 Define your api-endpoints and their mapping to the python functions in `swagger-washer.yml`
 
