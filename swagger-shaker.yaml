@@ -18,6 +18,8 @@ paths:
           description: Return response
           schema:
             $ref: '#/definitions/RobotResponse'
+        404:
+          description: Some kind of error, verbose output should be attached
 
   /is_ready:
     get:
@@ -58,41 +60,23 @@ paths:
           description: Some kind of error, verbose output should be attached
 
 
-parameters:
+# no parameters for shaker
+# parameters:
 
 definitions:
   RobotResponse:
     type: object
     required:
-      - stdout
-      - response_code
-      - description
+      - message
+      - details
     properties:
-      stdout:
+      message:
+        type: string
+        description: The response as a short text
+        example: "OK"
+        minLength: 1
+      details:
         type: string
         description: Complete backend stdoutput/stderror from command
-        example: "Busy"
+        example: "Stack-trace...:"
         readOnly: true
-      response_code:
-        type: string
-        description: The response code number
-        example: "43"
-        minLength: 1
-      description:
-        type: string
-        description: Response described in cleartext
-        example: "Busy"
-        minLength: 1
-
-#security:
-#  # enable OAuth protection for all REST endpoints
-#  # (only active if the TOKENINFO_URL environment variable is set)
-#  - oauth2: [uid]
-
-#securityDefinitions:
-#  oauth2:
-#    type: oauth2
-#    flow: implicit
-#    authorizationUrl: https://example.com/oauth2/dialog
-#    scopes:
-#      uid: Unique identifier of the user accessing the service.

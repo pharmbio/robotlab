@@ -3,6 +3,11 @@ import connexion
 import logging
 import subprocess
 import sys
+import time
+
+# Import shaker client
+sys.path.append('/pharmbio/shaker-robot')
+import shaker_client
 
 from connexion import NoContent
 
@@ -13,12 +18,10 @@ def status():
   #
   # Execute on server an then return response
   #
-  stdout = "Bla bla OK"
+  status = shaker_client.getStatus()
 
-  #
-  # Maybe parse stdout
-  #
-  response = "OK"
+  response = {"message": status,
+              "details": ""}
 
   return response
 
@@ -26,33 +29,25 @@ def status():
 def is_ready():
 
   logging.info("Inside is_ready")
+  status_response = status()
 
-  #
-  # Execute on server an then return response
-  #
-  stdout = "Ready"
-
-  #
-  # Maybe parse stdout
-  #
-  response = "Ready"
-
+  if(status_response['message'] == 'READY'):
+    response = {"message": 'True',
+                "details": ""}
+  else:
+    response = {"message": 'False',
+                "details": ""}
+  
   return response
 
 
 def start():
 
   logging.info("Inside start")
+  retval = shaker_client.startShaker()
 
-  #
-  # Execute on server an then return response
-  #
-  stdout = "OK"
-
-  #
-  # Maybe parse stdout
-  #
-  response = "OK"
+  response = {"message": retval,
+              "details": ""}
 
   return response
 
@@ -60,27 +55,55 @@ def start():
 def stop():
 
   logging.info("Inside stop")
+  retval = shaker_client.stopShaker()
 
-  #
-  # Execute on server an then return response
-  #
-  stdout = "OK"
-
-  #
-  # Maybe parse stdout
-  #
-  response = "OK"
+  response = {"message": retval,
+              "details": ""}
 
   return response
 
 
-
-
-
 if __name__ == '__main__':
+    #
+    # Configure logging
+    #
+    logging.basicConfig(format='%(asctime)s,%(msecs)d %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s',
+                            datefmt='%H:%M:%S',
+                            level=logging.INFO)
+
     # Testrun
     retval = is_ready()
-    print(str(retval))
+    print("is_ready:" + str(retval))
+
+    retval = status()
+    print("status:" + str(retval))
+
+    retval = start()
+    print("start:" + str(retval))
+
+    retval = start()
+    print("start:" + str(retval))
+
+    retval = status()
+    print("status:" + str(retval))
+
+    time.sleep(1)
+
+    retval = status()
+    print("status:" + str(retval))
+
+    retval = stop()
+    print("start:" + str(retval))
+
+    time.sleep(3)
+
+    retval = status()
+    print("status:" + str(retval))
+
+    retval = stop()
+    print("start:" + str(retval))
+
+
 
 
 
