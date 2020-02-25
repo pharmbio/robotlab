@@ -1,6 +1,0 @@
-C:\Users\pharmbio\source\repos\LHC_CallerCLI\LHC_CallerCLI\bin\Release\LHC_CallerCLI.exe
-C:\Users\pharmbio\source\repos\LHC_CallerCLI\LHC_CallerCLI\bin\Release\LHC_CallerCLI.pdb
-C:\Users\pharmbio\source\repos\LHC_CallerCLI\LHC_CallerCLI\bin\Release\BTILHCRunner.dll
-C:\Users\pharmbio\source\repos\LHC_CallerCLI\LHC_CallerCLI\obj\Release\LHC_CallerCLI.csproj.CopyComplete
-C:\Users\pharmbio\source\repos\LHC_CallerCLI\LHC_CallerCLI\obj\Release\LHC_CallerCLI.exe
-C:\Users\pharmbio\source\repos\LHC_CallerCLI\LHC_CallerCLI\obj\Release\LHC_CallerCLI.pdb
