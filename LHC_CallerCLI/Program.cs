@@ -17,7 +17,10 @@ using System.Diagnostics;
 // methods provided by the LHC Runner.
 //
 // Test run in PowerShell:
+// 
 // & "C:\Program Files (x86)\BioTek\Liquid Handling Control 2.22\LHC_CallerCLI.exe" "MultiFloFX" "USB MultiFloFX sn:19041612" LHC_TestCommunications
+// & "C:\Program Files (x86)\BioTek\Liquid Handling Control 2.22\LHC_CallerCLI.exe" "405 TS/LS" "USB 405 TS/LS sn:191107F" LHC_TestCommunications
+//
 //
 
 namespace LHCCallerCLI
@@ -169,6 +172,12 @@ namespace LHCCallerCLI
 						response.value = testResults;
 						break;
 
+//					case "LHC_PerformSelfCheck":
+//						string testResults = LHC_PerformSelfCheck();
+//						response.status = "OK";
+//						response.value = testResults;
+//						break;
+
 					default:
 						response.value = "WARNING";
 						response.details = "No Command Specified";
@@ -190,6 +199,7 @@ namespace LHCCallerCLI
 											ex.StackTrace,
 				                            ex.TargetSite );
 
+				response.status = "99";
 				response.value = value;
 				response.details = errorString;
 			}
