@@ -60,7 +60,7 @@ def is_ready():
 
 if __name__ == '__main__':
     # Testrun
-    retval = is_ready()
+    retval = status()
     print(str(retval))
 
 
