@@ -28,20 +28,29 @@ last_LHC_response = None
 PORT = 5050
 api = Flask(__name__)
 
-def is_LHC_ready():
 
-    global thread_LHC
+@api.route('/is_ready', methods=['GET'])
+def is_ready():
 
-    if thread_LHC is None or thread_LHC.is_alive() == False:
-        return True
-    else:
-        return False
+    logging.debug("Inside is_ready")
+    is_ready = is_LHC_ready()
+    response = [{"status": "OK",
+                "value": is_ready,
+                "details": ""}]
+    return json.dumps(response)
 
+@api.route('/last_LHC_response', methods=['GET'])
+def get_last_LHC_response():
+
+    logging.debug("Inside get_last_LHC_response")
+    response = [{"status": "OK",
+                "value": last_LHC_response,
+                "details": ""}]
+    return json.dumps(response)
 
 @api.route('/execute_protocol/<path:protocol_name>', methods=['GET'])
 def execute_protocol(protocol_name):
 
-    global thread_lock
     global thread_LHC
     
     # Only allow one LHC thread running
@@ -110,30 +119,11 @@ def execute_protocol_threaded(protocol_name):
         logging.info('last_LHC_response' + str(last_LHC_response))
         logging.info('Finished Thread')
 
-@api.route('/is_ready', methods=['GET'])
-def is_ready():
-
-    global last_LHC_response
-
-    logging.debug("Inside is_ready")
-    is_ready = is_LHC_ready()
-    response = [{"status": "OK",
-                "value": is_ready,
-                "details": ""}]
-  
-    return json.dumps(response)
-
-@api.route('/last_LHC_response', methods=['GET'])
-def get_last_LHC_response():
-
-    global last_LHC_response
-
-    logging.debug("Inside get_last_LHC_response")
-    response = [{"status": "OK",
-                "value": last_LHC_response,
-                "details": ""}]
-  
-    return json.dumps(response)
+def is_LHC_ready():
+    if thread_LHC is None or thread_LHC.is_alive() == False:
+        return True
+    else:
+        return False
 
 
 if __name__ == '__main__':
