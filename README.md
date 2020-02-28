@@ -36,7 +36,7 @@ python3 server-washer.py # Or in Windows something like: python.exe server-washe
 http://localhost:5000/ui/
 
 # example execute program with id=12 on robot
-curl -X GET --header 'Accept: application/json' 'http://localhost:5000/execute_prog/12'
+curl -X GET --header 'Accept: application/json' 'http://localhost:6000/execute_prog/12'
 
 # Add as windows service (with nssm.exe - need to be installed in "c:\pharmbio\nssm\" first)
 c:\pharmbio\nssm\nssm.exe install restserver-washer powershell -File "C:\pharmbio\labrobots-restserver\start-server-washer.ps1"
@@ -53,23 +53,23 @@ c:\pharmbio\nssm\nssm.exe start restserver-dispenser
 Robot URL:s
 ```
 ## Washer
-http://washer.lab.pharmb.io:5000/ui/
-http://washer.lab.pharmb.io:5000/is_ready
-http://washer.lab.pharmb.io:5000/status
-http://washer.lab.pharmb.io:5000/execute_protocol/<protocol-name>
+http://washer.lab.pharmb.io:6000/ui/
+http://washer.lab.pharmb.io:6000/is_ready
+http://washer.lab.pharmb.io:6000/status
+http://washer.lab.pharmb.io:6000/execute_protocol/<protocol-name>
 
 ## Dispenser
-http://dispenser.lab.pharmb.io:5001/ui/
-http://dispenser.lab.pharmb.io:5001/is_ready
-http://dispenser.lab.pharmb.io:5001/status
-http://dispenser.lab.pharmb.io:5001/execute_protocol/<protocol-name> 
+http://dispenser.lab.pharmb.io:6001/ui/
+http://dispenser.lab.pharmb.io:6001/is_ready
+http://dispenser.lab.pharmb.io:6001/status
+http://dispenser.lab.pharmb.io:6001/execute_protocol/<protocol-name> 
 
 ## Shaker
-http://shaker.lab.pharmb.io:5000/ui/
-http://shaker.lab.pharmb.io:5000/is_ready
-http://shaker.lab.pharmb.io:5000/status
-http://shaker.lab.pharmb.io:5000/start
-http://shaker.lab.pharmb.io:5000/stop
+http://shaker.lab.pharmb.io:6000/ui/
+http://shaker.lab.pharmb.io:6000/is_ready
+http://shaker.lab.pharmb.io:6000/status
+http://shaker.lab.pharmb.io:6000/start
+http://shaker.lab.pharmb.io:6000/stop
 
 ```
 
