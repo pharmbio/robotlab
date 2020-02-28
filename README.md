@@ -33,7 +33,7 @@ python3 server-washer.py # Or in Windows something like: python.exe server-washe
 #
 
 # look at api in swagger ui
-http://localhost:5000/ui/
+http://localhost:6000/ui/
 
 # example execute program with id=12 on robot
 curl -X GET --header 'Accept: application/json' 'http://localhost:6000/execute_prog/12'

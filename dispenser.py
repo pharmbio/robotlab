@@ -80,7 +80,7 @@ if __name__ == '__main__':
     retval = status()
     print(str(retval))
     
-    retval = execute_protocol("C:\ProgramData\BioTek\Liquid Handling Control 2.22\Protocols\_FOR_anders\dispenser_prime_all_buffers.LHC")
+    retval = execute_protocol("C:\ProgramData\BioTek\Liquid Handling Control 2.22\Protocols\test-protocols\dispenser_prime_all_buffers.LHC")
     print(str(retval))
 
 

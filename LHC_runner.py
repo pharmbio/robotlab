@@ -135,7 +135,7 @@ if __name__ == '__main__':
     #
     # Example rest-calls
     #
-    # http://http://localhost:5050/execute_protocol/_FOR_anders/dispenser_prime_all_buffers.LHC
+    # http://http://localhost:5050/execute_protocol/test-protocols/dispenser_prime_all_buffers.LHC
     # http://localhost:5050/last_LHC_response
     # http://localhost:5050/is_ready
     #
