@@ -74,6 +74,16 @@ namespace LHCCallerCLI
 
 		#endregion
 
+		/*
+		*	Example test calls (from powerscript):
+		*	
+		*	& "C:\Program Files (x86)\BioTek\Liquid Handling Control 2.22\LHC_CallerCLI.exe" "405 TS/LS" "USB 405 TS/LS sn:191107F" "LHC_TestCommunications"
+		*
+		*	& "C:\Program Files (x86)\BioTek\Liquid Handling Control 2.22\LHC_CallerCLI.exe" "MultiFloFX" "USB MultiFloFX sn:19041612" "LHC_TestCommunications"
+		*
+		*	& "C:\Program Files (x86)\BioTek\Liquid Handling Control 2.22\LHC_CallerCLI.exe" "405 TS/LS" "USB 405 TS/LS sn:191107F" "LHC_RunProtocol" "C:\ProgramData\BioTek\Liquid Handling Control 2.22\Protocols\test-protocols\washer_prime_buffers_A_B_C_D_25ml.LHC"
+		* 
+		*/
 		static void Main(string[] args)
 		{
 
@@ -82,12 +92,6 @@ namespace LHCCallerCLI
 				//Trace.Listeners.Add(new System.Diagnostics.ConsoleTraceListener());
 				Trace.Listeners.Add(new TextWriterTraceListener("LHC_CallerCLI.log"));
 				Trace.AutoFlush = true;
-
-				bool debug = false;
-				if(debug == true){
-					//args = new String[]{"405 TS/LS","USB 405 TS/LS sn:191107F","LHC_TestCommunications"};
-					args = new String[]{"405 TS/LS","USB 405 TS/LS sn:191107F","LHC_RunProtocol","C:\\ProgramData\\BioTek\\Liquid Handling Control 2.22\\Protocols\\test-protocols\\washer_prime_buffers_A_B_C_D_25ml.LHC"};
-				}
 				
 				runCommand(args);
 
