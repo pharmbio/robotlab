@@ -85,7 +85,8 @@ namespace LHCCallerCLI
 
 				bool debug = false;
 				if(debug == true){
-					args = new String[]{"405 TS/LS","USB 405 TS/LS sn:191107F","LHC_TestCommunications"};
+					//args = new String[]{"405 TS/LS","USB 405 TS/LS sn:191107F","LHC_TestCommunications"};
+					args = new String[]{"405 TS/LS","USB 405 TS/LS sn:191107F","LHC_RunProtocol","C:\\ProgramData\\BioTek\\Liquid Handling Control 2.22\\Protocols\\test-protocols\\washer_prime_buffers_A_B_C_D_25ml.LHC"};
 				}
 				
 				runCommand(args);
