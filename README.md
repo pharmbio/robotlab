@@ -38,16 +38,37 @@ http://localhost:6000/ui/
 # example execute program with id=12 on robot
 curl -X GET --header 'Accept: application/json' 'http://localhost:6000/execute_prog/12'
 
-# Add as windows service (with nssm.exe - need to be installed in "c:\pharmbio\nssm\" first)
-c:\pharmbio\nssm\nssm.exe install restserver-washer powershell -File "C:\pharmbio\labrobots-restserver\start-server-washer.ps1"
-c:\pharmbio\nssm\nssm.exe set restserver-washer AppStdout "C:\pharmbio\labrobots-restserver\server-washer-service.log"
-c:\pharmbio\nssm\nssm.exe set restserver-washer AppStderr "C:\pharmbio\labrobots-restserver\server-washer-service.log"
-c:\pharmbio\nssm\nssm.exe start restserver-washer
 
-c:\pharmbio\nssm\nssm.exe install restserver-dispenser powershell -File "C:\pharmbio\labrobots-restserver\start-server-dispenser.ps1"
-c:\pharmbio\nssm\nssm.exe set restserver-dispenser AppStdout "C:\pharmbio\labrobots-restserver\server-dispenser-service.log"
-c:\pharmbio\nssm\nssm.exe set restserver-dispenser AppStderr "C:\pharmbio\labrobots-restserver\server-dispenser-service.log"
-c:\pharmbio\nssm\nssm.exe start restserver-dispenser
+Because of dialog boxes in BioTek "BTILHCRunner.dll" that are used by the "LHC_CallerCLI.exe" the Washer and Dispenser Rest-servers can not run as "Services" in Windows, they will render error if not running as Desktop app on a logged in user.
+The error is:
+"Message - Showing a modal dialog box or form when the application is not running in UserInteractive mode is not a valid operation"
+
+We workaround this by running the REST-servers as programs on a logged in user.
+- The user (robot-services) is auto logged in on Windows reboot via sysinternals "autologin" app
+- The desktop for this user is automatically locked via a ScheduledTask being run ONLOGON
+- The REST-servers are started via a Powershell script as a ScheduledTask ONLOGON for this user
+- To allow more than one user on remote desktop at same time on windows 10 we are using this mod: https://github.com/stascorp/rdpwrap
+
+# Create user  robot-services
+net user robot-services <password-here> /add
+net localgroup administrators robot-services /add
+
+# Log in with user and click all Windows welcome-setup-dialogs and Download and run Sysinternals program 'autologin'
+
+# Create SceduledTask for auto lock-screen when user robot-services ONLOGON
+SchTasks /CREATE /TN autolock-on-login /RU robot-services /SC ONLOGON /TR "rundll32 user32.dll, LockWorkStation"
+
+# Create dispenser REST-server SceduledTask autostart when robot-services user ONLOGON
+SchTasks /CREATE /TN restserver-dispenser-autostart-on-login /RU robot-services /SC ONLOGON /TR "Powershell.exe -ExecutionPolicy Bypass C:\pharmbio\labrobots-restserver\start-server-dispenser.ps1 -RunType $true -Path C:\pharmbio\labrobots-restserver"
+
+# Create washer REST-server SceduledTask autostart when robot-services user ONLOGON
+SchTasks /CREATE /TN restserver-washer-autostart-on-login /RU robot-services /SC ONLOGON /TR "Powershell.exe -ExecutionPolicy Bypass C:\pharmbio\labrobots-restserver\start-server-washer.ps1 -RunType $true -Path C:\pharmbio\labrobots-restserver"
+
+# The tasks above are now started when "ANY" user logs on, to change this to robot-services user only: Start TaskScheduler and edit these 2 tasks manually Task->Triggers>Edit->SpecifficUser->robot-services
+
+# SchTasks /DELETE /TN autolock-on-login
+# SchTasks /DELETE /TN restserver-dispenser-autostart-on-login
+# SchTasks /DELETE /TN restserver-washer-autostart-on-login
  
 ```
 Robot URL:s
