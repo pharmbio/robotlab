@@ -71,6 +71,13 @@ SchTasks /CREATE /TN restserver-washer-autostart-on-login /RU robot-services /SC
 # SchTasks /DELETE /TN restserver-washer-autostart-on-login
  
 ```
+Add Systemd service
+```
+sudo cp shaker-robot.service /etc/systemd/system/
+sudo systemctl enable shaker-robot.service 
+sudo systemctl start shaker-robot.service 
+```
+
 Robot URL:s
 ```
 ## Washer
