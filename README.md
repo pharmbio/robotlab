@@ -90,7 +90,7 @@ Robot URL:s
 http://washer.lab.pharmb.io:5000/ui/
 http://washer.lab.pharmb.io:5000/is_ready
 http://washer.lab.pharmb.io:5000/status
-http://washer.lab.pharmb.io:5000/execute_protocol/<protocol-name>
+http://washer.lab.pharmb.io:5000/execute_protocol/test-protocols\washer_prime_buffers_A_B_C_D_25ml.LHC
 
 ## Dispenser
 http://dispenser.lab.pharmb.io:5001/ui/
