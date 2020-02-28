@@ -50,6 +50,13 @@ c:\pharmbio\nssm\nssm.exe set restserver-dispenser AppStderr "C:\pharmbio\labrob
 c:\pharmbio\nssm\nssm.exe start restserver-dispenser
  
 ```
+Add Systemd service
+```
+sudo cp shaker-robot.service /etc/systemd/system/
+sudo systemctl enable shaker-robot.service 
+sudo systemctl start shaker-robot.service 
+```
+
 Robot URL:s
 ```
 ## Washer
