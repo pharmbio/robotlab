@@ -82,6 +82,11 @@ namespace LHCCallerCLI
 				//Trace.Listeners.Add(new System.Diagnostics.ConsoleTraceListener());
 				Trace.Listeners.Add(new TextWriterTraceListener("LHC_CallerCLI.log"));
 				Trace.AutoFlush = true;
+
+				bool debug = false;
+				if(debug == true){
+					args = new String[]{"405 TS/LS","USB 405 TS/LS sn:191107F","LHC_TestCommunications"};
+				}
 				
 				runCommand(args);
 
@@ -216,6 +221,9 @@ namespace LHCCallerCLI
 								"Examples: \n" + 
 								"LHC_CallerCLI.exe \"MultiFloFX\" \"USB MultiFloFX sn:19041612\" LHC_GetVerifyManifoldRunStatus\n" +
 								"LHC_CallerCLI.exe \"MultiFloFX\" \"USB MultiFloFX sn:19041612\" LHC_RunProtocol \"c:\\protocols\\my-testprotocol\"\n" +
+								"LHC_CallerCLI.exe \"MultiFloFX\" \"USB MultiFloFX sn:19041612\" LHC_TestCommunications\"\n" +
+								"LHC_CallerCLI.exe \"405 TS/LS\" \"USB 405 TS/LS sn:191107F\" \"LHC_TestCommunications\"\n" +
+
 								"\n" + 
 								"Some commands implemented:\n" +
 								"LHC_TestCommunications\n" + 
