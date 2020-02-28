@@ -103,7 +103,7 @@ namespace LHCCallerCLI
 
 			try   
 			{
-				Trace.TraceInformation("Start runCommand()");
+				// Trace.TraceInformation("Start runCommand()");
            
 				if (args.Length < 3)
 				{
@@ -112,6 +112,7 @@ namespace LHCCallerCLI
 				}
 
 				string productName = args[0];
+				//LHC_SetProductType(6);
 				LHC_SetProductName(productName);
 
 				string comString = args[1];
@@ -189,9 +190,9 @@ namespace LHCCallerCLI
 			{
 				string value = "EXCEPTION";
 				string errorString = "Message - {0} - " + 
-									 "Source - {2} - " +
-									 "StackTrace - {3} - " +
-									 "TargetSite - {4} - ";
+									 "Source - {1} - " +
+									 "StackTrace - {2} - " +
+									 "TargetSite - {3} - ";
 									 
 				errorString = String.Format(errorString,
 											ex.Message,
@@ -252,17 +253,56 @@ namespace LHCCallerCLI
 
 			// LHC_SetNumberOfStrips (); // optional call to set number of strips to process (50 TS washer only)
 		    
-			// LHC_ValidateProtocol(); // optional call to force immediate validation
+			// Trace.TraceInformation("Before validate");
+
+			nRetCode = cLHC.LHC_ValidateProtocol(true); // optional call to force immediate validation
+			handleRetCodeErrors(nRetCode, "LHC_ValidateProtocol");
 		    
 			// LHC_OverrideValidation(); // optional call to bypass validation
 
 			// LHC_LeaveVacuumPumpOn(); // optional call to leave pump on when run is complete
 
-			int nRunStatus = cLHC.LHC_RunProtocol();
-			handleStatusCodeErrors(nRunStatus, "LHC_RunProtocol");
-			
+			// int nRunStatus = cLHC.LHC_RunProtocol();
+			// handleStatusCodeErrors(nRunStatus, "LHC_RunProtocol");
+
+			// Trace.TraceInformation("Before start thread");
+
+			Thread tRun = new Thread(ThreadRunProtocol);
+			// Start running the protocol
+			tRun.Start();
+
+			// Trace.TraceInformation("After start thread");
+
+			int nRunStatus = cLHC.LHC_GetProtocolStatus();
+
+			// Trace.TraceInformation("nRunStatus=" + nRunStatus);
+
+
 			return nRunStatus;
 		}
+
+		static void ThreadRunProtocol()
+		{
+			// This is the function that gets run in its own thread by the thread examples 1-3.
+
+			// Start to run the protocol
+			int nRunStatus = cLHC.LHC_RunProtocol();
+
+			// Need to stay in the thread (this function) until the protocol is done otherwise
+			// the protocol stops because the thread itself is gone once the function exits.
+			int statusError = 4;
+			int statusReady = 1;
+			while ((nRunStatus != statusError) && (nRunStatus != statusReady))
+			{
+				nRunStatus = cLHC.LHC_GetProtocolStatus();
+				// A sleep here will cause this thread only to sleep. The UI thread will still be active.
+				Thread.Sleep(100);
+			}
+
+			// Done!
+
+		}
+
 
 		static private int LHC_RunVerifyManifoldTest()
 		{
@@ -285,6 +325,13 @@ namespace LHCCallerCLI
 		{
 			short nRetCode = cLHC.LHC_SetProductName(productName);
 			handleRetCodeErrors(nRetCode, "Set Product Name");
+			return nRetCode;
+		}
+		
+		static private short LHC_SetProductType(short productType)
+		{
+			short nRetCode = cLHC.LHC_SetProductType(productType);
+			handleRetCodeErrors(nRetCode, "LHC_SetProductType");
 			return nRetCode;
 		}
 
