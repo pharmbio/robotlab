@@ -31,7 +31,13 @@ if __name__ == '__main__':
     #
     # Example rest-calls
     #
+<<<<<<< HEAD
     # http://http://localhost:5001/execute_protocol/test-protocols/dispenser_prime_all_buffers.LHC
     # http://localhost:5001/last_LHC_response
     # http://localhost:5001/is_ready
+=======
+    # http://localhost:6001/execute_protocol/test-protocols/dispenser_prime_all_buffers.LHC
+    # http://localhost:6001/last_LHC_response
+    # http://localhost:6001/is_ready
+>>>>>>> stash
     #

@@ -71,6 +71,12 @@ SchTasks /CREATE /TN restserver-washer-autostart-on-login /RU robot-services /SC
 # SchTasks /DELETE /TN restserver-washer-autostart-on-login
  
 ```
+Windows firewall
+In windows firewall configure:
+- Allow incoming traffic to Python.exe
+- Allow incoming traffic to port 6000-6001 
+
+
 Add Systemd service
 ```
 sudo cp shaker-robot.service /etc/systemd/system/
