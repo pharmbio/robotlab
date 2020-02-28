@@ -12,4 +12,4 @@ application = app.app
 if __name__ == '__main__':
     # run our standalone gevent server
     # other supported options are, flask, tornado, aiohttp
-    app.run(port=6000, server='gevent')
+    app.run(port=5000, server='gevent')

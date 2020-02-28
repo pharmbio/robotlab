@@ -33,10 +33,10 @@ python3 server-washer.py # Or in Windows something like: python.exe server-washe
 #
 
 # look at api in swagger ui
-http://localhost:6000/ui/
+http://localhost:5000/ui/
 
 # example execute program with name <name> on robot
-curl -X GET --header 'Accept: application/json' 'http://localhost:6000/execute_protocol/<name>' 
+curl -X GET --header 'Accept: application/json' 'http://localhost:5000/execute_protocol/<name>' 
 
 
 Because of dialog boxes in BioTek "BTILHCRunner.dll" that are used by the "LHC_CallerCLI.exe" the Washer and Dispenser Rest-servers can not run as "Services" in Windows, they will render error if not running as Desktop app on a logged in user.
@@ -81,23 +81,23 @@ sudo systemctl start shaker-robot.service
 Robot URL:s
 ```
 ## Washer
-http://washer.lab.pharmb.io:6000/ui/
-http://washer.lab.pharmb.io:6000/is_ready
-http://washer.lab.pharmb.io:6000/status
-http://washer.lab.pharmb.io:6000/execute_protocol/<protocol-name>
+http://washer.lab.pharmb.io:5000/ui/
+http://washer.lab.pharmb.io:5000/is_ready
+http://washer.lab.pharmb.io:5000/status
+http://washer.lab.pharmb.io:5000/execute_protocol/<protocol-name>
 
 ## Dispenser
-http://dispenser.lab.pharmb.io:6001/ui/
-http://dispenser.lab.pharmb.io:6001/is_ready
-http://dispenser.lab.pharmb.io:6001/status
-http://dispenser.lab.pharmb.io:6001/execute_protocol/<protocol-name> 
+http://dispenser.lab.pharmb.io:5001/ui/
+http://dispenser.lab.pharmb.io:5001/is_ready
+http://dispenser.lab.pharmb.io:5001/status
+http://dispenser.lab.pharmb.io:5001/execute_protocol/<protocol-name> 
 
 ## Shaker
-http://shaker.lab.pharmb.io:6000/ui/
-http://shaker.lab.pharmb.io:6000/is_ready
-http://shaker.lab.pharmb.io:6000/status
-http://shaker.lab.pharmb.io:6000/start
-http://shaker.lab.pharmb.io:6000/stop
+http://shaker.lab.pharmb.io:5000/ui/
+http://shaker.lab.pharmb.io:5000/is_ready
+http://shaker.lab.pharmb.io:5000/status
+http://shaker.lab.pharmb.io:5000/start
+http://shaker.lab.pharmb.io:5000/stop
 
 ```
 
