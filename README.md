@@ -74,7 +74,7 @@ SchTasks /CREATE /TN restserver-washer-autostart-on-login /RU robot-services /SC
 Windows firewall
 In windows firewall configure:
 - Allow incoming traffic to Python.exe
-- Allow incoming traffic to port 6000-6001 
+- Allow incoming traffic to port 5000-5001 
 
 
 Add Systemd service
@@ -87,16 +87,14 @@ sudo systemctl start shaker-robot.service
 Robot URL:s
 ```
 ## Washer
-http://washer.lab.pharmb.io:5000/ui/
 http://washer.lab.pharmb.io:5000/is_ready
 http://washer.lab.pharmb.io:5000/status
 http://washer.lab.pharmb.io:5000/execute_protocol/test-protocols\washer_prime_buffers_A_B_C_D_25ml.LHC
 
 ## Dispenser
-http://dispenser.lab.pharmb.io:5001/ui/
 http://dispenser.lab.pharmb.io:5001/is_ready
 http://dispenser.lab.pharmb.io:5001/status
-http://dispenser.lab.pharmb.io:5001/execute_protocol/<protocol-name> 
+http://dispenser.lab.pharmb.io:5001/execute_protocol/test-protocols/dispenser_prime_all_buffers.LHC
 
 ## Shaker
 http://shaker.lab.pharmb.io:5000/ui/
