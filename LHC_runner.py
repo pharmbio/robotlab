@@ -6,6 +6,7 @@ import os.path
 import threading
 import traceback
 from flask import Flask, json
+from flask import jsonify
 
 
 class LHC_runner:
@@ -30,14 +31,14 @@ class LHC_runner:
                 # Start a thread
                 self.thread_LHC = threading.Thread(target=self.execute_protocol_threaded, args=([protocol_name]))
                 self.thread_LHC.start()
-                response = [{"status": "OK",
+                response = {"status": "OK",
                             "value": "",
-                            "details": "Executed protocol in background thread"}]
+                            "details": "Executed protocol in background thread"}
             else:
                 # throw error:
-                response = [{"status": "WARNING",
+                response = {"status": "WARNING",
                             "value": "",
-                            "details": "LHC is busy - will not run command"}]
+                            "details": "LHC is busy - will not run command"}
                 logging.warning(response)
 
         except Exception as e:
@@ -50,7 +51,7 @@ class LHC_runner:
         finally:
             self.thread_lock.release()
             logging.debug('Done finally')
-            return json.dumps(response)
+            return jsonify(response)
 
 
     def execute_protocol_threaded(self, protocol_name):
@@ -95,10 +96,10 @@ class LHC_runner:
 
     def get_last_LHC_response(self):
         logging.debug("Inside get_last_LHC_response")
-        response = [{"status": "OK",
+        response = {"status": "OK",
                     "value": self.last_LHC_response,
-                    "details": ""}]
-        return json.dumps(response)
+                    "details": ""}
+        return jsonify(response)
 
     def is_LHC_ready(self):
         if self.thread_LHC is None or self.thread_LHC.is_alive() == False:
