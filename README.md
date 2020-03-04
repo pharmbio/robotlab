@@ -107,6 +107,13 @@ http://shaker.lab.pharmb.io:5000/status
 http://shaker.lab.pharmb.io:5000/start
 http://shaker.lab.pharmb.io:5000/stop
 
+## Incubator
+http://incubator.lab.pharmb.io:5001/ui/
+http://incubator.lab.pharmb.io:5001/is_ready
+http://incubator.lab.pharmb.io:5001/status
+http://incubator.lab.pharmb.io:5001/start
+http://incubator.lab.pharmb.io:5001/stop
+
 ```
 
 
