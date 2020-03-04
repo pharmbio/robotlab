@@ -89,10 +89,10 @@ class LHC_runner:
     def is_ready(self):
         logging.debug("Inside is_ready")
         is_ready = self.is_LHC_ready()
-        response = [{"status": "OK",
+        response = {"status": "OK",
                     "value": is_ready,
-                    "details": ""}]
-        return json.dumps(response)
+                    "details": ""}
+        return jsonify(response)
 
     def get_last_LHC_response(self):
         logging.debug("Inside get_last_LHC_response")
