@@ -1,8 +1,8 @@
 swagger: '2.0'
 info:
-  title: Automatized Fisher Brand Shaker API
+  title: Automatized Innova C-14 Incubator API
   version: "0.1"
-  description: API to execute operations on shaker
+  description: API to execute operations on incubator
 consumes:
   - application/json
 produces:
@@ -11,7 +11,7 @@ paths:
   /status:
     get:
       tags: [status]
-      operationId: shaker.status
+      operationId: incubator.status
       summary: Queries for status
       responses:
         200:
@@ -24,7 +24,7 @@ paths:
   /is_ready:
     get:
       tags: [is_ready]
-      operationId: shaker.is_ready
+      operationId: incubator.is_ready
       summary: Queries for ready status
       responses:
         200:
@@ -36,8 +36,8 @@ paths:
   /start:
     get:
       tags: [start]
-      operationId: shaker.start
-      summary: Starts shaker
+      operationId: incubator.open
+      summary: Opens incubator door
       responses:
         200:
           description: Return response
@@ -49,8 +49,8 @@ paths:
   /stop:
     get:
       tags: [stop]
-      operationId: shaker.stop
-      summary: Stops shaker
+      operationId: incubator.close
+      summary: Closes incubator door
       responses:
         200:
           description: Return response

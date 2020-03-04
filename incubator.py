@@ -6,8 +6,8 @@ import sys
 import time
 
 # Import client code
-sys.path.append('/pharmbio/shaker-robot')
-import shaker_client
+#sys.path.append('/pharmbio/shaker-robot')
+#import shaker_client
 
 from connexion import NoContent
 
@@ -18,7 +18,9 @@ def status():
   #
   # Execute on server an then return response
   #
-  status = shaker_client.getStatus()
+
+  # status = shaker_client.getStatus()
+  status = "Closed"
 
   response = {"status": status,
               "value": "",
@@ -44,10 +46,12 @@ def is_ready():
   return response
 
 
-def start():
+def open():
 
-  logging.info("Inside start")
-  retval = shaker_client.startShaker()
+  logging.info("Inside open")
+
+  #retval = shaker_client.startShaker()
+  retval = "OK"
 
   response = {"status": retval,
               "value": "",
@@ -56,10 +60,12 @@ def start():
   return response
 
 
-def stop():
+def close():
 
-  logging.info("Inside stop")
-  retval = shaker_client.stopShaker()
+  logging.info("Inside close")
+  
+  #retval = shaker_client.stopShaker()
+  retval = "OK"
 
   response = {"status": retval,
               "value": "",
@@ -79,34 +85,6 @@ if __name__ == '__main__':
     # Testrun
     retval = is_ready()
     print("is_ready:" + str(retval))
-
-    retval = status()
-    print("status:" + str(retval))
-
-    retval = start()
-    print("start:" + str(retval))
-
-    retval = start()
-    print("start:" + str(retval))
-
-    retval = status()
-    print("status:" + str(retval))
-
-    time.sleep(1)
-
-    retval = status()
-    print("status:" + str(retval))
-
-    retval = stop()
-    print("start:" + str(retval))
-
-    time.sleep(3)
-
-    retval = status()
-    print("status:" + str(retval))
-
-    retval = stop()
-    print("start:" + str(retval))
 
 
 
