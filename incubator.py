@@ -20,7 +20,7 @@ def status():
   #
 
   # status = shaker_client.getStatus()
-  status = "Closed"
+  status = "OPEN"
 
   response = {"status": status,
               "value": "",
@@ -34,7 +34,7 @@ def is_ready():
   logging.info("Inside is_ready")
   status_response = status()
 
-  if(status_response['status'] == 'READY'):
+  if(status_response['status'] == 'OPEN'):
     response = {"status": 'True',
                 "value": "",
                 "details": ""}
