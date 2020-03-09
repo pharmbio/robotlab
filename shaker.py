@@ -33,12 +33,12 @@ def is_ready():
   status_response = status()
 
   if(status_response['status'] == 'READY'):
-    response = {"status": 'True',
-                "value": "",
+    response = {"status": 'OK',
+                "value": True,
                 "details": ""}
   else:
-    response = {"message": 'False',
-                "value": "",
+    response = {"status": 'OK',
+                "value": False,
                 "details": ""}
   
   return response
