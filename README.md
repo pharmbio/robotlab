@@ -1,4 +1,4 @@
-# Robot REST-api
+# Robot REST-api outline
 The goal of this project is to provide a unified REST-api to all robots in the AROS system. The REST Api will wrap around various existing or non-existing vendor-specific api:s for communication.
 
 It is built with the python-flask-swagger REST API framework **connexion**, https://github.com/zalando/connexion
@@ -6,6 +6,15 @@ It is built with the python-flask-swagger REST API framework **connexion**, http
 Define your api-endpoints and their mapping to the python functions in `swagger-washer.yml`
 
 Create your python functions (`washer.py`)
+
+## Robots
+<img width=400 src=images/biotek-405-washer.jpg></img>
+<br><br>
+<img width=400 src=images/biotek-dispenser.jpg></img>
+<br><br>
+<img width=400 src=images/fisherbrand-shaker.jpg></img>
+<br><br>
+<img width=400 src=images/incubator.JPG></img>
 
 ## Requirements
 - Python version >= 3.6 (On Windows don´t use App-Store Python, use installer, OBS For all Usera and Tich "Add Env variables"-To make sure running as Service will work)
