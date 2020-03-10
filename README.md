@@ -8,13 +8,13 @@ Define your api-endpoints and their mapping to the python functions in `swagger-
 Create your python functions (`washer.py`)
 
 ## Robots
-<img width=400 src=images/biotek-405-washer.jpg></img>
+<img width=250 src=images/biotek-405-washer.jpg></img>
 <br><br>
-<img width=400 src=images/biotek-dispenser.jpg></img>
+<img width=250 src=images/biotek-dispenser.jpg></img>
 <br><br>
-<img width=400 src=images/fisherbrand-shaker.jpg></img>
+<img width=250 src=images/fisherbrand-shaker.jpg></img>
 <br><br>
-<img width=400 src=images/incubator.JPG></img>
+<img width=250 src=images/incubator.JPG></img>
 
 ## Requirements
 - Python version >= 3.6 (On Windows don´t use App-Store Python, use installer, OBS For all Usera and Tich "Add Env variables"-To make sure running as Service will work)
