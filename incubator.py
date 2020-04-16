@@ -6,54 +6,48 @@ import sys
 import time
 
 # Import client code
-#sys.path.append('/pharmbio/shaker-robot')
-#import shaker_client
+sys.path.append('/pharmbio/incubator-automation')
+import incubator_client
 
 from connexion import NoContent
 
-def status():
+def is_open():
 
-  logging.info("Inside status")
+  logging.info("Inside is_open")
 
   #
   # Execute on server an then return response
   #
+  is_open = incubator_client.is_open()
 
-  # status = shaker_client.getStatus()
-  status = "CLOSED"
+  response = {"status": is_open,
+              "value": "",
+              "details": ""}
 
-  response = {"status": status,
+  return response
+
+def is_closed():
+
+  logging.info("Inside is_closed")
+
+  #
+  # Execute on server an then return response
+  #
+  is_closed = incubator_client.is_closed()
+
+  response = {"status": is_closed,
               "value": "",
               "details": ""}
 
   return response
 
 
-def is_ready():
-
-  logging.info("Inside is_ready")
-  status_response = status()
-
-  if(status_response['status'] == 'OPEN'):
-    response = {"status": 'OK',
-                "value": True,
-                "details": ""}
-  else:
-    response = {"message": 'OK',
-                "value": False,
-                "details": ""}
-  
-  return response
-
-
 def open():
 
   logging.info("Inside open")
+  incubator_client.open()
 
-  #retval = shaker_client.startShaker()
-  retval = "OK"
-
-  response = {"status": retval,
+  response = {"status": "OK",
               "value": "",
               "details": ""}
 
@@ -63,11 +57,9 @@ def open():
 def close():
 
   logging.info("Inside close")
-  
-  #retval = shaker_client.stopShaker()
-  retval = "OK"
+  incubator_client.close()
 
-  response = {"status": retval,
+  response = {"status": "OK",
               "value": "",
               "details": ""}
 
@@ -83,8 +75,49 @@ if __name__ == '__main__':
                             level=logging.INFO)
 
     # Testrun
-    retval = is_ready()
-    print("is_ready:" + str(retval))
+    retval = open()
+    print("open:" + str(retval))
+
+    time.sleep(2000)
+
+    retval = is_open()
+    print("is_open:" + str(retval))
+
+    time.sleep(2000)
+
+    retval = is_open()
+    print("is_open:" + str(retval))
+
+    time.sleep(2000)
+
+    retval = is_open()
+    print("is_open:" + str(retval))
+
+    retval = close()
+    print("close:" + str(retval))
+
+    time.sleep(2000)
+
+    retval = is_closed()
+    print("is_closed:" + str(retval))
+
+    time.sleep(2000)
+
+    retval = is_closed()
+    print("is_closed:" + str(retval))
+
+    time.sleep(2000)
+
+    retval = is_closed()
+    print("is_closed:" + str(retval))
+
+
+    time.sleep(2000)
+
+    retval = is_closed()
+    print("is_closed:" + str(retval))
+
+    print("done:")
 
 
 
