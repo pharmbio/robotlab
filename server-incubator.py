@@ -24,7 +24,8 @@ if __name__ == '__main__':
     server.add_url_rule('/is_open', 'is_open', incubator.is_open)
     server.add_url_rule('/close', 'close', incubator.close)
     server.add_url_rule('/is_closed', 'is_closed', incubator.is_closed)
-    
+    server.add_url_rule('/is_ready', 'is_ready', incubator.is_ready)
+
     server.run(host='0.0.0.0', port=PORT)
 
     #
