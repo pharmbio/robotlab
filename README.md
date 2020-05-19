@@ -54,6 +54,7 @@ The error is:
 
 We workaround this by running the REST-servers as programs on a logged in user.
 - The user (robot-services) is auto logged in on Windows reboot via sysinternals "autologin" app
+- OBS set never expire on windows password
 - The desktop for this user is automatically locked via a ScheduledTask being run ONLOGON
 - The REST-servers are started via a Powershell script as a ScheduledTask ONLOGON for this user
 - To allow more than one user on remote desktop at same time on windows 10 we are using this mod: https://github.com/stascorp/rdpwrap
