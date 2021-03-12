@@ -39,38 +39,38 @@ class Incubator:
         self.port = port
 
 
-    def movePlateFromCassetteToShovel(self, nCassette, nLevel): 
+    def _movePlateFromCassetteToShovel(self, nCassette, nLevel): 
         id = self.id
-        self.stx2ServiceMovePlate(id,2,nCassette,nLevel,1,1,id,3,0,0,1,1)
+        self._stx2ServiceMovePlate(id,2,nCassette,nLevel,1,1,id,3,0,0,1,1)
 
-    def movePlateFromShovelToCassette(self, nCassette, nLevel): 
+    def _movePlateFromShovelToCassette(self, nCassette, nLevel): 
         id = self.id
-        self.stx2ServiceMovePlate(id,3,0,0,1,1,id,2,nCassette,nLevel,1,1)
+        self._stx2ServiceMovePlate(id,3,0,0,1,1,id,2,nCassette,nLevel,1,1)
 
-    def movePlateFromTransferStationToShovel(self): 
+    def _movePlateFromTransferStationToShovel(self): 
         id = self.id
-        self.stx2ServiceMovePlate(id,1,0,0,1,1,id,3,0,0,1,1) 
+        self._stx2ServiceMovePlate(id,1,0,0,1,1,id,3,0,0,1,1) 
     
-    def movePlateFromShovelToTransferStation(self): 
+    def _movePlateFromShovelToTransferStation(self): 
         id = self.id
-        self.stx2ServiceMovePlate(id,3,0,0,1,1,id,1,0,0,1,1) 
+        self._stx2ServiceMovePlate(id,3,0,0,1,1,id,1,0,0,1,1) 
     
-    def movePlateFromTransferStationToCassette(self, nCassette, nLevel):
+    def _movePlateFromTransferStationToCassette(self, nCassette, nLevel):
         id = self.id
-        self.stx2ServiceMovePlate(id,1,0,0,1,1,id,2,nCassette,nLevel,1,1) 
+        self._stx2ServiceMovePlate(id,1,0,0,1,1,id,2,nCassette,nLevel,1,1) 
     
-    def movePlateFromCassetteToTransferStation(self, nCassette, nLevel):
+    def _movePlateFromCassetteToTransferStation(self, nCassette, nLevel):
         id = self.id
-        self.stx2ServiceMovePlate(id,2,nCassette,nLevel,1,1,id,1,0,0,1,1)
+        self._stx2ServiceMovePlate(id,2,nCassette,nLevel,1,1,id,1,0,0,1,1)
     
-    def movePlateFromCassetteToCassette(self, nCassette, nLevel, nToCassette, nToLevel):
+    def _movePlateFromCassetteToCassette(self, nCassette, nLevel, nToCassette, nToLevel):
         id = self.id
-        self.stx2ServiceMovePlate(id,2,nCassette,nLevel,1,1,id,2,nToCassette,nToLevel,1,1)
+        self._stx2ServiceMovePlate(id,2,nCassette,nLevel,1,1,id,2,nToCassette,nToLevel,1,1)
     
 
-    def stx2ServiceMovePlate(self, srcID, srcPos, srcSlot, srcLevel, transSrcSlot, srcPlType,
+    def _stx2ServiceMovePlate(self, srcID, srcPos, srcSlot, srcLevel, transSrcSlot, srcPlType,
                                    trgID, trgPos, trgSlot, trgLevel, transTrgSlot, trgPlType):
-        logging.debug("Inside stx2ServiceMovePlate")
+        logging.debug("Inside _stx2ServiceMovePlate")
 
         # SrcInstr     - Identifier of a source Device.
         # SrcPos       - Source position {1-TransferStation, 2-Slot-Level
@@ -84,55 +84,60 @@ class Incubator:
                                     f"{trgID},{trgPos},{trgSlot},{trgLevel},{transTrgSlot},{trgPlType})\r"
         )
 
-        response = self.sendCmd(cmd)
+        response = self._sendCmd(cmd)
         if response != "1":
             logging.error("Error codes: \n" + ERROR_CODES_MOVE)
-            raise Exception("stx2ServiceMovePlate response error: " + response)
+            raise Exception("_stx2ServiceMovePlate response error: " + response)
 
 
-    def stx2GetSysStatus(self):
-        logging.debug("Inside stx2GetSysStatus")
+    def _stx2GetSysStatus(self):
+        logging.debug("Inside _stx2GetSysStatus")
         cmd = "STX2GetSysStatus(" + self.id + ")\r"
-        response = self.sendCmd(cmd)
+        response = self._sendCmd(cmd)
 
-    def stx2Inventory(self):
+    def _stx2Inventory(self):
         # Inventory file will be saved on STX-server in directory of jSTXDriver.jar
-        logging.debug("Inside stx2Inventory")
+        logging.debug("Inside _stx2Inventory")
         cmd = "STX2Inventory(" + self.id + ",,0,0)\r"
-        response = self.sendCmd(cmd)
+        response = self._sendCmd(cmd)
 
-    def stx2Reset(self):
-        logging.debug("Inside stx2Reset")
+    def _stx2Reset(self):
+        logging.debug("Inside _stx2Reset")
         cmd = "STX2Reset(" + self.id + ")\r"
-        response = self.sendCmd(cmd)
+        response = self._sendCmd(cmd)
 
-    def stx2Activate(self):
-        logging.debug("Inside stx2Activate")
+    def _stx2Activate(self):
+        logging.debug("Inside _stx2Activate")
         cmd = "STX2Activate(" + self.id + ")\r"
-        response = self.sendCmd(cmd)
+        response = self._sendCmd(cmd)
         if response != "1":
-            raise Exception("stx2Activate response error: " + response)
+            raise Exception("_stx2Activate response error: " + response)
 
-    def stx2IsOperationRunning(self):
-        logging.debug("Inside stx2IsOperationRunning")
+    def _stx2IsOperationRunning(self):
+        logging.debug("Inside _stx2IsOperationRunning")
         cmd = "STX2IsOperationRunning(" + self.id + ")\r"
-        response = self.sendCmd(cmd)
+        response = self._sendCmd(cmd)
         if response == "-1":
-            raise Exception("stx2IsOperationRunning response error: " + response)
+            raise Exception("_stx2IsOperationRunning response error: " + response)
         return response
     
-    def stx2ReadActualClimate(self):
-        logging.debug("Inside stx2ReadActualClimate")
+    def _stx2ReadActualClimate(self):
+        logging.debug("Inside _stx2ReadActualClimate")
         cmd = "STX2ReadActualClimate(" + self.id + ")\r"
-        response = self.sendCmd(cmd)
+        response = self._sendCmd(cmd)
 
         return response
+
+    def resetAndAcrivate(self):
+        logging.debug("Inside resetAndAcrivate")
+        
+        
 
 
     def getClimate(self):
         logging.debug("Inside getClimate")
         cmd = "STX2ReadActualClimate(" + self.id + ")\r"
-        response = self.stx2ReadActualClimate()
+        response = self._stx2ReadActualClimate()
 
         splitted = response.split(";")
         climate = {
@@ -154,7 +159,7 @@ class Incubator:
         nCassette = 1 + int(nPos / 22)
         nLevel = 1 + (nPos % 22)
 
-        self.movePlateFromCassetteToTransferStation(nCassette, nLevel)
+        self._movePlateFromCassetteToTransferStation(nCassette, nLevel)
 
 
     def inputPlate(self, nPos):
@@ -166,10 +171,10 @@ class Incubator:
         nCassette = 1 + int(nPos / 22)
         nLevel = 1 + (nPos % 22)
 
-        self.movePlateFromTransferStationToCassette(nCassette, nLevel)
+        self._movePlateFromTransferStationToCassette(nCassette, nLevel)
 
 
-    def sendCmd(self, cmd):
+    def _sendCmd(self, cmd):
         logging.debug("Inside sendCmd")
         logging.debug("cmd:" + str(cmd))
         RECIEVE_BUFFER_SIZE = 8192 # Also max response length since we are not looping response if buffer gets full
