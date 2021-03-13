@@ -1,3 +1,4 @@
+import show
 import socket
 import struct
 from textwrap import dedent
@@ -10,16 +11,19 @@ import os
 
 # Use start-proxies.sh to forward robot to localhost
 HOST = 'localhost'
-PORT = 30002
-
-s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-s.connect((HOST, PORT))
-i = 0
-cw = True
+PORT = 30001
+JUMPHOST = os.environ['JUMPHOST']
 
 from protocol import protocol, dotdict, formats
 
+print('connecting...')
+s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+s.connect((HOST, PORT))
+print('connected!')
+
 def try_unpack(data, fields, offset=0):
+    if not data[offset:]:
+        return None, offset
     start_offset = offset
     values = {}
 
@@ -37,8 +41,7 @@ def try_unpack(data, fields, offset=0):
             pp(e, format, data, offset)
             return None, start_offset
         except Exception as e:
-            pp(name, fields)
-            pp(e, format, data[offset:])
+            pp(name, fields, values, e, format, data[offset:])
             raise e
         if str_format:
             value, *_ = value.split(b'\x00', 1)
@@ -67,6 +70,8 @@ def try_unpacks(data, types, offset=0):
             return header, values, offset
     return None, None, start_offset
 
+i = 0
+
 while True:
 
     i += 1
@@ -74,13 +79,44 @@ while True:
     msgs = []
     stuck = []
 
+    if i % 4 == 2:
+        s.sendall(pp(dedent(f'''
+          def testsend{i}():
+           socket_open("{JUMPHOST}", 32021, "jumphost")
+           socket_send_line("i={i}", "jumphost")
+           socket_send_line(to_str(get_actual_joint_positions()), "jumphost")
+           socket_send_line(to_str(get_actual_joint_speeds()), "jumphost")
+           socket_send_line(to_str(get_actual_tool_flange_pose()), "jumphost")
+           socket_send_line(to_str(is_steady()), "jumphost")
+           socket_close("jumphost")
+          end
+        ''').strip().encode() + b'\n'))
+    if 0:
+        s.sendall(pp(dedent(f'''
+          def testmove{i}():
+           popup("Move to somewhere close to delid neutral?", blocking=True)
+           movel([1.544043, -1.830774, 1.472922, 0.346051, 1.88934, 0.04], a=0.1, v=0.1)
+          end
+        ''').strip().encode() + b'\n'))
+
+    if 0:
+        s.sendall(pp(dedent(f'''
+          def testmove{i}():
+           popup("Start freedrive", blocking=True)
+           freedrive_mode()
+           popup("Stop freedrive", blocking=True)
+           end_freedrive_mode()
+          end
+        ''').strip().encode() + b'\n'))
+
+
     offset = 0
     while True:
         start_offset = offset
         header, values, offset = try_unpacks(data, protocol.types, offset)
 
         if values is None:
-            stuck += [('stuck at', data[offset:][:16])]
+            stuck += [('stuck at', data[offset:][:])]
             break
 
         elif values['messageType'] == 'MESSAGE_TYPE_ROBOT_STATE':
@@ -90,7 +126,7 @@ while True:
                 if values:
                     msgs += [{'header': header, 'subheader': subheader, **values}]
                 else:
-                    stuck += [('stuck at sub', data[offset:][:16])]
+                    stuck += [('stuck at sub', data[offset:][:])]
                     break
 
         else:
@@ -118,7 +154,15 @@ while True:
             if r == -0.0:
                 r = 0.0
             flat[k] = r
-    pp(keys, flat, len(msgs), len(flat), len(stuck))
-    # summary = [(m['header'], m.get('subheader')) for m in msgs ]
-    # pp(summary)
+    # pp(msgs)
+    # pp(msgs, stuck)
+    # pp(len(msgs), len(flat), len(stuck))
+    # pp(keys)
+    # pp(keys, flat)
+    summary = [(m['header'], m.get('subheader')) for m in msgs ]
+    pp(summary)
+    pp(flat)
+    # for m in msgs:
+    #     if m['header'] == 'RobotCommMessage':
+    #         pp(m, stuck)
 
