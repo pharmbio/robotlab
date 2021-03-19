@@ -1,26 +1,25 @@
 # Universal Robot notes
 
-Vocabulary outline
+Vocabulary outline:
 
     UR: Universal Robot, the robot
     UR: Universal Robots, the Danish company.
     UR10e: the robot we have in the lab.
     Cobot: robot-human collaborative robots. The UR Robots are cobots.
+    Freedrive mode: The robot can be positioned by physically moving it
     Teach pendant: the handheld tablet
     PolyScope: the handheld tablet user interface.
-    RTDE: Real-time Data Exchange.
     TCP: tool center point, in our case a gripper.
     URCap: a UR capability: a tool attached to the UR (we have a gripper)
+    Robotiq: the company that made our gripper
     CB: ControlBox, the controller cabinet of the UR robot.
         The controlbox contains the motherboard (Linux PC),
-        safety control board (including I/O’s),
+        safety control board (including I/Os),
         power supplies and
         connection to the teach pendant and robot.
     URScript: a Python-esque script language for programming the robot.
     URP: file extension for scripts made in the PolyScope tablet. This is a gzipped xml.
-    Gimbal lock, singularity:
-        when the robot loses a degree of movement freedom
-        because the joints are positioned above each other
+    RTDE: Real-time Data Exchange, one of the robot protocols.
 
 In the lab:
 
@@ -29,6 +28,9 @@ In the lab:
         can have a lid.
         can have a barcode for identification.
         the wells are numbered A1,A2,...,B1,...
+        produced by Corning
+        technical specifications: PLATE 353962
+            https://www.corning.com/catalog/cls/documents/brochures/CLS-DL-CC-016_REV1_DL.pdf ￼￼
 
     hotel: vertical storage rack for plates.
 
@@ -48,7 +50,46 @@ In the lab:
         another machine for processing plates
         currently not used and not in the lab but occasionally referred to
 
-### URSim: the Simulator
+The surveillance camera in the lab can be found on [monitor.pharmb.io].
+
+Positions:
+
+    Gimbal lock, singularity:
+        when the robot loses a degree of movement freedom
+        because the joints are positioned above each other
+
+    pose: cartesian position of the robot tool center point
+        3 cartesian coordinates in metres
+        3 axis-angle in radians
+    p:   pose coordinate
+
+    joint space: the rotations of the six robot joints
+        denoted in radians starting from the base
+    q:   joint coordinate
+    qd:  joint velocities
+    qdd: joint acceleration
+
+    RPY: roll pitch yaw, a way of denoting the tool rotation similar to polar coordinates.
+        this is not the default way write rotations here. see
+        https://www.universal-robots.com/articles/ur/application-installation/explanation-on-robot-orientation/
+
+### Gripping the physical plates
+
+**Lidded plates:** When moving lidded plates it is not possible to only grab
+the top part (since then you only grab the lid).  Instead we tilt the arm
+a bit (a few degrees) and grab for the center section. This is for example
+needed by the incubator.
+
+**Horizontal or vertical**: For now we have only needed horizontal
+grips. Vertical grips are difficult by the washer and dispenser because the
+arm collides with the machine.
+
+It is not enough to only store points (position + tool rotation) since there are many
+possible joint configurations to the same point. (16 for 6-armed robots?)
+- **inverse kinematics** (multi-)mapping cartesian space to joint space
+- **forward kinematics** mapping joint space to cartesian space
+
+## URSim: the Simulator
 
 The best docker image I found is https://github.com/ahobsonsayers/DockURSim
 It allows you to access the PolyScope GUI forwarded to the browser on localhost:8080.
@@ -159,124 +200,22 @@ of getting its current joint space coordinates:
         cat -v | grep -oP 'BEGIN.*?END'
     BEGIN [1.2, -1.125651, -2, 0, -0, 0] END
 
+## Scripting the robot: URScript and .URP files
+
+URScript: a Python-esque script language for programming the robot.
+URP: file extension for scripts made in the PolyScope tablet. This is a gzipped xml.
+
 ### URScript manual
 
-The manual is surprisingly difficult to find on their web page.
+The URScript manual is surprisingly difficult to find on their web page.
+The manual is also quite hard to read because it is not very good typeset
+and functions are mostly sorted by name and not functionality.
 
 Search for SCRIPT MANUAL - E-SERIES.
 
 https://www.universal-robots.com/download/manuals-e-series/script/script-manual-e-series-sw-56/
 
-The manual is also quite hard to read because it is not very good typeset
-and functions are mostly sorted by name and not functionality.
-
-### Data mashalling
-
-> URScript does not natively support string handling functions, other
-> than comparison, However if the camera is able to transmit a float
-> value as ASCII in this format `(1.23, 2.34, 3.45)` it is possible
-> directly to receive this, and convert to numerics by the function
-> `data = socket_read_ascii_float(n)`
-
-https://forum.universal-robots.com/t/urscript-extensions/1007/2
-
-Getting some data from a socket:
-
-```python
-def function1():
-   socket_open("127.0.0.1", 33000, "my_socket")
-   var1 = socket_read_ascii_float(3, "my_socket")
-   textmsg("var1 read as: ", var1)
-end
-```
-
-https://forum.universal-robots.com/t/debugging-in-urscript/128
-
-### Controlling the gripper
-
-This code for the gripper is generated when you make a script in PolyScope:
-```python
-   # begin: URCap Program Node
-   #   Source: Robotiq_Grippers, 1.7.1.2, Robotiq Inc.
-   #   Type: Gripper
-   $ 4 "Gripper Open (1)"
-   gripper_1_used = True
-   if (connectivity_checked[0] != 1):
-     gripper_id_ascii = rq_gripper_id_to_ascii("1")
-     gripper_id_list = rq_get_sid("1")
-     if not(rq_is_gripper_in_sid_list(gripper_id_ascii, gripper_id_list)):
-       popup("Gripper 1 must be connected to run this program.", "No connection", False, True, True)
-     end
-     connectivity_checked[0] = 1
-   end
-   if (status_checked[0] != 1):
-     if not(rq_is_gripper_activated("1")):
-       popup("Gripper 1 is not activated. Go to Installation tab > Gripper to activate it and run the program again.", "Not activated", False, True, True)
-     end
-     status_checked[0] = 1
-   end
-   rq_set_pos_spd_for(0, 0, 0, "1")
-   rq_go_to("1")
-   rq_wait("1")
-   gripper_1_selected = True
-   gripper_2_selected = False
-   gripper_3_selected = False
-   gripper_4_selected = False
-   gripper_1_used = False
-   gripper_2_used = False
-   gripper_3_used = False
-   gripper_4_used = False
-   # end: URCap Program Node
-
-   # ... omitted section ...
-
-   $ 6 "Gripper Close (1)"
-   gripper_1_used = True
-   if (connectivity_checked[0] != 1):
-     gripper_id_ascii = rq_gripper_id_to_ascii("1")
-     gripper_id_list = rq_get_sid("1")
-     if not(rq_is_gripper_in_sid_list(gripper_id_ascii, gripper_id_list)):
-       popup("Gripper 1 must be connected to run this program.", "No connection", False, True, True)
-     end
-     connectivity_checked[0] = 1
-   end
-   if (status_checked[0] != 1):
-     if not(rq_is_gripper_activated("1")):
-       popup("Gripper 1 is not activated. Go to Installation tab > Gripper to activate it and run the program again.", "Not activated", False, True, True)
-     end
-     status_checked[0] = 1
-   end
-   rq_set_pos_spd_for(255, 0, 0, "1")
-   rq_go_to("1")
-   rq_wait("1")
-   gripper_1_selected = True
-   gripper_2_selected = False
-   gripper_3_selected = False
-   gripper_4_selected = False
-   gripper_1_used = False
-   gripper_2_used = False
-   gripper_3_used = False
-   gripper_4_used = False
-   # end: URCap Program Node
-```
-
-### Gripping the physical plates
-
-**Lidded plates:** When moving lidded plates it is not possible to only grab
-the top part (since then you only grab the lid).  Instead we tilt the arm
-a bit (a few degrees) and grab for the center section. This is for example
-needed by the incubator.
-
-**Horizontal or vertical**: For now we have only needed horizontal
-grips. Vertical grips are difficult by the washer and dispenser because the
-arm collides with the machine.
-
-It is not enough to only store points (position + tool rotation) since there are many
-possible joint configurations to the same point. (16 for 6-armed robots?)
-- **inverse kinematics** (multi-)mapping cartesian space to joint space
-- **forward kinematics** mapping joint space to cartesian space
-
-## URP Script programs created on the PolyScope handheld tablet
+### URP programs created on the PolyScope handheld tablet
 
 Artifacts produced when making a script on the poly-scope handheld tablet:
 
@@ -327,6 +266,47 @@ For reference, the text file is simply this:
        Waypoint_1
 ```
 
+### URScript: controlling the gripper
+
+Use the generated code when making a script in PolyScope.
+
+This code for the gripper is generated when you make a script in PolyScope. It
+looks like this:
+
+```python
+   # begin: URCap Program Node
+   #   Source: Robotiq_Grippers, 1.7.1.2, Robotiq Inc.
+   #   Type: Gripper
+   $ 4 "Gripper Open (1)"
+   gripper_1_used = True
+   if (connectivity_checked[0] != 1):
+     gripper_id_ascii = rq_gripper_id_to_ascii("1")
+     gripper_id_list = rq_get_sid("1")
+     if not(rq_is_gripper_in_sid_list(gripper_id_ascii, gripper_id_list)):
+       popup("Gripper 1 must be connected to run this program.", "No connection", False, True, True)
+     end
+     connectivity_checked[0] = 1
+   end
+   if (status_checked[0] != 1):
+     if not(rq_is_gripper_activated("1")):
+       popup("Gripper 1 is not activated. Go to Installation tab > Gripper to activate it and run the program again.", "Not activated", False, True, True)
+     end
+     status_checked[0] = 1
+   end
+   rq_set_pos_spd_for(0, 0, 0, "1")
+   rq_go_to("1")
+   rq_wait("1")
+   gripper_1_selected = True
+   gripper_2_selected = False
+   gripper_3_selected = False
+   gripper_4_selected = False
+   gripper_1_used = False
+   gripper_2_used = False
+   gripper_3_used = False
+   gripper_4_used = False
+   # end: URCap Program Node
+```
+
 ### movej + `get_inverse_kin`
 
 From the URScript guide:
@@ -338,20 +318,8 @@ Otherwise, the solution closest to the current joint positions is returned.
 ```python
 global Waypoint_1_p=p[.434, -.469, .599, 1.500, .521, .530]
 global Waypoint_1_q=[1.995, -1.690, 1.815, -0.132, 1.321, 0.003]
-movej(get_inverse_kin(Waypoint_1_p, qnear=Waypoint_1_q),
-      a=1.396,
-      v=1.047)
+movej(get_inverse_kin(Waypoint_1_p, qnear=Waypoint_1_q), a=1.396, v=1.047)
 ```
-
-- what is the _actual_ difference between vectors and pose p-vectors?
-- what TCP are we using?
-
-However for `get_inverse_kin`:
-
-> If no tcp is provided the currently active tcp of the controller will be used.
-
-    – q = [0.,3.14,1.57,.785,0,0] → joint angles of j0=0 deg, j1=180 deg, j2=90 deg, j3=45 deg, j4=0 deg, j5=0 deg.
-    – tcp = p[0,0,0.01,0,0,0] → tcp offset of x=0mm, y=0mm, z=10mm and rotation vector of rx=0 deg., ry=0 deg, rz=0 deg.
 
 ## Loose ends
 
