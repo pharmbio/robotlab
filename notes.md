@@ -50,7 +50,7 @@ In the lab:
         another machine for processing plates
         currently not used and not in the lab but occasionally referred to
 
-The surveillance camera in the lab can be found on [monitor.pharmb.io].
+The surveillance camera in the lab can be found on https://monitor.pharmb.io.
 
 Positions:
 
@@ -118,7 +118,9 @@ Using the simulator, this is how some of the protocols look like.
 We will use netcat `nc`. Another alternative is `socat`.
 In python use the `socket` module.
 
-**port 29999: Dashboard**: A few high-level commands can be sent here.
+### port 29999: Dashboard
+
+A few high-level commands can be sent here.
 
     $ nc localhost 29999
     Connected: Universal Robots Dashboard Server
@@ -132,8 +134,9 @@ Now we can type things like `running` and `programState` and it will reply:
     programState
     STOPPED <unnamed>
 
-**port 30001: primary**: Accepts urscript programs. Continuously dumps a lot of data
-of its internal state in binary at 10hz.
+### port 30001: primary
+
+This protocol accepts urscript programs and continuously dumps a lot of binary data in 10hz.
 
     $ nc localhost 30001 | xxd | head
     00000000: 0000 0037 14ff ffff ffff ffff fffe 0309  ...7............
@@ -148,8 +151,8 @@ of its internal state in binary at 10hz.
     00000090: 9999 999a 3fc9 9999 9999 999a 3fc9 9999  ....?.......?...
     write(stdout): Broken pipe
 
-This example sends a script which the robot controller executes.  The textmsg
-writes to the polyscope log but is also written on this port.
+This example sends a script which the robot controller executes.  The `textmsg` function
+writes to the polyscope log but is also written to this primary protocol.
 
     $ printf '%s\n' 'def silly():' ' textmsg("nonce nonce nonce pharmbio says hello")' end |
         timeout 1 netcat localhost 30001 | xxd | grep -A 2 nonce
@@ -189,11 +192,12 @@ We also get errors when trying to run scripts:
     00000470: 7272 6f72 5f6e 616d 655f 6e6f 745f 666f  rror_name_not_fo
     00000480: 756e 643a 7478 746d 7367 3a00 0005 6a10  und:txtmsg:...j.
 
-The layout of the data is outlined in an excel file. I spent some time
-parsing the excel file and then unpacking the data but this is too brittle
-and we won't need all that data. Notably, judicious use of `textmsg` can
-make the robot reply any data available inside URScripts. This is an example
-of getting its current joint space coordinates:
+The actual layout of the binary data packages is outlined in an excel file.
+I spent some time parsing the excel file and then unpacking the structs.
+This was brittle and we won't need all that data. If we do we can get
+it through easier means. Notably, judicious use of `textmsg` can make the
+robot reply any data available inside URScripts. This example obtains
+the current joint space coordinates:
 
     $ printf '%s\n' 'def silly():' ' textmsg("BEGIN ", str_cat(get_actual_joint_positions(), " END"))' end |
         timeout 1 netcat localhost 30001 |
@@ -210,6 +214,7 @@ URP: file extension for scripts made in the PolyScope tablet. This is a gzipped 
 The URScript manual is surprisingly difficult to find on their web page.
 The manual is also quite hard to read because it is not very good typeset
 and functions are mostly sorted by name and not functionality.
+Nevertheless, it is an absolute must read.
 
 Search for SCRIPT MANUAL - E-SERIES.
 
