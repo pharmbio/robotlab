@@ -25,18 +25,38 @@ Vocabulary outline
 In the lab:
 
     plate:
-        a plate of typically 96 or 384 wells to put cells and chemicals in.
+        a plate of typically 384 wells to put cells and chemicals in.
         can have a lid.
         can have a barcode for identification.
-        the wells are numbered A1,A2,...,B1,... and its important to not lose how it is oriented.
+        the wells are numbered A1,A2,...,B1,...
 
     hotel: vertical storage rack for plates.
+
     washer, dispenser:
         the two devices plates are to be processed in.
+        plates must not have a lid.
+        plates must have the correct 180° orientation:
+            A1 in top-left corner when operating the machine as a human.
 
     incubator:
-        plate storage with precise temperature and humidity (looks like a fridge).
+        plate hotel storage with precise temperature (like 37°) and humidity.
+        looks like a fridge.
         has an entrance slot for the robot to put and get plates.
+        plates must have a lid when they go in and out of the incubator.
+
+    shaker:
+        another machine for processing plates
+        currently not used and not in the lab but occasionally referred to
+
+### URSim: the Simulator
+
+The best docker image I found is https://github.com/ahobsonsayers/DockURSim
+It allows you to access the PolyScope GUI forwarded to the browser on localhost:8080.
+
+    docker volume create dockursim
+    docker run -d --name=dockursim -e ROBOT_MODEL=UR10 \
+        -p 8080:8080 -p 29999:29999 -p 30001-30004:30001-30004 \
+        -v dockursim:/ursim --privileged --cpus=1 arranhs/dockursim:latest
 
 ## Robot communication interfaces
 
@@ -53,7 +73,93 @@ In the lab:
 - xml-rpc: URScript function calls xml remote procedure protocol on a http server
 - modbus: an industry standard for robot communication
 
-### Manual
+Using the simulator, this is how some of the protocols look like.
+We will use netcat `nc`. Another alternative is `socat`.
+In python use the `socket` module.
+
+**port 29999: Dashboard**: A few high-level commands can be sent here.
+
+    $ nc localhost 29999
+    Connected: Universal Robots Dashboard Server
+
+Now we can type things like `running` and `programState` and it will reply:
+
+    $ nc localhost 29999
+    Connected: Universal Robots Dashboard Server
+    running
+    Program running: false
+    programState
+    STOPPED <unnamed>
+
+**port 30001: primary**: Accepts urscript programs. Continuously dumps a lot of data
+of its internal state in binary at 10hz.
+
+    $ nc localhost 30001 | xxd | head
+    00000000: 0000 0037 14ff ffff ffff ffff fffe 0309  ...7............
+    00000010: 5552 436f 6e74 726f 6c05 0400 0000 0000  URControl.......
+    00000020: 0000 0032 312d 3036 2d32 3031 392c 2031  ...21-06-2019, 1
+    00000030: 303a 3033 3a30 3200 0000 1814 ffff ffff  0:03:02.........
+    00000040: ffff ffff fe0c 0000 0000 0000 0000 0100  ................
+    00000050: 0000 b518 3fc3 3333 3333 3333 4039 0000  ....?.333333@9..
+    00000060: 0000 0000 0000 0000 0000 0000 4000 0000  ............@...
+    00000070: 0000 0000 3fc9 9999 9999 999a 3fc9 9999  ....?.......?...
+    00000080: 9999 999a 3fc9 9999 9999 999a 3fc9 9999  ....?.......?...
+    00000090: 9999 999a 3fc9 9999 9999 999a 3fc9 9999  ....?.......?...
+    write(stdout): Broken pipe
+
+This example sends a script which the robot controller executes.  The textmsg
+writes to the polyscope log but is also written on this port.
+
+    $ printf '%s\n' 'def silly():' ' textmsg("nonce nonce nonce pharmbio says hello")' end |
+        timeout 1 netcat localhost 30001 | xxd | grep -A 2 nonce
+    000009f0: 0000 03d0 6e4f 00fd 006e 6f6e 6365 206e  ....nO...nonce n
+    00000a00: 6f6e 6365 206e 6f6e 6365 2070 6861 726d  once nonce pharm
+    00000a10: 6269 6f20 7361 7973 2068 656c 6c6f 0000  bio says hello..
+    00000a20: 0010 19ff ffff ffff ffff ff01 0000 0000  ................
+
+We also get `PROGRAM_XXX_STARTED` messages when program starts and a similar
+when it stops:
+
+    $ printf '%s\n' 'def silly():' end |
+        timeout 1 netcat localhost 30001 |
+        xxd | grep -A 2 -P '[PROGRAM_X_silly]{3}'
+    000009d0: 0013 5052 4f47 5241 4d5f 5858 585f 5354  ..PROGRAM_XXX_ST
+    000009e0: 4152 5445 4473 696c 6c79 0000 0030 1400  ARTEDsilly...0..
+    000009f0: 0000 03df 7e0d 50fd 0700 0000 0000 0000  ....~.P.........
+    00000a00: 0013 5052 4f47 5241 4d5f 5858 585f 5354  ..PROGRAM_XXX_ST
+    00000a10: 4f50 5045 4473 696c 6c79 0000 0010 19ff  OPPEDsilly......
+    00000a20: ffff ffff ffff ff01 0000 0000 0009 0500  ................
+    00000a30: 0000 0000 0002 cc10 0000 002f 0000 0000  .........../....
+
+We also get errors when trying to run scripts:
+
+    $ printf '%s\n' 'def silly()' end |
+        timeout 1 netcat localhost 30001 |
+        xxd | grep -C 1 -P [error_]{3}
+    00000450: 0000 0032 14ff ffff ffff ffff fffd 0a00  ...2............
+    00000460: 0000 0200 0000 0173 796e 7461 785f 6572  .......syntax_er
+    00000470: 726f 725f 6f6e 5f6c 696e 653a 323a 656e  ror_on_line:2:en
+    00000480: 643a 0000 056a 1000 0000 2f00 0000 0003  d:...j..../.....
+    $ printf '%s\n' 'def silly():' ' txtmsg("")' end |
+        timeout 1 netcat localhost 30001 |
+        xxd | grep -C 1 -P [error_]{3}
+    00000450: 0000 003b 14ff ffff ffff ffff fffd 0a00  ...;............
+    00000460: 0000 0200 0000 0263 6f6d 7069 6c65 5f65  .......compile_e
+    00000470: 7272 6f72 5f6e 616d 655f 6e6f 745f 666f  rror_name_not_fo
+    00000480: 756e 643a 7478 746d 7367 3a00 0005 6a10  und:txtmsg:...j.
+
+The layout of the data is outlined in an excel file. I spent some time
+parsing the excel file and then unpacking the data but this is too brittle
+and we won't need all that data. Notably, judicious use of `textmsg` can
+make the robot reply any data available inside URScripts. This is an example
+of getting its current joint space coordinates:
+
+    $ printf '%s\n' 'def silly():' ' textmsg("BEGIN ", str_cat(get_actual_joint_positions(), " END"))' end |
+        timeout 1 netcat localhost 30001 |
+        cat -v | grep -oP 'BEGIN.*?END'
+    BEGIN [1.2, -1.125651, -2, 0, -0, 0] END
+
+### URScript manual
 
 The manual is surprisingly difficult to find on their web page.
 
@@ -61,12 +167,10 @@ Search for SCRIPT MANUAL - E-SERIES.
 
 https://www.universal-robots.com/download/manuals-e-series/script/script-manual-e-series-sw-56/
 
-### Data mashalling
+The manual is also quite hard to read because it is not very good typeset
+and functions are mostly sorted by name and not functionality.
 
-The different communication formats can dump structs bytes.
-The layout of the structs are explained in excel files.
-Start with RTDE since it is versioned and only transmits one kind of dump
-containing what seems to be all current state.
+### Data mashalling
 
 > URScript does not natively support string handling functions, other
 > than comparison, However if the camera is able to transmit a float
@@ -156,6 +260,22 @@ This code for the gripper is generated when you make a script in PolyScope:
    # end: URCap Program Node
 ```
 
+### Gripping the physical plates
+
+**Lidded plates:** When moving lidded plates it is not possible to only grab
+the top part (since then you only grab the lid).  Instead we tilt the arm
+a bit (a few degrees) and grab for the center section. This is for example
+needed by the incubator.
+
+**Horizontal or vertical**: For now we have only needed horizontal
+grips. Vertical grips are difficult by the washer and dispenser because the
+arm collides with the machine.
+
+It is not enough to only store points (position + tool rotation) since there are many
+possible joint configurations to the same point. (16 for 6-armed robots?)
+- **inverse kinematics** (multi-)mapping cartesian space to joint space
+- **forward kinematics** mapping joint space to cartesian space
+
 ## URP Script programs created on the PolyScope handheld tablet
 
 Artifacts produced when making a script on the poly-scope handheld tablet:
@@ -235,22 +355,6 @@ However for `get_inverse_kin`:
 
 ## Loose ends
 
-- TODO: Install the simulator `ursim`. (Open source alternatives include `gazebo` and `OpenRave`
-- Some UR web pages mention a SDK. I don't know what or where it is
-
-It is not enough to only store points (position + tool rotation) since there are many
-possible joint configurations to the same point. (16 for 6-armed robots?)
-
-TODO: How can we get the currently accepted URScript version?
-
-### Gripping the physical plates
-
-    Horizontal or vertical?
-    Measurements of the plates
-    How "far in" on the the plate do we grip?
-    How "far up"?
-
-### Environment
-
-The environment can contain positions. Perhaps we can use these instead of position inside URPs.
-
+- Some UR web pages mention a SDK. I don't know what or where it is. It could be that they meant the URCap SDK.
+- Open source simulator alternatives include `gazebo` and `OpenRave`.
+- How can we get the currently accepted URScript version? Version incompabilities has not been a problem yet though.
