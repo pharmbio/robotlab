@@ -54,24 +54,25 @@ The surveillance camera in the lab can be found on https://monitor.pharmb.io.
 
 Positions:
 
-    Gimbal lock, singularity:
-        when the robot loses a degree of movement freedom
-        because the joints are positioned above each other
-
-    pose: cartesian position of the robot tool center point
-        3 cartesian coordinates in metres
-        3 axis-angle in radians
-    p:   pose coordinate
-
     joint space: the rotations of the six robot joints
         denoted in radians starting from the base
     q:   joint coordinate
     qd:  joint velocities
     qdd: joint acceleration
 
+    pose: cartesian position of the robot tool center point
+        3 cartesian coordinates in metres
+        3 axis-angle in radians
+    p:   pose coordinate
+
+
     RPY: roll pitch yaw, a way of denoting the tool rotation similar to polar coordinates.
-        this is not the default way write rotations here. see
+        not the UR default way to write rotations.
         https://www.universal-robots.com/articles/ur/application-installation/explanation-on-robot-orientation/
+
+    Gimbal lock, singularity:
+        when the robot loses a degree of movement freedom
+        because the joints are positioned above each other
 
 ### Gripping the physical plates
 
@@ -206,13 +207,13 @@ the current joint space coordinates:
 
 ## Scripting the robot: URScript and .URP files
 
-URScript: a Python-esque script language for programming the robot.
-URP: file extension for scripts made in the PolyScope tablet. This is a gzipped xml.
+- URScript: a Python-esque script language for programming the robot.
+- URP: file extension for scripts made in the PolyScope tablet. This is a gzipped xml.
 
 ### URScript manual
 
 The URScript manual is surprisingly difficult to find on their web page.
-The manual is also quite hard to read because it is not very good typeset
+The manual is also quite hard to read because it is not well typeset
 and functions are mostly sorted by name and not functionality.
 Nevertheless, it is an absolute must read.
 
@@ -224,11 +225,11 @@ https://www.universal-robots.com/download/manuals-e-series/script/script-manual-
 
 Artifacts produced when making a script on the poly-scope handheld tablet:
 
-- .urp: gzipped xml
-- .txt: textual representation
-- .script: URScript (Python-esque)
+- `.urp`: gzipped xml
+- `.txt`: textual representation
+- `.script`: URScript (Python-esque)
 
-Hypothesis: the .script file (and definitely the .txt file) is generated from the XML.
+Hypothesis: the `.script` file (and definitely the `.txt` file) is generated from the XML.
 
 In the .urp file we have a waypoint represented like this:
 ```html
