@@ -9,8 +9,7 @@ import ast
 import re
 from textwrap import dedent
 
-class dotdict(dict):
-    __getattr__ = dict.get
+from utils import dotdict
 
 def parse(filename):
     program = open(filename).readlines()

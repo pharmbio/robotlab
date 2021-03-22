@@ -1,4 +1,5 @@
-from scriptparser import resolve, parse, dotdict
+from scriptparser import resolve, parse
+from utils import dotdict
 
 def movel(name, **kws):
     return dotdict(type='movel', name=name, **kws)
