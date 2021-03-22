@@ -76,8 +76,10 @@ def resolve(filename, moves):
 
 def generate_scriptgenerator_stub():
     filenames = dict(
-        delid='scripts/dan_delid.script',
+        h19_lid='scripts/dan_delid.script',
         h11='scripts/dan_lid_21_11.script',
+        r21='scripts/dan_h21_r21.script',
+        out18_put='scripts/dan_to_out18.script',
         incu='scripts/dan_incu_to_delid.script',
         wash='scripts/dan_wash_putget.script',
         disp='scripts/dan_disp_putget.script',
@@ -92,7 +94,5 @@ def generate_scriptgenerator_stub():
 
 if __name__ == '__main__':
     generate_scriptgenerator_stub()
-
-# generate_scriptgenerator_stub()
 
 
