@@ -70,6 +70,7 @@ Positions:
         not the UR default way to write rotations.
         https://www.universal-robots.com/articles/ur/application-installation/explanation-on-robot-orientation/
         https://www.mecademic.com/en/how-is-orientation-in-space-represented-with-euler-angles
+        https://www.researchgate.net/publication/336061230_An_image_vision_and_automatic_calibration_system_for_universal_robots
 
     Gimbal lock, singularity:
         when the robot loses a degree of movement freedom
