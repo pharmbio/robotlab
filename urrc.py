@@ -71,7 +71,7 @@ while True:
         ''')
 
     if 0:
-        if i % 100 = 10:
+        if i % 100 == 10:
             send(f'''
               def testmove{i}():
                 q = get_actual_joint_positions()

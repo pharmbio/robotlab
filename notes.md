@@ -69,6 +69,7 @@ Positions:
     RPY: roll pitch yaw, a way of denoting the tool rotation similar to polar coordinates.
         not the UR default way to write rotations.
         https://www.universal-robots.com/articles/ur/application-installation/explanation-on-robot-orientation/
+        https://www.mecademic.com/en/how-is-orientation-in-space-represented-with-euler-angles
 
     Gimbal lock, singularity:
         when the robot loses a degree of movement freedom
