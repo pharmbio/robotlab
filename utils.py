@@ -1,6 +1,11 @@
 
 from pprint import pformat
 
+class dotdict(dict):
+    __getattr__ = dict.get
+    __setattr__ = dict.__setitem__
+    __delattr__ = dict.__delitem__
+
 def oneof(x, *types):
     return any(isinstance(x, t) for t in types)
 
@@ -61,7 +66,4 @@ def show(x, show_key=str, width=80):
                 yield indent + last + post
 
     return '\n'.join(go('', '', x, ''))
-
-import snoop
-snoop.install(pformat=show)
 

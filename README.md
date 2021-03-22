@@ -23,8 +23,6 @@
 `urrc.py`:
   work-in-progress communication with the UR robot
 
-`show.py`:
-  utility file to show python values
+`utils.py`:
+  utility file including ergonomic dict and pretty printing
 
-`protocol.py`:
-  an attempt to parse the primary ur protocol. this won't be used
