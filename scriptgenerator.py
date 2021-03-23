@@ -1,15 +1,15 @@
 from scriptparser import resolve, parse
-from utils import dotdict
 import os
+import sys
 
 def movel(name, **kws):
-    return dotdict(type='movel', name=name, **kws)
+    return dict(type='movel', name=name, **kws)
 
 def movejoint(name, **kws):
-    return dotdict(type='movej', name=name, **kws)
+    return dict(type='movej', name=name, **kws)
 
 def gripper(name):
-    return dotdict(type='gripper', name=name)
+    return dict(type='gripper', name=name)
 
 hotel_dist = 7.094 / 100
 
@@ -261,6 +261,37 @@ def generate_scripts():
             print(f'end', file=f)
         print('generated', name)
 
+def generate_stubs():
+    filenames = dict(
+        h19_lid='scripts/dan_delid.script',
+        h11='scripts/dan_lid_21_11.script',
+        r21='scripts/dan_h21_r21.script',
+        out18_put='scripts/dan_to_out18.script',
+        incu='scripts/dan_incu_to_delid.script',
+        wash='scripts/dan_wash_putget.script',
+        disp='scripts/dan_disp_putget.script',
+    )
+
+    for short, filename in filenames.items():
+        cmds, defs, subs = parse(filename)
+        print()
+        print(f'p[{short!r}] = resolve({filename!r}, [')
+        for cmd in cmds:
+            print(f'    {cmd.type}({cmd.name!r}),')
+        print('])')
+        print()
+
 if __name__ == '__main__':
-    generate_scripts()
+    if '-h' in sys.argv or '--help' in sys.argv:
+        print('''
+            --generate-stubs:
+                writes stub programs for manual editing to stdout
+
+            (default, no command line option)
+                generates new scripts to generated/
+        ''')
+    elif '--generate-stubs' in sys.argv:
+        generate_stubs()
+    else:
+        generate_scripts()
 

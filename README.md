@@ -13,10 +13,10 @@
 `scriptparser.py`:
   parses the scripts made on the teach pendant
   resolves locations in generated scripts
-  can be used to generate a stub `scriptgenerator.py`
 
 `scriptgenerator.py`:
   generates new scripts to `generated/`
+  with `--generate-stubs` instead writes stub programs for manual editing
 
 <hr/>
 
