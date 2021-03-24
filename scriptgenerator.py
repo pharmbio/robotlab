@@ -86,7 +86,7 @@ for i in [1, 3, 5, 7, 9, 11, 13, 15, 19]:
         movel('delid_neu5'),
     ])
 
-for i in [1, 3, 5, 7, 9, 11, 13, 15, 19, 21]:
+for i in [1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21]:
     dz = (i - 21) * hotel_dist
     p[f'r{i}_put'] = resolve('scripts/dan_h21_r21.script', [
         gripper('Gripper Move30% (1)'),
