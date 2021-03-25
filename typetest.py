@@ -1,38 +1,16 @@
 
 from __future__ import annotations
-
-import dataclasses as dc
 from dataclasses import dataclass, field, replace
+
 # from utils import dotdict
 import typing
 from typing import Dict, Any, Tuple, Literal, NewType, TypedDict
 from typing import *
 import datetime
 
+x: str = 1
+
 def as_dataclass():
-    @dataclass(frozen=True)
-    class Move:
-        pass
-
-    @dataclass(frozen=True)
-    class movel(Move):
-        name: str
-        dx: None | float = None
-        dy: None | float = None
-        dz: None | float = None
-
-    @dataclass(frozen=True)
-    class movej(Move):
-        name: str
-        dx: None | float = None
-        dy: None | float = None
-        dz: None | float = None
-
-    @dataclass(frozen=True)
-    class gripper(Move):
-        name: str
-
-
     ga = gripper('a')
     p: list[Move] = [
         ga,
@@ -41,7 +19,7 @@ def as_dataclass():
         movej('c', dy=-1.0),
     ]
 
-    def resove_moves(moves: list[Move]):
+    def resove_moves(moves: list[Move]) -> None:
         out: list[str] = []
         defs: dict[str, str] = {}
         for move in moves:

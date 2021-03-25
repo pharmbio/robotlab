@@ -1,19 +1,15 @@
-from scriptparser import resolve, parse
+from __future__ import annotations
+from typing import Any
+
+from scriptparser import *
 import os
 import sys
 
-def movel(name, **kws):
-    return dict(type='movel', name=name, **kws)
+movejoint = movel
 
-def movejoint(name, **kws):
-    return dict(type='movej', name=name, **kws)
+hotel_dist: float = 7.094 / 100
 
-def gripper(name):
-    return dict(type='gripper', name=name)
-
-hotel_dist = 7.094 / 100
-
-p = {}
+p: dict[str, list[str]] = {}
 
 for i in [1, 3, 5, 7, 9, 11, 13, 15, 19]:
     dz = (i - 11) * hotel_dist
@@ -247,9 +243,9 @@ p['disp_put'] = resolve('scripts/dan_disp_putget.script', [
     movel('neu_deli'),
 ])
 
-def generate_scripts():
-    _, _, subs = parse('scripts/dan_h21_r21.script')
-    header = subs['header']
+def generate_scripts() -> None:
+    script = parse('scripts/dan_h21_r21.script')
+    header = script.subs['header']
 
     os.makedirs('generated', exist_ok=True)
 
@@ -261,7 +257,7 @@ def generate_scripts():
             print(f'end', file=f)
         print('generated', name)
 
-def generate_stubs():
+def generate_stubs() -> None:
     filenames = dict(
         h19_lid='scripts/dan_delid.script',
         h11='scripts/dan_lid_21_11.script',
@@ -273,11 +269,19 @@ def generate_stubs():
     )
 
     for short, filename in filenames.items():
-        cmds, defs, subs = parse(filename)
+        script = parse(filename)
         print()
         print(f'p[{short!r}] = resolve({filename!r}, [')
-        for cmd in cmds:
-            print(f'    {cmd.type}({cmd.name!r}),')
+        for cmd in script.cmds:
+            if isinstance(cmd, movel):
+                con, arg = 'movel', cmd.name
+            elif isinstance(cmd, movej):
+                con, arg = 'movejoint', cmd.name
+            elif isinstance(cmd, gripper):
+                con, arg = 'gripper', cmd.name
+            else:
+                raise ValueError
+            print(f'    {con}({arg!r}),')
         print('])')
         print()
 

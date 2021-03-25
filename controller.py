@@ -5,27 +5,58 @@ from utils import dotdict
 from typing import Dict, Any, Tuple, Literal, NewType
 import datetime
 
-Id = NewType('Id', str)
+JobId = NewType('JobId', str)
+
+@dataclass(frozen=True)
+class UnresolvedTime:
+    time: str
+    id: JobId | None = None # first wait for this machine
 
 @dataclass(frozen=True)
 class Plate:
-    id: Id
+    id: str
     loc: str
     lid_loc: str = 'self'
     target_loc: None | str = None
-    queue: list = field(default_factory=list)
-    waiting_for: None | Id | str | datetime.datetime | Tuple[Id, datetime.datetime] = None
-                           # ^ time to be resolved into a datetime
+    queue: list[ProtocolStep] = field(default_factory=list)
+    waiting_for: None | JobId | datetime.datetime | UnresolvedTime = None
     meta: Any = None
+
+p = Plate('p1', 'i42')
+print(p)
+q = replace(p, loc='incu')
+print(q)
+
+H = [21, 19, 17, 15, 13, 11, 9, 7, 5, 3, 1]
+I = [ i+1 for i in range(42) ]
+Out = [18] # [ i+1 for i in range(18) ] # todo: measure out_hotel_dist
+
+if 1:
+    # small test version
+    H = [21, 19, 17, 15, 13]
+    I = [1, 2, 3]
+    Out = [18]
+
+h21 = 'h21'
+
+incu_locs: list[str] = [ f'i{i}' for i in I ]
+h_locs:    list[str] = [ f'h{i}' for i in H ]
+r_locs:    list[str] = [ f'r{i}' for i in H ]
+out_locs:  list[str] = [ f'out{i}' for i in Out ]
+lid_locs:  list[str] = [ h for h in h_locs if h != h21 ]
+
+locs: list[str] = 'wash disp incu'.split()
+locs += incu_locs
+locs += h_locs
+locs += r_locs
+locs += out_locs
 
 @dataclass(frozen=True)
 class World:
-    plates: dict[Id, Plate]
-    # incu: Id | Literal['ready']
-    # disp: Id | Literal['ready']
-    # wash: Id | Literal['ready']
-    # this could be cached in various ways
-    def lookup(self, loc: str) -> str:
+    plates: dict[str, Plate]
+
+
+    def __getattr__(self, loc: str) -> str:
         for p in self.plates.values():
             if loc == p.loc:
                 return p.id
@@ -35,62 +66,257 @@ class World:
                 return f'target({p.id})'
         return 'free'
 
-    __getitem__ = lookup
-    __getattr__ = lookup
+    # def __getitem__(self, loc: str) -> str:
+    __getitem__ = __getattr__
 
-    def success(self, p, cmds=[], accept=False):
+    def success(self, p: Plate, cmds: list[run]=[]) -> Success:
         w = replace(self, plates={**self.plates, p.id: p})
-        return dotdict(w=w, cmds=cmds, accept=accept)
+        return Success(w=w, cmds=cmds)
 
-    def accept(self, p, cmds=[]):
-        return self.success(p, cmds, accept=True)
+@dataclass(frozen=True)
+class run:
+    device: str
+    arg: Any | None = None
+    id: JobId | None = None
+
+@dataclass(frozen=True)
+class Success:
+    w: World
+    cmds: list[run]
+
+def world_locations(w: World) -> dict[str, str]:
+    return {loc: w[loc] for loc in locs}
+
+@dataclass
+class UniqueSupply:
+    count: int = 0
+    def __call__(self, prefix: str='') -> str:
+        self.count += 1
+        return f'{prefix}({self.count})'
+
+    def reset(self) -> None:
+        self.count = 0
+
+unique = UniqueSupply()
+
+from abc import ABC, abstractmethod
+
+class Step(ABC):
+    @abstractmethod
+    def step(self, p: Plate, w: World) -> Success | None:
+        pass
+
+class ProtocolStep(Step):
+    pass
+
+class RobotStep(Step):
+    pass
+
+@dataclass(frozen=True)
+class incu_pop(ProtocolStep):
+    target: str
+    def step(self, p: Plate, w: World) -> Success | None:
+        if p.loc in incu_locs and w[self.target] == 'free':
+            id = JobId(unique('incu'))
+            return w.success(
+                replace(p, loc='incu', target_loc=self.target, waiting_for=id),
+                [run('incu_get', p.loc, id=id)]
+            )
+        return None
+
+@dataclass(frozen=True)
+class incu_put(ProtocolStep):
+    time: str
+    def step(self, p: Plate, w: World) -> Success | None:
+        if p.loc == h21 and p.lid_loc == 'self':
+            for incu_loc in incu_locs:
+                if w[incu_loc] == 'free':
+                    id = JobId(unique('incu'))
+                    return w.success(
+                        replace(p, loc=incu_loc, waiting_for=UnresolvedTime(time=self.time, id=id)),
+                        [
+                            run('robot', 'generated/incu_put'),
+                            run('incu_put', incu_loc, id=id),
+                        ]
+                    )
+        return None
+
+@dataclass(frozen=True)
+class wash(ProtocolStep):
+    arg1: str | None = None
+    arg2: str | None = None
+    def step(self, p: Plate, w: World) -> Success | None:
+        if p.loc == h21 and p.lid_loc != 'self':
+            id = JobId(unique('wash'))
+            return w.success(
+                replace(p, loc='wash', waiting_for=id),
+                [
+                    run('robot', 'generated/wash_put'),
+                    run('wash', [self.arg1, self.arg2], id=id),
+                ],
+            )
+        return None
+
+@dataclass(frozen=True)
+class disp(ProtocolStep):
+    arg1: str | None = None
+    arg2: str | None = None
+    def step(self, p: Plate, w: World) -> Success | None:
+        if p.loc == h21 and p.lid_loc != 'self':
+            id = JobId(unique('disp'))
+            return w.success(
+                replace(p, loc='disp', waiting_for=id),
+                [
+                    run('robot', 'wash_get'),
+                    run('disp', [self.arg1, self.arg2], id=id)
+                ],
+            )
+        return None
+
+@dataclass(frozen=True)
+class RT_incu(ProtocolStep):
+    time: str
+    def step(self, p: Plate, w: World) -> Success | None:
+        if p.loc == 'h21' and p.lid_loc == 'self':
+            for r_loc in r_locs:
+                if w[r_loc] == 'free':
+                    return w.success(
+                        replace(p, loc=r_loc, waiting_for=UnresolvedTime(self.time)),
+                        [run('robot', 'generated/{r_loc}_put')]
+                    )
+        return None
+
+@dataclass(frozen=True)
+class to_output_hotel(ProtocolStep):
+    def step(self, p: Plate, w: World) -> Success | None:
+        if p.loc == 'h21' and p.lid_loc == 'self':
+            for out_loc in out_locs:
+                if w[out_loc] == 'free':
+                    return w.success(
+                        replace(p, loc=out_loc),
+                        [run('robot', 'generated/{out_loc}_put')]
+                    )
+        return None
+
+@dataclass
+class disp_get(RobotStep):
+    def step(self, p: Plate, w: World) -> Success | None:
+        if p.loc == 'disp' and w.h21 == 'free':
+            assert p.waiting_for is None
+            return w.success(
+                replace(p, loc=h21),
+                [run('robot', 'generated/disp_get')]
+            )
+        return None
+
+@dataclass
+class wash_get(RobotStep):
+    def step(self, p: Plate, w: World) -> Success | None:
+        if p.loc == 'wash' and w.h21 == 'free':
+            assert p.waiting_for is None
+            return w.success(
+                replace(p, loc=h21),
+                [run('robot', 'generated/disp_get')]
+            )
+        return None
+
+@dataclass
+class incu_get(RobotStep):
+    def step(self, p: Plate, w: World) -> Success | None:
+        if p.loc == 'incu' and w.h21 == 'free':
+            assert p.waiting_for is None
+            return w.success(
+                replace(p, loc=h21),
+                [run('robot', 'generated/incu_get')]
+            )
+        return None
+
+@dataclass
+class RT_get(ProtocolStep):
+    def step(self, p: Plate, w: World) -> Success | None:
+        if p.loc in r_locs and w.h21 == 'free':
+            assert p.waiting_for is None
+            return w.success(
+                replace(p, loc=h21),
+                [run('robot', 'generated/{r_loc}_get')]
+            )
+        return None
 
 
-def world_locations(w: World) -> dotdict:
-    return dotdict({loc: lookup(w, loc) for loc in locs})
+@dataclass
+class h21_take(RobotStep):
+    def step(self, p: Plate, w: World) -> Success | None:
+        if p.loc in h_locs and w[h21] == 'free':
+            return w.success(
+                replace(p, loc=h21),
+                [run('robot', 'generated/{h_loc}_get')]
+            )
+        return None
 
+@dataclass
+class h21_release(RobotStep):
+    def step(self, p: Plate, w: World) -> Success | None:
+        if p.loc == h21:
+            for h_loc in h_locs:
+                if w[h_loc] == 'free':
+                    return w.success(
+                        replace(p, loc=h_loc),
+                        [run('robot', 'generated/{h_loc}_put')]
+                    )
+        return None
 
-p = Plate('p1', 'i42')
-print(p)
-q = replace(p, loc='incu')
-print(q)
+@dataclass
+class delid(RobotStep):
+    def step(self, p: Plate, w: World) -> Success | None:
+        if p.loc == h21 and p.lid_loc == 'self':
+            for lid_loc in lid_locs:
+                if w[lid_loc] == 'free':
+                    return w.success(
+                        replace(p, lid_loc=lid_loc),
+                        [run('robot', 'generated/lid_{lid_loc}_put')],
+                    )
+        return None
 
-H = [21, 19, 17, 15, 13, 11, 9, 7, 5, 3, 1]
-I = [ i+1 for i in range(42) ]
-Out = [ i+1 for i in range(18) ]
+@dataclass
+class lid(RobotStep):
+    def step(self, p: Plate, w: World) -> Success | None:
+        if p.loc == h21 and p.lid_loc in lid_locs:
+            return w.success(
+                replace(p, lid_loc='self'),
+                [run('robot', 'generated/lid_{p.lid_loc}_get')],
+            )
+        return None
 
-if 1:
-    # small test version
-    H = [21, 19, 17, 15, 13]
-    I = [1, 2, 3]
-    Out = [18]
+# Cell Painting Workflow
+protocol: list[ProtocolStep] = [
+    # 2 Compound treatment: Remove (80%) media of all wells
+    incu_pop(target='wash'),
+    wash(),
 
-incu_locs = [ f'i{i}' for i in I ]
-h_locs = [ f'h{i}' for i in H ]
-r_locs = [ f'r{i}' for i in H ]
-out_locs = [ f'out{i}' for i in Out ]
+    # 3 Mitotracker staining
+    disp('peripump 1', 'mitotracker solution'),
+    incu_put('30 min'),
+    incu_pop(target='wash'),
+    wash('pump D', 'PBS'),
 
-lid_locs = [ h for h in h_locs if h != 'h21' ]
+    # 4 Fixation
+    disp('Syringe A', '4% PFA'),
+    RT_incu('20 min'),
+    wash('pump D', 'PBS'),
 
-locs = 'wash disp incu'.split()
-locs += incu_locs
-locs += h_locs
-locs += r_locs
-locs += out_locs
+    # 5 Permeabilization
+    disp('Syringe B', '0.1% Triton X-100 in PBS'),
+    RT_incu('20 min'),
+    wash('pump D', 'PBS'),
 
-# this could be cached in various ways
-def lookup(w, loc):
-    for p in w.plates.values():
-        if loc == p.loc:
-            return p.id
-        if loc == p.lid_loc:
-            return f'lid({p.id})'
-        if loc == p.target_loc:
-            return f'target({p.id})'
-    return 'free'
+    # 6 Post-fixation staining
+    disp('peripump 2', 'staining mixture in PBS'),
+    RT_incu('20 min'),
+    wash('pump D', 'PBS'),
 
-def world_locations(w):
-    return dotdict({loc: lookup(w, loc) for loc in locs})
+    # 7 Imaging
+    to_output_hotel(),
+]
 
 from collections import deque
 
@@ -105,217 +331,14 @@ def bfs(w0, moves, max_fuel = 10**5):
             continue
         visited.add(w)
         for p in w.plates.values():
+            if p.waiting_for is not None:
+                continue
             if not p.queue:
                 continue
-            if res := accepting(p.queue[0], p, w):
+            if res := p.queue[0].step(p, w):
                 return (res.w, cmds + res.cmds)
             for m in moves:
                 if res := m(p, w):
                     q.append((res.w, cmds + res.cmds))
 
-def is_accepting(w):
-    for p in w.plates.values():
-        if p.queue[0].accepts(w):
-            return True
-    return False
 
-# These have an implicit pre & post
-moves = [
-    h19_put, ...,
-    h19_get, ...,
-]
-
-def target_wash(p, w):
-    assert p.target_loc is None
-
-    if w.wash != 'free':
-        return fail('wash not free')
-    else:
-        return success(
-            p=replace(p, target_loc='wash')
-        )
-
-def incu_pop(p, w):
-    assert p.target_loc, 'set target before popping from incubator'
-    assert p.loc in incu_locs
-    assert p.lid == 'self'
-
-    if w.incu != 'free':
-        return fail('incu not free')
-    else:
-        id = w.timestamp
-        return success(
-            run=incu.get(p.loc, id),
-            p=replace(p, loc='incu', waiting_for=Incu(id)),
-        )
-
-def incu_get(p, w):
-    assert p.loc == 'incu'
-    assert p.lid == 'self'
-    assert p.waiting_for in ('incu', None)
-
-    if w.h21 != 'free':
-        return fail('h21 not free')
-    elif p.waiting_for == 'incu':
-        return fail('waiting')
-    else:
-        return success(
-            run=robot('generated/incu_get'),
-            p=replace(p, loc='h21'),
-        )
-
-def prep_h21(p, w):
-    if w.h21 != 'free' and w.h21 != p.id:
-        # cannot be done without returning the other plate
-        fail('h21 not free')
-
-    if p.loc == 'h21':
-        prep = []
-    else:
-        # is this ever going to happen? noone will move this plate
-        prep = [robot('generated/{p.loc}_get')]
-
-    return prep
-
-
-def delid(p, w):
-    assert p.loc in h_locs
-    assert p.lid == 'self'
-
-    prep = prep_h21(p, w)
-
-    for loc in lid_locs:
-        if w[loc] == 'free':
-            return success(
-                run=prep + [robot('generated/lid_{loc}_put')],
-                p=replace(p, loc='h21', lid_loc=loc),
-            )
-    return fail('no free lid locations!!!')
-
-def lid(p, w):
-    assert p.loc in h_locs
-    assert p.lid != 'self'
-
-    prep = prep_h21(p, w)
-
-    return success(
-        run=prep + [robot('generated/lid_{p.lid_loc}_get')],
-        p=replace(p, loc='h21', lid_loc='self'),
-    )
-
-def wash_put(p, w):
-    assert p.loc in h_locs
-    assert p.lid != 'self'
-
-    if w.wash != 'free' and p.target_loc != 'wash':
-        fail('wash not free and not targeted')
-
-    prep = prep_h21(p, w)
-
-    id = w.timestamp
-    return success(
-        run=prep + [robot('generated/wash_put'), wash.start(id)],
-        p=replace(p, loc='wash', waiting_for=Wash(id)),
-    )
-
-# Could both say accept + what effect it does
-
-def success(p, cmds=[], accept=False):
-    w = replace(w, plates={**w.plates, p.id: p})
-    return dotdict(w=w, cmds=cmds, accept=accept)
-
-def accept(p, w, cmds=[], accept=False):
-    w = replace(w, plates={**w.plates, p.id: p})
-    return dotdict(w=w, cmds=cmds, accept=accept)
-
-
-@dataclass
-class UniqueSupply():
-    count = 0
-    def __call__(self, prefix=''):
-        self.count += 1
-        return f'{prefix}({self.count})'
-
-    def reset(self):
-        self.count = 0
-
-unique = UniqueSupply()
-
-class Accepting:
-    def incu_pop(p, w, target):
-        if p.loc in incu_locs and w[target] == 'free':
-            id = unique('incu')
-            return w.accept(
-                replace(p, loc='incu', target_loc=target, waiting_for=id),
-                [run('incu_get', p.loc, id=id)]
-            )
-
-    def incu_put(p, w, timeout):
-        if p.loc == 'incu' and p.lid_loc == 'self':
-            for incu_loc in incu_locs:
-                if w[incu_loc] == 'free':
-                    id = unique('incu')
-                    return w.accept(
-                        replace(p, loc=incu_loc, waiting_for=(id, timeout)),
-                        [run('incu_put', incu_loc, id=id)]
-                    )
-
-        # what to do about waiting?
-        # and p.waiting_for == 'time' and p.waiting_arg == timeout
-
-    def wash(p, w, *program):
-        if p.loc == 'wash' and p.lid_loc != 'self':
-            id = unique('wash')
-            return w.accept(
-                replace(p, waiting_for=id),
-                [run('wash', program=program, id=id)],
-            )
-
-
-
-
-
-for method in dir(Accepting):
-    globals()[method] = lambda *args, **kwargs: dotdict(method=method, args=args, kwargs=kwargs)
-
-def accepting(d, p, w):
-    if p.waiting_for is not None:
-        return None
-    elif res := getattr(Accepting, d.method)(p, w, *d.args, **d.kwargs):
-        p, w = res
-        ... something with:
-        w.plates[p.id] = p
-        + start programs on machines. make a cmd? put cmd queue in w?  eehh
-    else:
-        return None
-
-# Cell Painting Workflow
-protocol = [
-    '# 2 Compound treatment: Remove (80%) media of all wells',
-    incu_pop(target='wash'),
-    wash(),
-
-    '# 3 Mitotracker staining',
-    disp('peripump 1', 'mitotracker solution'),
-    incu_put('30 min'),
-    incu_pop(target='wash'),
-    wash('pump D', 'PBS'),
-
-    '# 4 Fixation',
-    disp('Syringe A', '4% PFA'),
-    RT_incu('20 min'),
-    wash('pump D', 'PBS'),
-
-    '# 5 Permeabilization',
-    disp('Syringe B', '0.1% Triton X-100 in PBS'),
-    RT_incu('20 min'),
-    wash('pump D', 'PBS'),
-
-    '# 6 Post-fixation staining',
-    disp('peripump 2', 'staining mixture in PBS'),
-    RT_incu('20 min'),
-    wash('pump D', 'PBS'),
-
-    '# 7 Imaging',
-    to_output_hotel(),
-]

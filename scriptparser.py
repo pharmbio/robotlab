@@ -1,16 +1,46 @@
+from __future__ import annotations
+from dataclasses import dataclass, field, replace, astuple
+from typing import Any
+
+
 from utils import show
-import snoop
+import snoop # type: ignore
 snoop.install(pformat=show)
+pp: Any
 
 import ast
 
 import re
-from textwrap import dedent
+from textwrap import dedent, shorten
 
 from utils import dotdict
 import sys
 
-def parse(filename):
+from abc import ABC
+
+class Command(ABC):
+    pass
+
+@dataclass(frozen=True)
+class movel(Command):
+    name: str
+    dx: None | float = None
+    dy: None | float = None
+    dz: None | float = None
+
+@dataclass(frozen=True)
+class movej(Command):
+    name: str
+    dx: None | float = None
+    dy: None | float = None
+    dz: None | float = None
+
+@dataclass(frozen=True)
+class gripper(Command):
+    name: str
+
+@dataclass
+class ParsedScript:
     '''
     The parser extracts and returns a tuple of:
     - cmds: moves and gripper commands,
@@ -25,27 +55,31 @@ def parse(filename):
     parsed coordinates. The gripper commands and the header are
     also resolved using the result from the parser.
     '''
+    cmds: list[Command] = field(default_factory=list)
+    defs: dict[str, list[float]] = field(default_factory=dict)
+    subs: dict[str, list[str]] = field(default_factory=dict)
+
+def parse(filename: str) -> ParsedScript:
     return parse_lines(list(open(filename, 'r')))
 
-def parse_lines(lines):
-    cmds = []
-    defs = {}
-    subs = {}
-    last_header_line = None
+def parse_lines(lines: list[str]) -> ParsedScript:
+    res = ParsedScript()
+    last_header_line_index: None | int = None
     for i, line in enumerate(lines):
         if 'end: URCap Installation Node' in line:
-            last_header_line = i
+            last_header_line_index = i
         if m := re.match(' *global *(\w*) *= *p?(.*)$', line):
             name, value = m.groups()
             try:
-                value = ast.literal_eval(value)
-                defs[name] = value
+                res.defs[name] = ast.literal_eval(value)
             except:
                 pass
-        elif m := re.match(' *(move[lj]).*?(\w*)_[pq]', line):
-            type, name = m.groups()
-            cmds += [dotdict(type=type, name=name)]
-            # print(
+        elif m := re.match(' *movel.*?(\w*)_[pq]', line):
+            name, = m.groups()
+            res.cmds += [movel(name)]
+        elif m := re.match(' *movej.*?(\w*)_[pq]', line):
+            name, = m.groups()
+            res.cmds += [movej(name)]
         elif m := re.match('( *)\$ \d* "(Gripper.*)"', line):
             indent, name = m.groups()
             subprogram = ['# ' + name]
@@ -53,48 +87,62 @@ def parse_lines(lines):
                 subprogram += [line2[len(indent):].rstrip()]
                 if '# end: URCap Program Node' in line2:
                     break
-            subs[name] = subprogram
-            cmds += [dotdict(type='gripper', name=name)]
+            res.subs[name] = subprogram
+            res.cmds += [gripper(name)]
 
-    header = lines[1:last_header_line]
-    header_indent = re.match(' *', header[0]).end()
-    subs['header'] = [line[header_indent:].rstrip() for line in header]
+    if last_header_line_index is not None:
+        header = lines[1:last_header_line_index]
+        if m := re.match(' *', header[0]):
+            header_indent = m.end()
+            res.subs['header'] = [line[header_indent:].rstrip() for line in header]
 
-    return cmds, defs, subs
+    return res
 
-def resolve(filename, moves):
-    return resolve_with(parse(filename), moves)
+def resolve(filename: str, cmds: list[Command]) -> list[str]:
+    return resolve_with(parse(filename), cmds)
 
-def resolve_with(parse_result, moves):
-    cmds, defs, subs = parse_result
-    out = []
-    for move in moves:
-        move = dotdict(move)
-        if move.type in ('movel', 'movej'):
-            q_name = move.name + '_q'
-            p_name = move.name + '_p'
+def resolve_with(script: ParsedScript, cmds: list[Command]) -> list[str]:
+    out: list[str] = []
+    for cmd in cmds:
+        if isinstance(cmd, (movel, movej)):
+            q_name = cmd.name + '_q'
+            p_name = cmd.name + '_p'
             out += [
-                f'{p_name} = p{defs[p_name]}',
+                f'{p_name} = p{script.defs[p_name]}',
             ]
             for i, d_name in enumerate('dx dy dz'.split()):
-                if d_name in move:
+                if offset := getattr(cmd, d_name):
                     out += [
-                        f'{p_name}[{i}] = {p_name}[{i}] + {move[d_name]}'
+                        f'{p_name}[{i}] = {p_name}[{i}] + {offset}'
                     ]
-            if move.type == 'movel':
+            if isinstance(cmd, movel):
                 out += [
                     f'movel({p_name}, a=1.2, v=0.25)'
                 ]
-            elif move.type == 'movej':
+            elif isinstance(cmd, movej):
                 out += [
-                    f'{q_name} = {defs[q_name]}',
+                    f'{q_name} = {script.defs[q_name]}',
                     f'movej(get_inverse_kin({p_name}, qnear={q_name}), a=1.4, v=1.05)',
                 ]
-        elif move.type == 'gripper':
-            out += subs[move.name]
+        elif isinstance(cmd, gripper):
+            out += script.subs[cmd.name]
+        else:
+            raise ValueError
     return out
 
-def test_parse_and_resolve():
+@dataclass(frozen=True)
+class test:
+    lhs: object
+    def __eq__(self, rhs: object) -> bool:
+        lhs = self.lhs
+        true = lhs == rhs
+        if not true:
+            pp(lhs, rhs)
+        elif '-v' in sys.argv:
+            print(f'passed test(...) == {shorten(repr(rhs), 60, placeholder=" ...")}')
+        return true
+
+def test_parse_and_resolve() -> None:
     example_script = dedent('''
         def example():
             set_gravity([0.0, 0.0, 9.8])
@@ -116,56 +164,53 @@ def test_parse_and_resolve():
 
     lines = example_script.split('\n')
 
-    def test_parse(self):
-        cmds, defs, subs = parse(self.lines)
+    script = parse_lines(lines)
 
-        assert cmds == [
-            {'type': 'gripper', 'name': 'Gripper Move30% (1)' },
-            {'type': 'movel', 'name': 'h21_neu' },
-            {'type': 'movej', 'name': 'above_washr' },
-        ]
+    assert test(script.cmds) == [
+        gripper('Gripper Move30% (1)'),
+        movel('h21_neu'),
+        movej('above_washr'),
+    ]
 
-        assert defs == {
-            'h21_neu_p': [0.2, -0.4, 0.8, 1.6, -0.0, 0.0],
-            'h21_neu_q': [1.6, -1.9, 1.5, 0.4, 1.6, 0.0],
-            'above_washr_p': [-0.2, 0.1, 0.3, 1.2, -1.2, -1.2],
-            'above_washr_q': [-1.6, -2.2, 2.5, -0.3, -0.0, 0.0],
-        }
+    assert test(script.defs) == {
+        'h21_neu_p': [0.2, -0.4, 0.8, 1.6, -0.0, 0.0],
+        'h21_neu_q': [1.6, -1.9, 1.5, 0.4, 1.6, 0.0],
+        'above_washr_p': [-0.2, 0.1, 0.3, 1.2, -1.2, -1.2],
+        'above_washr_q': [-1.6, -2.2, 2.5, -0.3, -0.0, 0.0],
+    }
 
-        assert subs == {
-            'Gripper Move30% (1)': [
-                '# Gripper Move30% (1)',
-                '# ...omitted gripper code...',
-                '# end: URCap Program Node',
-            ],
-            'header': ['set_gravity([0.0, 0.0, 9.8])'],
-        }
+    assert test(script.subs) == {
+        'Gripper Move30% (1)': [
+            '# Gripper Move30% (1)',
+            '# ...omitted gripper code...',
+            '# end: URCap Program Node',
+        ],
+        'header': ['set_gravity([0.0, 0.0, 9.8])'],
+    }
 
-    def test_resolve(self):
+    cmds: list[Command] = [
+        gripper('Gripper Move30% (1)'),
+        movel('h21_neu'),
+        movel('h21_neu', dy=-0.3),
+        movej('above_washr'),
+    ]
 
-        moves = [
-            {'type': 'gripper', 'name': 'Gripper Move30% (1)' },
-            {'type': 'movel', 'name': 'h21_neu' },
-            {'type': 'movel', 'name': 'h21_neu', 'dy': -0.3 },
-            {'type': 'movej', 'name': 'above_washr' },
-        ]
+    resolved = resolve_with(script, cmds)
+    resolved_str = '\n'.join(resolved)
 
-        resolved = resolve_with(parse(self.lines), moves)
-        resolved = '\n'.join(resolved)
-
-        assert resolved == dedent('''
-            # Gripper Move30% (1)
-            # ...omitted gripper code...
-            # end: URCap Program Node
-            h21_neu_p = p[0.2, -0.4, 0.8, 1.6, -0.0, 0.0]
-            movel(h21_neu_p, a=1.2, v=0.25)
-            h21_neu_p = p[0.2, -0.4, 0.8, 1.6, -0.0, 0.0]
-            h21_neu_p[1] = h21_neu_p[1] + -0.3
-            movel(h21_neu_p, a=1.2, v=0.25)
-            above_washr_p = p[-0.2, 0.1, 0.3, 1.2, -1.2, -1.2]
-            above_washr_q = [-1.6, -2.2, 2.5, -0.3, -0.0, 0.0]
-            movej(get_inverse_kin(above_washr_p, qnear=above_washr_q), a=1.4, v=1.05)
-        ''').strip()
+    assert test(resolved_str) == dedent('''
+        # Gripper Move30% (1)
+        # ...omitted gripper code...
+        # end: URCap Program Node
+        h21_neu_p = p[0.2, -0.4, 0.8, 1.6, -0.0, 0.0]
+        movel(h21_neu_p, a=1.2, v=0.25)
+        h21_neu_p = p[0.2, -0.4, 0.8, 1.6, -0.0, 0.0]
+        h21_neu_p[1] = h21_neu_p[1] + -0.3
+        movel(h21_neu_p, a=1.2, v=0.25)
+        above_washr_p = p[-0.2, 0.1, 0.3, 1.2, -1.2, -1.2]
+        above_washr_q = [-1.6, -2.2, 2.5, -0.3, -0.0, 0.0]
+        movej(get_inverse_kin(above_washr_p, qnear=above_washr_q), a=1.4, v=1.05)
+    ''').strip()
 
     if '-v' in sys.argv:
         print(__file__, 'passed tests')

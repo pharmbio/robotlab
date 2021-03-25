@@ -1,24 +1,31 @@
+from __future__ import annotations
+from dataclasses import dataclass, field, replace, astuple
+from typing import *
 
 from pprint import pformat
+import re
 
 class dotdict(dict):
     __getattr__ = dict.get
-    __setattr__ = dict.__setitem__
-    __delattr__ = dict.__delitem__
+    __setattr__: Any = dict.__setitem__
+    __delattr__: Any = dict.__delitem__
 
-def oneof(x, *types):
-    return any(isinstance(x, t) for t in types)
-
-def primlike(x):
-    is_container = oneof(x, tuple, list, set)
-    if is_container:
+def primlike(x: object) -> bool:
+    if isinstance(x, (tuple, list, set, frozenset)):
         return all(map(primlike, x))
     else:
-        return oneof(x, int, float, bool, type(None), str, bytes)
+        return isinstance(x, (int, float, bool, str, bytes, type(None)))
 
-def show(x, show_key=str, width=80):
+def show_key(x: object) -> str:
+    if isinstance(x, (str, int)):
+        k = str(x)
+        if re.match('\w*$', k):
+            return k
+    return repr(x)
 
-    def go(dent, pre, x, post):
+def show(x: Any, show_key=show_key, width: int=80) -> str:
+
+    def go(dent: str, pre: str, x, post: str) -> Iterator[str]:
         '''
         only yield (dent +) pre once,
         then yield indent for each subsequent line
@@ -27,14 +34,14 @@ def show(x, show_key=str, width=80):
         indent = '  ' + dent
         is_tuple = isinstance(x, tuple)
         is_list = isinstance(x, list)
-        is_set = isinstance(x, set)
+        is_set = isinstance(x, (set, frozenset))
         if (is_tuple or is_list or is_set) and not primlike(x):
             if is_list:
-                begin, end = '[]'
+                begin, end = '[', ']'
             elif is_tuple:
-                begin, end = '()'
+                begin, end = '(', ')'
             elif is_set:
-                begin, end = '{}'
+                begin, end = '{', '}'
             if len(x) == 0:
                 yield dent + pre + begin + end + post
             else:
@@ -65,6 +72,7 @@ def show(x, show_key=str, width=80):
                     yield indent + line
                 yield indent + last + post
 
+
     return '\n'.join(go('', '', x, ''))
 
 class Expand():
@@ -90,10 +98,7 @@ class Expand():
     >>> expand[18, 13, ..., 0]
     [18, 13, 8, 3, -2]
     '''
-    def __init__(self, prefix=None):
-        self.prefix = prefix
-
-    def __getitem__(self, args):
+    def __getitem__(self, args: Tuple[int | Any, ...]) -> list[int]:
         out = None
         if len(args) == 3:
             start, ellipsis, stop = args
@@ -107,15 +112,19 @@ class Expand():
                 out = range(start, stop+d, d)
         if out is None:
             raise ValueError(f'{args} not of right shape')
-        if self.prefix:
-            return [self.prefix + str(i) for i in out]
-        else:
-            return list(out)
+        return list(out)
 
-    def __getattr__(self, prefix):
+    def __getattr__(self, prefix: str) -> ExpandPrefixed:
         if not prefix.startswith('_') and prefix not in self.__dict__:
             if self.prefix is not None:
                 raise ValueError(f'there is already a prefix {self.prefix!r}')
-            return Expand(prefix)
+        return ExpandPrefixed(prefix)
+
+class ExpandPrefixed():
+    def __init__(self, prefix: str):
+        self.prefix = prefix
+
+    def __getitem__(self, args: Tuple[int | Any, ...]) -> list[str]:
+        return [self.prefix + str(i) for i in Expand()[args]]
 
 expand = Expand()
