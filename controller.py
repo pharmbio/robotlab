@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
 from utils import dotdict
-from typing import Dict, Any, Tuple, Literal, NewType
+from typing import Dict, Any, Tuple, Literal, NewType, Iterator
 import datetime
 
 JobId = NewType('JobId', str)
@@ -22,13 +22,8 @@ class Plate:
     waiting_for: None | JobId | datetime.datetime | UnresolvedTime = None
     meta: Any = None
 
-p = Plate('p1', 'i42')
-print(p)
-q = replace(p, loc='incu')
-print(q)
-
 H = [21, 19, 17, 15, 13, 11, 9, 7, 5, 3, 1]
-I = [ i+1 for i in range(42) ]
+I = [i+1 for i in range(42)]
 Out = [18] # [ i+1 for i in range(18) ] # todo: measure out_hotel_dist
 
 if 1:
@@ -39,22 +34,15 @@ if 1:
 
 h21 = 'h21'
 
-incu_locs: list[str] = [ f'i{i}' for i in I ]
-h_locs:    list[str] = [ f'h{i}' for i in H ]
-r_locs:    list[str] = [ f'r{i}' for i in H ]
-out_locs:  list[str] = [ f'out{i}' for i in Out ]
-lid_locs:  list[str] = [ h for h in h_locs if h != h21 ]
-
-locs: list[str] = 'wash disp incu'.split()
-locs += incu_locs
-locs += h_locs
-locs += r_locs
-locs += out_locs
+incu_locs: list[str] = [f'i{i}' for i in I]
+h_locs:    list[str] = [f'h{i}' for i in H]
+r_locs:    list[str] = [f'r{i}' for i in H]
+out_locs:  list[str] = [f'out{i}' for i in Out]
+lid_locs:  list[str] = [h for h in h_locs if h != h21]
 
 @dataclass(frozen=True)
 class World:
     plates: dict[str, Plate]
-
 
     def __getattr__(self, loc: str) -> str:
         for p in self.plates.values():
@@ -85,6 +73,11 @@ class Success:
     cmds: list[run]
 
 def world_locations(w: World) -> dict[str, str]:
+    locs: list[str] = 'wash disp incu'.split()
+    locs += incu_locs
+    locs += h_locs
+    locs += r_locs
+    locs += out_locs
     return {loc: w[loc] for loc in locs}
 
 @dataclass
@@ -101,16 +94,10 @@ unique = UniqueSupply()
 
 from abc import ABC, abstractmethod
 
-class Step(ABC):
+class ProtocolStep(ABC):
     @abstractmethod
     def step(self, p: Plate, w: World) -> Success | None:
         pass
-
-class ProtocolStep(Step):
-    pass
-
-class RobotStep(Step):
-    pass
 
 @dataclass(frozen=True)
 class incu_pop(ProtocolStep):
@@ -198,94 +185,73 @@ class to_output_hotel(ProtocolStep):
                     )
         return None
 
-@dataclass
-class disp_get(RobotStep):
-    def step(self, p: Plate, w: World) -> Success | None:
-        if p.loc == 'disp' and w.h21 == 'free':
-            assert p.waiting_for is None
-            return w.success(
-                replace(p, loc=h21),
-                [run('robot', 'generated/disp_get')]
-            )
-        return None
+def moves(p: Plate, w: World) -> Iterator[Success]:
+    if p.waiting_for is not None:
+        return
 
-@dataclass
-class wash_get(RobotStep):
-    def step(self, p: Plate, w: World) -> Success | None:
-        if p.loc == 'wash' and w.h21 == 'free':
-            assert p.waiting_for is None
-            return w.success(
-                replace(p, loc=h21),
-                [run('robot', 'generated/disp_get')]
-            )
-        return None
+    # disp to h21
+    if p.loc == 'disp' and w.h21 == 'free':
+        assert p.waiting_for is None
+        yield w.success(
+            replace(p, loc=h21),
+            [run('robot', 'generated/disp_get')]
+        )
 
-@dataclass
-class incu_get(RobotStep):
-    def step(self, p: Plate, w: World) -> Success | None:
-        if p.loc == 'incu' and w.h21 == 'free':
-            assert p.waiting_for is None
-            return w.success(
-                replace(p, loc=h21),
-                [run('robot', 'generated/incu_get')]
-            )
-        return None
+    # wash to h21
+    if p.loc == 'wash' and w.h21 == 'free':
+        assert p.waiting_for is None
+        yield w.success(
+            replace(p, loc=h21),
+            [run('robot', 'generated/wash_get')]
+        )
 
-@dataclass
-class RT_get(ProtocolStep):
-    def step(self, p: Plate, w: World) -> Success | None:
-        if p.loc in r_locs and w.h21 == 'free':
-            assert p.waiting_for is None
-            return w.success(
-                replace(p, loc=h21),
-                [run('robot', 'generated/{r_loc}_get')]
-            )
-        return None
+    # incu to h21
+    if p.loc == 'incu' and w.h21 == 'free':
+        assert p.waiting_for is None
+        yield w.success(
+            replace(p, loc=h21),
+            [run('robot', 'generated/incu_get')]
+        )
 
+    # RT to h21
+    if p.loc in r_locs and w.h21 == 'free':
+        assert p.waiting_for is None
+        yield w.success(
+            replace(p, loc=h21),
+            [run('robot', 'generated/{r_loc}_get')]
+        )
 
-@dataclass
-class h21_take(RobotStep):
-    def step(self, p: Plate, w: World) -> Success | None:
-        if p.loc in h_locs and w[h21] == 'free':
-            return w.success(
-                replace(p, loc=h21),
-                [run('robot', 'generated/{h_loc}_get')]
-            )
-        return None
+    # h## to h21
+    if p.loc in h_locs and w.h21 == 'free':
+        yield w.success(
+            replace(p, loc=h21),
+            [run('robot', 'generated/{h_loc}_get')]
+        )
 
-@dataclass
-class h21_release(RobotStep):
-    def step(self, p: Plate, w: World) -> Success | None:
-        if p.loc == h21:
-            for h_loc in h_locs:
-                if w[h_loc] == 'free':
-                    return w.success(
-                        replace(p, loc=h_loc),
-                        [run('robot', 'generated/{h_loc}_put')]
-                    )
-        return None
+    # h21 to h##
+    if p.loc == h21:
+        for h_loc in h_locs:
+            if w[h_loc] == 'free':
+                yield w.success(
+                    replace(p, loc=h_loc),
+                    [run('robot', 'generated/{h_loc}_put')]
+                )
 
-@dataclass
-class delid(RobotStep):
-    def step(self, p: Plate, w: World) -> Success | None:
-        if p.loc == h21 and p.lid_loc == 'self':
-            for lid_loc in lid_locs:
-                if w[lid_loc] == 'free':
-                    return w.success(
-                        replace(p, lid_loc=lid_loc),
-                        [run('robot', 'generated/lid_{lid_loc}_put')],
-                    )
-        return None
+    # lid: move lid on h## to self
+    if p.loc == h21 and p.lid_loc in lid_locs:
+        yield w.success(
+            replace(p, lid_loc='self'),
+            [run('robot', 'generated/lid_{p.lid_loc}_get')],
+        )
 
-@dataclass
-class lid(RobotStep):
-    def step(self, p: Plate, w: World) -> Success | None:
-        if p.loc == h21 and p.lid_loc in lid_locs:
-            return w.success(
-                replace(p, lid_loc='self'),
-                [run('robot', 'generated/lid_{p.lid_loc}_get')],
-            )
-        return None
+    # delid: move lid on self to h##
+    if p.loc == h21 and p.lid_loc == 'self':
+        for lid_loc in lid_locs:
+            if w[lid_loc] == 'free':
+                yield w.success(
+                    replace(p, lid_loc=lid_loc),
+                    [run('robot', 'generated/lid_{lid_loc}_put')],
+                )
 
 # Cell Painting Workflow
 protocol: list[ProtocolStep] = [
