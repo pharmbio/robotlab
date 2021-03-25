@@ -2,7 +2,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field, replace, astuple
 from typing import Any
 
-
 from utils import show
 import snoop # type: ignore
 snoop.install(pformat=show)
