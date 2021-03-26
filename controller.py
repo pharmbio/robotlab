@@ -24,8 +24,8 @@ class Plate:
     loc: str
     lid_loc: str = 'self'
     target_loc: None | str = None
-    queue: list[ProtocolStep] = field(default_factory=list, repr=False)
     waiting_for: None | JobId | datetime.datetime | UnresolvedTime = None
+    queue: list[ProtocolStep] = field(default_factory=list, repr=False)
     meta: Any = field(default=None, repr=False)
 
     def top(self) -> ProtocolStep:
@@ -52,6 +52,8 @@ h_locs:    list[str] = [f'h{i}' for i in H]
 r_locs:    list[str] = [f'r{i}' for i in H]
 out_locs:  list[str] = [f'out{i}' for i in Out]
 lid_locs:  list[str] = [h for h in h_locs if h != h21]
+
+out_locs += r_locs
 
 @dataclass(frozen=True)
 class World:
@@ -97,6 +99,17 @@ def world_locations(w: World) -> dict[str, str]:
     locs += out_locs
     return {loc: w[loc] for loc in locs}
 
+def active_count(w: World) -> int:
+    locs: list[str] = 'wash disp incu'.split()
+    locs += h_locs
+    # locs += r_locs
+    return sum(
+        1 for p in w.plates.values()
+        if p.loc in locs
+        if p.queue
+        # ie not inside incubator and not in output
+    )
+
 @dataclass
 class UniqueSupply:
     count: int = 0
@@ -132,7 +145,7 @@ class incu_pop(ProtocolStep):
 class incu_put(ProtocolStep):
     time: str
     def step(self, p: Plate, w: World) -> Success | None:
-        if p.loc == h21 and p.lid_loc == 'self':
+        if p.loc == h21 and p.lid_loc == 'self' and w.incu == 'free':
             for incu_loc in incu_locs:
                 if w[incu_loc] == 'free':
                     id = JobId(unique('incu'))
@@ -150,7 +163,7 @@ class wash(ProtocolStep):
     arg1: str | None = None
     arg2: str | None = None
     def step(self, p: Plate, w: World) -> Success | None:
-        if p.loc == h21 and p.lid_loc != 'self':
+        if p.loc == h21 and p.lid_loc != 'self' and (p.target_loc == 'wash' or w.wash == 'free'):
             id = JobId(unique('wash'))
             return w.success(
                 replace(p, loc='wash', waiting_for=id),
@@ -166,7 +179,7 @@ class disp(ProtocolStep):
     arg1: str | None = None
     arg2: str | None = None
     def step(self, p: Plate, w: World) -> Success | None:
-        if p.loc == h21 and p.lid_loc != 'self':
+        if p.loc == h21 and p.lid_loc != 'self' and (p.target_loc == 'disp' or w.disp == 'free'):
             id = JobId(unique('disp'))
             return w.success(
                 replace(p, loc='disp', waiting_for=id),
@@ -305,18 +318,35 @@ protocol: list[ProtocolStep] = [
 ]
 
 from collections import deque
+import random
 
-def bfs(w0: World, moves, max_fuel = 10_000) -> Tuple[World, list[run]] | None:
+def bfs(w0: World, moves, max_fuel: int=1000, shuffle_prob: float=0) -> Tuple[World, list[run]] | None:
     q: deque[Tuple[World, list[run]]] = deque([(w0, [])])
     visited = set()
     fuel = max_fuel
     while q and fuel > 0:
         fuel -= 1
+        if shuffle_prob and random.random() < shuffle_prob:
+            random.shuffle(q)
         w, cmds = q.popleft()
         rw = repr(w)
         if rw in visited:
             continue
         visited.add(rw)
+        collision = [
+            (p, q)
+            for p in w.plates.values()
+            for q in w.plates.values()
+            if p.id < q.id
+            if any((
+                p.loc == q.loc,
+                p.lid_loc != 'self' and p.lid_loc == q.lid_loc,
+                p.target_loc is not None and p.target_loc == q.target_loc,
+                p.target_loc == q.loc,
+                q.target_loc == p.loc,
+            ))
+        ]
+        assert not collision, pp(collision)
         # pp(w.plates, world_locations(w))
         for p in w.plates.values():
             if p.waiting_for is not None:
@@ -324,9 +354,9 @@ def bfs(w0: World, moves, max_fuel = 10_000) -> Tuple[World, list[run]] | None:
             if not p.queue:
                 continue
             if res := p.top().step(p.pop(), w):
-                # pp(p, p.top())
-                pp(max_fuel - fuel)
-                return (res.w, cmds + res.cmds)
+                # reserve two slots for lids
+                if active_count(res.w) + 2 <= len(h_locs):
+                    return (res.w, cmds + res.cmds)
             for res in moves(p, w):
                 if res:
                     q.append((res.w, cmds + res.cmds))
@@ -338,22 +368,32 @@ p0: list[Plate] = [
     Plate('Cal', incu_locs[2], queue=protocol),
     Plate('Deb', incu_locs[3], queue=protocol),
     Plate('Eve', incu_locs[4], queue=protocol),
-    Plate('AII', incu_locs[5], queue=protocol),
-    Plate('BII', incu_locs[6], queue=protocol),
-    Plate('CII', incu_locs[7], queue=protocol),
-    Plate('DII', incu_locs[8], queue=protocol),
-    Plate('EII', incu_locs[9], queue=protocol),
+    Plate('Fei', incu_locs[5], queue=protocol),
+    Plate('Gil', incu_locs[6], queue=protocol),
+    Plate('Hal', incu_locs[7], queue=protocol),
+    Plate('Ivy', incu_locs[8], queue=protocol),
+    Plate('Joe', incu_locs[9], queue=protocol),
     Plate('Ad2', incu_locs[10], queue=protocol),
     Plate('Bo2', incu_locs[11], queue=protocol),
     Plate('Ca2', incu_locs[12], queue=protocol),
     Plate('De2', incu_locs[13], queue=protocol),
     Plate('Ev2', incu_locs[14], queue=protocol),
-    Plate('AI2', incu_locs[15], queue=protocol),
-    Plate('BI2', incu_locs[16], queue=protocol),
-    Plate('CI2', incu_locs[17], queue=protocol),
-    Plate('DI2', incu_locs[18], queue=protocol),
-    Plate('EI2', incu_locs[19], queue=protocol),
-]
+    Plate('Fe2', incu_locs[15], queue=protocol),
+    Plate('Gi2', incu_locs[16], queue=protocol),
+    Plate('Ha2', incu_locs[17], queue=protocol),
+    Plate('Iv2', incu_locs[18], queue=protocol),
+    Plate('Jo2', incu_locs[19], queue=protocol),
+    Plate('Ad3', incu_locs[20], queue=protocol),
+    Plate('Bo3', incu_locs[21], queue=protocol),
+    Plate('Ca3', incu_locs[22], queue=protocol),
+    Plate('De3', incu_locs[23], queue=protocol),
+    Plate('Ev3', incu_locs[24], queue=protocol),
+    Plate('Fe3', incu_locs[25], queue=protocol),
+    Plate('Gi3', incu_locs[26], queue=protocol),
+    Plate('Ha3', incu_locs[27], queue=protocol),
+    Plate('Iv3', incu_locs[28], queue=protocol),
+    Plate('Jo3', incu_locs[29], queue=protocol),
+][:len(out_locs)]
 
 w0 = World(dict({p.id: p for p in p0}))
 
@@ -361,16 +401,19 @@ w = w0
 
 all_cmds = []
 
+pp('w0')
+
 while 1:
     # pp('running bfs...')
     # for p in w.plates.values():
     #     pp(p, len(p.queue), p.queue[:1])
-    res = bfs(w, moves)
+    res = bfs(w, moves, shuffle_prob=1.0)
     if not res:
         break
     w, cmds = res
     all_cmds += cmds
     # pp('res:', w.plates, cmds)
+    print(*[p.loc for p in w.plates.values()], sep='\t')
 
     for p in w.plates.values():
         if p.target_loc == p.loc:
@@ -379,14 +422,16 @@ while 1:
     for p in w.plates.values():
         if p.waiting_for:
             w = w.update(replace(p, waiting_for=None))
+            all_cmds += [run('wait', p.loc, id=p.waiting_for)]
 
 print('done?')
-pp(all_cmds)
+pp(all_cmds, len(all_cmds))
 pp({
     p.id: (*astuple(p)[:4], len(p.queue))
     for p in w.plates.values()
 })
 pp(w.plates)
+# pp(world_locations(w))
 
 
 
