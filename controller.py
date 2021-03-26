@@ -77,8 +77,8 @@ class World:
     def update(self, p: Plate) -> World:
         return replace(self, plates={**self.plates, p.id: p})
 
-    def success(self, p: Plate, cmds: list[run]=[]) -> Success:
-        return Success(w=self.update(p), cmds=cmds)
+    def transition(self, p: Plate, cmds: list[run]=[]) -> Transition:
+        return Transition(w=self.update(p), cmds=cmds)
 
 @dataclass(frozen=True)
 class run:
@@ -87,9 +87,12 @@ class run:
     id: JobId | None = None
 
 @dataclass(frozen=True)
-class Success:
+class Transition:
     w: World
-    cmds: list[run]
+    cmds: list[run] = field(default_factory=list)
+    prio: int = 0
+    def __rshift__(self, other: Transition) -> Transition:
+        return Transition(other.w, self.cmds + other.cmds, max(self.prio, other.prio))
 
 def world_locations(w: World) -> dict[str, str]:
     locs: list[str] = 'wash disp incu'.split()
@@ -126,16 +129,19 @@ from abc import ABC, abstractmethod
 
 class ProtocolStep(ABC):
     @abstractmethod
-    def step(self, p: Plate, w: World) -> Success | None:
+    def step(self, p: Plate, w: World) -> Transition | None:
         pass
+
+    def prio(self) -> int:
+        return 0
 
 @dataclass(frozen=True)
 class incu_pop(ProtocolStep):
     target: str
-    def step(self, p: Plate, w: World) -> Success | None:
+    def step(self, p: Plate, w: World) -> Transition | None:
         if p.loc in incu_locs and w[self.target] == 'free':
             id = JobId(unique('incu'))
-            return w.success(
+            return w.transition(
                 replace(p, loc='incu', target_loc=self.target, waiting_for=id),
                 [run('incu_get', p.loc, id=id)]
             )
@@ -144,12 +150,12 @@ class incu_pop(ProtocolStep):
 @dataclass(frozen=True)
 class incu_put(ProtocolStep):
     time: str
-    def step(self, p: Plate, w: World) -> Success | None:
+    def step(self, p: Plate, w: World) -> Transition | None:
         if p.loc == h21 and p.lid_loc == 'self' and w.incu == 'free':
             for incu_loc in incu_locs:
                 if w[incu_loc] == 'free':
                     id = JobId(unique('incu'))
-                    return w.success(
+                    return w.transition(
                         replace(p, loc=incu_loc, waiting_for=UnresolvedTime(time=self.time, id=id)),
                         [
                             run('robot', 'generated/incu_put'),
@@ -158,14 +164,17 @@ class incu_put(ProtocolStep):
                     )
         return None
 
+    def prio(self) -> int:
+        return 1
+
 @dataclass(frozen=True)
 class wash(ProtocolStep):
     arg1: str | None = None
     arg2: str | None = None
-    def step(self, p: Plate, w: World) -> Success | None:
+    def step(self, p: Plate, w: World) -> Transition | None:
         if p.loc == h21 and p.lid_loc != 'self' and (p.target_loc == 'wash' or w.wash == 'free'):
             id = JobId(unique('wash'))
-            return w.success(
+            return w.transition(
                 replace(p, loc='wash', waiting_for=id),
                 [
                     run('robot', 'generated/wash_put'),
@@ -174,14 +183,17 @@ class wash(ProtocolStep):
             )
         return None
 
+    def prio(self) -> int:
+        return 2
+
 @dataclass(frozen=True)
 class disp(ProtocolStep):
     arg1: str | None = None
     arg2: str | None = None
-    def step(self, p: Plate, w: World) -> Success | None:
+    def step(self, p: Plate, w: World) -> Transition | None:
         if p.loc == h21 and p.lid_loc != 'self' and (p.target_loc == 'disp' or w.disp == 'free'):
             id = JobId(unique('disp'))
-            return w.success(
+            return w.transition(
                 replace(p, loc='disp', waiting_for=id),
                 [
                     run('robot', 'wash_get'),
@@ -190,14 +202,17 @@ class disp(ProtocolStep):
             )
         return None
 
+    def prio(self) -> int:
+        return 2
+
 @dataclass(frozen=True)
 class RT_incu(ProtocolStep):
     time: str
-    def step(self, p: Plate, w: World) -> Success | None:
+    def step(self, p: Plate, w: World) -> Transition | None:
         if p.loc == 'h21' and p.lid_loc == 'self':
             for r_loc in r_locs:
                 if w[r_loc] == 'free':
-                    return w.success(
+                    return w.transition(
                         replace(p, loc=r_loc, waiting_for=UnresolvedTime(self.time)),
                         [run('robot', f'generated/{r_loc}_put')]
                     )
@@ -205,24 +220,24 @@ class RT_incu(ProtocolStep):
 
 @dataclass(frozen=True)
 class to_output_hotel(ProtocolStep):
-    def step(self, p: Plate, w: World) -> Success | None:
+    def step(self, p: Plate, w: World) -> Transition | None:
         if p.loc == 'h21' and p.lid_loc == 'self':
             for out_loc in out_locs:
                 if w[out_loc] == 'free':
-                    return w.success(
+                    return w.transition(
                         replace(p, loc=out_loc),
                         [run('robot', f'generated/{out_loc}_put')]
                     )
         return None
 
-def moves(p: Plate, w: World) -> Iterator[Success]:
+def moves(p: Plate, w: World) -> Iterator[Transition]:
     if p.waiting_for is not None:
         return
 
     # disp to h21
     if p.loc == 'disp' and w.h21 == 'free':
         assert p.waiting_for is None
-        yield w.success(
+        yield w.transition(
             replace(p, loc=h21),
             [run('robot', 'generated/disp_get')]
         )
@@ -230,7 +245,7 @@ def moves(p: Plate, w: World) -> Iterator[Success]:
     # wash to h21
     if p.loc == 'wash' and w.h21 == 'free':
         assert p.waiting_for is None
-        yield w.success(
+        yield w.transition(
             replace(p, loc=h21),
             [run('robot', 'generated/wash_get')]
         )
@@ -238,7 +253,7 @@ def moves(p: Plate, w: World) -> Iterator[Success]:
     # incu to h21
     if p.loc == 'incu' and w.h21 == 'free':
         assert p.waiting_for is None
-        yield w.success(
+        yield w.transition(
             replace(p, loc=h21),
             [run('robot', 'generated/incu_get')]
         )
@@ -246,7 +261,7 @@ def moves(p: Plate, w: World) -> Iterator[Success]:
     # RT to h21
     if p.loc in r_locs and w.h21 == 'free':
         assert p.waiting_for is None
-        yield w.success(
+        yield w.transition(
             replace(p, loc=h21),
             [run('robot', f'generated/{p.loc}_get')]
         )
@@ -254,7 +269,7 @@ def moves(p: Plate, w: World) -> Iterator[Success]:
     if 1:
         # h## to h21
         if p.loc in h_locs and w.h21 == 'free':
-            yield w.success(
+            yield w.transition(
                 replace(p, loc=h21),
                 [run('robot', f'generated/{p.loc}_get')]
             )
@@ -263,7 +278,7 @@ def moves(p: Plate, w: World) -> Iterator[Success]:
         if p.loc == h21:
             for h_loc in h_locs:
                 if w[h_loc] == 'free':
-                    yield w.success(
+                    yield w.transition(
                         replace(p, loc=h_loc),
                         [run('robot', f'generated/{h_loc}_put')]
                     )
@@ -271,7 +286,7 @@ def moves(p: Plate, w: World) -> Iterator[Success]:
 
     # lid: move lid on h## to self
     if p.loc == h21 and p.lid_loc in lid_locs:
-        yield w.success(
+        yield w.transition(
             replace(p, lid_loc='self'),
             [run('robot', f'generated/lid_{p.lid_loc}_get')],
         )
@@ -280,7 +295,7 @@ def moves(p: Plate, w: World) -> Iterator[Success]:
     if p.loc == h21 and p.lid_loc == 'self':
         for lid_loc in lid_locs:
             if w[lid_loc] == 'free':
-                yield w.success(
+                yield w.transition(
                     replace(p, lid_loc=lid_loc),
                     [run('robot', f'generated/lid_{lid_loc}_put')],
                 )
@@ -320,15 +335,24 @@ protocol: list[ProtocolStep] = [
 from collections import deque
 import random
 
-def bfs(w0: World, moves, max_fuel: int=1000, shuffle_prob: float=0) -> Tuple[World, list[run]] | None:
-    q: deque[Tuple[World, list[run]]] = deque([(w0, [])])
+from typing import *
+
+@dataclass(frozen=True)
+class BfsOpts:
+    max_fuel: int=1000
+    shuffle_prob: float=0
+
+def bfs_iter(w0: World, opts: BfsOpts=BfsOpts()) -> Iterator[Transition]:
+    q: deque[Transition] = deque([Transition(w0)])
     visited = set()
-    fuel = max_fuel
+    solved = set()
+    fuel = opts.max_fuel
     while q and fuel > 0:
         fuel -= 1
-        if shuffle_prob and random.random() < shuffle_prob:
+        if opts.shuffle_prob and random.random() < opts.shuffle_prob:
             random.shuffle(q)
-        w, cmds = q.popleft()
+        t = q.popleft()
+        w = t.w
         rw = repr(w)
         if rw in visited:
             continue
@@ -347,20 +371,30 @@ def bfs(w0: World, moves, max_fuel: int=1000, shuffle_prob: float=0) -> Tuple[Wo
             ))
         ]
         assert not collision, pp(collision)
-        # pp(w.plates, world_locations(w))
         for p in w.plates.values():
             if p.waiting_for is not None:
                 continue
             if not p.queue:
                 continue
-            if res := p.top().step(p.pop(), w):
+            if p.id not in solved and (res := p.top().step(p.pop(), w)):
                 # reserve two slots for lids
                 if active_count(res.w) + 2 <= len(h_locs):
-                    return (res.w, cmds + res.cmds)
+                    solved.add(p.id)
+                    yield replace(t >> res, prio=p.top().prio())
             for res in moves(p, w):
                 if res:
-                    q.append((res.w, cmds + res.cmds))
+                    q.append(t >> res)
     return None
+
+def bfs(w0: World, opts: BfsOpts=BfsOpts()) -> Transition | None:
+    first: Transition | None = None
+    max_prio = max((0, *(p.top().prio() for p in w0.plates.values() if p.queue)))
+    for res in bfs_iter(w0, opts):
+        if res.prio == max_prio:
+            return res
+        if not first:
+            first = res
+    return first
 
 p0: list[Plate] = [
     Plate('Ada', incu_locs[0], queue=protocol),
@@ -399,7 +433,7 @@ w0 = World(dict({p.id: p for p in p0}))
 
 w = w0
 
-all_cmds = []
+all_cmds: list[run] = []
 
 pp('w0')
 
@@ -407,11 +441,11 @@ while 1:
     # pp('running bfs...')
     # for p in w.plates.values():
     #     pp(p, len(p.queue), p.queue[:1])
-    res = bfs(w, moves, shuffle_prob=1.0)
+    res = bfs(w, BfsOpts(shuffle_prob=1.0))
     if not res:
         break
-    w, cmds = res
-    all_cmds += cmds
+    w = res.w
+    all_cmds += res.cmds
     # pp('res:', w.plates, cmds)
     print(*[p.loc for p in w.plates.values()], sep='\t')
 
