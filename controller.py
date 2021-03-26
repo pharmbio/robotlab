@@ -3,28 +3,22 @@ from __future__ import annotations
 from dataclasses import dataclass, field, replace, astuple
 from utils import dotdict
 from typing import Dict, Any, Tuple, Literal, NewType, Iterator
-import datetime
+from datetime import datetime, timedelta
 
 from utils import show
 import snoop # type: ignore
 snoop.install(pformat=show)
 pp: Any
 
-
 JobId = NewType('JobId', str)
-
-@dataclass(frozen=True)
-class UnresolvedTime:
-    time: str
-    id: JobId | None = None # first wait for this machine
 
 @dataclass(frozen=True)
 class Plate:
     id: str
     loc: str
     lid_loc: str = 'self'
-    waiting_for: None | JobId | datetime.datetime | UnresolvedTime = None
-    queue: list[ProtocolStep] = field(default_factory=list, repr=False)
+    waiting_for: list[JobId | datetime | timedelta] = field(default_factory=list, repr=True)
+    queue: list[ProtocolStep] = field(default_factory=list, repr=True)
     meta: Any = field(default=None, repr=False)
 
     def top(self) -> ProtocolStep:
@@ -135,24 +129,24 @@ class ProtocolStep(ABC):
 @dataclass(frozen=True)
 class incu_pop(ProtocolStep):
     def step(self, p: Plate, w: World) -> Transition | None:
-        if p.loc in incu_locs:
+        if p.loc in incu_locs and w.incu == 'free':
             id = JobId(unique('incu'))
             return w.transition(
-                replace(p, loc='incu', waiting_for=id),
+                replace(p, loc='incu', waiting_for=[id]),
                 [run('incu_get', p.loc, id=id)]
             )
         return None
 
 @dataclass(frozen=True)
 class incu_put(ProtocolStep):
-    time: str
+    timedelta: timedelta
     def step(self, p: Plate, w: World) -> Transition | None:
         if p.loc == h21 and p.lid_loc == 'self' and w.incu == 'free':
             for incu_loc in incu_locs:
                 if w[incu_loc] == 'free':
                     id = JobId(unique('incu'))
                     return w.transition(
-                        replace(p, loc=incu_loc, waiting_for=UnresolvedTime(time=self.time, id=id)),
+                        replace(p, loc=incu_loc, waiting_for=[id, self.timedelta]),
                         [
                             run('robot', 'generated/incu_put'),
                             run('incu_put', incu_loc, id=id),
@@ -171,7 +165,7 @@ class wash(ProtocolStep):
         if p.loc == h21 and p.lid_loc != 'self' and w.wash == 'free':
             id = JobId(unique('wash'))
             return w.transition(
-                replace(p, loc='wash', waiting_for=id),
+                replace(p, loc='wash', waiting_for=[id]),
                 [
                     run('robot', 'generated/wash_put'),
                     run('wash', [self.arg1, self.arg2], id=id),
@@ -190,7 +184,7 @@ class disp(ProtocolStep):
         if p.loc == h21 and p.lid_loc != 'self' and w.disp == 'free':
             id = JobId(unique('disp'))
             return w.transition(
-                replace(p, loc='disp', waiting_for=id),
+                replace(p, loc='disp', waiting_for=[id]),
                 [
                     run('robot', 'wash_get'),
                     run('disp', [self.arg1, self.arg2], id=id)
@@ -203,13 +197,13 @@ class disp(ProtocolStep):
 
 @dataclass(frozen=True)
 class RT_incu(ProtocolStep):
-    time: str
+    timedelta: timedelta
     def step(self, p: Plate, w: World) -> Transition | None:
         if p.loc == 'h21' and p.lid_loc == 'self':
             for r_loc in r_locs:
                 if w[r_loc] == 'free':
                     return w.transition(
-                        replace(p, loc=r_loc, waiting_for=UnresolvedTime(self.time)),
+                        replace(p, loc=r_loc, waiting_for=[self.timedelta]),
                         [run('robot', f'generated/{r_loc}_put')]
                     )
         return None
@@ -231,12 +225,13 @@ class to_output_hotel(ProtocolStep):
         return None
 
 def moves(p: Plate, w: World) -> Iterator[Transition]:
-    if p.waiting_for is not None:
+    assert isinstance(p.waiting_for, list)
+    if p.waiting_for:
         return
 
     # disp to h21
     if p.loc == 'disp' and w.h21 == 'free':
-        assert p.waiting_for is None
+        assert not p.waiting_for
         yield w.transition(
             replace(p, loc=h21),
             [run('robot', 'generated/disp_get')]
@@ -244,7 +239,7 @@ def moves(p: Plate, w: World) -> Iterator[Transition]:
 
     # wash to h21
     if p.loc == 'wash' and w.h21 == 'free':
-        assert p.waiting_for is None
+        assert not p.waiting_for
         yield w.transition(
             replace(p, loc=h21),
             [run('robot', 'generated/wash_get')]
@@ -252,7 +247,7 @@ def moves(p: Plate, w: World) -> Iterator[Transition]:
 
     # incu to h21
     if p.loc == 'incu' and w.h21 == 'free':
-        assert p.waiting_for is None
+        assert not p.waiting_for
         yield w.transition(
             replace(p, loc=h21),
             [run('robot', 'generated/incu_get')]
@@ -260,7 +255,7 @@ def moves(p: Plate, w: World) -> Iterator[Transition]:
 
     # RT to h21
     if p.loc in r_locs and w.h21 == 'free':
-        assert p.waiting_for is None
+        assert not p.waiting_for
         yield w.transition(
             replace(p, loc=h21),
             [run('robot', f'generated/{p.loc}_get')]
@@ -301,6 +296,9 @@ def moves(p: Plate, w: World) -> Iterator[Transition]:
                 )
                 break
 
+def minutes(m: int) -> timedelta:
+    return timedelta(minutes=m)
+
 # Cell Painting Workflow
 protocol: list[ProtocolStep] = [
     # 2 Compound treatment: Remove (80%) media of all wells
@@ -309,23 +307,23 @@ protocol: list[ProtocolStep] = [
 
     # 3 Mitotracker staining
     disp('peripump 1', 'mitotracker solution'),
-    incu_put('30 min'),
+    incu_put(minutes(30)),
     incu_pop(),
     wash('pump D', 'PBS'),
 
     # 4 Fixation
     disp('Syringe A', '4% PFA'),
-    RT_incu('20 min'),
+    RT_incu(minutes(20)),
     wash('pump D', 'PBS'),
 
     # 5 Permeabilization
     disp('Syringe B', '0.1% Triton X-100 in PBS'),
-    RT_incu('20 min'),
+    RT_incu(minutes(20)),
     wash('pump D', 'PBS'),
 
     # 6 Post-fixation staining
     disp('peripump 2', 'staining mixture in PBS'),
-    RT_incu('20 min'),
+    RT_incu(minutes(20)),
     wash('pump D', 'PBS'),
 
     # 7 Imaging
@@ -344,8 +342,8 @@ class BfsOpts:
 
 def bfs_iter(w0: World, opts: BfsOpts=BfsOpts()) -> Iterator[Transition]:
     q: deque[Transition] = deque([Transition(w0)])
-    visited = set()
-    solved = set()
+    visited: set[str] = set()
+    solved: set[str] = set()
     fuel = opts.max_fuel
     while q and fuel > 0:
         fuel -= 1
@@ -369,7 +367,7 @@ def bfs_iter(w0: World, opts: BfsOpts=BfsOpts()) -> Iterator[Transition]:
         ]
         assert not collision, pp(collision)
         for p in w.plates.values():
-            if p.waiting_for is not None:
+            if p.waiting_for:
                 continue
             if not p.queue:
                 continue
@@ -377,6 +375,7 @@ def bfs_iter(w0: World, opts: BfsOpts=BfsOpts()) -> Iterator[Transition]:
                 # reserve two slots for lids
                 if active_count(res.w) + 2 <= len(h_locs):
                     solved.add(p.id)
+                    fuel /= 2
                     yield replace(t >> res, prio=p.top().prio())
             for res in moves(p, w):
                 if res:
@@ -438,29 +437,56 @@ while 1:
     # pp('running bfs...')
     # for p in w.plates.values():
     #     pp(p, len(p.queue), p.queue[:1])
-    res = bfs(w, BfsOpts(shuffle_prob=0.0))
-    if not res:
-        break
-    w = res.w
-    all_cmds += res.cmds
-    # pp('res:', w.plates, cmds)
-    print(*[p.loc for p in w.plates.values()], sep='\t')
+    res = bfs(w, BfsOpts(shuffle_prob=0.1, max_fuel=1e3))
+
+    if res:
+        w = res.w
+        all_cmds += res.cmds
+        # pp('res:', w.plates, res.cmds)
+        print(*[p.loc for p in w.plates.values()], sep='\t')
+
+    times: list[datetime] = []
+
+    any_finished = False
 
     for p in w.plates.values():
         if p.waiting_for:
-            w = w.update(replace(p, waiting_for=None))
-            all_cmds += [run('wait', p.loc, id=cast(Any, p.waiting_for))]
+            top, *rest = p.waiting_for
+            if isinstance(top, str):
+                w = w.update(replace(p, waiting_for=rest))
+                all_cmds += [run('finished', p.loc, id=top)]
+                any_finished = True
+            elif isinstance(top, timedelta):
+                time = datetime.now() + top
+                times += [time]
+                w = w.update(replace(p, waiting_for=[time, *rest]))
+            elif isinstance(top, datetime):
+                times += [top]
+                break
+            else:
+                raise ValueError
+
+    times = list(sorted(times))
+    if not times and not res and not any_finished:
+        break
+
+    advance_prob = 0.1
+
+    if times and (not res or random.random() < advance_prob):
+        now = times[0]
+        for p in w.plates.values():
+            if p.waiting_for:
+                top, *rest = p.waiting_for
+                if isinstance(top, datetime) and top <= now:
+                    all_cmds += [run('wait', p.loc, id=top)]
+                    w = w.update(replace(p, waiting_for=rest))
 
 print('done?')
-# pp(all_cmds, len(all_cmds))
+pp(all_cmds, len(all_cmds))
 pp({
     p.id: (*astuple(p)[:4], len(p.queue))
     for p in w.plates.values()
 })
 pp(w.plates)
 # pp(world_locations(w))
-
-
-
-
 
