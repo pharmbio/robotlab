@@ -410,7 +410,17 @@ def test_robot():
 
     # execute_robot('./generated/disp_put')
 
-execute_robot('./generated/out5_put')
+# execute_robot('./generated/out5_put')
+
+while 1:
+    execute_robot('./generated/r1_put')
+    execute_robot('./generated/r1_get')
+
+    execute_robot('./generated/r11_put')
+    execute_robot('./generated/r11_get')
+
+    execute_robot('./generated/r15_put')
+    execute_robot('./generated/r15_get')
 
 if 0:
     execute_robot('./generated/lid_h19_put')
