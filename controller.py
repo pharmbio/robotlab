@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace, astuple
-from utils import dotdict
-from typing import Dict, Any, Tuple, Literal, NewType, Iterator
+from typing import *
 from datetime import datetime, timedelta
 
 from utils import show
@@ -375,7 +374,7 @@ def bfs_iter(w0: World, opts: BfsOpts=BfsOpts()) -> Iterator[Transition]:
                 # reserve two slots for lids
                 if active_count(res.w) + 2 <= len(h_locs):
                     solved.add(p.id)
-                    fuel /= 2
+                    fuel //= 2
                     yield replace(t >> res, prio=p.top().prio())
             for res in moves(p, w):
                 if res:
@@ -427,66 +426,140 @@ p0: list[Plate] = [
 
 w0 = World(dict({p.id: p for p in p0}))
 
-w = w0
+def sim(w: World, shuffle_prob: float=0.0, advance_prob: float=0.0):
 
-all_cmds: list[run] = []
+    pp('sim')
 
-pp('w0')
+    all_cmds: list[run] = []
 
-while 1:
-    # pp('running bfs...')
-    # for p in w.plates.values():
-    #     pp(p, len(p.queue), p.queue[:1])
-    res = bfs(w, BfsOpts(shuffle_prob=0.1, max_fuel=1e3))
+    while 1:
+        res = bfs(w, BfsOpts(shuffle_prob=shuffle_prob, max_fuel=1000))
 
-    if res:
-        w = res.w
-        all_cmds += res.cmds
-        # pp('res:', w.plates, res.cmds)
-        print(*[p.loc for p in w.plates.values()], sep='\t')
+        if res:
+            w = res.w
+            all_cmds += res.cmds
+            print(*[p.loc for p in w.plates.values()], sep='\t')
 
-    times: list[datetime] = []
+        times: list[datetime] = []
 
-    any_finished = False
+        any_finished = False
 
-    for p in w.plates.values():
-        if p.waiting_for:
-            top, *rest = p.waiting_for
-            if isinstance(top, str):
-                w = w.update(replace(p, waiting_for=rest))
-                all_cmds += [run('finished', p.loc, id=top)]
-                any_finished = True
-            elif isinstance(top, timedelta):
-                time = datetime.now() + top
-                times += [time]
-                w = w.update(replace(p, waiting_for=[time, *rest]))
-            elif isinstance(top, datetime):
-                times += [top]
-                break
-            else:
-                raise ValueError
-
-    times = list(sorted(times))
-    if not times and not res and not any_finished:
-        break
-
-    advance_prob = 0.1
-
-    if times and (not res or random.random() < advance_prob):
-        now = times[0]
         for p in w.plates.values():
             if p.waiting_for:
                 top, *rest = p.waiting_for
-                if isinstance(top, datetime) and top <= now:
-                    all_cmds += [run('wait', p.loc, id=top)]
+                if isinstance(top, str):
                     w = w.update(replace(p, waiting_for=rest))
+                    all_cmds += [run('finished', p.loc, id=top)]
+                    any_finished = True
+                elif isinstance(top, timedelta):
+                    time = datetime.now() + top
+                    times += [time]
+                    w = w.update(replace(p, waiting_for=[time, *rest]))
+                elif isinstance(top, datetime):
+                    times += [top]
+                    break
+                else:
+                    raise ValueError
 
-print('done?')
-pp(all_cmds, len(all_cmds))
-pp({
-    p.id: (*astuple(p)[:4], len(p.queue))
-    for p in w.plates.values()
-})
-pp(w.plates)
-# pp(world_locations(w))
+        times = list(sorted(times))
+        if not times and not res and not any_finished:
+            break
 
+        if times and (not res or random.random() < advance_prob):
+            now = times[0]
+            for p in w.plates.values():
+                if p.waiting_for:
+                    top, *rest = p.waiting_for
+                    if isinstance(top, datetime) and top <= now:
+                        all_cmds += [run('wait', (p.loc, top))]
+                        w = w.update(replace(p, waiting_for=rest))
+
+    print('done?')
+    pp(all_cmds, len(all_cmds))
+    pp({
+        p.id: (*astuple(p)[:4], len(p.queue))
+        for p in w.plates.values()
+    })
+    pp(w.plates)
+    # pp(world_locations(w))
+
+# Use start-proxies.sh to forward robot to localhost
+robot_host = 'localhost'
+robot_port = 30001
+
+def execute_robot(prog: str):
+    import socket
+    import re
+    prog_str = open(prog, 'rb').read()
+    prog_name = prog.split('/')[-1]
+    needle = f'program {prog_name} completed'.encode()
+    pp(needle)
+    assert needle in prog_str
+    print('connecting to robot...')
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.connect((robot_host, robot_port))
+    print('connected!')
+    s.sendall(prog_str)
+    while True:
+        data = s.recv(4096)
+        # RuntimeExceptionMessage, looks like:
+        # b'syntax_error_on_line:4:    movej([0.5, -1, -2, 0, 0, -0], a=0.25, v=1.0):'
+        # b'compile_error_name_not_found:getactual_joint_positions:'
+        # b'SECONDARY_PROGRAM_EXCEPTION_XXXType error: str_sub takes exact'
+        for m in re.findall(b'([\x20-\x7e]*(?:error|EXCEPTION)[\x20-\x7e]*)', data):
+            m = m.decode()
+            pp(m)
+
+        # KeyMessage, looks like:
+        # PROGRAM_XXX_STARTEDtestmove2910
+        # PROGRAM_XXX_STOPPEDtestmove2910
+        for m in re.findall(b'PROGRAM_XXX_(\w*)', data):
+            m = m.decode()
+            pp(m)
+
+        if needle in m:
+            print(f'program {prog_name} completed!')
+            break
+    s.close()
+
+@snoop
+def execute_incu_get(loc, id):
+    pass
+
+@snoop
+def execute_incu_put(loc, id):
+    pass
+
+@snoop
+def execute_wash(args, id):
+    pass
+
+@snoop
+def execute_disp(args, id):
+    pass
+
+def execute_cmd(cmd: run):
+    if cmd.device in 'robot incu_get incu_put disp wash'.split():
+        args = [cmd.arg]
+        args = [arg for arg in args if arg is not None]
+        kws = dict()
+        if cmd.id:
+            kws['id'] = cmd.id
+        globals()[f'execute_{cmd.device}'](*args, **kws)
+    else:
+        raise ValueError(f'No such device: {cmd.device}')
+
+def execute(w: World):
+    pp('execute')
+
+    while 1:
+        res = bfs(w)
+
+        if res:
+            for cmd in res.cmds:
+                execute_cmd(cmd)
+            w = res.w
+
+        # check for timeouts & ready
+
+    pp('done!')

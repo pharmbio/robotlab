@@ -254,6 +254,7 @@ def generate_scripts() -> None:
             print(f'def {name}():', file=f)
             for line in header + cmds:
                 print('  ' + line, file=f)
+            print(f'  textmsg("___ program {name} completed ___")')
             print(f'end', file=f)
         print('generated', name)
 
