@@ -38,6 +38,10 @@ class movej(Command):
 class gripper(Command):
     name: str
 
+@dataclass(frozen=True)
+class comment(Command):
+    msg: str
+
 @dataclass
 class ParsedScript:
     '''
@@ -125,6 +129,11 @@ def resolve_with(script: ParsedScript, cmds: list[Command]) -> list[str]:
                 ]
         elif isinstance(cmd, gripper):
             out += script.subs[cmd.name]
+        elif isinstance(cmd, comment):
+            out += [
+                f"# {line}"
+                for line in cmd.msg.split('\n')
+            ]
         else:
             raise ValueError
     return out

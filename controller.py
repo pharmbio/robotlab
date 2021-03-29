@@ -29,7 +29,7 @@ class Plate:
 H = [21, 19, 17, 15, 13, 11, 9, 7, 5, 3, 1]
 I = [i+1 for i in range(42)]
 Out = [18] # [ i+1 for i in range(18) ] # todo: measure out_hotel_dist
-Out = [ i+1 for i in range(18) ] # todo: measure out_hotel_dist
+# Out = [ i+1 for i in range(18) ] # todo: measure out_hotel_dist
 
 if 0:
     # small test version
@@ -185,7 +185,7 @@ class disp(ProtocolStep):
             return w.transition(
                 replace(p, loc='disp', waiting_for=[id]),
                 [
-                    run('robot', 'wash_get'),
+                    run('robot', 'generated/disp_put'),
                     run('disp', [self.arg1, self.arg2], id=id)
                 ],
             )
@@ -260,23 +260,22 @@ def moves(p: Plate, w: World) -> Iterator[Transition]:
             [run('robot', f'generated/{p.loc}_get')]
         )
 
-    if 1:
-        # h## to h21
-        if p.loc in h_locs and w.h21 == 'free':
-            yield w.transition(
-                replace(p, loc=h21),
-                [run('robot', f'generated/{p.loc}_get')]
-            )
+    # h## to h21
+    if p.loc in h_locs and w.h21 == 'free':
+        yield w.transition(
+            replace(p, loc=h21),
+            [run('robot', f'generated/{p.loc}_get')]
+        )
 
-        # h21 to h##
-        if p.loc == h21:
-            for h_loc in h_locs:
-                if w[h_loc] == 'free':
-                    yield w.transition(
-                        replace(p, loc=h_loc),
-                        [run('robot', f'generated/{h_loc}_put')]
-                    )
-                    break
+    # h21 to h##
+    if p.loc == h21:
+        for h_loc in h_locs:
+            if w[h_loc] == 'free':
+                yield w.transition(
+                    replace(p, loc=h_loc),
+                    [run('robot', f'generated/{h_loc}_put')]
+                )
+                break
 
     # lid: move lid on h## to self
     if p.loc == h21 and p.lid_loc in lid_locs:
@@ -371,10 +370,9 @@ def bfs_iter(w0: World, opts: BfsOpts=BfsOpts()) -> Iterator[Transition]:
             if not p.queue:
                 continue
             if p.id not in solved and (res := p.top().step(p.pop(), w)):
-                # reserve two slots for lids
-                if active_count(res.w) + 2 <= len(h_locs):
+                # keep some slots free for lids and rearranges
+                if active_count(res.w) + 3 < len(h_locs):
                     solved.add(p.id)
-                    fuel //= 2
                     yield replace(t >> res, prio=p.top().prio())
             for res in moves(p, w):
                 if res:
@@ -390,6 +388,85 @@ def bfs(w0: World, opts: BfsOpts=BfsOpts()) -> Transition | None:
         if not first:
             first = res
     return first
+
+# Use start-proxies.sh to forward robot to localhost
+robot_host = 'localhost'
+robot_port = 30001
+nogripper = True
+
+def test_robot():
+    from glob import glob
+    for path in glob('./generated/*'):
+        execute_robot(path)
+
+    # execute_robot('./generated/disp_put')
+
+def execute_robot(prog: str):
+    import socket
+    import re
+    if nogripper:
+        prog = prog.replace('generated', 'generated_nogripper')
+    prog_str = open(prog, 'rb').read()
+    prog_name = prog.split('/')[-1]
+    needle = f'Program {prog_name} completed'.encode()
+    # pp(needle)
+    assert needle in prog_str
+    if 0:
+        print('dry run', prog)
+        return
+    print('connecting to robot...')
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.connect((robot_host, robot_port))
+    print('connected!')
+    s.sendall(prog_str)
+    while True:
+        data = s.recv(4096)
+        # RuntimeExceptionMessage, looks like:
+        # b'syntax_error_on_line:4:    movej([0.5, -1, -2, 0, 0, -0], a=0.25, v=1.0):'
+        # b'compile_error_name_not_found:getactual_joint_positions:'
+        # b'SECONDARY_PROGRAM_EXCEPTION_XXXType error: str_sub takes exact'
+        for m in re.findall(b'([\x20-\x7e]*(?:error|EXCEPTION)[\x20-\x7e]*)', data):
+            m = m.decode()
+            pp(m)
+
+        # KeyMessage, looks like:
+        # PROGRAM_XXX_STARTEDtestmove2910
+        # PROGRAM_XXX_STOPPEDtestmove2910
+        for m in re.findall(b'PROGRAM_XXX_(\w*)', data):
+            m = m.decode()
+            pp(m)
+
+        if needle in data:
+            print(f'program {prog_name} completed!')
+            break
+    s.close()
+
+def execute_incu_get(loc, id):
+    print('dry run: execute_incu_get', (loc, id), sep='')
+    pass
+
+def execute_incu_put(loc, id):
+    print('dry run: execute_incu_put', (loc, id), sep='')
+    pass
+
+def execute_wash(args, id):
+    print('dry run: execute_wash', (args, id), sep='')
+    pass
+
+def execute_disp(args, id):
+    print('dry run: execute_disp', (args, id), sep='')
+    pass
+
+def execute_cmd(cmd: run):
+    if cmd.device in 'robot incu_get incu_put disp wash'.split():
+        args = [cmd.arg]
+        args = [arg for arg in args if arg is not None]
+        kws = dict()
+        if cmd.id:
+            kws['id'] = cmd.id
+        globals()[f'execute_{cmd.device}'](*args, **kws)
+    else:
+        raise ValueError(f'No such device: {cmd.device}')
 
 p0: list[Plate] = [
     Plate('Ada', incu_locs[0], queue=protocol),
@@ -483,83 +560,56 @@ def sim(w: World, shuffle_prob: float=0.0, advance_prob: float=0.0):
     pp(w.plates)
     # pp(world_locations(w))
 
-# Use start-proxies.sh to forward robot to localhost
-robot_host = 'localhost'
-robot_port = 30001
-
-def execute_robot(prog: str):
-    import socket
-    import re
-    prog_str = open(prog, 'rb').read()
-    prog_name = prog.split('/')[-1]
-    needle = f'program {prog_name} completed'.encode()
-    pp(needle)
-    assert needle in prog_str
-    print('connecting to robot...')
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.connect((robot_host, robot_port))
-    print('connected!')
-    s.sendall(prog_str)
-    while True:
-        data = s.recv(4096)
-        # RuntimeExceptionMessage, looks like:
-        # b'syntax_error_on_line:4:    movej([0.5, -1, -2, 0, 0, -0], a=0.25, v=1.0):'
-        # b'compile_error_name_not_found:getactual_joint_positions:'
-        # b'SECONDARY_PROGRAM_EXCEPTION_XXXType error: str_sub takes exact'
-        for m in re.findall(b'([\x20-\x7e]*(?:error|EXCEPTION)[\x20-\x7e]*)', data):
-            m = m.decode()
-            pp(m)
-
-        # KeyMessage, looks like:
-        # PROGRAM_XXX_STARTEDtestmove2910
-        # PROGRAM_XXX_STOPPEDtestmove2910
-        for m in re.findall(b'PROGRAM_XXX_(\w*)', data):
-            m = m.decode()
-            pp(m)
-
-        if needle in m:
-            print(f'program {prog_name} completed!')
-            break
-    s.close()
-
-@snoop
-def execute_incu_get(loc, id):
-    pass
-
-@snoop
-def execute_incu_put(loc, id):
-    pass
-
-@snoop
-def execute_wash(args, id):
-    pass
-
-@snoop
-def execute_disp(args, id):
-    pass
-
-def execute_cmd(cmd: run):
-    if cmd.device in 'robot incu_get incu_put disp wash'.split():
-        args = [cmd.arg]
-        args = [arg for arg in args if arg is not None]
-        kws = dict()
-        if cmd.id:
-            kws['id'] = cmd.id
-        globals()[f'execute_{cmd.device}'](*args, **kws)
-    else:
-        raise ValueError(f'No such device: {cmd.device}')
-
-def execute(w: World):
+def execute(w: World, advance_prob: float=0.5):
     pp('execute')
+    steps = 0
 
     while 1:
+        steps += 1
         res = bfs(w)
 
         if res:
             for cmd in res.cmds:
                 execute_cmd(cmd)
             w = res.w
+            print(*[p.loc for p in w.plates.values()], sep='\t')
 
         # check for timeouts & ready
+        times: list[datetime] = []
 
-    pp('done!')
+        any_finished = False
+
+        for p in w.plates.values():
+            if p.waiting_for:
+                top, *rest = p.waiting_for
+                if isinstance(top, str):
+                    w = w.update(replace(p, waiting_for=rest))
+                    print('finished', p.loc, top)
+                    any_finished = True
+                elif isinstance(top, timedelta):
+                    time = datetime.now() + top
+                    times += [time]
+                    w = w.update(replace(p, waiting_for=[time, *rest]))
+                elif isinstance(top, datetime):
+                    times += [top]
+                    break
+                else:
+                    raise ValueError
+
+        times = list(sorted(times))
+        if not times and not res and not any_finished:
+            pp(w.plates)
+            break
+
+        if times and (not res or random.random() < advance_prob):
+            now = times[0]
+            for p in w.plates.values():
+                if p.waiting_for:
+                    top, *rest = p.waiting_for
+                    if isinstance(top, datetime) and top <= now:
+                        print('wait', p.loc, top)
+                        w = w.update(replace(p, waiting_for=rest))
+
+    print('done!', steps)
+
+execute(w0)
