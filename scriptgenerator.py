@@ -119,23 +119,26 @@ def programs(gripper=gripper) -> dict[str, list[str]]:
             movel('h21_neu'),
         ])
 
-    # todo: measure out_hotel_dist to make out01..out18
-    p['out18_put'] = resolve('scripts/dan_to_out18.script', [
-        gripper('Gripper Move30% (1)'),
-        movejoint('h21_neu'),
-        movel('h21_pick_neu'),
-        movel('h21_pick'),
-        gripper('Gripper Close (1)'),
-        movel('h21_pick_neu'),
-        movel('h21_neu'),
-        movel('out_neu'),
-        movel('o18_drop_neu'),
-        movel('o18_drop'),
-        gripper('Gripper Move30% (1)'),
-        movel('o18_drop_neu'),
-        movel('out_neu'),
-        movel('h21_neu'),
-    ])
+    for i in [1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21]:
+        dz = (i - 21) / 2 * hotel_dist
+        p[f'out{i}_put'] = resolve('scripts/dan_to_out18.script', [
+            gripper('Gripper Move30% (1)'),
+            movejoint('h21_neu'),
+            movel('h21_pick_neu'),
+            movel('h21_pick'),
+            gripper('Gripper Close (1)'),
+            movel('h21_pick_neu'),
+            movel('h21_neu'),
+            movel('out_neu'),
+            movel('out_neu', dz=dz),
+            movel('o18_drop_neu', dz=dz),
+            movel('o18_drop', dz=dz),
+            gripper('Gripper Move30% (1)'),
+            movel('o18_drop_neu', dz=dz),
+            movel('out_neu', dz=dz),
+            movel('out_neu'),
+            movel('h21_neu'),
+        ])
 
     p['incu_get'] = resolve('scripts/dan_incu_to_delid.script', [
         gripper('Gripper Move30% (1)'),

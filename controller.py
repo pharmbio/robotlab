@@ -297,37 +297,6 @@ def moves(p: Plate, w: World) -> Iterator[Transition]:
 def minutes(m: int) -> timedelta:
     return timedelta(minutes=m)
 
-# Cell Painting Workflow
-protocol: list[ProtocolStep] = [
-    # 2 Compound treatment: Remove (80%) media of all wells
-    incu_pop(),
-    wash(),
-
-    # 3 Mitotracker staining
-    disp('peripump 1', 'mitotracker solution'),
-    incu_put(minutes(30)),
-    incu_pop(),
-    wash('pump D', 'PBS'),
-
-    # 4 Fixation
-    disp('Syringe A', '4% PFA'),
-    RT_incu(minutes(20)),
-    wash('pump D', 'PBS'),
-
-    # 5 Permeabilization
-    disp('Syringe B', '0.1% Triton X-100 in PBS'),
-    RT_incu(minutes(20)),
-    wash('pump D', 'PBS'),
-
-    # 6 Post-fixation staining
-    disp('peripump 2', 'staining mixture in PBS'),
-    RT_incu(minutes(20)),
-    wash('pump D', 'PBS'),
-
-    # 7 Imaging
-    to_output_hotel(),
-]
-
 from collections import deque
 import random
 
@@ -389,24 +358,12 @@ def bfs(w0: World, opts: BfsOpts=BfsOpts()) -> Transition | None:
             first = res
     return first
 
-# Use start-proxies.sh to forward robot to localhost
-robot_host = 'localhost'
-robot_port = 30001
-nogripper = True
-
-def test_robot():
-    from glob import glob
-    for path in glob('./generated/*'):
-        execute_robot(path)
-
-    # execute_robot('./generated/disp_put')
-
 def execute_robot(prog: str):
     import socket
     import re
     if nogripper:
         prog = prog.replace('generated', 'generated_nogripper')
-    prog_str = open(prog, 'rb').read()
+    prog_str = open(pp(prog), 'rb').read()
     prog_name = prog.split('/')[-1]
     needle = f'Program {prog_name} completed'.encode()
     # pp(needle)
@@ -441,6 +398,51 @@ def execute_robot(prog: str):
             break
     s.close()
 
+# Use start-proxies.sh to forward robot to localhost
+robot_host = 'localhost'
+robot_port = 30001
+nogripper = False
+
+def test_robot():
+    from glob import glob
+    for path in glob('./generated/*'):
+        execute_robot(path)
+
+    # execute_robot('./generated/disp_put')
+
+execute_robot('./generated/out5_put')
+
+if 0:
+    execute_robot('./generated/lid_h19_put')
+
+    execute_robot('./generated/incu_put')
+    execute_robot('./generated/incu_get')
+
+    execute_robot('./generated/disp_put')
+    execute_robot('./generated/disp_get')
+
+    execute_robot('./generated/wash_put')
+    execute_robot('./generated/wash_get')
+
+    execute_robot('./generated/r19_put')
+    execute_robot('./generated/r19_get')
+
+    execute_robot('./generated/h17_put')
+    execute_robot('./generated/h17_get')
+
+    execute_robot('./generated/lid_h19_get')
+
+
+# execute_robot('./generated/h19_put')
+# execute_robot('./generated/r21_put')
+# execute_robot('./generated/r19_put')
+# execute_robot('./generated/r21_get')
+# execute_robot('./generated/r19_get')
+# execute_robot('./generated/out18_put')
+# execute_robot('./generated/wash_get')
+# test_robot()
+
+
 def execute_incu_get(loc, id):
     print('dry run: execute_incu_get', (loc, id), sep='')
     pass
@@ -467,6 +469,38 @@ def execute_cmd(cmd: run):
         globals()[f'execute_{cmd.device}'](*args, **kws)
     else:
         raise ValueError(f'No such device: {cmd.device}')
+
+# Cell Painting Workflow
+protocol: list[ProtocolStep] = [
+    # 2 Compound treatment: Remove (80%) media of all wells
+    incu_pop(),
+    wash(),
+
+    # 3 Mitotracker staining
+    disp('peripump 1', 'mitotracker solution'),
+    incu_put(minutes(30)),
+    incu_pop(),
+    wash('pump D', 'PBS'),
+
+    # 4 Fixation
+    disp('Syringe A', '4% PFA'),
+    RT_incu(minutes(20)),
+    wash('pump D', 'PBS'),
+
+    # 5 Permeabilization
+    disp('Syringe B', '0.1% Triton X-100 in PBS'),
+    RT_incu(minutes(20)),
+    wash('pump D', 'PBS'),
+
+    # 6 Post-fixation staining
+    disp('peripump 2', 'staining mixture in PBS'),
+    RT_incu(minutes(20)),
+    wash('pump D', 'PBS'),
+
+    # 7 Imaging
+    to_output_hotel(),
+]
+
 
 p0: list[Plate] = [
     Plate('Ada', incu_locs[0], queue=protocol),
@@ -612,4 +646,4 @@ def execute(w: World, advance_prob: float=0.5):
 
     print('done!', steps)
 
-execute(w0)
+# execute(w0)
