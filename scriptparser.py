@@ -17,36 +17,36 @@ import sys
 
 from abc import ABC
 
-class Command(ABC):
+class ScriptStep(ABC):
     pass
 
 @dataclass(frozen=True)
-class movel(Command):
+class movel(ScriptStep):
     name: str
     dx: None | float = None
     dy: None | float = None
     dz: None | float = None
 
 @dataclass(frozen=True)
-class movej(Command):
+class movej(ScriptStep):
     name: str
     dx: None | float = None
     dy: None | float = None
     dz: None | float = None
 
 @dataclass(frozen=True)
-class gripper(Command):
+class gripper(ScriptStep):
     name: str
 
 @dataclass(frozen=True)
-class comment(Command):
+class comment(ScriptStep):
     msg: str
 
 @dataclass
 class ParsedScript:
     '''
     The parser extracts and returns a tuple of:
-    - cmds: moves and gripper commands,
+    - steps: moves and gripper commands,
     - defs: coordinates,
     - subs: dict of extracted gripper subprograms and the header.
     The header sets up the env and gripper.
@@ -58,7 +58,7 @@ class ParsedScript:
     parsed coordinates. The gripper commands and the header are
     also resolved using the result from the parser.
     '''
-    cmds: list[Command] = field(default_factory=list)
+    steps: list[ScriptStep] = field(default_factory=list)
     defs: dict[str, list[float]] = field(default_factory=dict)
     subs: dict[str, list[str]] = field(default_factory=dict)
 
@@ -79,10 +79,10 @@ def parse_lines(lines: list[str]) -> ParsedScript:
                 pass
         elif m := re.match(' *movel.*?(\w*)_[pq]', line):
             name, = m.groups()
-            res.cmds += [movel(name)]
+            res.steps += [movel(name)]
         elif m := re.match(' *movej.*?(\w*)_[pq]', line):
             name, = m.groups()
-            res.cmds += [movej(name)]
+            res.steps += [movej(name)]
         elif m := re.match('( *)\$ \d* "(Gripper.*)"', line):
             indent, name = m.groups()
             subprogram = ['# ' + name]
@@ -91,7 +91,7 @@ def parse_lines(lines: list[str]) -> ParsedScript:
                 if '# end: URCap Program Node' in line2:
                     break
             res.subs[name] = subprogram
-            res.cmds += [gripper(name)]
+            res.steps += [gripper(name)]
 
     if last_header_line_index is not None:
         header = lines[1:last_header_line_index]
@@ -101,38 +101,38 @@ def parse_lines(lines: list[str]) -> ParsedScript:
 
     return res
 
-def resolve(filename: str, cmds: list[Command]) -> list[str]:
-    return resolve_with(parse(filename), cmds)
+def resolve(filename: str, steps: list[ScriptStep]) -> list[str]:
+    return resolve_with(parse(filename), steps)
 
-def resolve_with(script: ParsedScript, cmds: list[Command]) -> list[str]:
+def resolve_with(script: ParsedScript, steps: list[ScriptStep]) -> list[str]:
     out: list[str] = []
-    for cmd in cmds:
-        if isinstance(cmd, (movel, movej)):
-            q_name = cmd.name + '_q'
-            p_name = cmd.name + '_p'
+    for step in steps:
+        if isinstance(step, (movel, movej)):
+            q_name = step.name + '_q'
+            p_name = step.name + '_p'
             out += [
                 f'{p_name} = p{script.defs[p_name]}',
             ]
             for i, d_name in enumerate('dx dy dz'.split()):
-                if offset := getattr(cmd, d_name):
+                if offset := getattr(step, d_name):
                     out += [
                         f'{p_name}[{i}] = {p_name}[{i}] + {offset}'
                     ]
-            if isinstance(cmd, movel):
+            if isinstance(step, movel):
                 out += [
                     f'movel({p_name}, a=1.2, v=0.25)'
                 ]
-            elif isinstance(cmd, movej):
+            elif isinstance(step, movej):
                 out += [
                     f'{q_name} = {script.defs[q_name]}',
                     f'movej(get_inverse_kin({p_name}, qnear={q_name}), a=1.4, v=1.05)',
                 ]
-        elif isinstance(cmd, gripper):
-            out += script.subs[cmd.name]
-        elif isinstance(cmd, comment):
+        elif isinstance(step, gripper):
+            out += script.subs[step.name]
+        elif isinstance(step, comment):
             out += [
                 f"# {line}"
-                for line in cmd.msg.split('\n')
+                for line in step.msg.split('\n')
             ]
         else:
             raise ValueError
@@ -174,7 +174,7 @@ def test_parse_and_resolve() -> None:
 
     script = parse_lines(lines)
 
-    assert test(script.cmds) == [
+    assert test(script.steps) == [
         gripper('Gripper Move30% (1)'),
         movel('h21_neu'),
         movej('above_washr'),
@@ -196,14 +196,14 @@ def test_parse_and_resolve() -> None:
         'header': ['set_gravity([0.0, 0.0, 9.8])'],
     }
 
-    cmds: list[Command] = [
+    steps: list[ScriptStep] = [
         gripper('Gripper Move30% (1)'),
         movel('h21_neu'),
         movel('h21_neu', dy=-0.3),
         movej('above_washr'),
     ]
 
-    resolved = resolve_with(script, cmds)
+    resolved = resolve_with(script, steps)
     resolved_str = '\n'.join(resolved)
 
     assert test(resolved_str) == dedent('''

@@ -1,15 +1,16 @@
 from __future__ import annotations
-from typing import Any
+from typing import *
 
 from scriptparser import *
 import os
 import sys
+from dataclasses import *
 
 movejoint = movej
 
 hotel_dist: float = 7.094 / 100
 
-def programs(gripper=gripper) -> dict[str, list[str]]:
+def programs(gripper: Callable[[str], ScriptStep]=gripper) -> dict[str, list[str]]:
     p: dict[str, list[str]] = {}
 
     for i in [1, 3, 5, 7, 9, 11, 13, 15, 17, 19]:
@@ -256,19 +257,24 @@ def generate_scripts() -> None:
     # The header sets up the env and gripper, it's the same for all scripts
     header = parse('scripts/dan_h21_r21.script').subs['header']
 
+    class Conf(NamedTuple):
+        dirname: str
+        gripper: Callable[[str], ScriptStep]
+        header: list[str]
+
     # The gripper is not simulated so also make scripts without gripper commands
-    confs = [
-        dict(dirname='generated', gripper=gripper, header=header),
-        dict(dirname='generated_nogripper', gripper=comment, header=[]),
+    confs: list[Conf] = [
+        Conf(dirname='generated', gripper=gripper, header=header),
+        Conf(dirname='generated_nogripper', gripper=comment, header=[]),
     ]
 
     for conf in confs:
-        os.makedirs(conf['dirname'], exist_ok=True)
+        os.makedirs(conf.dirname, exist_ok=True)
 
-        for name, cmds in programs(gripper=conf['gripper']).items():
+        for name, steps in programs(gripper=conf.gripper).items():
             body = [
-                *conf['header'],
-                *cmds,
+                *conf.header,
+                *steps,
                 f'textmsg("Program {name} completed")',
             ]
             prog = [
@@ -276,7 +282,7 @@ def generate_scripts() -> None:
                 *indent(body),
                 'end',
             ]
-            path = f'{conf["dirname"]}/{name}'
+            path = f'{conf.dirname}/{name}'
             with open(path, 'w') as f:
                 print('\n'.join(prog), file=f)
             print(f'generated {path}')
@@ -296,13 +302,13 @@ def generate_stubs() -> None:
         script = parse(filename)
         print()
         print(f'    p[{short!r}] = resolve({filename!r}, [')
-        for cmd in script.cmds:
-            if isinstance(cmd, movel):
-                con, arg = 'movel', cmd.name
-            elif isinstance(cmd, movej):
-                con, arg = 'movejoint', cmd.name
-            elif isinstance(cmd, gripper):
-                con, arg = 'gripper', cmd.name
+        for step in script.steps:
+            if isinstance(step, movel):
+                con, arg = 'movel', step.name
+            elif isinstance(step, movej):
+                con, arg = 'movejoint', step.name
+            elif isinstance(step, gripper):
+                con, arg = 'gripper', step.name
             else:
                 raise ValueError
             print(f'        {con}({arg!r}),')
