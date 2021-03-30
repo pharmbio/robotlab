@@ -208,7 +208,7 @@ def busy_wait(url: str) -> None:
         else:
             time.sleep(0.1)
 
-def robotarm(path: str):
+def robotarm(path: str) -> None:
     robotarm_cmd(path).execute(config(), env)
 
 with use_config(dry_run):
@@ -217,7 +217,7 @@ with use_config(dry_run):
         for path in glob('./generated/*'):
             robotarm(path)
 
-    def script(s: str):
+    def script(s: str) -> None:
         for path in s.strip().split('\n'):
             robotarm(path.strip())
 
