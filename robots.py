@@ -18,9 +18,6 @@ import abc
 import socket
 import re
 
-# test-protocols/dispenser_prime_all_buffers.LHC
-# test-protocols/washer_prime_buffers_A_B_C_D_25ml.LHC
-
 @dataclass(frozen=True)
 class Env:
     robotarm_host: str
@@ -30,7 +27,7 @@ class Env:
     wash_url: str
     incu_url: str
 
-env = Env(
+ENV = Env(
     # Use start-proxies.sh to forward robot to localhost
     robotarm_host = 'localhost',
     robotarm_port = 30001,
@@ -45,12 +42,14 @@ class Config:
     disp_mode: Literal['dry run' | 'simulate' | 'execute']
     wash_mode: Literal['dry run' | 'simulate' | 'execute']
     incu_mode: Literal['dry run' | 'fail if used' | 'execute']
+    simulate_time: bool
 
 dry_run = Config(
     robotarm_mode='dry run',
     disp_mode='dry run',
     wash_mode='dry run',
     incu_mode='dry run',
+    simulate_time=True,
 )
 
 live_robotarm_only_no_gripper = Config(
@@ -58,6 +57,7 @@ live_robotarm_only_no_gripper = Config(
     disp_mode='dry run',
     wash_mode='dry run',
     incu_mode='dry run',
+    simulate_time=True,
 )
 
 live_robotarm_only = Config(
@@ -65,6 +65,7 @@ live_robotarm_only = Config(
     disp_mode='simulate',
     wash_mode='simulate',
     incu_mode='fail if used',
+    simulate_time=True,
 )
 
 live_robotarm_and_incu_only = Config(
@@ -72,6 +73,7 @@ live_robotarm_and_incu_only = Config(
     disp_mode='simulate',
     wash_mode='simulate',
     incu_mode='execute',
+    simulate_time=False,
 )
 
 live_execute_all = Config(
@@ -79,50 +81,33 @@ live_execute_all = Config(
     disp_mode='execute',
     wash_mode='execute',
     incu_mode='execute',
+    simulate_time=False,
 )
-
-def config_factory() -> Tuple[Callable[[Config], ContextManager[None]], Callable[[], Config]]:
-
-    config_stack: list[Config]
-    config_stack = []
-
-    @contextmanager
-    def use_config(c: Config) -> Iterator[None]:
-        config_stack.append(c)
-        yield
-        config_stack.pop()
-
-    def config() -> Config:
-        return config_stack[-1]
-
-    return use_config, config
-
-use_config, config = config_factory()
 
 class Command(abc.ABC):
     @abc.abstractmethod
-    def execute(self, conf: Config, env: Env) -> None:
+    def execute(self, config: Config) -> None:
         pass
 
 @dataclass(frozen=True)
 class robotarm_cmd(Command):
     prog_path: str
-    def execute(self, conf: Config, env: Env) -> None:
+    def execute(self, config: Config) -> None:
         prog_path = self.prog_path
-        if conf.robotarm_mode == 'dry run':
-            print('dry run', prog_path)
+        if config.robotarm_mode == 'dry run':
+            # print('dry run', prog_path)
             return
-        if conf.robotarm_mode == 'no gripper':
+        if config.robotarm_mode == 'no gripper':
             prog_path = prog_path.replace('generated', 'generated_nogripper')
         prog_str = open(pp(prog_path), 'rb').read()
         prog_name = prog_path.split('/')[-1]
         needle = f'Program {prog_name} completed'.encode()
         # pp(needle)
         assert needle in prog_str
-        assert conf.robotarm_mode in {'gripper', 'no gripper'}
+        assert config.robotarm_mode in {'gripper', 'no gripper'}
         print('connecting to robot...', end=' ')
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.connect((env.robotarm_host, env.robotarm_port))
+        s.connect((ENV.robotarm_host, ENV.robotarm_port))
         print('connected!')
         s.sendall(prog_str)
         while True:
@@ -150,14 +135,14 @@ class robotarm_cmd(Command):
 @dataclass(frozen=True)
 class wash_cmd(Command):
     protocol_path: str
-    def execute(self, conf: Config, env: Env) -> None:
-        if conf.wash_mode == 'dry run':
-            print('dry run', self.protocol_path)
+    def execute(self, config: Config) -> None:
+        if config.wash_mode == 'dry run':
+            # print('dry run', self.protocol_path)
             return
-        elif conf.wash_mode == 'simulate':
-            url = env.wash_url + 'simulate_protocol/' + self.protocol_path
-        elif conf.wash_mode == 'execute':
-            url = env.wash_url + 'execute_protocol/' + self.protocol_path
+        elif config.wash_mode == 'simulate':
+            url = ENV.wash_url + 'simulate_protocol/' + self.protocol_path
+        elif config.wash_mode == 'execute':
+            url = ENV.wash_url + 'execute_protocol/' + self.protocol_path
         else:
             raise ValueError
         res = curl(url)
@@ -166,14 +151,14 @@ class wash_cmd(Command):
 @dataclass(frozen=True)
 class disp_cmd(Command):
     protocol_path: str
-    def execute(self, conf: Config, env: Env) -> None:
-        if conf.disp_mode == 'dry run':
-            print('dry run', self.protocol_path)
+    def execute(self, config: Config) -> None:
+        if config.disp_mode == 'dry run':
+            # print('dry run', self.protocol_path)
             return
-        elif conf.disp_mode == 'simulate':
-            url = env.disp_url + 'simulate_protocol/' + self.protocol_path
-        elif conf.disp_mode == 'execute':
-            url = env.disp_url + 'execute_protocol/' + self.protocol_path
+        elif config.disp_mode == 'simulate':
+            url = ENV.disp_url + 'simulate_protocol/' + self.protocol_path
+        elif config.disp_mode == 'execute':
+            url = ENV.disp_url + 'execute_protocol/' + self.protocol_path
         else:
             raise ValueError
         res = curl(url)
@@ -183,86 +168,90 @@ class disp_cmd(Command):
 class incu_cmd(Command):
     action: Literal['put' | 'get']
     incu_loc: str
-    def execute(self, conf: Config, env: Env) -> None:
-        if conf.incu_mode == 'dry run':
-            print('dry run', self.incu_loc)
-        elif conf.incu_mode == 'fail if used':
+    def execute(self, config: Config) -> None:
+        if config.incu_mode == 'dry run':
+            # print('dry run', self.incu_loc)
+            return
+        elif config.incu_mode == 'fail if used':
             raise RuntimeError
-        elif conf.incu_mode == 'execute':
-            url = env.incu_url + self.action + '/' + self.incu_loc
+        elif config.incu_mode == 'execute':
+            url = ENV.incu_url + self.action + '/' + self.incu_loc
         else:
             raise ValueError
         res = curl(url)
         assert res['status'] == 'OK', pp(res)
-        busy_wait(env.incu_url + 'is_ready')
+        busy_wait('incu', config)
 
 def curl(url: str) -> Any:
     return json.loads(urlopen(url).read())
 
-def busy_wait(url: str) -> None:
-    while 1:
-        res = curl(url)
-        assert res['status'] == 'OK', pp(res)
-        if res['value'] is True:
-            return
-        else:
-            time.sleep(0.1)
+def is_ready(machine: Literal['disp', 'wash', 'incu'], config: Config) -> Any:
+    res = curl(getattr(ENV, machine + '_url'))
+    assert res['status'] == 'OK', res
+    return res['value'] is True
 
-def robotarm(path: str) -> None:
-    robotarm_cmd(path).execute(config(), env)
+def busy_wait(url: str, config: Config) -> None:
+    while not is_ready('incu', config):
+        time.sleep(0.1)
 
-with use_config(dry_run):
-    if 0:
-        from glob import glob
-        for path in glob('./generated/*'):
-            robotarm(path)
+def robotarm_execute(path: str) -> None:
+    robotarm_cmd(path).execute(
+        config=dry_run
+        # config=live_robotarm_only_no_gripper
+        # config=live_robotarm_only
+    )
 
-    def script(s: str) -> None:
-        for path in s.strip().split('\n'):
-            robotarm(path.strip())
+if 0:
+    from glob import glob
+    for path in glob('./generated/*'):
+        robotarm_execute(path)
 
-    if 0:
-        script('''
-            ./generated/r1_put
-            ./generated/r1_get
+def execute_scripts(s: str) -> None:
+    for path in s.strip().split('\n'):
+        robotarm_execute(path.strip())
 
-            ./generated/r11_put
-            ./generated/r11_get
+if 0:
+    execute_scripts('''
+        ./generated/r1_put
+        ./generated/r1_get
 
-            ./generated/r15_put
-            ./generated/r15_get
-        ''')
+        ./generated/r11_put
+        ./generated/r11_get
 
-    if 0:
-        script('''
-            ./generated/lid_h19_put
+        ./generated/r15_put
+        ./generated/r15_get
+    ''')
 
-            ./generated/incu_put
-            ./generated/incu_get
+if 0:
+    execute_scripts('''
+        ./generated/lid_h19_put
 
-            ./generated/disp_put
-            ./generated/disp_get
+        ./generated/incu_put
+        ./generated/incu_get
 
-            ./generated/wash_put
-            ./generated/wash_get
+        ./generated/disp_put
+        ./generated/disp_get
 
-            ./generated/r19_put
-            ./generated/r19_get
+        ./generated/wash_put
+        ./generated/wash_get
 
-            ./generated/h17_put
-            ./generated/h17_get
+        ./generated/r19_put
+        ./generated/r19_get
 
-            ./generated/lid_h19_get
-        ''')
+        ./generated/h17_put
+        ./generated/h17_get
 
-    if 0:
-        script('''
-            ./generated/h19_put
-            ./generated/r21_put
-            ./generated/r19_put
-            ./generated/r21_get
-            ./generated/r19_get
-            ./generated/out18_put
-            ./generated/wash_get
-        ''')
+        ./generated/lid_h19_get
+    ''')
+
+if 0:
+    execute_scripts('''
+        ./generated/h19_put
+        ./generated/r21_put
+        ./generated/r19_put
+        ./generated/r21_get
+        ./generated/r19_get
+        ./generated/out18_put
+        ./generated/wash_get
+    ''')
 
