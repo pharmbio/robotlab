@@ -26,6 +26,7 @@ class movel(ScriptStep):
     dx: None | float = None
     dy: None | float = None
     dz: None | float = None
+    desc: str = ''
 
 @dataclass(frozen=True)
 class movej(ScriptStep):
@@ -33,14 +34,22 @@ class movej(ScriptStep):
     dx: None | float = None
     dy: None | float = None
     dz: None | float = None
+    desc: str = ''
 
 @dataclass(frozen=True)
 class gripper(ScriptStep):
     name: str
 
 @dataclass(frozen=True)
-class comment(ScriptStep):
-    msg: str
+class ResolvedStep:
+    lines: list[str]
+    desc: str = ''
+
+def flatten_resolved(rs: list[ResolvedStep]) -> list[str]:
+    return [x for r in rs for x in r.lines]
+
+def descs(rs: list[ResolvedStep]) -> list[str]:
+    return [r.desc for r in rs]
 
 @dataclass
 class ParsedScript:
@@ -101,41 +110,41 @@ def parse_lines(lines: list[str]) -> ParsedScript:
 
     return res
 
-def resolve(filename: str, steps: list[ScriptStep]) -> list[str]:
+def resolve(filename: str, steps: list[ScriptStep]) -> list[ResolvedStep]:
     return resolve_with(parse(filename), steps)
 
-def resolve_with(script: ParsedScript, steps: list[ScriptStep]) -> list[str]:
-    out: list[str] = []
+def resolve_with(script: ParsedScript, steps: list[ScriptStep]) -> list[ResolvedStep]:
+    out: list[ResolvedStep] = []
     for step in steps:
+        lines: list[str] = []
+        desc: str = ''
         if isinstance(step, (movel, movej)):
+            desc = step.desc or f'({step.name})'
             q_name = step.name + '_q'
             p_name = step.name + '_p'
-            out += [
+            lines += [
                 f'{p_name} = p{script.defs[p_name]}',
             ]
             for i, d_name in enumerate('dx dy dz'.split()):
                 if offset := getattr(step, d_name):
-                    out += [
+                    lines += [
                         f'{p_name}[{i}] = {p_name}[{i}] + {offset}'
                     ]
             if isinstance(step, movel):
-                out += [
+                lines += [
                     f'movel({p_name}, a=1.2, v=0.25)'
                 ]
             elif isinstance(step, movej):
-                out += [
+                lines += [
                     f'{q_name} = {script.defs[q_name]}',
                     f'movej(get_inverse_kin({p_name}, qnear={q_name}), a=1.4, v=1.05)',
                 ]
         elif isinstance(step, gripper):
-            out += script.subs[step.name]
-        elif isinstance(step, comment):
-            out += [
-                f"# {line}"
-                for line in step.msg.split('\n')
-            ]
+            desc = step.name
+            lines += script.subs[step.name]
         else:
             raise ValueError
+        out += [ResolvedStep(lines, desc=desc)]
     return out
 
 @dataclass(frozen=True)
@@ -204,7 +213,7 @@ def test_parse_and_resolve() -> None:
     ]
 
     resolved = resolve_with(script, steps)
-    resolved_str = '\n'.join(resolved)
+    resolved_str = '\n'.join(flatten_resolved(resolved))
 
     assert test(resolved_str) == dedent('''
         # Gripper Move30% (1)

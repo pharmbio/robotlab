@@ -95,7 +95,7 @@ class robotarm_cmd(Command):
     def execute(self, config: Config) -> None:
         prog_path = self.prog_path
         if config.robotarm_mode == 'dry run':
-            # print('dry run', prog_path)
+            # print('dry run', self)
             return
         if config.robotarm_mode == 'no gripper':
             prog_path = prog_path.replace('generated', 'generated_nogripper')
@@ -137,7 +137,7 @@ class wash_cmd(Command):
     protocol_path: str
     def execute(self, config: Config) -> None:
         if config.wash_mode == 'dry run':
-            # print('dry run', self.protocol_path)
+            # print('dry run', self)
             return
         elif config.wash_mode == 'simulate':
             url = ENV.wash_url + 'simulate_protocol/' + self.protocol_path
@@ -153,7 +153,7 @@ class disp_cmd(Command):
     protocol_path: str
     def execute(self, config: Config) -> None:
         if config.disp_mode == 'dry run':
-            # print('dry run', self.protocol_path)
+            # print('dry run', self)
             return
         elif config.disp_mode == 'simulate':
             url = ENV.disp_url + 'simulate_protocol/' + self.protocol_path
@@ -191,7 +191,7 @@ class incu_cmd(Command):
             assert busywait
 
         if config.incu_mode == 'dry run':
-            # print('dry run', self.incu_loc)
+            # print('dry run', self)
             return
         elif config.incu_mode == 'fail if used':
             raise RuntimeError

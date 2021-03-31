@@ -81,7 +81,6 @@ class World:
                 return f'lid({p.id})'
         return 'free'
 
-    # def __getitem__(self, loc: str) -> str:
     __getitem__ = __getattr__
 
     def update(self, p: Plate) -> World:
