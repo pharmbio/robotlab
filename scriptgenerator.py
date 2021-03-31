@@ -15,262 +15,261 @@ hotel_dist: float = 7.094 / 100
 
 programs: dict[str, list[ResolvedStep]] = {}
 
-if 1:
-    for i in [1, 3, 5, 7, 9, 11, 13, 15, 17, 19]:
-        dz = (i - 11) / 2 * hotel_dist
-        # puts h21 on h{i}
-        programs[f'h{i}_put'] = resolve('scripts/dan_lid_21_11.script', [
-            gripper('Gripper Move30% (1)'),
-            movejoint('h21_neu', desc=h21_neu),
-            movel('h21_pick_neu', desc=h21_drop_neu),
-            movel('h21_pick'),
-            gripper('Gripper Close (1)'),
-            movel('h21_pick_neu'),
-            movel('h21_neu'),
-            movel('h11_neu', dz=dz),
-            movel('h11_drop_up', dz=dz),
-            movel('h11_drop', dz=dz),
-            gripper('Gripper Move30% (1)'),
-            movel('h11_drop_neu', dz=dz),
-            movel('h11_neu', dz=dz),
-            movel('h21_neu'),
-        ])
-
-        # gets h{i} and puts it on h21
-        programs[f'h{i}_get'] = resolve('scripts/dan_lid_21_11.script', [
-            gripper('Gripper Move30% (1)'),
-            movejoint('h21_neu'),
-            movel('h11_neu', dz=dz),
-            movel('h11_drop_neu', dz=dz),
-            movel('h11_pick', dz=dz),
-            gripper('Gripper Close (1)'),
-            movel('h11_drop_neu', dz=dz),
-            movel('h11_neu', dz=dz),
-            movel('h21_neu'),
-            movel('h21_pick_neu'),
-            movel('h21_drop'),
-            gripper('Gripper Move30% (1)'),
-            movel('h21_pick_neu', desc=h21_drop_neu),
-            movel('h21_neu', desc=h21_neu),
-        ])
-
-    for i in [1, 3, 5, 7, 9, 11, 13, 15, 17, 19]:
-        dz = (i - 19) / 2 * hotel_dist
-
-        programs[f'lid_h{i}_put'] = resolve('scripts/dan_delid.script', [
-            gripper('Gripper Move30% (1)'),
-            movejoint('delid_neu', desc=h21_neu),
-            movel('delid_pick_up', desc=h21_drop_neu),
-            movel('delid_pick'),
-            gripper('Gripper Close (1)'),
-            movel('delid_pick_up'),
-            movel('delid_neu2'),
-            movel('lid_neu', dz=dz),
-            movel('lid_drop', dz=dz),
-            gripper('Gripper Move30% (1)'),
-            movel('lid_neu2', dz=dz),
-            movel('delid_neu3'),
-        ])
-
-        programs[f'lid_h{i}_get'] = resolve('scripts/dan_delid.script', [
-            gripper('Gripper Move30% (1)'),
-            movejoint('delid_neu3'),
-            movel('lid_neu3', dz=dz),
-            movel('lid_pick', dz=dz),
-            gripper('Gripper Close (1)'),
-            movel('lid_pick_up', dz=dz),
-            movel('lid_neu4', dz=dz),
-            movel('delid_neu4'),
-            movel('delid_drop_up'),
-            movel('delid_drop'),
-            gripper('Gripper Move30% (1)'),
-            movel('delid_drop_up2', desc=h21_drop_neu),
-            movel('delid_neu5', desc=h21_neu),
-        ])
-
-    for i in [1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21]:
-        dz = (i - 21) / 2 * hotel_dist
-        programs[f'r{i}_put'] = resolve('scripts/dan_h21_r21.script', [
-            gripper('Gripper Move30% (1)'),
-            movejoint('h21_neu', desc=h21_neu),
-            movel('h21_pick_neu', desc=h21_drop_neu),
-            movel('h21_pick'),
-            gripper('Gripper Close (1)'),
-            movel('h21_pick_neu'),
-            movel('h21_neu'),
-            movel('r21_neu', dz=dz),
-            movel('r21_drop_neu', dz=dz),
-            movel('r21_drop', dz=dz),
-            gripper('Gripper Move30% (1)'),
-            movel('r21_drop_neu', dz=dz),
-            movel('r21_neu', dz=dz),
-            movel('h21_neu'),
-        ])
-
-        programs[f'r{i}_get'] = resolve('scripts/dan_h21_r21.script', [
-            gripper('Gripper Move30% (1)'),
-            movejoint('h21_neu'),
-            movel('r21_neu', dz=dz),
-            movel('r21_drop_neu', dz=dz),
-            movel('r21_pick', dz=dz),
-            gripper('Gripper Close (1)'),
-            movel('r21_drop_neu', dz=dz),
-            movel('r21_neu', dz=dz),
-            movel('h21_neu'),
-            movel('h21_pick_neu'),
-            movel('h21_drop'),
-            gripper('Gripper Move30% (1)'),
-            movel('h21_pick_neu', desc=h21_drop_neu),
-            movel('h21_neu', desc=h21_neu),
-        ])
-
-    for i in [1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21]:
-        dz = (i - 21) / 2 * hotel_dist
-        programs[f'out{i}_put'] = resolve('scripts/dan_to_out18.script', [
-            gripper('Gripper Move30% (1)'),
-            movejoint('h21_neu', desc=h21_neu),
-            movel('h21_pick_neu', desc=h21_drop_neu),
-            movel('h21_pick'),
-            gripper('Gripper Close (1)'),
-            movel('h21_pick_neu'),
-            movel('h21_neu'),
-            movel('out_neu'),
-            movel('out_neu', dz=dz),
-            movel('o18_drop_neu', dz=dz),
-            movel('o18_drop', dz=dz),
-            gripper('Gripper Move30% (1)'),
-            movel('o18_drop_neu', dz=dz),
-            movel('out_neu', dz=dz),
-            movel('out_neu'),
-            movel('h21_neu'),
-        ])
-
-    programs['incu_get'] = resolve('scripts/dan_incu_to_delid.script', [
+for i in [1, 3, 5, 7, 9, 11, 13, 15, 17, 19]:
+    dz = (i - 11) / 2 * hotel_dist
+    # puts h21 on h{i}
+    programs[f'h{i}_put'] = resolve('scripts/dan_lid_21_11.script', [
         gripper('Gripper Move30% (1)'),
-        movejoint('delid_neu'),
-        movel('incu_neu'),
-        movel('incu_pick_above'),
-        movel('incu_pick'),
+        movejoint('h21_neu', desc=h21_neu),
+        movel('h21_pick_neu', desc=h21_drop_neu),
+        movel('h21_pick'),
         gripper('Gripper Close (1)'),
-        movel('incu_pick_above'),
-        movel('incu_neu'),
-        movel('delid_neu'),
-        movel('delid_drop_abov'),
-        movel('delid_drop'),
+        movel('h21_pick_neu'),
+        movel('h21_neu'),
+        movel('h11_neu', dz=dz),
+        movel('h11_drop_up', dz=dz),
+        movel('h11_drop', dz=dz),
         gripper('Gripper Move30% (1)'),
-        movel('delid_drop_abov', desc=h21_drop_neu),
-        movel('delid_neu', desc=h21_neu),
+        movel('h11_drop_neu', dz=dz),
+        movel('h11_neu', dz=dz),
+        movel('h21_neu'),
     ])
 
-    programs['incu_get_part1'] = resolve('scripts/dan_incu_to_delid.script', [
+    # gets h{i} and puts it on h21
+    programs[f'h{i}_get'] = resolve('scripts/dan_lid_21_11.script', [
         gripper('Gripper Move30% (1)'),
-        movejoint('delid_neu'),
-        movel('incu_neu'),
-        movel('incu_pick_above'),
-    ])
-
-    programs['incu_get_part2'] = resolve('scripts/dan_incu_to_delid.script', [
-        movel('incu_pick'),
+        movejoint('h21_neu'),
+        movel('h11_neu', dz=dz),
+        movel('h11_drop_neu', dz=dz),
+        movel('h11_pick', dz=dz),
         gripper('Gripper Close (1)'),
-        movel('incu_pick_above'),
-        movel('incu_neu'),
-        movel('delid_neu'),
-        movel('delid_drop_abov'),
-        movel('delid_drop'),
+        movel('h11_drop_neu', dz=dz),
+        movel('h11_neu', dz=dz),
+        movel('h21_neu'),
+        movel('h21_pick_neu'),
+        movel('h21_drop'),
         gripper('Gripper Move30% (1)'),
-        movel('delid_drop_abov', desc=h21_drop_neu),
-        movel('delid_neu', desc=h21_neu),
+        movel('h21_pick_neu', desc=h21_drop_neu),
+        movel('h21_neu', desc=h21_neu),
     ])
 
-    programs['incu_put'] = resolve('scripts/dan_incu_to_delid.script', [
+for i in [1, 3, 5, 7, 9, 11, 13, 15, 17, 19]:
+    dz = (i - 19) / 2 * hotel_dist
+
+    programs[f'lid_h{i}_put'] = resolve('scripts/dan_delid.script', [
         gripper('Gripper Move30% (1)'),
         movejoint('delid_neu', desc=h21_neu),
-        movel('delid_pick_abov', desc=h21_drop_neu),
+        movel('delid_pick_up', desc=h21_drop_neu),
         movel('delid_pick'),
         gripper('Gripper Close (1)'),
-        movel('delid_pick_abov'),
-        movel('delid_neu'),
-        movel('incu_neu'),
-        movel('incu_pick_above'),
-        movel('incu_pick'),
+        movel('delid_pick_up'),
+        movel('delid_neu2'),
+        movel('lid_neu', dz=dz),
+        movel('lid_drop', dz=dz),
         gripper('Gripper Move30% (1)'),
-        movel('incu_pick_above'),
-        movel('incu_neu'),
-        movel('delid_neu'),
+        movel('lid_neu2', dz=dz),
+        movel('delid_neu3'),
     ])
 
-    programs['wash_get'] = resolve('scripts/dan_wash_putget.script', [
-        gripper('Gripper Move35% (1)'),
-        movejoint('neu_deli'),
-        movel('safe_delid'),
-        movejoint('safe_delid'),
-        movejoint('above_washr'),
-        movel('above_washr'),
-        movel('near_wash_picku'),
-        movel('pickup'),
+    programs[f'lid_h{i}_get'] = resolve('scripts/dan_delid.script', [
+        gripper('Gripper Move30% (1)'),
+        movejoint('delid_neu3'),
+        movel('lid_neu3', dz=dz),
+        movel('lid_pick', dz=dz),
         gripper('Gripper Close (1)'),
-        movel('above_washr'),
-        movejoint('above_washr'),
-        movejoint('safe_delid'),
-        movel('safe_delid'),
-        movel('neu_deli'),
-        movel('abov_dropoff'),
-        movel('deli_dropoff'),
-        gripper('Gripper Move35% (1)'),
-        movel('abov_dropoff', desc=h21_drop_neu),
-        movel('neu_deli', desc=h21_neu),
+        movel('lid_pick_up', dz=dz),
+        movel('lid_neu4', dz=dz),
+        movel('delid_neu4'),
+        movel('delid_drop_up'),
+        movel('delid_drop'),
+        gripper('Gripper Move30% (1)'),
+        movel('delid_drop_up2', desc=h21_drop_neu),
+        movel('delid_neu5', desc=h21_neu),
     ])
 
-    programs['wash_put'] = resolve('scripts/dan_wash_putget.script', [
-        gripper('Gripper Move35% (1)'),
-        movejoint('neu_deli', desc=h21_neu),
-        movel('abov_dropoff', desc=h21_drop_neu),
-        movel('picku'),
+for i in [1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21]:
+    dz = (i - 21) / 2 * hotel_dist
+    programs[f'r{i}_put'] = resolve('scripts/dan_h21_r21.script', [
+        gripper('Gripper Move30% (1)'),
+        movejoint('h21_neu', desc=h21_neu),
+        movel('h21_pick_neu', desc=h21_drop_neu),
+        movel('h21_pick'),
         gripper('Gripper Close (1)'),
-        movel('abov_dropoff'),
-        movel('safe_delid'),
-        movejoint('safe_delid'),
-        movejoint('above_washr'),
-        movel('above_washr'),
-        movel('near_wash_picku'),
-        movel('dropoff'),
-        gripper('Gripper Move35% (1)'),
-        movel('above_washr'),
-        movejoint('above_washr'),
-        movejoint('safe_delid'),
-        movel('safe_delid'),
-        movel('neu_deli'),
+        movel('h21_pick_neu'),
+        movel('h21_neu'),
+        movel('r21_neu', dz=dz),
+        movel('r21_drop_neu', dz=dz),
+        movel('r21_drop', dz=dz),
+        gripper('Gripper Move30% (1)'),
+        movel('r21_drop_neu', dz=dz),
+        movel('r21_neu', dz=dz),
+        movel('h21_neu'),
     ])
 
-    programs['disp_get'] = resolve('scripts/dan_disp_putget.script', [
-        gripper('Gripper Move35% (1)'),
-        movejoint('neu_deli'),
-        movel('above_dis'),
-        movel('disp_pickup'),
+    programs[f'r{i}_get'] = resolve('scripts/dan_h21_r21.script', [
+        gripper('Gripper Move30% (1)'),
+        movejoint('h21_neu'),
+        movel('r21_neu', dz=dz),
+        movel('r21_drop_neu', dz=dz),
+        movel('r21_pick', dz=dz),
         gripper('Gripper Close (1)'),
-        movel('above_dis'),
-        movel('neu_deli'),
-        movel('dropoff_above'),
-        movel('delid_dropoff'),
-        gripper('Gripper Move33% (1)'),
-        movel('dropoff_above', desc=h21_drop_neu),
-        movel('neu_deli', desc=h21_neu),
+        movel('r21_drop_neu', dz=dz),
+        movel('r21_neu', dz=dz),
+        movel('h21_neu'),
+        movel('h21_pick_neu'),
+        movel('h21_drop'),
+        gripper('Gripper Move30% (1)'),
+        movel('h21_pick_neu', desc=h21_drop_neu),
+        movel('h21_neu', desc=h21_neu),
     ])
 
-    programs['disp_put'] = resolve('scripts/dan_disp_putget.script', [
-        gripper('Gripper Move35% (1)'),
-        movejoint('neu_deli', desc=h21_neu),
-        movel('dropoff_above', desc=h21_drop_neu),
-        movel('delid_pickup'),
+for i in [1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21]:
+    dz = (i - 21) / 2 * hotel_dist
+    programs[f'out{i}_put'] = resolve('scripts/dan_to_out18.script', [
+        gripper('Gripper Move30% (1)'),
+        movejoint('h21_neu', desc=h21_neu),
+        movel('h21_pick_neu', desc=h21_drop_neu),
+        movel('h21_pick'),
         gripper('Gripper Close (1)'),
-        movel('abov_delid_pick'),
-        movel('neu_deli'),
-        movel('above_dis'),
-        movel('disp_dropoff'),
-        gripper('Gripper Move35% (1)'),
-        movel('above_disp2'),
-        movel('neu_deli'),
+        movel('h21_pick_neu'),
+        movel('h21_neu'),
+        movel('out_neu'),
+        movel('out_neu', dz=dz),
+        movel('o18_drop_neu', dz=dz),
+        movel('o18_drop', dz=dz),
+        gripper('Gripper Move30% (1)'),
+        movel('o18_drop_neu', dz=dz),
+        movel('out_neu', dz=dz),
+        movel('out_neu'),
+        movel('h21_neu'),
     ])
+
+programs['incu_get'] = resolve('scripts/dan_incu_to_delid.script', [
+    gripper('Gripper Move30% (1)'),
+    movejoint('delid_neu'),
+    movel('incu_neu'),
+    movel('incu_pick_above'),
+    movel('incu_pick'),
+    gripper('Gripper Close (1)'),
+    movel('incu_pick_above'),
+    movel('incu_neu'),
+    movel('delid_neu'),
+    movel('delid_drop_abov'),
+    movel('delid_drop'),
+    gripper('Gripper Move30% (1)'),
+    movel('delid_drop_abov', desc=h21_drop_neu),
+    movel('delid_neu', desc=h21_neu),
+])
+
+programs['incu_get_part1'] = resolve('scripts/dan_incu_to_delid.script', [
+    gripper('Gripper Move30% (1)'),
+    movejoint('delid_neu'),
+    movel('incu_neu'),
+    movel('incu_pick_above'),
+])
+
+programs['incu_get_part2'] = resolve('scripts/dan_incu_to_delid.script', [
+    movel('incu_pick'),
+    gripper('Gripper Close (1)'),
+    movel('incu_pick_above'),
+    movel('incu_neu'),
+    movel('delid_neu'),
+    movel('delid_drop_abov'),
+    movel('delid_drop'),
+    gripper('Gripper Move30% (1)'),
+    movel('delid_drop_abov', desc=h21_drop_neu),
+    movel('delid_neu', desc=h21_neu),
+])
+
+programs['incu_put'] = resolve('scripts/dan_incu_to_delid.script', [
+    gripper('Gripper Move30% (1)'),
+    movejoint('delid_neu', desc=h21_neu),
+    movel('delid_pick_abov', desc=h21_drop_neu),
+    movel('delid_pick'),
+    gripper('Gripper Close (1)'),
+    movel('delid_pick_abov'),
+    movel('delid_neu'),
+    movel('incu_neu'),
+    movel('incu_pick_above'),
+    movel('incu_pick'),
+    gripper('Gripper Move30% (1)'),
+    movel('incu_pick_above'),
+    movel('incu_neu'),
+    movel('delid_neu'),
+])
+
+programs['wash_get'] = resolve('scripts/dan_wash_putget.script', [
+    gripper('Gripper Move35% (1)'),
+    movejoint('neu_deli'),
+    movel('safe_delid'),
+    movejoint('safe_delid'),
+    movejoint('above_washr'),
+    movel('above_washr'),
+    movel('near_wash_picku'),
+    movel('pickup'),
+    gripper('Gripper Close (1)'),
+    movel('above_washr'),
+    movejoint('above_washr'),
+    movejoint('safe_delid'),
+    movel('safe_delid'),
+    movel('neu_deli'),
+    movel('abov_dropoff'),
+    movel('deli_dropoff'),
+    gripper('Gripper Move35% (1)'),
+    movel('abov_dropoff', desc=h21_drop_neu),
+    movel('neu_deli', desc=h21_neu),
+])
+
+programs['wash_put'] = resolve('scripts/dan_wash_putget.script', [
+    gripper('Gripper Move35% (1)'),
+    movejoint('neu_deli', desc=h21_neu),
+    movel('abov_dropoff', desc=h21_drop_neu),
+    movel('picku'),
+    gripper('Gripper Close (1)'),
+    movel('abov_dropoff'),
+    movel('safe_delid'),
+    movejoint('safe_delid'),
+    movejoint('above_washr'),
+    movel('above_washr'),
+    movel('near_wash_picku'),
+    movel('dropoff'),
+    gripper('Gripper Move35% (1)'),
+    movel('above_washr'),
+    movejoint('above_washr'),
+    movejoint('safe_delid'),
+    movel('safe_delid'),
+    movel('neu_deli'),
+])
+
+programs['disp_get'] = resolve('scripts/dan_disp_putget.script', [
+    gripper('Gripper Move35% (1)'),
+    movejoint('neu_deli'),
+    movel('above_dis'),
+    movel('disp_pickup'),
+    gripper('Gripper Close (1)'),
+    movel('above_dis'),
+    movel('neu_deli'),
+    movel('dropoff_above'),
+    movel('delid_dropoff'),
+    gripper('Gripper Move33% (1)'),
+    movel('dropoff_above', desc=h21_drop_neu),
+    movel('neu_deli', desc=h21_neu),
+])
+
+programs['disp_put'] = resolve('scripts/dan_disp_putget.script', [
+    gripper('Gripper Move35% (1)'),
+    movejoint('neu_deli', desc=h21_neu),
+    movel('dropoff_above', desc=h21_drop_neu),
+    movel('delid_pickup'),
+    gripper('Gripper Close (1)'),
+    movel('abov_delid_pick'),
+    movel('neu_deli'),
+    movel('above_dis'),
+    movel('disp_dropoff'),
+    gripper('Gripper Move35% (1)'),
+    movel('above_disp2'),
+    movel('neu_deli'),
+])
 
 def concat_scripts(A: list[ResolvedStep], B: list[ResolvedStep]) -> list[ResolvedStep]:
     pp(descs(A) + ['+'] + descs(B))
