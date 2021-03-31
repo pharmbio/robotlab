@@ -35,7 +35,7 @@ protocol: list[ProtocolStep] = [
 
 
 p0: list[Plate] = [
-    Plate('Ada', 'h21', queue=protocol),
+    Plate('Ada', incu_locs[0], queue=protocol),
     Plate('Bob', incu_locs[1], queue=protocol),
     Plate('Cal', incu_locs[2], queue=protocol),
     Plate('Deb', incu_locs[3], queue=protocol),
@@ -65,8 +65,8 @@ p0: list[Plate] = [
     Plate('Ha3', incu_locs[27], queue=protocol),
     Plate('Iv3', incu_locs[28], queue=protocol),
     Plate('Jo3', incu_locs[29], queue=protocol),
-][:len(out_locs)]
+][:len(out_locs)][:13]
 
 w0 = World(dict({p.id: p for p in p0}))
 
-execute(w0, dry_run, shuffle_prob=0.1, advance_prob=0.5)
+execute(w0, dry_run)

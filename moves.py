@@ -48,14 +48,13 @@ class Plate:
 
 H = [21, 19, 17, 15, 13, 11, 9, 7, 5, 3, 1]
 I = [i+1 for i in range(42)]
-Out = [18] # [ i+1 for i in range(18) ] # todo: measure out_hotel_dist
-# Out = [ i+1 for i in range(18) ] # todo: measure out_hotel_dist
+Out = list(H)
 
 if 0:
     # small test version
     H = [21, 19, 17, 15, 13]
     I = [1, 2, 3, 4, 5]
-    Out = [18]
+    Out = list(H)
 
 h21 = 'h21'
 
@@ -235,8 +234,10 @@ def moves(p: Plate, w: World) -> Iterator[Transition]:
         yield w.transition(
             p.replace(loc=h21),
             [
-                incu_cmd('get', p.loc),
-                robotarm_cmd('generated/incu_get'),
+                incu_cmd('get without busywait', p.loc),
+                robotarm_cmd('generated/incu_get_part1'),
+                incu_cmd('busywait'),
+                robotarm_cmd('generated/incu_get_part2'),
             ]
         )
 

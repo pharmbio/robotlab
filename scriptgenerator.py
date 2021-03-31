@@ -158,6 +158,26 @@ def programs(gripper: Callable[[str], ScriptStep]=gripper) -> dict[str, list[str
         movel('delid_neu'),
     ])
 
+    p['incu_get_part1'] = resolve('scripts/dan_incu_to_delid.script', [
+        gripper('Gripper Move30% (1)'),
+        movejoint('delid_neu'),
+        movel('incu_neu'),
+        movel('incu_pick_above'),
+    ])
+
+    p['incu_get_part2'] = resolve('scripts/dan_incu_to_delid.script', [
+        movel('incu_pick'),
+        gripper('Gripper Close (1)'),
+        movel('incu_pick_above'),
+        movel('incu_neu'),
+        movel('delid_neu'),
+        movel('delid_drop_abov'),
+        movel('delid_drop'),
+        gripper('Gripper Move30% (1)'),
+        movel('delid_drop_abov'),
+        movel('delid_neu'),
+    ])
+
     p['incu_put'] = resolve('scripts/dan_incu_to_delid.script', [
         gripper('Gripper Move30% (1)'),
         movejoint('delid_neu'),

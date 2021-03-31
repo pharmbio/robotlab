@@ -68,14 +68,13 @@ def bfs(w0: World, opts: BfsOpts=BfsOpts()) -> Transition | None:
     first: Transition | None = None
     max_prio = max((0, *(p.top().prio() for p in w0.plates.values() if p.queue)))
     for res in bfs_iter(w0, opts):
-        return res
         if res.prio == max_prio:
             return res
         if not first:
             first = res
     return first
 
-def execute(w: World, config: Config, shuffle_prob: float=0.0, advance_prob: float=0.0) -> None:
+def execute(w: World, config: Config, shuffle_prob: float=0.0) -> None:
 
     pp('execute', config)
 
@@ -84,6 +83,11 @@ def execute(w: World, config: Config, shuffle_prob: float=0.0, advance_prob: flo
     now = datetime.now()
 
     while 1:
+        print(now.strftime("%Y-%m-%d %H:%M:%S"), *[
+            f'{p.loc}{"" if p.waiting_for == "ready" else "*"}'
+            for p in w.plates.values()
+        ], sep='\t')
+
         res = bfs(w, BfsOpts(shuffle_prob=shuffle_prob, max_fuel=1000))
 
         if res:
@@ -94,11 +98,7 @@ def execute(w: World, config: Config, shuffle_prob: float=0.0, advance_prob: flo
                 # print('end', cmd)
                 all_cmds += [cmd]
                 if config.simulate_time:
-                    now += minutes(1/4)
-            print(*[
-                f'{p.loc}{"" if p.waiting_for == "ready" else "*"}'
-                for p in w.plates.values()
-            ], now, sep='\t')
+                    now += timedelta(seconds=10)
 
         w_start = w
 
