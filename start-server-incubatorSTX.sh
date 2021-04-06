@@ -7,4 +7,4 @@ echo "Activate venv"
 source "/pharmbio/labrobots-restserver/venv/bin/activate"
 
 echo "Start webserver"
-python /pharmbio/labrobots-restserver/server-incubator.py
+python /pharmbio/labrobots-restserver/server-incubatorSTX.py
