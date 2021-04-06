@@ -57,19 +57,11 @@ sudo systemctl start incubator-robot.service
 
 Robot URL:s
 ```
-## Shaker
-http://shaker.lab.pharmb.io:5000/ui/
-http://shaker.lab.pharmb.io:5000/is_ready
-http://shaker.lab.pharmb.io:5000/status
-http://shaker.lab.pharmb.io:5000/start
-http://shaker.lab.pharmb.io:5000/stop
-
-## Incubator
-http://incubator.lab.pharmb.io:5001/
-http://incubator.lab.pharmb.io:5001/is_open
-http://incubator.lab.pharmb.io:5001/is_closed
-http://incubator.lab.pharmb.io:5001/open
-http://incubator.lab.pharmb.io:5001/close
+http://incubator.lab.pharmb.io:5003/is_ready
+http://incubator.lab.pharmb.io:5003/getClimate
+http://incubator.lab.pharmb.io:5003/input_plate/xx
+http://incubator.lab.pharmb.io:5003/output_plate/xx
+http://incubator.lab.pharmb.io:5003/last_STX_response
 
 ```
 

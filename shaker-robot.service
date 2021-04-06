@@ -1,8 +1,0 @@
-[Unit]
-Description=incubator robot server
-
-[Service]
-ExecStart=/pharmbio/labrobots-restserver/start-server-shaker.sh
-
-[Install]
-WantedBy=multi-user.target

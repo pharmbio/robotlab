@@ -328,7 +328,7 @@ class IncubatorSTX:
     def get_last_STX_response(self):
         logging.debug("Inside get_last_STX_response")
         response = {"status": "OK",
-                    "value": self._last_STX_response_response,
+                    "value": self._last_STX_response,
                     "details": ""}
         return jsonify(response)
 

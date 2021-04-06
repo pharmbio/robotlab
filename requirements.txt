@@ -1,7 +1,1 @@
-wheel
-connexion
-gevent
-greenlet
-swagger-ui-bundle
-pyserial
-pyusb
+flask
