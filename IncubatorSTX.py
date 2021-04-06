@@ -236,7 +236,12 @@ class IncubatorSTX:
         }
         logging.debug("climate:" + str(climate))
 
-        return climate
+        response = {"status": "OK",
+                    "value": climate,
+                    "details": ""}
+        return jsonify(response)
+
+        return response
 
 
     def outputPlate(self, nPos):

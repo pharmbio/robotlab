@@ -21,6 +21,7 @@ if __name__ == '__main__':
     server.add_url_rule('/is_ready', 'is_ready', incubator.is_ready)
     server.add_url_rule('/resetAndActivate', 'resetAndActivate', incubator.resetAndActivate)
     server.add_url_rule('/last_STX_response', 'last_STX_response', incubator.get_last_STX_response)
+    server.add_url_rule('/getClimate', 'getClimate', incubator.getClimate)
     server.run(host='0.0.0.0', port=PORT)
 
     #
