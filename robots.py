@@ -62,10 +62,18 @@ live_robotarm_only_no_gripper = Config(
 
 live_robotarm_only = Config(
     robotarm_mode='gripper',
+    disp_mode='dry run',
+    wash_mode='dry run',
+    incu_mode='fail if used',
+    simulate_time=True,
+)
+
+live_robotarm_only_sim_disp_wash = Config(
+    robotarm_mode='gripper',
     disp_mode='simulate',
     wash_mode='simulate',
     incu_mode='fail if used',
-    simulate_time=True,
+    simulate_time=False,
 )
 
 live_robotarm_and_incu_only = Config(
