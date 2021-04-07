@@ -1,8 +1,5 @@
 import show
 
-import snoop
-from snoop import pp
-
 from textwrap import dedent
 import socket
 import re
@@ -37,14 +34,14 @@ while True:
     # b'SECONDARY_PROGRAM_EXCEPTION_XXXType error: str_sub takes exact'
     for m in re.findall(b'([\x20-\x7e]*(?:error|EXCEPTION)[\x20-\x7e]*)', data):
         m = m.decode()
-        pp(m)
+        print(m)
 
     # KeyMessage, looks like:
     # PROGRAM_XXX_STARTEDtestmove2910
     # PROGRAM_XXX_STOPPEDtestmove2910
     for m in re.findall(b'PROGRAM_XXX_(\w*)', data):
         m = m.decode()
-        pp(m)
+        print(m)
 
     if 0:
         for m in re.findall(b'([\x20-\x7e]{10,})', data):

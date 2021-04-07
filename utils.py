@@ -5,11 +5,6 @@ from typing import *
 from pprint import pformat
 import re
 
-class dotdict(dict): # type: ignore
-    __getattr__ = dict.get
-    __setattr__: Any = dict.__setitem__
-    __delattr__: Any = dict.__delitem__
-
 def primlike(x: object) -> bool:
     if isinstance(x, (tuple, list, set, frozenset)):
         return all(map(primlike, x))
@@ -22,7 +17,6 @@ def show_key(x: object) -> str:
         if re.match('\w*$', k):
             return k
     return repr(x)
-
 
 def show(x: Any, show_key: Any=show_key, width: int=80) -> str:
 
@@ -75,6 +69,9 @@ def show(x: Any, show_key: Any=show_key, width: int=80) -> str:
 
 
     return '\n'.join(go('', '', x, ''))
+
+def pr(*xs: Any) -> None:
+    print(*map(show, xs))
 
 class Expand():
     '''

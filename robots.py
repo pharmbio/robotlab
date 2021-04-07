@@ -6,9 +6,6 @@ from datetime import datetime, timedelta
 from contextlib import *
 
 from utils import show
-import snoop # type: ignore
-snoop.install(pformat=show)
-pp: Any
 
 import time
 from urllib.request import urlopen
@@ -107,10 +104,9 @@ class robotarm_cmd(Command):
             return
         if config.robotarm_mode == 'no gripper':
             prog_path = prog_path.replace('generated', 'generated_nogripper')
-        prog_str = open(pp(prog_path), 'rb').read()
+        prog_str = open(prog_path, 'rb').read()
         prog_name = prog_path.split('/')[-1]
         needle = f'Program {prog_name} completed'.encode()
-        # pp(needle)
         assert needle in prog_str
         assert config.robotarm_mode in {'gripper', 'no gripper'}
         print('connecting to robot...', end=' ')
@@ -126,14 +122,14 @@ class robotarm_cmd(Command):
             # b'SECONDARY_PROGRAM_EXCEPTION_XXXType error: str_sub takes exact'
             for m in re.findall(b'([\x20-\x7e]*(?:error|EXCEPTION)[\x20-\x7e]*)', data):
                 m = m.decode()
-                pp(m)
+                print(f'{m = }')
 
             # KeyMessage, looks like:
             # PROGRAM_XXX_STARTEDtestmove2910
             # PROGRAM_XXX_STOPPEDtestmove2910
             for m in re.findall(b'PROGRAM_XXX_(\w*)', data):
                 m = m.decode()
-                pp(m)
+                print(f'{m = }')
 
             if needle in data:
                 print(f'program {prog_name} completed!')
@@ -154,7 +150,7 @@ class wash_cmd(Command):
         else:
             raise ValueError
         res = curl(url)
-        assert res['status'] == 'OK', pp(res)
+        assert res['status'] == 'OK', f'status not OK: {res = }'
 
 @dataclass(frozen=True)
 class disp_cmd(Command):
@@ -170,7 +166,7 @@ class disp_cmd(Command):
         else:
             raise ValueError
         res = curl(url)
-        assert res['status'] == 'OK', pp(res)
+        assert res['status'] == 'OK', f'status not OK: {res = }'
 
 @dataclass(frozen=True)
 class incu_cmd(Command):
@@ -207,7 +203,7 @@ class incu_cmd(Command):
             if action:
                 url = ENV.incu_url + action + '/' + self.incu_loc
                 res = curl(url)
-                assert res['status'] == 'OK', pp(res)
+                assert res['status'] == 'OK', f'status not OK: {res = }'
             if busywait:
                 while not is_ready('incu', config):
                     time.sleep(0.1)
@@ -219,7 +215,7 @@ def curl(url: str) -> Any:
 
 def is_ready(machine: Literal['disp', 'wash', 'incu'], config: Config) -> Any:
     res = curl(getattr(ENV, machine + '_url'))
-    assert res['status'] == 'OK', res
+    assert res['status'] == 'OK', f'status not OK: {res = }'
     return res['value'] is True
 
 def robotarm_execute(path: str) -> None:

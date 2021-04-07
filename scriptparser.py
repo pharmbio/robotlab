@@ -3,16 +3,12 @@ from dataclasses import dataclass, field, replace, astuple
 from typing import Any
 
 from utils import show
-import snoop # type: ignore
-snoop.install(pformat=show)
-pp: Any
 
 import ast
 
 import re
 from textwrap import dedent, shorten
 
-from utils import dotdict
 import sys
 
 from abc import ABC
@@ -154,7 +150,7 @@ class test:
         lhs = self.lhs
         true = lhs == rhs
         if not true:
-            pp(lhs, rhs)
+            print(f'{lhs = } {rhs = }')
         elif '-v' in sys.argv:
             print(f'passed test(...) == {shorten(repr(rhs), 60, placeholder=" ...")}')
         return true

@@ -9,20 +9,16 @@ import random
 
 import abc
 
-from utils import show
-import snoop # type: ignore
-snoop.install(pformat=show)
-
-
 from robots import *
 from moves import *
+
+from utils import pr
 
 @dataclass(frozen=True)
 class BfsOpts:
     max_fuel: int=1000
     shuffle_prob: float=0
 
-# @snoop
 def bfs_iter(w0: World, opts: BfsOpts=BfsOpts()) -> Iterator[Transition]:
     q: deque[Transition] = deque([Transition(w0)])
     visited: set[str] = set()
@@ -48,7 +44,7 @@ def bfs_iter(w0: World, opts: BfsOpts=BfsOpts()) -> Iterator[Transition]:
                 p.lid_loc != 'self' and p.lid_loc == q.lid_loc,
             ))
         ]
-        assert not collision, pp(collision)
+        assert not collision
         for p in w.plates.values():
             if p.waiting_for != 'ready':
                 continue
@@ -76,7 +72,7 @@ def bfs(w0: World, opts: BfsOpts=BfsOpts()) -> Transition | None:
 
 def execute(w: World, config: Config, shuffle_prob: float=0.0) -> None:
 
-    pp('execute', config)
+    print('execute', config)
 
     all_cmds: list[Command] = []
 
@@ -143,9 +139,8 @@ def execute(w: World, config: Config, shuffle_prob: float=0.0) -> None:
 
 
     print('done?')
-    # pp(all_cmds, len(all_cmds))
-    pp(len(all_cmds))
-    pp({
+    print(len(all_cmds))
+    pr({
         p.id: (*astuple(p)[:4], len(p.queue))
         for p in w.plates.values()
     })
