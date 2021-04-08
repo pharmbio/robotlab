@@ -40,41 +40,76 @@ In the lab:
         plates must have the correct 180° orientation:
             A1 in top-left corner when operating the machine as a human.
 
+        dispenser takes about 30s
+        washing takes about 1m30s to 1m40s
+        the very last step of washing takes the longest time!
+
+        it's important to move quickly from the washer to the dispenser
+        i think this is because then the plates still have some liquid
+        on them and don't directly touch the air
+
+    dispenser priming:
+        ensures the liquids in the dispenser's tubes are ready and without
+        air bubbles if a plate soon will go to the dispenser and it has been
+        idle for some minutes run dispenser priming. this takes about 20s
+
     incubator:
         plate hotel storage with precise temperature (like 37°) and humidity.
         looks like a fridge.
         has an entrance slot for the robot to put and get plates.
         plates must have a lid when they go in and out of the incubator.
 
+         after mitotracker staining has been applied by the dispenser the
+         plates go back into the incubator. it's important that the plates
+         are in room temperature for as short as possible or the cells die
+
     shaker:
         another machine for processing plates
         currently not used and not in the lab but occasionally referred to
 
+
+### Cell painting workflow
+From https://docs.google.com/spreadsheets/d/17Tc3-pu8PlIvbBNSVf0f7W_Em4n6ECiMjXvrObrig2Y
+
+<table>
+<tr><th>   </th></th><th>  action                                           </th><th>  equipment                         </th><th>  solution                 </th><th>  temp  </th></tr>
+<tr><td>1  </td></td><th>  Cell seeding                                     </td><td>  manual/dispenser                  </td><td>  -                        </td><td>  RT    </td></tr>
+<tr><td>   </td></td><td>  incubation for 24/48h                            </td><td>  incubator                         </td><td>  -                        </td><td>  37°C  </td></tr>
+<tr><td>2  </td></td><th>  Compound treatment                               </td><td>  manual/dispenser/ viaflo/opentrons </td><td>  -                        </td><td>  RT    </td></tr>
+<tr><td>   </td></td><td>  incubation for 24/48h (can be 10 min difference) </td><td>  incubator                         </td><td>  -                        </td><td>  37°C  </td></tr>
+<tr><td>   </td></td><td>  move plate from incubator to washer              </td><td>  robot arm/manual                  </td><td>  -                        </td><td>  RT    </td></tr>
+<tr><td>   </td></td><td>  Remove (80%) media of all wells                  </td><td>  washer                            </td><td>  -                        </td><td>  RT    </td></tr>
+<tr><td>   </td></td><td>  move plate from washer to dispenser              </td><td>  robot arm/manual                  </td><td>  -                        </td><td>  RT    </td></tr>
+<tr><td>3  </td></td><th>  Mitotracker staining                             </th><td>  dispenser peripump 1              </td><td>  mitotracker solution     </td><td>  37°C  </td></tr>
+<tr><td>   </td></td><td>  move plate from dispenser to incubator           </td><td>  robot arm/manual                  </td><td>  -                        </td><td>  RT    </td></tr>
+<tr><td>3.1</td></td><td>  Incubation for 30 minutes                        </td><td>  incubator                         </td><td>  -                        </td><td>  37°C  </td></tr>
+<tr><td>   </td></td><td>  move plate from incubator to washer              </td><td>  robot arm/manual                  </td><td>  -                        </td><td>  RT    </td></tr>
+<tr><td>3.2</td></td><td>  Washing                                          </td><td>  washer pump D                     </td><td>  PBS                      </td><td>  RT    </td></tr>
+<tr><td>   </td></td><td>  move plate from washer to dispenser              </td><td>  robot arm/manual                  </td><td>  -                        </td><td>  RT    </td></tr>
+<tr><td>4  </td></td><th>  Fixation                                         </th><td>  dispenser Syringe A               </td><td>  4% PFA                   </td><td>  RT    </td></tr>
+<tr><td>   </td></td><td>  move plate from dispenser to shaker              </td><td>  robot arm/manual                  </td><td>  -                        </td><td>  RT    </td></tr>
+<tr><td>4.1</td></td><td>  Incubation for 20 minutes                        </td><td>  shaker                            </td><td>  -                        </td><td>  RT    </td></tr>
+<tr><td>   </td></td><td>  move plate from shaker to washer                 </td><td>  robot arm/manual                  </td><td>  -                        </td><td>  RT    </td></tr>
+<tr><td>4.2</td></td><td>  Washing                                          </td><td>  washer pump D                     </td><td>  PBS                      </td><td>  RT    </td></tr>
+<tr><td>   </td></td><td>  move plate from washer to dispenser              </td><td>  robot arm/manual                  </td><td>  -                        </td><td>  RT    </td></tr>
+<tr><td>5  </td></td><th>  Permeabilization                                 </th><td>  dispenser Syringe B               </td><td>  0.1% Triton X-100 in PBS </td><td>  RT    </td></tr>
+<tr><td>   </td></td><td>  move plate from dispenser to shaker              </td><td>  robot arm/manual                  </td><td>  -                        </td><td>  RT    </td></tr>
+<tr><td>5.1</td></td><td>  Incubation for 20 minutes                        </td><td>  shaker                            </td><td>  -                        </td><td>  RT    </td></tr>
+<tr><td>   </td></td><td>  move plate from shaker to washer                 </td><td>  robot arm/manual                  </td><td>  -                        </td><td>  RT    </td></tr>
+<tr><td>5.2</td></td><td>  Washing                                          </td><td>  washer pump D                     </td><td>  PBS                      </td><td>  RT    </td></tr>
+<tr><td>   </td></td><td>  move plate from washer to shaker                 </td><td>  robot arm/manual                  </td><td>  -                        </td><td>  RT    </td></tr>
+<tr><td>6  </td></td><th>  Post-fixation staining                           </th><td>  dispenser peripump 2              </td><td>  staining mixture in PBS  </td><td>  RT    </td></tr>
+<tr><td>   </td></td><td>  move plate from dispenser to shaker              </td><td>  robot arm/manual                  </td><td>  -                        </td><td>  RT    </td></tr>
+<tr><td>6.1</td></td><td>  Incubation - 20 minutes                          </td><td>  shaker                            </td><td>  -                        </td><td>  RT    </td></tr>
+<tr><td>   </td></td><td>  move plate from shaker to washer                 </td><td>  robot arm/manual                  </td><td>  -                        </td><td>  RT    </td></tr>
+<tr><td>6.2</td></td><td>  Washing                                          </td><td>  washer pump D                     </td><td>  PBS                      </td><td>  RT    </td></tr>
+<tr><td>   </td></td><td>  move plate from washer to IMX                    </td><td>  manual                            </td><td>  -                        </td><td>  RT    </td></tr>
+<tr><td>7  </td></td><th>  Imaging                                          </th><td>  microscope                        </td><td>  -                        </td><td>  RT    </td></tr>
+</table>
+
+
+### Lab camera
 The surveillance camera in the lab can be found on https://monitor.pharmb.io.
-
-Positions:
-
-    joint space: the rotations of the six robot joints
-        denoted in radians starting from the base
-    q:   joint coordinate
-    qd:  joint velocities
-    qdd: joint acceleration
-
-    pose: cartesian position of the robot tool center point
-        3 cartesian coordinates in metres
-        3 axis-angle in radians
-    p:   pose coordinate
-
-
-    RPY: roll pitch yaw, a way of denoting the tool rotation similar to polar coordinates.
-        not the UR default way to write rotations.
-        https://www.universal-robots.com/articles/ur/application-installation/explanation-on-robot-orientation/
-        https://www.mecademic.com/en/how-is-orientation-in-space-represented-with-euler-angles
-        https://www.researchgate.net/publication/336061230_An_image_vision_and_automatic_calibration_system_for_universal_robots
-
-    Gimbal lock, singularity:
-        when the robot loses a degree of movement freedom
-        because the joints are positioned above each other
 
 ### Gripping the physical plates
 
@@ -91,6 +126,30 @@ It is not enough to only store points (position + tool rotation) since there are
 possible joint configurations to the same point. (16 for 6-armed robots?)
 - **inverse kinematics** (multi-)mapping cartesian space to joint space
 - **forward kinematics** mapping joint space to cartesian space
+
+### Robot positions and kinematics
+
+    joint space: the rotations of the six robot joints
+        denoted in radians starting from the base
+    q:   joint coordinate
+    qd:  joint velocities
+    qdd: joint acceleration
+
+    pose: cartesian position of the robot tool center point
+        3 cartesian coordinates in metres
+        3 axis-angle in radians
+    p:   pose coordinate
+
+    Gimbal lock, singularity:
+        when the robot loses a degree of movement freedom
+        because the joints are positioned above each other
+
+    RPY: roll pitch yaw, a way of denoting the tool rotation similar to polar coordinates.
+        not the UR default way to write rotations.
+
+https://www.universal-robots.com/articles/ur/application-installation/explanation-on-robot-orientation/
+https://www.mecademic.com/en/how-is-orientation-in-space-represented-with-euler-angles
+https://www.researchgate.net/publication/336061230_An_image_vision_and_automatic_calibration_system_for_universal_robots
 
 ## URSim: the Simulator
 
