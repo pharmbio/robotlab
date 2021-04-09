@@ -46,26 +46,6 @@ class Plate:
         return replace(self, **kws)
 
 
-H = [21, 19, 17, 15, 13, 11, 9, 7, 5, 3, 1]
-I = [i+1 for i in range(42)]
-Out = list(H)
-
-if 0:
-    # small test version
-    H = [21, 19, 17, 15, 13]
-    I = [1, 2, 3, 4, 5]
-    Out = list(H)
-
-h21 = 'h21'
-
-incu_locs: list[str] = [f'i{i}' for i in I]
-h_locs:    list[str] = [f'h{i}' for i in H]
-r_locs:    list[str] = [f'r{i}' for i in H]
-out_locs:  list[str] = [f'out{i}' for i in Out]
-lid_locs:  list[str] = [h for h in h_locs if h != h21]
-
-out_locs += r_locs
-
 @dataclass(frozen=True)
 class World:
     plates: dict[str, Plate]

@@ -170,29 +170,11 @@ class disp_cmd(Command):
 
 @dataclass(frozen=True)
 class incu_cmd(Command):
-    action_arg: Literal['put' | 'get' | 'get without busywait' | 'busywait']
-    incu_loc: str | None = None
+    action: Literal['put' | 'get']
+    incu_loc: str
     def execute(self, config: Config) -> None:
-
-        action: Literal['put' | 'get'] | None
-        busywait: bool = True
-        if self.action_arg == 'busywait':
-            action = None
-        elif self.action_arg == 'put':
-            action = 'put'
-        elif self.action_arg == 'get':
-            action = 'get'
-        elif self.action_arg == 'get without busywait':
-            action = 'get'
-            busywait = False
-        else:
-            raise ValueError
-
-        if action:
-            assert self.incu_loc is not None
-        if not action:
-            assert self.incu_loc is None
-            assert busywait
+        assert self.action in 'put get'.split()
+        busywait: bool = self.action == 'get'
 
         if config.incu_mode == 'dry run':
             # print('dry run', self)
@@ -200,10 +182,9 @@ class incu_cmd(Command):
         elif config.incu_mode == 'fail if used':
             raise RuntimeError
         elif config.incu_mode == 'execute':
-            if action:
-                url = ENV.incu_url + action + '/' + self.incu_loc
-                res = curl(url)
-                assert res['status'] == 'OK', f'status not OK: {res = }'
+            url = ENV.incu_url + self.action + '/' + self.incu_loc
+            res = curl(url)
+            assert res['status'] == 'OK', f'status not OK: {res = }'
             if busywait:
                 while not is_ready('incu', config):
                     time.sleep(0.1)

@@ -32,6 +32,9 @@ In the lab:
         technical specifications: PLATE 353962
             https://www.corning.com/catalog/cls/documents/brochures/CLS-DL-CC-016_REV1_DL.pdf ￼￼
 
+        lids from different plates can be put on the same hotel location
+        (at different points in time.) no risk for contamination.
+
     hotel: vertical storage rack for plates.
 
     washer, dispenser:
