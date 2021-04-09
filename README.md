@@ -11,6 +11,8 @@ Create your python functions (`shaker.py`)
 <img width=250 src=images/fisherbrand-shaker.jpg></img>
 <br><br>
 <img width=250 src=images/incubator.JPG></img>
+<br><br>
+<img width=250 src=images/STX_44_BT_Flush_Front_new-tm.jpg></img>
 
 ## Requirements
 - Python version >= 3.6 (On Windows don´t use App-Store Python, use installer, OBS For all Usera and Tich "Add Env variables"-To make sure running as Service will work)
