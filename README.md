@@ -50,9 +50,9 @@ sudo cp shaker-robot.service /etc/systemd/system/
 sudo systemctl enable shaker-robot.service
 sudo systemctl start shaker-robot.service
 
-sudo cp shaker-incubator.service /etc/systemd/system/
-sudo systemctl enable incubator-robot.service
-sudo systemctl start incubator-robot.service
+sudo cp incubatorSTX.service /etc/systemd/system/
+sudo systemctl enable incubatorSTX.service
+sudo systemctl start incubatorSTX.service
 ```
 
 Robot URL:s

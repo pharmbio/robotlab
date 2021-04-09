@@ -13,6 +13,11 @@ RETCODE_DESCR_STX2RESET = """
     Return values: CR+LF.
 """
 
+RETCODE_STX2WRITESETCLIMATE_OK = ""
+RETCODE_DESCR_STX2WRITESETCLIMATE = """
+    Return values: CR+LF.
+"""
+
 RETCODE_STX2ACTIVATE_OK = "1"
 RETCODE_DESCR_STX2ACTIVATE = """
     Return values: the reply consists of one or two characters (separated by
@@ -188,6 +193,23 @@ class IncubatorSTX:
         retval = self._sendCmd(cmd)
         return retval
 
+    def _stxReadSetClimate(self):
+        logging.debug("Inside _stxReadSetClimate")
+        cmd = "STX2ReadSetClimate(" + self.id + ")\r"
+        retval = self._sendCmd(cmd)
+        return retval
+    def _stxWriteSetClimate(self, temp, humid, co2, n2):
+        logging.debug("Inside _stxWriteSetClimate")
+
+        cmd = f"STX2WriteSetClimate({self.id},{temp},{humid},{co2},{n2})\r"
+        retval = self._sendCmd(cmd)
+        if retval == RETCODE_STX2WRITESETCLIMATE_OK:
+            response = self._create_ok_response("_stxWriteSetClimate")
+        else:
+            response = self._create_error_response("_stxWriteSetClimate", retval, RETCODE_DESCR_STX2WRITESETCLIMATE)
+        return response
+
+
     def resetAndActivate(self):
         logging.debug("Inside resetAndActivate")
 
@@ -195,6 +217,9 @@ class IncubatorSTX:
             # Dont worry if stx2Reset failed or not
             unused_response = self._stx2Reset()
             response = self._stx2Activate()
+
+            # No error was thrown so Clear last response
+            self._clearLastStxResponse()
 
         except Exception as e:
             logging.error(traceback.format_exc())
@@ -209,22 +234,41 @@ class IncubatorSTX:
 
     def is_ready(self):
         logging.debug("Inside is_ready")
-        is_ready = self._is_STX_ready()
-        response = {"status": "OK",
-                    "value": is_ready,
-                    "details": ""}
+
+        if self._is_STX_errored():
+            response = {"status": "ERROR",
+                        "value": False,
+                        "details": self._last_STX_response}
+        else:
+            is_ready = not self._is_STX_busy()
+            response = {"status": "OK",
+                        "value": is_ready,
+                        "details": ""}
         return jsonify(response)
 
     def _is_STX_ready(self):
-        if self._thread_STX is None or self._thread_STX.is_alive() == False:
-            return True
-        else:
-            return False
+        logging.debug("Inside _is_STX_ready")
 
+        if self._is_STX_busy() or self._is_STX_errored():
+            return False
+        else:
+            return True
+
+    def _is_STX_busy(self):
+        if self._thread_STX is None or self._thread_STX.is_alive() == False:
+            return False
+        else:
+            return True
+
+    def _is_STX_errored(self):
+        is_errored = False
+        if self._last_STX_response is not None:
+            if self._last_STX_response.get("status") == "ERROR":
+                is_errored = True
+        return is_errored
 
     def getClimate(self):
         logging.debug("Inside getClimate")
-        cmd = "STX2ReadActualClimate(" + self.id + ")\r"
         response = self._stx2ReadActualClimate()
 
         splitted = response.split(";")
@@ -242,6 +286,43 @@ class IncubatorSTX:
         return jsonify(response)
 
         return response
+    
+    def getPresetClimate(self):
+        logging.debug("Inside getPresetClimate")
+        response = self._stxReadSetClimate()
+
+        splitted = response.split(";")
+        climate = {
+            "temp": splitted[0],
+            "humid": splitted[1],
+            "co2": splitted[2],
+            "n2": splitted[3]
+        }
+        logging.debug("presetclimate:" + str(climate))
+
+        response = {"status": "OK",
+                    "value": climate,
+                    "details": ""}
+        return jsonify(response)
+
+        return response
+    
+    def setPresetClimate(self, temp, humid, co2, n2):
+        logging.debug("Inside setPresetClimate")
+
+        try:
+            response = self._stxWriteSetClimate(temp, humid, co2, n2)
+
+        except Exception as e:
+            logging.error(traceback.format_exc())
+            logging.error(e)
+            response = [{"status": "ERROR",
+                        "value": "",
+                        "details": "See log for traceback"}]
+            
+        finally:
+            logging.debug('Done finally')
+            return jsonify(response)
 
 
     def outputPlate(self, nPos):
@@ -258,6 +339,8 @@ class IncubatorSTX:
         try:
             if self._is_STX_ready():
 
+                logging.debug("self._is_STX_ready()" + str(self._is_STX_ready()))
+
                 self._thread_STX = threading.Thread(target=self._movePlateFromCassetteToTransferStation, args=([nCassette, nLevel]))
                 self._thread_STX.start()
                 response = {"status": "OK",
@@ -269,7 +352,7 @@ class IncubatorSTX:
                 # send warning:
                 response = {"status": "WARNING",
                             "value": "",
-                            "details": "Incubator is busy - will not run command"}
+                            "details": "Incubator is not ready - will not run command"}
                 logging.warning(response)
 
         except Exception as e:
@@ -310,7 +393,7 @@ class IncubatorSTX:
                 # send warning:
                 response = {"status": "WARNING",
                             "value": "",
-                            "details": "Incubator is busy - will not run command"}
+                            "details": "Incubator is not ready - will not run command"}
                 logging.warning(response)
 
         except Exception as e:
@@ -324,6 +407,9 @@ class IncubatorSTX:
             logging.debug('Done finally inputPlate')
             self._synchronization_lock.release()
             return jsonify(response)
+
+    def _clearLastStxResponse(self):
+        self._last_STX_response = None
 
     def get_last_STX_response(self):
         logging.debug("Inside get_last_STX_response")
