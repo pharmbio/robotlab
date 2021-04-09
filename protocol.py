@@ -151,14 +151,15 @@ lid_locs:  list[str] = [h for h in h_locs if h != h21]
 
 # out_locs += r_locs
 
-N = 2
-D = 162
+N = 3
+D = 210
 
 events = [
     cell_painting(f'p{i}', i * D, incu_loc, lid_loc, r_loc, out_loc)
     for i,                       (incu_loc, lid_loc, r_loc, out_loc) in
               enumerate(list(zip(incu_locs, lid_locs, r_locs, out_locs))[:N])
 ]
+
 
 events = sum(events, [])
 events = sorted(events, key=lambda e: e.begin)

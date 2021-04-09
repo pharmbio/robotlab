@@ -188,7 +188,7 @@ class wash_cmd(Command):
             # print('dry run', self)
             return
         elif config.wash_mode == 'simulate':
-            url = ENV.wash_url + 'simulate_protocol/' + self.protocol_path
+            url = ENV.wash_url + 'simulate_protocol/' + str(int(self.est))
         elif config.wash_mode == 'execute':
             url = ENV.wash_url + 'execute_protocol/' + self.protocol_path
         else:
@@ -209,7 +209,7 @@ class disp_cmd(Command):
             # print('dry run', self)
             return
         elif config.disp_mode == 'simulate':
-            url = ENV.disp_url + 'simulate_protocol/' + self.protocol_path
+            url = ENV.disp_url + 'simulate_protocol/' + str(int(self.est))
         elif config.disp_mode == 'execute':
             url = ENV.disp_url + 'execute_protocol/' + self.protocol_path
         else:
@@ -278,6 +278,21 @@ if 0:
 def execute_scripts(s: str) -> None:
     for path in s.strip().split('\n'):
         robotarm_execute(path.strip())
+
+execute_scripts('''
+    ./generated/disp_get
+''')
+
+'''
+    ./generated/incu_get_part2
+    ./generated/r1_get
+
+    ./generated/r11_put
+    ./generated/r11_get
+
+    ./generated/r15_put
+    ./generated/r15_get
+'''
 
 if 0:
     execute_scripts('''
