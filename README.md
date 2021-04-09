@@ -24,7 +24,7 @@ git clone git@github.com:pharmbio/labrobots-restserver.git
 cd labrobots-restserver
 
 # Create a virtualenv for your project
-python3 -m venv venv # on wondows python.exe -m venv .\venv
+python3.9 -m venv venv # on wondows python.exe -m venv .\venv
 source venv/bin/activate # Or in Windows something like: .\venv\Scripts\Activate.ps
 
 # Install python requirements
