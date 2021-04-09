@@ -76,6 +76,195 @@ class IncubatorSTX:
         self._thread_STX = None
         self._last_STX_response = None
 
+    def resetAndActivate(self):
+        logging.debug("Inside resetAndActivate")
+
+        try:
+            # Dont worry if stx2Reset failed or not
+            unused_response = self._stx2Reset()
+            response = self._stx2Activate()
+
+            # No error was thrown so Clear last response
+            self._clearLastStxResponse()
+
+        except Exception as e:
+            logging.error(traceback.format_exc())
+            logging.error(e)
+            response = [{"status": "ERROR",
+                        "value": "",
+                        "details": "See log for traceback"}]
+            
+        finally:
+            logging.debug('Done finally')
+            return jsonify(response)
+
+    def is_ready(self):
+        logging.debug("Inside is_ready")
+
+        if self._is_STX_errored():
+            response = {"status": "ERROR",
+                        "value": False,
+                        "details": self._last_STX_response}
+        else:
+            is_ready = not self._is_STX_busy()
+            response = {"status": "OK",
+                        "value": is_ready,
+                        "details": ""}
+        return jsonify(response)
+
+    def inputPlate(self, pos):
+        logging.debug("Inside inputPlate, pos= " + str(pos))
+
+        # pos[0] should be L or R indicate cassette 1 or 2
+        if pos[0] == "L":
+            nCassette = 1
+        if pos[0] == "R":
+            nCassette = 2
+
+        # pos[1:] should be level
+        nLevel = int(pos[1:])
+
+        # Synchronize the check_if_ready and execution of thread to avoid race between check and execution
+        self._synchronization_lock.acquire()
+        try:
+            if self._is_STX_ready():
+
+                self._thread_STX = threading.Thread(target=self._movePlateFromTransferStationToCassette, args=([nCassette, nLevel]))
+                self._thread_STX.start()
+                response = {"status": "OK",
+                        "value": "",
+                        "details": "Executed protocol in background thread"}
+
+            else:
+
+                # send warning:
+                response = {"status": "WARNING",
+                            "value": "",
+                            "details": "Incubator is not ready - will not run command"}
+                logging.warning(response)
+
+        except Exception as e:
+            logging.error(traceback.format_exc())
+            logging.error(e)
+            response = [{"status": "ERROR",
+                        "value": "",
+                        "details": "See log for traceback"}]
+            
+        finally:
+            logging.debug('Done finally inputPlate')
+            self._synchronization_lock.release()
+            return jsonify(response)
+    
+    def outputPlate(self, pos):
+        logging.debug("Inside outputPlate, pos= " + str(pos))
+
+        # pos[0] should be L or R indicate cassette 1 or 2
+        if pos[0] == "L":
+            nCassette = 1
+        if pos[0] == "R":
+            nCassette = 2
+
+        # pos[1:] should be level
+        nLevel = int(pos[1:])
+
+        # Synchronize the check_if_ready and execution of thread to avoid race between check and execution
+        self._synchronization_lock.acquire()
+        try:
+            if self._is_STX_ready():
+
+                logging.debug("self._is_STX_ready()" + str(self._is_STX_ready()))
+
+                self._thread_STX = threading.Thread(target=self._movePlateFromCassetteToTransferStation, args=([nCassette, nLevel]))
+                self._thread_STX.start()
+                response = {"status": "OK",
+                        "value": "",
+                        "details": "Executed protocol in background thread"}
+
+            else:
+
+                # send warning:
+                response = {"status": "WARNING",
+                            "value": "",
+                            "details": "Incubator is not ready - will not run command"}
+                logging.warning(response)
+
+        except Exception as e:
+            logging.error(traceback.format_exc())
+            logging.error(e)
+            response = [{"status": "ERROR",
+                        "value": "",
+                        "details": "See log for traceback"}]
+            
+        finally:
+            logging.debug('Done finally outputPlate')
+            self._synchronization_lock.release()
+            return jsonify(response)
+
+
+    def getClimate(self):
+        logging.debug("Inside getClimate")
+        response = self._stx2ReadActualClimate()
+
+        splitted = response.split(";")
+        climate = {
+            "temp": splitted[0],
+            "humid": splitted[1],
+            "co2": splitted[2],
+            "n2": splitted[3]
+        }
+        logging.debug("climate:" + str(climate))
+
+        response = {"status": "OK",
+                    "value": climate,
+                    "details": ""}
+        return jsonify(response)
+
+        return response
+    
+    def getPresetClimate(self):
+        logging.debug("Inside getPresetClimate")
+        response = self._stxReadSetClimate()
+
+        splitted = response.split(";")
+        climate = {
+            "temp": splitted[0],
+            "humid": splitted[1],
+            "co2": splitted[2],
+            "n2": splitted[3]
+        }
+        logging.debug("presetclimate:" + str(climate))
+
+        response = {"status": "OK",
+                    "value": climate,
+                    "details": ""}
+        return jsonify(response)
+
+        return response
+    
+    def setPresetClimate(self, temp, humid, co2, n2):
+        logging.debug("Inside setPresetClimate")
+
+        try:
+            response = self._stxWriteSetClimate(temp, humid, co2, n2)
+
+        except Exception as e:
+            logging.error(traceback.format_exc())
+            logging.error(e)
+            response = [{"status": "ERROR",
+                        "value": "",
+                        "details": "See log for traceback"}]
+            
+        finally:
+            logging.debug('Done finally')
+            return jsonify(response)
+
+    def get_last_STX_response(self):
+        logging.debug("Inside get_last_STX_response")
+        response = {"status": "OK",
+                    "value": self._last_STX_response,
+                    "details": ""}
+        return jsonify(response)
+
     def _create_ok_response(self, method):
         response = {"status": "OK",
                     "value": "",
@@ -209,43 +398,6 @@ class IncubatorSTX:
             response = self._create_error_response("_stxWriteSetClimate", retval, RETCODE_DESCR_STX2WRITESETCLIMATE)
         return response
 
-
-    def resetAndActivate(self):
-        logging.debug("Inside resetAndActivate")
-
-        try:
-            # Dont worry if stx2Reset failed or not
-            unused_response = self._stx2Reset()
-            response = self._stx2Activate()
-
-            # No error was thrown so Clear last response
-            self._clearLastStxResponse()
-
-        except Exception as e:
-            logging.error(traceback.format_exc())
-            logging.error(e)
-            response = [{"status": "ERROR",
-                        "value": "",
-                        "details": "See log for traceback"}]
-            
-        finally:
-            logging.debug('Done finally')
-            return jsonify(response)
-
-    def is_ready(self):
-        logging.debug("Inside is_ready")
-
-        if self._is_STX_errored():
-            response = {"status": "ERROR",
-                        "value": False,
-                        "details": self._last_STX_response}
-        else:
-            is_ready = not self._is_STX_busy()
-            response = {"status": "OK",
-                        "value": is_ready,
-                        "details": ""}
-        return jsonify(response)
-
     def _is_STX_ready(self):
         logging.debug("Inside _is_STX_ready")
 
@@ -267,158 +419,8 @@ class IncubatorSTX:
                 is_errored = True
         return is_errored
 
-    def getClimate(self):
-        logging.debug("Inside getClimate")
-        response = self._stx2ReadActualClimate()
-
-        splitted = response.split(";")
-        climate = {
-            "temp": splitted[0],
-            "humid": splitted[1],
-            "co2": splitted[2],
-            "n2": splitted[3]
-        }
-        logging.debug("climate:" + str(climate))
-
-        response = {"status": "OK",
-                    "value": climate,
-                    "details": ""}
-        return jsonify(response)
-
-        return response
-    
-    def getPresetClimate(self):
-        logging.debug("Inside getPresetClimate")
-        response = self._stxReadSetClimate()
-
-        splitted = response.split(";")
-        climate = {
-            "temp": splitted[0],
-            "humid": splitted[1],
-            "co2": splitted[2],
-            "n2": splitted[3]
-        }
-        logging.debug("presetclimate:" + str(climate))
-
-        response = {"status": "OK",
-                    "value": climate,
-                    "details": ""}
-        return jsonify(response)
-
-        return response
-    
-    def setPresetClimate(self, temp, humid, co2, n2):
-        logging.debug("Inside setPresetClimate")
-
-        try:
-            response = self._stxWriteSetClimate(temp, humid, co2, n2)
-
-        except Exception as e:
-            logging.error(traceback.format_exc())
-            logging.error(e)
-            response = [{"status": "ERROR",
-                        "value": "",
-                        "details": "See log for traceback"}]
-            
-        finally:
-            logging.debug('Done finally')
-            return jsonify(response)
-
-
-    def outputPlate(self, nPos):
-        logging.debug("Inside outputPlate, nPos= " + str(nPos))
-
-
-        # position 0-21  is cassette 1 level 1-22
-        # position 22-43 is cassette 2 level 1-22
-        nCassette = 1 + int(nPos / 22)
-        nLevel = 1 + (nPos % 22)
-
-        # Synchronize the check_if_ready and execution of thread to avoid race between check and execution
-        self._synchronization_lock.acquire()
-        try:
-            if self._is_STX_ready():
-
-                logging.debug("self._is_STX_ready()" + str(self._is_STX_ready()))
-
-                self._thread_STX = threading.Thread(target=self._movePlateFromCassetteToTransferStation, args=([nCassette, nLevel]))
-                self._thread_STX.start()
-                response = {"status": "OK",
-                        "value": "",
-                        "details": "Executed protocol in background thread"}
-
-            else:
-
-                # send warning:
-                response = {"status": "WARNING",
-                            "value": "",
-                            "details": "Incubator is not ready - will not run command"}
-                logging.warning(response)
-
-        except Exception as e:
-            logging.error(traceback.format_exc())
-            logging.error(e)
-            response = [{"status": "ERROR",
-                        "value": "",
-                        "details": "See log for traceback"}]
-            
-        finally:
-            logging.debug('Done finally outputPlate')
-            self._synchronization_lock.release()
-            return jsonify(response)
-
-
-    def inputPlate(self, nPos):
-        logging.debug("Inside inputPlate, nPos= " + str(nPos))
-
-
-        # position 0-21  is cassette 1 level 1-22
-        # position 22-43 is cassette 2 level 1-22
-        nCassette = 1 + int(nPos / 22)
-        nLevel = 1 + (nPos % 22)
-
-        # Synchronize the check_if_ready and execution of thread to avoid race between check and execution
-        self._synchronization_lock.acquire()
-        try:
-            if self._is_STX_ready():
-
-                self._thread_STX = threading.Thread(target=self._movePlateFromTransferStationToCassette, args=([nCassette, nLevel]))
-                self._thread_STX.start()
-                response = {"status": "OK",
-                        "value": "",
-                        "details": "Executed protocol in background thread"}
-
-            else:
-
-                # send warning:
-                response = {"status": "WARNING",
-                            "value": "",
-                            "details": "Incubator is not ready - will not run command"}
-                logging.warning(response)
-
-        except Exception as e:
-            logging.error(traceback.format_exc())
-            logging.error(e)
-            response = [{"status": "ERROR",
-                        "value": "",
-                        "details": "See log for traceback"}]
-            
-        finally:
-            logging.debug('Done finally inputPlate')
-            self._synchronization_lock.release()
-            return jsonify(response)
-
     def _clearLastStxResponse(self):
         self._last_STX_response = None
-
-    def get_last_STX_response(self):
-        logging.debug("Inside get_last_STX_response")
-        response = {"status": "OK",
-                    "value": self._last_STX_response,
-                    "details": ""}
-        return jsonify(response)
-
-
 
     def _sendCmd(self, cmd):
         logging.debug("Inside sendCmd")
@@ -441,7 +443,6 @@ class IncubatorSTX:
         response = response.strip()
  
         return response
-
 
 if __name__ == '__main__':
 
@@ -481,5 +482,4 @@ if __name__ == '__main__':
     #incu.outputPlate(31)
     #incu.inputPlate(20)
     incu.inputPlate(22)
-    #incu.inputPlate(18)
 

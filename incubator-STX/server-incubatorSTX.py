@@ -16,8 +16,8 @@ if __name__ == '__main__':
 
     # Create webserver and map rest-api to runner methods
     server = Flask(__name__)
-    server.add_url_rule('/input_plate/<int:nPos>', 'inputPlate', incubator.inputPlate)
-    server.add_url_rule('/output_plate/<int:nPos>', 'outputPlate', incubator.outputPlate)
+    server.add_url_rule('/input_plate/<pos>', 'inputPlate', incubator.inputPlate)
+    server.add_url_rule('/output_plate/<pos>', 'outputPlate', incubator.outputPlate)
     server.add_url_rule('/is_ready', 'is_ready', incubator.is_ready)
     server.add_url_rule('/resetAndActivate', 'resetAndActivate', incubator.resetAndActivate)
     server.add_url_rule('/last_STX_response', 'last_STX_response', incubator.get_last_STX_response)
