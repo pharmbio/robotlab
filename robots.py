@@ -40,6 +40,11 @@ class Config:
     wash_mode: Literal['dry run' | 'simulate' | 'execute']
     incu_mode: Literal['dry run' | 'fail if used' | 'execute']
     simulate_time: bool
+    timers: dict[str, datetime] = field(default_factory=dict) # something something
+    now: Any = None # ??
+
+    # start timer
+    # check if finished timer
 
 dry_run = Config(
     robotarm_mode='dry run',
@@ -94,9 +99,47 @@ class Command(abc.ABC):
     def execute(self, config: Config) -> None:
         pass
 
+    @abc.abstractmethod
+    def time_estimate(self) -> float:
+        pass
+
+    def is_prep(self) -> bool:
+        return False
+
+@dataclass(frozen=True)
+class timer_cmd(Command):
+    minutes: float
+    plate_id: str # one timer per plate
+
+    def time_estimate(self) -> float:
+        return self.minutes * 60.0
+
+    def execute(self, config: Config) -> None:
+        config.timers[self.plate_id] = config.now + self.minutes
+
+@dataclass(frozen=True)
+class wait_for_timer_cmd(Command):
+    plate_id: str # one timer per plate
+
+    def time_estimate(self) -> float:
+        return 0
+
+    def execute(self, config: Config) -> None:
+        while config.now < config.timers[self.plate_id]:
+            print('spin')
+
+
 @dataclass(frozen=True)
 class robotarm_cmd(Command):
     prog_path: str
+    prep: bool = False
+
+    def is_prep(self) -> bool:
+        return self.prep
+
+    def time_estimate(self) -> float:
+        return 10.0
+
     def execute(self, config: Config) -> None:
         prog_path = self.prog_path
         if config.robotarm_mode == 'dry run':
@@ -139,6 +182,7 @@ class robotarm_cmd(Command):
 @dataclass(frozen=True)
 class wash_cmd(Command):
     protocol_path: str
+
     def execute(self, config: Config) -> None:
         if config.wash_mode == 'dry run':
             # print('dry run', self)
@@ -151,6 +195,11 @@ class wash_cmd(Command):
             raise ValueError
         res = curl(url)
         assert res['status'] == 'OK', f'status not OK: {res = }'
+
+    est: float
+    def time_estimate(self) -> float:
+        return self.est
+
 
 @dataclass(frozen=True)
 class disp_cmd(Command):
@@ -168,14 +217,18 @@ class disp_cmd(Command):
         res = curl(url)
         assert res['status'] == 'OK', f'status not OK: {res = }'
 
+    est: float
+    def time_estimate(self) -> float:
+        return self.est
+
 @dataclass(frozen=True)
 class incu_cmd(Command):
     action: Literal['put' | 'get']
     incu_loc: str
+    est: float
+    busywait: bool = True
     def execute(self, config: Config) -> None:
         assert self.action in 'put get'.split()
-        busywait: bool = self.action == 'get'
-
         if config.incu_mode == 'dry run':
             # print('dry run', self)
             return
@@ -185,11 +238,11 @@ class incu_cmd(Command):
             url = ENV.incu_url + self.action + '/' + self.incu_loc
             res = curl(url)
             assert res['status'] == 'OK', f'status not OK: {res = }'
-            if busywait:
-                while not is_ready('incu', config):
-                    time.sleep(0.1)
         else:
             raise ValueError
+
+    def time_estimate(self) -> float:
+        return self.est
 
 def curl(url: str) -> Any:
     return json.loads(urlopen(url).read())
@@ -198,6 +251,17 @@ def is_ready(machine: Literal['disp', 'wash', 'incu'], config: Config) -> Any:
     res = curl(getattr(ENV, machine + '_url'))
     assert res['status'] == 'OK', f'status not OK: {res = }'
     return res['value'] is True
+
+@dataclass(frozen=True)
+class wait_for_ready_cmd(Command):
+    machine: Literal['disp', 'wash', 'incu']
+    def execute(self, config: Config) -> None:
+        while not is_ready('incu', config):
+            time.sleep(0.1)
+
+    def time_estimate(self) -> float:
+        return 0
+
 
 def robotarm_execute(path: str) -> None:
     robotarm_cmd(path).execute(

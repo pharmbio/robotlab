@@ -4,13 +4,6 @@ from dataclasses import dataclass, field, replace, astuple
 from typing import *
 from datetime import datetime, timedelta
 
-@dataclass(frozen=True)
-class Event
-    command: Command
-    acting_on_plate: str
-    begin: float = 0.0
-    end: float = 0.0
-
 def to_events(protocol: list[ProtocolStep], plate_id: str, t0=0):
     events: list[Event] = []
     t = t0
