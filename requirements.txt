@@ -1,1 +1,5 @@
-flask
+connexion
+gevent
+greenlet
+swagger-ui-bundle
+pyserial

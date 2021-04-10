@@ -5,6 +5,7 @@ import sys
 import os.path
 import threading
 import traceback
+import time
 from flask import Flask, json
 from flask import jsonify
 
@@ -13,24 +14,40 @@ class LHC_runner:
 
     def __init__(self, product_name, com_port, protocols_root, lhc_cli_path):
         # biotek product config
-        self.product_name = product_name
-        self.com_port = com_port
-        self.protocols_root = protocols_root
-        self.lhc_cli_path = lhc_cli_path
+        self._product_name = product_name
+        self._com_port = com_port
+        self._protocols_root = protocols_root
+        self._lhc_cli_path = lhc_cli_path
         
         # thread vars
-        self.thread_lock = threading.Lock()
-        self.thread_LHC = None
-        self.last_LHC_response = None
+        self._thread_lock = threading.Lock()
+        self._thread_LHC = None
+        self._last_LHC_response = None
+
+    def resetAndActivate(self):
+        logging.debug("Inside resetAndActivate")
+
+        try:
+
+            # Just clear response, nothing else to do
+            self._clearLastLHCResponse()
+
+            response = {"status": "OK",
+                        "value": "",
+                        "details": "LastLHCResponse cleared"}
+
+        finally:
+            logging.debug('Done finally')
+            return jsonify(response)
 
     def execute_protocol(self, protocol_name):
         # Only allow one LHC thread running
-        self.thread_lock.acquire()
+        self._thread_lock.acquire()
         try:
-            if self.is_LHC_ready():
+            if self._is_LHC_ready():
                 # Start a thread
-                self.thread_LHC = threading.Thread(target=self.execute_protocol_threaded, args=([protocol_name]))
-                self.thread_LHC.start()
+                self._thread_LHC = threading.Thread(target=self._execute_protocol_threaded, args=([protocol_name]))
+                self._thread_LHC.start()
                 response = {"status": "OK",
                             "value": "",
                             "details": "Executed protocol in background thread"}
@@ -49,24 +66,54 @@ class LHC_runner:
                         "details": "See log for traceback"}]
             
         finally:
-            self.thread_lock.release()
+            self._thread_lock.release()
+            logging.debug('Done finally')
+            return jsonify(response)
+            
+    def simulate_protocol(self, time):
+        # Only allow one LHC thread running
+        self._thread_lock.acquire()
+        try:
+            if self._is_LHC_ready():
+                # Start a thread
+                self._thread_LHC = threading.Thread(target=self._simulate_protocol_threaded, args=([time]))
+                self._thread_LHC.start()
+                response = {"status": "OK",
+                            "value": "",
+                            "details": "Executed protocol in background thread"}
+            else:
+                # throw error:
+                response = {"status": "WARNING",
+                            "value": "",
+                            "details": "LHC is not ready - will not run command"}
+                logging.warning(response)
+
+        except Exception as e:
+            logging.error(traceback.format_exc())
+            logging.error(e)
+            response = [{"status": "ERROR",
+                        "value": "",
+                        "details": "See log for traceback"}]
+            
+        finally:
+            self._thread_lock.release()
             logging.debug('Done finally')
             return jsonify(response)
 
 
-    def execute_protocol_threaded(self, protocol_name):
+    def _execute_protocol_threaded(self, protocol_name):
         logging.info("Inside execute_protocol_threaded, protocol_name=" + protocol_name)
 
         try:
-            protocol_path = os.path.join(self.protocols_root, protocol_name)        
+            protocol_path = os.path.join(self._protocols_root, protocol_name)        
             logging.info("protocol_path=" + protocol_path)
 
             #
             # Execute on server and set response
             #
-            proc_out = subprocess.Popen([self.lhc_cli_path,
-                                    self.product_name,
-                                    self.com_port,
+            proc_out = subprocess.Popen([self._lhc_cli_path,
+                                    self._product_name,
+                                    self._com_port,
                                     "LHC_RunProtocol",
                                     protocol_path
                                     ],
@@ -75,37 +122,88 @@ class LHC_runner:
                                     )
             stdout,stderr = proc_out.communicate()
 
-            self.last_LHC_response = stdout.decode("utf-8")
+            self._last_LHC_response = self._response2json(stdout.decode("utf-8"))
 
         except Exception as e:
-            logging.error("Error in execute_protocol_threaded")
+            logging.error("Error in _execute_protocol_threaded")
             logging.error(traceback.format_exc())
             logging.error(e)
             
         finally:
-            logging.info('last_LHC_response' + str(self.last_LHC_response))
+            logging.info('last_LHC_response' + str(self._last_LHC_response))
             logging.info('Finished Thread')
+    
+    def _simulate_protocol_threaded(self, time):
+        logging.info("Inside _simulate_protocol_threaded, time=" + time)
+
+        try:
+            
+            time.sleep(time)
+
+            self._last_LHC_response = {"status": "OK",
+                                       "value": "",
+                                       "details": "Simulation done, time=" + str(time)}
+
+        except Exception as e:
+            logging.error("Error in _simulate_protocol_threaded")
+            logging.error(traceback.format_exc())
+            logging.error(e)
+            
+        finally:
+            logging.info('last_LHC_response' + str(self._last_LHC_response))
+            logging.info('Finished Thread')
+
+    def _response2json(self, input):
+        logging.info("Inside _response2json=" + str(input))
+        # Indata might contain linebreak that needs to get removed
+        cleaned = input.replace('\r', '').replace('\n', '').replace('\\','\\\\')
+        return json.loads(cleaned)
 
     def is_ready(self):
         logging.debug("Inside is_ready")
-        is_ready = self.is_LHC_ready()
-        response = {"status": "OK",
-                    "value": is_ready,
-                    "details": ""}
+
+        if self._is_LHC_errored():
+            response = {"status": "ERROR",
+                        "value": False,
+                        "details": self._last_LHC_response}
+        else:
+            is_ready = not self._is_LHC_busy()
+            response = {"status": "OK",
+                        "value": is_ready,
+                        "details": ""}
         return jsonify(response)
 
     def get_last_LHC_response(self):
         logging.debug("Inside get_last_LHC_response")
         response = {"status": "OK",
-                    "value": self.last_LHC_response,
+                    "value": self._last_LHC_response,
                     "details": ""}
         return jsonify(response)
 
-    def is_LHC_ready(self):
-        if self.thread_LHC is None or self.thread_LHC.is_alive() == False:
-            return True
-        else:
+    def _clearLastLHCResponse(self):
+        self._last_LHC_response = None
+
+    def _is_LHC_ready(self):
+        logging.debug("Inside _is_LHC_ready")
+
+        if self._is_LHC_busy() or self._is_LHC_errored():
             return False
+        else:
+            return True
+
+    def _is_LHC_busy(self):
+        if self._thread_LHC is None or self._thread_LHC.is_alive() == False:
+            return False
+        else:
+            return True
+
+    def _is_LHC_errored(self):
+        is_errored = False
+        if self._last_LHC_response is not None:
+            logging.debug("last-resp" + str(self._last_LHC_response))
+            if self._last_LHC_response.get("status") == "99":
+                is_errored = True
+        return is_errored
 
 
 if __name__ == '__main__':
