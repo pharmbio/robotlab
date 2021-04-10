@@ -70,13 +70,13 @@ class LHC_runner:
             logging.debug('Done finally')
             return jsonify(response)
             
-    def simulate_protocol(self, time):
+    def simulate_protocol(self, sleeptime):
         # Only allow one LHC thread running
         self._thread_lock.acquire()
         try:
             if self._is_LHC_ready():
                 # Start a thread
-                self._thread_LHC = threading.Thread(target=self._simulate_protocol_threaded, args=([time]))
+                self._thread_LHC = threading.Thread(target=self._simulate_protocol_threaded, args=([sleeptime]))
                 self._thread_LHC.start()
                 response = {"status": "OK",
                             "value": "",
@@ -133,16 +133,16 @@ class LHC_runner:
             logging.info('last_LHC_response' + str(self._last_LHC_response))
             logging.info('Finished Thread')
     
-    def _simulate_protocol_threaded(self, time):
-        logging.info("Inside _simulate_protocol_threaded, time=" + time)
+    def _simulate_protocol_threaded(self, sleeptime):
+        logging.info("Inside _simulate_protocol_threaded, time=" + str(sleeptime))
 
         try:
             
-            time.sleep(time)
+            time.sleep(sleeptime)
 
             self._last_LHC_response = {"status": "OK",
                                        "value": "",
-                                       "details": "Simulation done, time=" + str(time)}
+                                       "details": "Simulation done, time=" + str(sleeptime)}
 
         except Exception as e:
             logging.error("Error in _simulate_protocol_threaded")

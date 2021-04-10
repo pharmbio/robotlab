@@ -25,7 +25,7 @@ if __name__ == '__main__':
     server = Flask(__name__)
     server.add_url_rule('/resetAndActivate', 'resetAndActivate', lhc_runner.resetAndActivate)
     server.add_url_rule('/execute_protocol/<path:protocol_name>', 'execute_protocol', lhc_runner.execute_protocol)
-    server.add_url_rule('/simulate_protocol/<int:time>', 'sumulate_protocol', lhc_runner.simulate_protocol)
+    server.add_url_rule('/simulate_protocol/<int:sleeptime>', 'sumulate_protocol', lhc_runner.simulate_protocol)
     server.add_url_rule('/is_ready', 'is_ready', lhc_runner.is_ready)
     server.add_url_rule('/last_LHC_response', 'last_LHC_response', lhc_runner.get_last_LHC_response)
     server.run(host='0.0.0.0', port=PORT)
