@@ -13,334 +13,306 @@ movejoint = movej
 
 hotel_dist: float = 7.094 / 100
 
-programs: dict[str, list[ResolvedStep]] = {}
+programs: dict[str, str] = {}
+
+# if programA ends by h21 drop and programB starts with h21 drop then instead run:
+#     programA_to_h21_drop
+#     programB_from_h21_drop
 
 for i in [1, 3, 5, 7, 9, 11, 13, 15, 17, 19]:
     dz = (i - 11) / 2 * hotel_dist
     # puts h21 on h{i}
-    programs[f'h{i}_put'] = resolve('scripts/dan_lid_21_11.script', [
+    programs |= resolve(f'h{i}_put', 'scripts/dan_lid_21_11.script', [
         gripper('Gripper Move30% (1)'),
-        movejoint('h21_neu', desc=h21_neu),
-        movel('h21_pick_neu', desc=h21_drop_neu),
-        movel('h21_pick'),
-        gripper('Gripper Close (1)'),
+        movejoint('h21_neu'),
         movel('h21_pick_neu'),
-        movel('h21_neu'),
-        movel('h11_neu', dz=dz),
-        movel('h11_drop_up', dz=dz),
-        movel('h11_drop', dz=dz),
-        gripper('Gripper Move30% (1)'),
-        movel('h11_drop_neu', dz=dz),
-        movel('h11_neu', dz=dz),
-        movel('h21_neu'),
+        section('from_h21_drop', [
+            movel('h21_pick'),
+            gripper('Gripper Close (1)'),
+            movel('h21_pick_neu'),
+            movel('h21_neu'),
+            movel('h11_neu', dz=dz),
+            movel('h11_drop_up', dz=dz),
+            movel('h11_drop', dz=dz),
+            gripper('Gripper Move30% (1)'),
+            movel('h11_drop_neu', dz=dz),
+            movel('h11_neu', dz=dz),
+            movel('h21_neu'),
+        ])
     ])
 
     # gets h{i} and puts it on h21
-    programs[f'h{i}_get'] = resolve('scripts/dan_lid_21_11.script', [
-        gripper('Gripper Move30% (1)'),
-        movejoint('h21_neu'),
-        movel('h11_neu', dz=dz),
-        movel('h11_drop_neu', dz=dz),
-        movel('h11_pick', dz=dz),
-        gripper('Gripper Close (1)'),
-        movel('h11_drop_neu', dz=dz),
-        movel('h11_neu', dz=dz),
-        movel('h21_neu'),
+    programs |= resolve(f'h{i}_get', 'scripts/dan_lid_21_11.script', [
+        section('to_h21_drop', [
+            gripper('Gripper Move30% (1)'),
+            movejoint('h21_neu'),
+            movel('h11_neu', dz=dz),
+            movel('h11_drop_neu', dz=dz),
+            movel('h11_pick', dz=dz),
+            gripper('Gripper Close (1)'),
+            movel('h11_drop_neu', dz=dz),
+            movel('h11_neu', dz=dz),
+            movel('h21_neu'),
+            movel('h21_pick_neu'),
+            movel('h21_drop'),
+            gripper('Gripper Move30% (1)'),
+        ]),
         movel('h21_pick_neu'),
-        movel('h21_drop'),
-        gripper('Gripper Move30% (1)'),
-        movel('h21_pick_neu', desc=h21_drop_neu),
-        movel('h21_neu', desc=h21_neu),
+        movel('h21_neu'),
     ])
 
 for i in [1, 3, 5, 7, 9, 11, 13, 15, 17, 19]:
     dz = (i - 19) / 2 * hotel_dist
 
-    programs[f'lid_h{i}_put'] = resolve('scripts/dan_delid.script', [
+    programs |= resolve(f'lid_h{i}_put', 'scripts/dan_delid.script', [
         gripper('Gripper Move30% (1)'),
-        movejoint('delid_neu', desc=h21_neu),
-        movel('delid_pick_up', desc=h21_drop_neu),
-        movel('delid_pick'),
-        gripper('Gripper Close (1)'),
+        movejoint('delid_neu'),
         movel('delid_pick_up'),
-        movel('delid_neu2'),
-        movel('lid_neu', dz=dz),
-        movel('lid_drop', dz=dz),
-        gripper('Gripper Move30% (1)'),
-        movel('lid_neu2', dz=dz),
-        movel('delid_neu3'),
+        section('from_h21_drop', [
+            movel('delid_pick'),
+            gripper('Gripper Close (1)'),
+            movel('delid_pick_up'),
+            movel('delid_neu2'),
+            movel('lid_neu', dz=dz),
+            movel('lid_drop', dz=dz),
+            gripper('Gripper Move30% (1)'),
+            movel('lid_neu2', dz=dz),
+            movel('delid_neu3'),
+        ]),
     ])
 
-    programs[f'lid_h{i}_get'] = resolve('scripts/dan_delid.script', [
-        gripper('Gripper Move30% (1)'),
-        movejoint('delid_neu3'),
-        movel('lid_neu3', dz=dz),
-        movel('lid_pick', dz=dz),
-        gripper('Gripper Close (1)'),
-        movel('lid_pick_up', dz=dz),
-        movel('lid_neu4', dz=dz),
-        movel('delid_neu4'),
-        movel('delid_drop_up'),
-        movel('delid_drop'),
-        gripper('Gripper Move30% (1)'),
-        movel('delid_drop_up2', desc=h21_drop_neu),
-        movel('delid_neu5', desc=h21_neu),
+    programs |= resolve(f'lid_h{i}_get', 'scripts/dan_delid.script', [
+        section('to_h21_drop', [
+            gripper('Gripper Move30% (1)'),
+            movejoint('delid_neu3'),
+            movel('lid_neu3', dz=dz),
+            movel('lid_pick', dz=dz),
+            gripper('Gripper Close (1)'),
+            movel('lid_pick_up', dz=dz),
+            movel('lid_neu4', dz=dz),
+            movel('delid_neu4'),
+            movel('delid_drop_up'),
+            movel('delid_drop'),
+            gripper('Gripper Move30% (1)'),
+        ]),
+        movel('delid_drop_up2'),
+        movel('delid_neu5'),
     ])
 
 for i in [1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21]:
     dz = (i - 21) / 2 * hotel_dist
-    programs[f'r{i}_put'] = resolve('scripts/dan_h21_r21.script', [
-        gripper('Gripper Move30% (1)'),
-        movejoint('h21_neu', desc=h21_neu),
-        movel('h21_pick_neu', desc=h21_drop_neu),
-        movel('h21_pick'),
-        gripper('Gripper Close (1)'),
-        movel('h21_pick_neu'),
-        movel('h21_neu'),
-        movel('r21_neu', dz=dz),
-        movel('r21_drop_neu', dz=dz),
-        movel('r21_drop', dz=dz),
-        gripper('Gripper Move30% (1)'),
-        movel('r21_drop_neu', dz=dz),
-        movel('r21_neu', dz=dz),
-        movel('h21_neu'),
-    ])
-
-    programs[f'r{i}_get'] = resolve('scripts/dan_h21_r21.script', [
+    programs |= resolve(f'r{i}_put', 'scripts/dan_h21_r21.script', [
         gripper('Gripper Move30% (1)'),
         movejoint('h21_neu'),
-        movel('r21_neu', dz=dz),
-        movel('r21_drop_neu', dz=dz),
-        movel('r21_pick', dz=dz),
-        gripper('Gripper Close (1)'),
-        movel('r21_drop_neu', dz=dz),
-        movel('r21_neu', dz=dz),
-        movel('h21_neu'),
         movel('h21_pick_neu'),
-        movel('h21_drop'),
-        gripper('Gripper Move30% (1)'),
-        movel('h21_pick_neu', desc=h21_drop_neu),
-        movel('h21_neu', desc=h21_neu),
+        section('from_h21_drop', [
+            movel('h21_pick'),
+            gripper('Gripper Close (1)'),
+            movel('h21_pick_neu'),
+            movel('h21_neu'),
+            movel('r21_neu', dz=dz),
+            movel('r21_drop_neu', dz=dz),
+            movel('r21_drop', dz=dz),
+            gripper('Gripper Move30% (1)'),
+            movel('r21_drop_neu', dz=dz),
+            movel('r21_neu', dz=dz),
+            movel('h21_neu'),
+        ])
+    ])
+
+    programs |= resolve(f'r{i}_get', 'scripts/dan_h21_r21.script', [
+        section('to_h21_drop', [
+            gripper('Gripper Move30% (1)'),
+            movejoint('h21_neu'),
+            movel('r21_neu', dz=dz),
+            movel('r21_drop_neu', dz=dz),
+            movel('r21_pick', dz=dz),
+            gripper('Gripper Close (1)'),
+            movel('r21_drop_neu', dz=dz),
+            movel('r21_neu', dz=dz),
+            movel('h21_neu'),
+            movel('h21_pick_neu'),
+            movel('h21_drop'),
+            gripper('Gripper Move30% (1)'),
+        ]),
+        movel('h21_pick_neu'),
+        movel('h21_neu'),
     ])
 
 for i in [1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21]:
     dz = (i - 21) / 2 * hotel_dist
-    programs[f'out{i}_put'] = resolve('scripts/dan_to_out18.script', [
+    programs |= resolve(f'out{i}_put', 'scripts/dan_to_out18.script', [
         gripper('Gripper Move30% (1)'),
-        movejoint('h21_neu', desc=h21_neu),
-        movel('h21_pick_neu', desc=h21_drop_neu),
-        movel('h21_pick'),
-        gripper('Gripper Close (1)'),
+        movejoint('h21_neu'),
         movel('h21_pick_neu'),
-        movel('h21_neu'),
-        movel('out_neu'),
-        movel('out_neu', dz=dz),
-        movel('o18_drop_neu', dz=dz),
-        movel('o18_drop', dz=dz),
-        gripper('Gripper Move30% (1)'),
-        movel('o18_drop_neu', dz=dz),
-        movel('out_neu', dz=dz),
-        movel('out_neu'),
-        movel('h21_neu'),
+        section('from_h21_drop', [
+            movel('h21_pick'),
+            gripper('Gripper Close (1)'),
+            movel('h21_pick_neu'),
+            movel('h21_neu'),
+            movel('out_neu'),
+            movel('out_neu', dz=dz),
+            movel('o18_drop_neu', dz=dz),
+            movel('o18_drop', dz=dz),
+            gripper('Gripper Move30% (1)'),
+            movel('o18_drop_neu', dz=dz),
+            movel('out_neu', dz=dz),
+            movel('out_neu'),
+            movel('h21_neu'),
+        ])
     ])
 
-programs['incu_get'] = resolve('scripts/dan_incu_to_delid.script', [
+programs |= resolve('incu_put', 'scripts/dan_incu_to_delid.script', [
     gripper('Gripper Move30% (1)'),
     movejoint('delid_neu'),
-    movel('incu_neu'),
-    movel('incu_pick_above'),
-    movel('incu_pick'),
-    gripper('Gripper Close (1)'),
-    movel('incu_pick_above'),
-    movel('incu_neu'),
-    movel('delid_neu'),
-    movel('delid_drop_abov'),
-    movel('delid_drop'),
-    gripper('Gripper Move30% (1)'),
-    movel('delid_drop_abov', desc=h21_drop_neu),
-    movel('delid_neu', desc=h21_neu),
-])
-
-programs['incu_get_part1'] = resolve('scripts/dan_incu_to_delid.script', [
-    gripper('Gripper Move30% (1)'),
-    movejoint('delid_neu'),
-    movel('incu_neu'),
-    movel('incu_pick_above'),
-])
-
-programs['incu_get_part2'] = resolve('scripts/dan_incu_to_delid.script', [
-    movel('incu_pick'),
-    gripper('Gripper Close (1)'),
-    movel('incu_pick_above'),
-    movel('incu_neu'),
-    movel('delid_neu'),
-    movel('delid_drop_abov'),
-    movel('delid_drop'),
-    gripper('Gripper Move30% (1)'),
-    movel('delid_drop_abov', desc=h21_drop_neu),
-    movel('delid_neu', desc=h21_neu),
-])
-
-programs['incu_put'] = resolve('scripts/dan_incu_to_delid.script', [
-    gripper('Gripper Move30% (1)'),
-    movejoint('delid_neu', desc=h21_neu),
-    movel('delid_pick_abov', desc=h21_drop_neu),
-    movel('delid_pick'),
-    gripper('Gripper Close (1)'),
     movel('delid_pick_abov'),
-    movel('delid_neu'),
-    movel('incu_neu'),
-    movel('incu_pick_above'),
-    movel('incu_pick'),
-    gripper('Gripper Move30% (1)'),
-    movel('incu_pick_above'),
-    movel('incu_neu'),
-    movel('delid_neu'),
+    section('from_h21_drop', [
+        movel('delid_pick'),
+        gripper('Gripper Close (1)'),
+        movel('delid_pick_abov'),
+        movel('delid_neu'),
+        movel('incu_neu'),
+        movel('incu_pick_above'),
+        movel('incu_pick'),
+        gripper('Gripper Move30% (1)'),
+        movel('incu_pick_above'),
+        movel('incu_neu'),
+        movel('delid_neu'),
+    ]),
 ])
 
-programs['wash_get'] = resolve('scripts/dan_wash_putget.script', [
+programs |= resolve('incu_get', 'scripts/dan_incu_to_delid.script', [
+    section('part1', [
+        gripper('Gripper Move30% (1)'),
+        movejoint('delid_neu'),
+        movel('incu_neu'),
+        movel('incu_pick_above'),
+    ]),
+    section('part2', [
+        section('to_h21_drop', [
+            movel('incu_pick'),
+            gripper('Gripper Close (1)'),
+            movel('incu_pick_above'),
+            movel('incu_neu'),
+            movel('delid_neu'),
+            movel('delid_drop_abov'),
+            movel('delid_drop'),
+            gripper('Gripper Move30% (1)'),
+        ]),
+        movel('delid_drop_abov'),
+        movel('delid_neu'),
+    ])
+])
+
+programs |= resolve('wash_put', 'scripts/dan_wash_putget.script', [
     gripper('Gripper Move35% (1)'),
     movejoint('neu_deli'),
-    movel('safe_delid'),
-    movejoint('safe_delid'),
-    movejoint('above_washr'),
-    movel('above_washr'),
-    movel('near_wash_picku'),
-    movel('pickup'),
-    gripper('Gripper Close (1)'),
-    movel('above_washr'),
-    movejoint('above_washr'),
-    movejoint('safe_delid'),
-    movel('safe_delid'),
-    movel('neu_deli'),
     movel('abov_dropoff'),
-    movel('deli_dropoff'),
-    gripper('Gripper Move35% (1)'),
-    movel('abov_dropoff', desc=h21_drop_neu),
-    movel('neu_deli', desc=h21_neu),
+    section('from_h21_drop', [
+        movel('picku'),
+        gripper('Gripper Close (1)'),
+        movel('abov_dropoff'),
+        movel('safe_delid'),
+        movejoint('safe_delid'),
+        movejoint('above_washr'),
+        movel('above_washr'),
+        movel('near_wash_picku'),
+        movel('dropoff'),
+        gripper('Gripper Move35% (1)'),
+        movel('above_washr'),
+        movejoint('above_washr'),
+        movejoint('safe_delid'),
+        movel('safe_delid'),
+        movel('neu_deli'),
+    ])
 ])
 
-programs['wash_put'] = resolve('scripts/dan_wash_putget.script', [
-    gripper('Gripper Move35% (1)'),
-    movejoint('neu_deli', desc=h21_neu),
-    movel('abov_dropoff', desc=h21_drop_neu),
-    movel('picku'),
-    gripper('Gripper Close (1)'),
-    movel('abov_dropoff'),
-    movel('safe_delid'),
-    movejoint('safe_delid'),
-    movejoint('above_washr'),
-    movel('above_washr'),
-    movel('near_wash_picku'),
-    movel('dropoff'),
-    gripper('Gripper Move35% (1)'),
-    movel('above_washr'),
-    movejoint('above_washr'),
-    movejoint('safe_delid'),
-    movel('safe_delid'),
-    movel('neu_deli'),
+programs |= resolve('wash_get', 'scripts/dan_wash_putget.script', [
+    section('part1', [
+        gripper('Gripper Move35% (1)'),
+        movejoint('neu_deli'),
+        movel('safe_delid'),
+        movejoint('safe_delid'),
+        movejoint('above_washr'),
+        movel('above_washr'),
+        movel('near_wash_picku'),
+    ]),
+    section('part2', [
+        section('to_h21_drop', [
+            movel('pickup'),
+            gripper('Gripper Close (1)'),
+            movel('above_washr'),
+            movejoint('above_washr'),
+            movejoint('safe_delid'),
+            movel('safe_delid'),
+            movel('neu_deli'),
+            movel('abov_dropoff'),
+            movel('deli_dropoff'),
+            gripper('Gripper Move35% (1)'),
+        ]),
+        movel('abov_dropoff'),
+        movel('neu_deli'),
+    ])
 ])
 
-programs['disp_get'] = resolve('scripts/dan_disp_putget.script', [
+programs |= resolve('disp_put', 'scripts/dan_disp_putget.script', [
     gripper('Gripper Move35% (1)'),
     movejoint('neu_deli'),
-    movel('above_dis'),
-    movel('disp_pickup'),
-    gripper('Gripper Close (1)'),
-    movel('above_dis'),
-    movel('neu_deli'),
     movel('dropoff_above'),
-    movel('delid_dropoff'),
-    gripper('Gripper Move33% (1)'),
-    movel('dropoff_above', desc=h21_drop_neu),
-    movel('neu_deli', desc=h21_neu),
+    section('from_h21_drop', [
+        movel('delid_pickup'),
+        gripper('Gripper Close (1)'),
+        movel('abov_delid_pick'),
+        movel('neu_deli'),
+        movel('above_dis'),
+        movel('disp_dropoff'),
+        gripper('Gripper Move35% (1)'),
+        movel('above_disp2'),
+        movel('neu_deli'),
+    ]),
 ])
 
-programs['disp_put'] = resolve('scripts/dan_disp_putget.script', [
-    gripper('Gripper Move35% (1)'),
-    movejoint('neu_deli', desc=h21_neu),
-    movel('dropoff_above', desc=h21_drop_neu),
-    movel('delid_pickup'),
-    gripper('Gripper Close (1)'),
-    movel('abov_delid_pick'),
-    movel('neu_deli'),
-    movel('above_dis'),
-    movel('disp_dropoff'),
-    gripper('Gripper Move35% (1)'),
-    movel('above_disp2'),
-    movel('neu_deli'),
+programs |= resolve('disp_get', 'scripts/dan_disp_putget.script', [
+    section('part1', [
+        gripper('Gripper Move35% (1)'),
+        movejoint('neu_deli'),
+        movel('above_dis'),
+        movel('disp_pickup'),
+    ]),
+    section('part2', [
+        section('to_h21_drop', [
+            gripper('Gripper Close (1)'),
+            movel('above_dis'),
+            movel('neu_deli'),
+            movel('dropoff_above'),
+            movel('delid_dropoff'),
+            gripper('Gripper Move33% (1)'),
+        ]),
+        movel('dropoff_above'),
+        movel('neu_deli'),
+    ])
 ])
 
-def concat_scripts(A: list[ResolvedStep], B: list[ResolvedStep]) -> list[ResolvedStep]:
-    pp(descs(A) + ['+'] + descs(B))
-    peep = {h21_neu, h21_drop_neu}
-    try:
-        y, *ys = B
-        if y.desc.startswith('Gripper Move'):
-            last_A_gripper = ''
-            for a in A:
-                if a.desc.startswith('Gripper'):
-                    last_A_gripper = a.desc
-            if last_A_gripper.startswith('Gripper Move'):
-                return concat_scripts(A, ys)
-    except ValueError:
-        pass
-    try:
-        *xs, x = A
-        y, *ys = B
-        if x.desc in peep and x.desc == y.desc:
-            return concat_scripts(xs, ys)
-    except ValueError:
-        pass
-
-    return A + B
-
-# pp(descs(concat_scripts(programs['incu_get_part2'], programs['lid_h19_put'])))
-
-def join_scripts(rss: list[list[ResolvedStep]]) -> list[ResolvedStep]:
-    a, *bs = rss
-    for b in bs:
-        a = concat_scripts(a, b)
-    return a
-
-def indent(lines: list[str]) -> list[str]:
-    return ['  ' + line for line in lines]
-
-# The header sets up the env and gripper, it's the same for all scripts
-header = parse('scripts/dan_h21_r21.script').subs['header']
-
-def assemble_script(steps: list[ResolvedStep], name: str='assembled_script', include_gripper: bool=True) -> str:
-    body: list[str] = []
-
-    if include_gripper:
-        body += header
-
-    if not include_gripper:
-        steps = [ step for step in steps if not step.desc.startswith('Gripper') ]
-
-    body += flatten_resolved(steps)
-    body += [
-        f'textmsg("Program {name} completed")',
-    ]
-
-    prog: list[str] = [
-        f'def {name}():',
-        *indent(body),
-        'end',
-    ]
-    return '\n'.join(prog)
-
-def generate_scripts() -> None:
-    # The gripper is not simulated so also make scripts without gripper commands
-    for include_gripper in [True, False]:
-        dirname = 'generated' if include_gripper else 'generated_nogripper'
-        os.makedirs(dirname, exist_ok=True)
-
-        for name, steps in programs.items():
-            path = f'{dirname}/{name}'
-            with open(path, 'w') as f:
-                print(assemble_script(steps, name, include_gripper), file=f)
-            print(f'generated {path}')
+programs |= resolve('wash_to_disp', 'scripts/dan_wash_to_disp.script', [
+    section('part1', [
+        gripper('Gripper Move35% (1)'),
+        movejoint('neu_deli'),
+        movejoint('above_washr'),
+        movel('pickup', dz=0.03),
+    ]),
+    section('part2', [
+        movel('pickup'),
+        gripper('Gripper Close (1)'),
+        movel('above_washr'),
+        movejoint('above_washr'),
+        movejoint('above_disp2'),
+        movel('above_disp2'),
+        movel('disp_drop'),
+        gripper('Gripper Move35% (1)'),
+        movel('above_disp2'),
+        movel('neu_deli'),
+    ]),
+])
 
 def generate_stubs() -> None:
     filenames = dict(
@@ -351,12 +323,13 @@ def generate_stubs() -> None:
         incu='scripts/dan_incu_to_delid.script',
         wash='scripts/dan_wash_putget.script',
         disp='scripts/dan_disp_putget.script',
+        wash_to_disp='scripts/dan_wash_to_disp.script',
     )
 
     for short, filename in filenames.items():
         script = parse(filename)
         print()
-        print(f'programs[{short!r}] = resolve({filename!r}, [')
+        print(f'programs |= resolve({short!r}, {filename!r}, [')
         for step in script.steps:
             if isinstance(step, movel):
                 con, arg = 'movel', step.name
@@ -370,6 +343,109 @@ def generate_stubs() -> None:
         print('])')
         print()
 
+import hashlib
+import json
+from datetime import datetime
+from textwrap import dedent
+
+def reindent(s: str) -> str:
+    out: list[str] = []
+    i = 0
+    for line in s.strip().split('\n'):
+        line = line.strip()
+        if line == 'end' or line.startswith('elif') or line.startswith('else'):
+            i -= 2
+        if line:
+            out += [' ' * i + line]
+        if line.endswith(':') and not line.startswith('#'):
+            i += 2
+    return '\n'.join(out)
+
+def checksum(s: str) -> str:
+    hash = hashlib.sha256(s.encode()).hexdigest()
+    return hash[:6] + ' ' + hash[6:12]
+
+def generate_robot_main(with_gripper=True) -> str:
+    # The header sets up the env and gripper, it's the same for all scripts
+    if with_gripper:
+        one_script = parse('scripts/dan_h21_r21.script')
+        header = '\n'.join(one_script.subs['header'] + one_script.subs['gripper_init'])
+    else:
+        header = '''
+            def rq_set_pos_spd_for(a, b, c, d):
+                return 1
+            end
+            def rq_go_to(a):
+                return 1
+            end
+            def rq_wait(a):
+                return 1
+            end
+        '''
+
+    contents: str = ''.join(f'''
+        elif program_index == {program_index}:
+            textmsg("log: exec {program_name} {checksum(program_body)}")
+            {program_body}
+            textmsg("log: done {program_name} {checksum(program_body)}")
+        '''
+        for program_index, (program_name, program_body) in enumerate(programs.items())
+    )
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    hash = checksum(header + contents)
+    prog_id = f'{now} {hash}'
+    newline = '\n'
+    return reindent(f'''
+        def robot_main():
+            {header}
+            while True:
+                set_flag(31, False)
+                textmsg("log: ready")
+                while not get_flag(31):
+                    sleep(0.02)
+                end
+
+                # 2^31 possible message types (should be enough for anyone)
+                bits =
+                [ {', '.join(f'get_flag({i}){newline}' for i in range(31))}
+                ]
+                program_index = binary_list_to_integer(bits)
+
+                if program_index == {2**31-1}:
+                    textmsg("log: version {prog_id}")
+                {contents}
+                else:
+                    textmsg("log: unknown program_index=", program_index)
+                end
+            end
+        end
+    ''')
+
+def generate_robot_send(program_name: str) -> str:
+    if program_name == 'version':
+        program_index = 2**31-1
+        program_hash = ''
+    else:
+        for program_index, (name, program_body) in enumerate(programs.items()):
+            if name == program_name:
+                program_hash = checksum(program_body)
+                break
+        else:
+            raise ValueError('Unknown program: {program_name} in {list(programs.keys())}')
+    newline = '\n'
+    return reindent(f'''
+        sec robot_send_{program_index}():
+            if get_flag(31):
+                textmsg("log: error already busy")
+            else:
+                bits = integer_to_binary_list({program_index})
+                {newline.join(f'set_flag({i}, bits[{i}])' for i in range(31))}
+                set_flag(31, True)
+                textmsg("log: sent {program_name} {program_hash}")
+            end
+        end
+    ''')
+
 if __name__ == '__main__':
     if '-h' in sys.argv or '--help' in sys.argv:
         print('''
@@ -382,6 +458,7 @@ if __name__ == '__main__':
     elif '--generate-stubs' in sys.argv:
         generate_stubs()
     else:
-        generate_scripts()
-
+        open('./generated/robot_main', 'w').write(generate_robot_main())
+        open('./generated/robot_main_nogripper', 'w').write(generate_robot_main(with_gripper=False))
+        open('./generated/robot_send', 'w').write(generate_robot_send('version'))
 

@@ -22,7 +22,6 @@ class movel(ScriptStep):
     dx: None | float = None
     dy: None | float = None
     dz: None | float = None
-    desc: str = ''
 
 @dataclass(frozen=True)
 class movej(ScriptStep):
@@ -30,22 +29,15 @@ class movej(ScriptStep):
     dx: None | float = None
     dy: None | float = None
     dz: None | float = None
-    desc: str = ''
 
 @dataclass(frozen=True)
 class gripper(ScriptStep):
     name: str
 
 @dataclass(frozen=True)
-class ResolvedStep:
-    lines: list[str]
-    desc: str = ''
-
-def flatten_resolved(rs: list[ResolvedStep]) -> list[str]:
-    return [x for r in rs for x in r.lines]
-
-def descs(rs: list[ResolvedStep]) -> list[str]:
-    return [r.desc for r in rs]
+class section(ScriptStep):
+    name: str
+    steps: list[ScriptStep]
 
 @dataclass
 class ParsedScript:
@@ -79,7 +71,9 @@ def parse_lines(lines: list[str]) -> ParsedScript:
         if m := re.match(' *global *(\w*) *= *p?(.*)$', line):
             name, value = m.groups()
             try:
-                res.defs[name] = ast.literal_eval(value)
+                val = ast.literal_eval(value)
+                val = [round(v, 6) for v in val]
+                res.defs[name] = val
             except:
                 pass
         elif m := re.match(' *movel.*?(\w*)_[pq]', line):
@@ -91,11 +85,18 @@ def parse_lines(lines: list[str]) -> ParsedScript:
         elif m := re.match('( *)\$ \d* "(Gripper.*)"', line):
             indent, name = m.groups()
             subprogram = ['# ' + name]
+            gripper_init = ['# Gripper init']
             for line2 in lines[i+1:]:
-                subprogram += [line2[len(indent):].rstrip()]
+                line2 = line2.strip()
                 if '# end: URCap Program Node' in line2:
                     break
+                elif line2.startswith('rq'):
+                    subprogram += [line2]
+                elif not re.match('gripper_\d_(selected|used)', line2):
+                    gripper_init += [line2]
             res.subs[name] = subprogram
+            # we only need one copy of gripper init
+            res.subs['gripper_init'] = gripper_init
             res.steps += [gripper(name)]
 
     if last_header_line_index is not None:
@@ -106,16 +107,15 @@ def parse_lines(lines: list[str]) -> ParsedScript:
 
     return res
 
-def resolve(filename: str, steps: list[ScriptStep]) -> list[ResolvedStep]:
-    return resolve_with(parse(filename), steps)
+def resolve(name: str, filename: str, steps: list[ScriptStep]) -> dict[str, str]:
+    return resolve_with(name, parse(filename), steps)
 
-def resolve_with(script: ParsedScript, steps: list[ScriptStep]) -> list[ResolvedStep]:
-    out: list[ResolvedStep] = []
+def resolve_with(name: str, script: ParsedScript, steps: list[ScriptStep]) -> dict[str, str]:
+    out: list[str] = []
+    sections: dict[str, str] = {}
     for step in steps:
         lines: list[str] = []
-        desc: str = ''
         if isinstance(step, (movel, movej)):
-            desc = step.desc or f'({step.name})'
             q_name = step.name + '_q'
             p_name = step.name + '_p'
             lines += [
@@ -136,12 +136,15 @@ def resolve_with(script: ParsedScript, steps: list[ScriptStep]) -> list[Resolved
                     f'movej(get_inverse_kin({p_name}, qnear={q_name}), a=1.4, v=1.05)',
                 ]
         elif isinstance(step, gripper):
-            desc = step.name
             lines += script.subs[step.name]
+        elif isinstance(step, section):
+            subname = name + '_' + step.name
+            sections |= resolve_with(subname, script, step.steps)
+            lines = [sections[subname]]
         else:
             raise ValueError
-        out += [ResolvedStep(lines, desc=desc)]
-    return out
+        out += lines
+    return sections | {name: '\n'.join(out)}
 
 @dataclass(frozen=True)
 class test:
@@ -150,7 +153,7 @@ class test:
         lhs = self.lhs
         true = lhs == rhs
         if not true:
-            print(f'{lhs = } {rhs = }')
+            print(f'lhs = {show(lhs)}\nrhs = {show(rhs)}')
         elif '-v' in sys.argv:
             print(f'passed test(...) == {shorten(repr(rhs), 60, placeholder=" ...")}')
         return true
@@ -163,9 +166,24 @@ def test_parse_and_resolve() -> None:
             global h21_neu_p=p[.2, -.4, .8, 1.6, -.0, .0]
             global h21_neu_q=[1.6, -1.9, 1.5, 0.4, 1.6, 0.0]
             global above_washr_p=p[-.2, .1, .3, 1.2, -1.2, -1.2]
-            global above_washr_q=[-1.6, -2.2, 2.5, -0.3, -0.0, 0.0]
+            global above_washr_q=[-1.6, -2.2, 2.5, -0.3, -0.0, 0.987654321]
             $ 3 "Gripper Move30% (1)"
-            # ...omitted gripper code...
+            gripper_1_used = True
+            if (connectivity_checked[0] != 1):
+              gripper_id_ascii = rq_gripper_id_to_ascii("1")
+              gripper_id_list = rq_get_sid("1")
+              if not(rq_is_gripper_in_sid_list(gripper_id_ascii, gripper_id_list)):
+                popup("Gripper 1 must be connected to run this program.", "No connection", False, True, True)
+              end
+              connectivity_checked[0] = 1
+            end
+            rq_set_pos_spd_for(77, 0, 0, "1")
+            rq_go_to("1")
+            rq_wait("1")
+            gripper_1_selected = True
+            gripper_2_selected = False
+            gripper_1_used = False
+            gripper_2_used = False
             # end: URCap Program Node
             $ 4 "h21_neu"
             movel(h21_neu_p, a=1.2, v=0.2)
@@ -189,14 +207,26 @@ def test_parse_and_resolve() -> None:
         'h21_neu_p': [0.2, -0.4, 0.8, 1.6, -0.0, 0.0],
         'h21_neu_q': [1.6, -1.9, 1.5, 0.4, 1.6, 0.0],
         'above_washr_p': [-0.2, 0.1, 0.3, 1.2, -1.2, -1.2],
-        'above_washr_q': [-1.6, -2.2, 2.5, -0.3, -0.0, 0.0],
+        'above_washr_q': [-1.6, -2.2, 2.5, -0.3, -0.0, 0.987654],
     }
 
     assert test(script.subs) == {
         'Gripper Move30% (1)': [
             '# Gripper Move30% (1)',
-            '# ...omitted gripper code...',
-            '# end: URCap Program Node',
+            'rq_set_pos_spd_for(77, 0, 0, "1")',
+            'rq_go_to("1")',
+            'rq_wait("1")',
+        ],
+        'gripper_init': [
+          '# Gripper init',
+          'if (connectivity_checked[0] != 1):',
+            'gripper_id_ascii = rq_gripper_id_to_ascii("1")',
+            'gripper_id_list = rq_get_sid("1")',
+            'if not(rq_is_gripper_in_sid_list(gripper_id_ascii, gripper_id_list)):',
+              'popup("Gripper 1 must be connected to run this program.", "No connection", False, True, True)',
+            'end',
+            'connectivity_checked[0] = 1',
+          'end',
         ],
         'header': ['set_gravity([0.0, 0.0, 9.8])'],
     }
@@ -208,20 +238,20 @@ def test_parse_and_resolve() -> None:
         movej('above_washr'),
     ]
 
-    resolved = resolve_with(script, steps)
-    resolved_str = '\n'.join(flatten_resolved(resolved))
+    resolved = resolve_with('root', script, steps)['root']
 
-    assert test(resolved_str) == dedent('''
+    assert test(resolved) == dedent('''
         # Gripper Move30% (1)
-        # ...omitted gripper code...
-        # end: URCap Program Node
+        rq_set_pos_spd_for(77, 0, 0, "1")
+        rq_go_to("1")
+        rq_wait("1")
         h21_neu_p = p[0.2, -0.4, 0.8, 1.6, -0.0, 0.0]
         movel(h21_neu_p, a=1.2, v=0.25)
         h21_neu_p = p[0.2, -0.4, 0.8, 1.6, -0.0, 0.0]
         h21_neu_p[1] = h21_neu_p[1] + -0.3
         movel(h21_neu_p, a=1.2, v=0.25)
         above_washr_p = p[-0.2, 0.1, 0.3, 1.2, -1.2, -1.2]
-        above_washr_q = [-1.6, -2.2, 2.5, -0.3, -0.0, 0.0]
+        above_washr_q = [-1.6, -2.2, 2.5, -0.3, -0.0, 0.987654]
         movej(get_inverse_kin(above_washr_p, qnear=above_washr_q), a=1.4, v=1.05)
     ''').strip()
 
