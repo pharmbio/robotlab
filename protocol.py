@@ -160,15 +160,11 @@ events = [
               enumerate(list(zip(incu_locs, lid_locs, r_locs, out_locs))[:N])
 ]
 
-
 events = sum(events, [])
 events = sorted(events, key=lambda e: e.begin)
 events = list(events)
 
 pp(events)
-
-
-
 
 def execute(events: list[Event], config: Config) -> None:
     for event in events:

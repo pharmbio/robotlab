@@ -363,7 +363,12 @@ def reindent(s: str) -> str:
 
 def checksum(s: str) -> str:
     hash = hashlib.sha256(s.encode()).hexdigest()
-    return hash[:6] + ' ' + hash[6:12]
+    return hash[:6]
+
+num_bits: index = 10
+assert num_bits <= 31
+version_program_index = 2**num_bits - 1
+assert len(programs) < version_program_index, 'num_bits too small'
 
 def generate_robot_main(with_gripper=True) -> str:
     # The header sets up the env and gripper, it's the same for all scripts
@@ -395,8 +400,14 @@ def generate_robot_main(with_gripper=True) -> str:
     hash = checksum(header + contents)
     prog_id = f'{now} {hash}'
     newline = '\n'
+    if with_gripper:
+        def_name = f'robot_main_{hash}'
+    else:
+        def_name = f'robot_main_nogripper_{hash}'
     return reindent(f'''
-        def robot_main():
+        # newline
+        def {def_name}():
+            textmsg("log: running {prog_id}")
             {header}
             while True:
                 set_flag(31, False)
@@ -405,13 +416,13 @@ def generate_robot_main(with_gripper=True) -> str:
                     sleep(0.02)
                 end
 
-                # 2^31 possible message types (should be enough for anyone)
+                # 2**{num_bits} possible message types
                 bits =
-                [ {', '.join(f'get_flag({i}){newline}' for i in range(31))}
+                [ {', '.join(f'get_flag({i}){newline}' for i in range(num_bits))}
                 ]
                 program_index = binary_list_to_integer(bits)
 
-                if program_index == {2**31-1}:
+                if program_index == {version_program_index}:
                     textmsg("log: version {prog_id}")
                 {contents}
                 else:
@@ -419,11 +430,12 @@ def generate_robot_main(with_gripper=True) -> str:
                 end
             end
         end
+        # newline
     ''')
 
 def generate_robot_send(program_name: str) -> str:
     if program_name == 'version':
-        program_index = 2**31-1
+        program_index = version_program_index
         program_hash = ''
     else:
         for program_index, (name, program_body) in enumerate(programs.items()):
@@ -434,16 +446,18 @@ def generate_robot_send(program_name: str) -> str:
             raise ValueError('Unknown program: {program_name} in {list(programs.keys())}')
     newline = '\n'
     return reindent(f'''
+        # newline
         sec robot_send_{program_index}():
             if get_flag(31):
                 textmsg("log: error already busy")
             else:
                 bits = integer_to_binary_list({program_index})
-                {newline.join(f'set_flag({i}, bits[{i}])' for i in range(31))}
+                {newline.join(f'set_flag({i}, bits[{i}])' for i in range(num_bits))}
                 set_flag(31, True)
                 textmsg("log: sent {program_name} {program_hash}")
             end
         end
+        # newline
     ''')
 
 if __name__ == '__main__':
@@ -460,5 +474,7 @@ if __name__ == '__main__':
     else:
         open('./generated/robot_main', 'w').write(generate_robot_main())
         open('./generated/robot_main_nogripper', 'w').write(generate_robot_main(with_gripper=False))
-        open('./generated/robot_send', 'w').write(generate_robot_send('version'))
+        open('./generated/robot_send_version', 'w').write(generate_robot_send('version'))
+
+        # pp(list(enumerate(programs.keys())))
 

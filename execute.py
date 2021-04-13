@@ -150,18 +150,3 @@ def execute(w: World, config: Config, shuffle_prob: float=0.0) -> None:
 def execute(events: list[Event], config: Config) -> None:
     for event in events:
         event.execute(config) # some of the execute events are just wait until ready commands
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

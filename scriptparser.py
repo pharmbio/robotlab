@@ -13,6 +13,8 @@ import sys
 
 from abc import ABC
 
+from functools import lru_cache
+
 class ScriptStep(ABC):
     pass
 
@@ -59,6 +61,7 @@ class ParsedScript:
     defs: dict[str, list[float]] = field(default_factory=dict)
     subs: dict[str, list[str]] = field(default_factory=dict)
 
+@lru_cache
 def parse(filename: str) -> ParsedScript:
     return parse_lines(list(open(filename, 'r')))
 
@@ -144,7 +147,7 @@ def resolve_with(name: str, script: ParsedScript, steps: list[ScriptStep]) -> di
         else:
             raise ValueError
         out += lines
-    return sections | {name: '\n'.join(out)}
+    return {name: '\n'.join(out)} | sections
 
 @dataclass(frozen=True)
 class test:
