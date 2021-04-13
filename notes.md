@@ -176,6 +176,7 @@ It allows you to access the PolyScope GUI forwarded to the browser on localhost:
 - port 30003: real-time https://www.universal-robots.com/articles/ur/interface-communication/remote-control-via-tcpip/
 - port 30004: RTDE https://www.universal-robots.com/articles/ur/interface-communication/real-time-data-exchange-rtde-guide/
 - port 29999: Dashboard https://www.universal-robots.com/articles/ur/dashboard-server-e-series-port-29999/
+- port 30020: Interpreter mode. This is a more recent way of queuing up URScript snippets inside a running URScript with `interpreter_mode()` on.
 - xml-rpc: URScript function calls xml remote procedure protocol on a http server
 - modbus: an industry standard for robot communication
 
@@ -277,13 +278,14 @@ the current joint space coordinates:
 ### URScript manual
 
 The URScript manual is surprisingly difficult to find on their web page.
-The manual is also quite hard to read because it is not well typeset
-and functions are mostly sorted by name and not functionality.
-Nevertheless, it is an absolute must read.
+The manual is also quite hard to read because it is not well typeset (update:
+the newer version is better in this respect) and functions are mostly sorted
+by name and not functionality.  Nevertheless, it is an absolute must read.
 
 Search for SCRIPT MANUAL - E-SERIES.
 
 https://www.universal-robots.com/download/manuals-e-series/script/script-manual-e-series-sw-56/
+https://www.universal-robots.com/download/manuals-e-series/script/script-manual-e-series-sw-510/
 
 ### URP programs created on the PolyScope handheld tablet
 
