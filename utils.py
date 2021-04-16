@@ -70,8 +70,11 @@ def show(x: Any, show_key: Any=show_key, width: int=80) -> str:
 
     return '\n'.join(go('', '', x, ''))
 
-def pr(*xs: Any) -> None:
-    print(*map(show, xs))
+A = TypeVar('A')
+
+def pr(x: A) -> A:
+    print(show(x))
+    return x
 
 class Expand():
     '''

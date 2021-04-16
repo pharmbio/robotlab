@@ -138,7 +138,7 @@ class robotarm_cmd(Command):
         return self.prep
 
     def time_estimate(self) -> float:
-        return 10.0
+        return 5.0
 
     def execute(self, config: Config) -> None:
         prog_path = self.prog_path
