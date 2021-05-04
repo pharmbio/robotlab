@@ -64,6 +64,13 @@ configs: dict[str, Config] = dict(
         incu_mode='dry run',
         time_mode='dry run',
     ),
+    live_robotarm_only_one_plate = Config(
+        robotarm_mode='gripper',
+        disp_mode='dry run',
+        wash_mode='dry run',
+        incu_mode='dry run',
+        time_mode='dry run',
+    ),
     live_robotarm_only = Config(
         robotarm_mode='gripper',
         disp_mode='dry run',

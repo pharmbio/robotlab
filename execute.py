@@ -11,11 +11,11 @@ from protocol import *
 from scriptgenerator import *
 
 def execute(events: list[Event], config: Config) -> None:
-    log_name = (
-        'event_log_' +
-        str(datetime.now()).split('.')[0].replace(' ', '_') + '_' +
-        config.name() + '.json'
-    )
+    log_name = ' '.join([
+        'event log',
+        str(datetime.now()).split('.')[0],
+        config.name(),
+    ]).replace(' ', '_') + '.json'
     log = []
     for event in events:
         print(event.command)
@@ -35,7 +35,9 @@ def execute(events: list[Event], config: Config) -> None:
         with open(log_name, 'w') as fp:
             json.dump(log, fp, indent=2)
 
-events = cell_paint_many(3, delay='auto')
+num_plates = 1
+
+events = cell_paint_many(1, delay='auto')
 
 config = configs['dry_run']
 
@@ -52,7 +54,7 @@ if config.robotarm_mode in {'gripper', 'no gripper'}:
     with_gripper = config.robotarm_mode == 'gripper'
     robot = Robotarm(config)
     robot.send(generate_robot_main(with_gripper=with_gripper))
-    robot.recv_until('STARTED')
+    robot.recv_until('log: ready')
     robot.close()
 
 events = sleek_h21_movements(events)
