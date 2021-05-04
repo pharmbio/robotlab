@@ -163,13 +163,17 @@ for i in [1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21]:
     ])
 
 programs |= resolve('incu_put', 'scripts/dan_incu_to_delid.script', [
-    gripper('Gripper Move30% (1)'),
-    movejoint('delid_neu'),
-    movel('delid_pick_abov'),
-    section('from_h21_drop', [
-        movel('delid_pick'),
-        gripper('Gripper Close (1)'),
+    section('part1', [
+        gripper('Gripper Move30% (1)'),
+        movejoint('delid_neu'),
         movel('delid_pick_abov'),
+        section('from_h21_drop', [
+            movel('delid_pick'),
+            gripper('Gripper Close (1)'),
+            movel('delid_pick_abov'),
+        ]),
+    ]),
+    section('part2', [
         movel('delid_neu'),
         movel('incu_neu'),
         movel('incu_pick_above'),
@@ -443,7 +447,7 @@ def generate_robot_send(program_name: str) -> str:
                 program_hash = checksum(program_body)
                 break
         else:
-            raise ValueError('Unknown program: {program_name} in {list(programs.keys())}')
+            raise ValueError(f'Unknown program: {program_name} in {list(programs.keys())}')
     newline = '\n'
     return reindent(f'''
         # newline

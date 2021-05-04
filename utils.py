@@ -1,5 +1,5 @@
 from __future__ import annotations
-from dataclasses import dataclass, field, replace, astuple
+from dataclasses import *
 from typing import *
 
 from pprint import pformat
@@ -30,19 +30,16 @@ def show(x: Any, show_key: Any=show_key, width: int=80) -> str:
         is_tuple = isinstance(x, tuple)
         is_list = isinstance(x, list)
         is_set = isinstance(x, (set, frozenset))
-        if (is_tuple or is_list or is_set) and not primlike(x):
-            if is_list:
-                begin, end = '[', ']'
-            elif is_tuple:
-                begin, end = '(', ')'
-            elif is_set:
-                begin, end = '{', '}'
-            if len(x) == 0:
+        has_iter = hasattr(x, '__iter__')
+        if is_dataclass(x):
+            begin, end = x.__class__.__name__ + '(', ')'
+            if len(asdict(x)) == 0:
                 yield dent + pre + begin + end + post
             else:
                 yield dent + pre + begin
-                for v in x:
-                    yield from go(indent, '', v, ',')
+                for k in asdict(x).keys():
+                    v = getattr(x, k)
+                    yield from go(indent, show_key(k) + '=', v, ',')
                 yield dent + end + post
         elif isinstance(x, dict):
             if len(x) == 0:
@@ -52,7 +49,25 @@ def show(x: Any, show_key: Any=show_key, width: int=80) -> str:
                 for k, v in x.items():
                     yield from go(indent, show_key(k) + ': ', v, ',')
                 yield dent + '}' + post
+        elif (is_tuple or is_list or is_set or has_iter) and not primlike(x):
+            if is_list:
+                begin, end = '[', ']'
+            elif is_tuple:
+                begin, end = '(', ')'
+            elif is_set:
+                begin, end = '{', '}'
+            elif has_iter:
+                begin, end = '*(', ')'
+                x = tuple(x)
+            if len(x) == 0:
+                yield dent + pre + begin + end + post
+            else:
+                yield dent + pre + begin
+                for v in x:
+                    yield from go(indent, '', v, ',')
+                yield dent + end + post
         else:
+            # use pformat for all primlike and exotic values
             lines = pformat(
                 x,
                 sort_dicts=False,

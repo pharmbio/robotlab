@@ -287,6 +287,29 @@ Search for SCRIPT MANUAL - E-SERIES.
 https://www.universal-robots.com/download/manuals-e-series/script/script-manual-e-series-sw-56/
 https://www.universal-robots.com/download/manuals-e-series/script/script-manual-e-series-sw-510/
 
+### URScript and the teach pendant speed slider
+
+All URScript speeds are affected by the teach pendant speed slider. Luckily,
+it seems like it can be set using code on the RTDE interface:
+
+https://forum.universal-robots.com/t/speed-slider-thru-modbus-and-dashboard/8259/2
+
+You can access the slider through a socket connection to port 30003. Here is an
+example of a script function we use to set the speed slider programmatically
+within a robot program. You could also send this from an external source,
+PLC or PC, if you open a client to the server similar to sending a command
+to the dashboard server.
+
+```python
+def runSlow(speed):
+  socket_open("127.0.0.1",30003)
+  socket_send_string("set speed")
+  socket_send_string(speed)  # float in range 0.01 to 1.00
+  socket_send_byte(10)
+  socket_close()
+end
+``` ￼￼
+
 ### URP programs created on the PolyScope handheld tablet
 
 Artifacts produced when making a script on the poly-scope handheld tablet:
