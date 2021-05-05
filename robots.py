@@ -200,7 +200,7 @@ class Robotarm:
         '''))
 
     def start_main(self):
-        self.set_speed(75)
+        self.set_speed(80)
         self.send(generate_robot_main(with_gripper=self.with_gripper))
         self.recv_until('log: ready')
         self.close()

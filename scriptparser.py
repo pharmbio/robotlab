@@ -24,6 +24,7 @@ class movel(ScriptStep):
     dx: None | float = None
     dy: None | float = None
     dz: None | float = None
+    slow: bool = False
 
 @dataclass(frozen=True)
 class movej(ScriptStep):
@@ -130,9 +131,14 @@ def resolve_with(name: str, script: ParsedScript, steps: list[ScriptStep]) -> di
                         f'{p_name}[{i}] = {p_name}[{i}] + {offset}'
                     ]
             if isinstance(step, movel):
-                lines += [
-                    f'movel({p_name}, a=1.2, v=0.25)'
-                ]
+                if step.slow:
+                    lines += [
+                        f'movel({p_name}, a=0.3, v=0.10)'
+                    ]
+                else:
+                    lines += [
+                        f'movel({p_name}, a=1.2, v=0.25)'
+                    ]
             elif isinstance(step, movej):
                 lines += [
                     f'{q_name} = {script.defs[q_name]}',
