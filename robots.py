@@ -314,7 +314,7 @@ def curl(url: str) -> Any:
     return json.loads(urlopen(url).read())
 
 def is_ready(machine: Literal['disp', 'wash', 'incu'], config: Config) -> Any:
-    res = curl(getattr(ENV, machine + '_url'))
+    res = curl(getattr(ENV, machine + '_url') + 'is_ready')
     assert res['status'] == 'OK', f'status not OK: {res = }'
     return res['value'] is True
 

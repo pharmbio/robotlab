@@ -41,9 +41,9 @@ def execute(events: list[Event], config: Config) -> None:
         with open(log_name, 'w') as fp:
             json.dump(log, fp, indent=2)
 
-num_plates = 1
+num_plates = 3
 
-events = cell_paint_many(1, delay='auto')
+events = cell_paint_many(num_plates, delay='auto')
 
 config = configs['dry_run']
 
