@@ -41,7 +41,7 @@ class Config:
     disp_mode: Literal['dry run' | 'simulate' | 'execute']
     wash_mode: Literal['dry run' | 'simulate' | 'execute']
     incu_mode: Literal['dry run' | 'fail if used' | 'execute']
-    time_mode: Literal['dry run' | 'execute']
+    time_mode: Literal['dry run' | 'execute' | 'fast forward']
     timers: dict[str, datetime] = field(default_factory=dict) # something something
     def name(self) -> str:
         for k, v in configs.items():
@@ -57,33 +57,40 @@ configs: dict[str, Config] = dict(
         incu_mode='dry run',
         time_mode='dry run',
     ),
-    live_robotarm_only_no_gripper = Config(
+    dry_run_with_timers = Config(
+        robotarm_mode='dry run',
+        disp_mode='dry run',
+        wash_mode='dry run',
+        incu_mode='dry run',
+        time_mode='fast forward',
+    ),
+    live_robotarm_no_gripper = Config(
         robotarm_mode='no gripper',
         disp_mode='dry run',
         wash_mode='dry run',
         incu_mode='dry run',
-        time_mode='dry run',
+        time_mode='fast forward',
     ),
     live_robotarm_only_one_plate = Config(
         robotarm_mode='gripper',
         disp_mode='dry run',
         wash_mode='dry run',
         incu_mode='dry run',
-        time_mode='dry run',
+        time_mode='fast forward',
     ),
     live_robotarm_only = Config(
         robotarm_mode='gripper',
         disp_mode='dry run',
         wash_mode='dry run',
         incu_mode='fail if used',
-        time_mode='dry run',
+        time_mode='fast forward',
     ),
     live_robotarm_and_incu_only = Config(
         robotarm_mode='gripper',
         disp_mode='dry run',
         wash_mode='dry run',
         incu_mode='execute',
-        time_mode='dry run',
+        time_mode='fast forward',
     ),
     live_robotarm_sim_disp_wash = Config(
         robotarm_mode='gripper',
@@ -132,10 +139,12 @@ class wait_for_timer_cmd(Command):
         return 0
 
     def execute(self, config: Config) -> None:
-        if config.time_mode == 'execute':
+        if config.time_mode in ('execute', 'fast forward'):
             remain = config.timers[self.timer_id] - datetime.now()
             remain_s = remain.total_seconds()
             if remain_s > 0:
+                if config.time_mode == 'fast forward':
+                    remain_s /= 1000
                 print('Idle for', remain_s, 'seconds...')
                 time.sleep(remain_s)
             else:
@@ -144,6 +153,8 @@ class wait_for_timer_cmd(Command):
             remain = config.timers[self.timer_id] - datetime.now()
             remain_s = remain.total_seconds()
             print('Dry run, pretending to sleep for', remain_s, 'seconds.')
+        else:
+            raise ValueError
 
 
 class Robotarm:
