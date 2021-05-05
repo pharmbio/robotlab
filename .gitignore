@@ -1,3 +1,7 @@
 secrets.sh
 scripts
 generated
+*json
+*pdf
+cobot/
+logs/

@@ -28,11 +28,11 @@ class Env:
 
 ENV = Env(
     # Use start-proxies.sh to forward robot to localhost
-    robotarm_host = 'localhost',
+    robotarm_host = os.environ.get('ROBOT_IP', 'localhost'),
     robotarm_port = 30001,
-    disp_url = 'http://dispenser.lab.pharmb.io:5001/',
-    wash_url = 'http://washer.lab.pharmb.io:5000/',
-    incu_url = 'http://incubator.lab.pharmb.io:5003/',
+    disp_url = os.environ.get('DISP_URL'),
+    wash_url = os.environ.get('WASH_URL'),
+    incu_url = os.environ.get('INCU_URL'),
 )
 
 @dataclass(frozen=True)

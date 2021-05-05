@@ -10,12 +10,18 @@ from robots import *
 from protocol import *
 from scriptgenerator import *
 
+import platform
+import os
+
 def execute(events: list[Event], config: Config) -> None:
-    log_name = ' '.join([
-        'event log',
-        str(datetime.now()).split('.')[0],
-        config.name(),
-    ]).replace(' ', '_') + '.json'
+    metadata = dict(
+        experiment_time = str(datetime.now()).split('.')[0],
+        host = platform.node(),
+        config_name = config.name(),
+    )
+    log_name = ' '.join(['event log', *metadata.values()])
+    log_name = 'logs/' + log_name.replace(' ', '_') + '.json'
+    os.makedirs('logs/', exist_ok=True)
     log = []
     for event in events:
         print(event.command)
@@ -31,6 +37,7 @@ def execute(events: list[Event], config: Config) -> None:
             **asdict(event.command),
         )
         pr(entry)
+        entry = {**entry, **metadata}
         log += [entry]
         with open(log_name, 'w') as fp:
             json.dump(log, fp, indent=2)
