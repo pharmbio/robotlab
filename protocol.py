@@ -188,12 +188,12 @@ def cell_painting(plate_id: str, initial_wait_seconds: float, incu_loc: str, lid
     return events
 
 H = [21, 19, 17, 15, 13, 11, 9, 7, 5, 3, 1]
-I = [i+1 for i in range(42)]
+I = [i+1 for i in range(22)]
 Out = list(H)
 
 h21 = 'h21'
 
-incu_locs: list[str] = [f'i{i}' for i in I]
+incu_locs: list[str] = [f'L{i}' for i in I] + [f'R{i}' for i in I]
 h_locs:    list[str] = [f'h{i}' for i in H]
 r_locs:    list[str] = [f'r{i}' for i in H]
 out_locs:  list[str] = [f'out{i}' for i in Out]
