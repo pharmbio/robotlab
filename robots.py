@@ -148,8 +148,10 @@ class wait_for_timer_cmd(Command):
 
 class Robotarm:
     s: socket.socket
+    with_gripper: bool
     def __init__(self, config: Config):
         assert config.robotarm_mode in {'gripper', 'no gripper'}
+        self.with_gripper = config.robotarm_mode == 'gripper'
         print('connecting to robot...', end=' ')
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.s.connect((ENV.robotarm_host, ENV.robotarm_port))
@@ -196,6 +198,12 @@ class Robotarm:
             end
             # newline
         '''))
+
+    def start_main(self):
+        self.set_speed(75)
+        self.send(generate_robot_main(with_gripper=self.with_gripper))
+        self.recv_until('log: ready')
+        self.close()
 
 @dataclass(frozen=True)
 class robotarm_cmd(Command):

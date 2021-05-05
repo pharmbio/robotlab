@@ -8,7 +8,6 @@ from datetime import datetime, timedelta
 from utils import pr
 from robots import *
 from protocol import *
-from scriptgenerator import *
 
 import platform
 import os
@@ -58,12 +57,7 @@ for arg in sys.argv[1:]:
 print(f'Using config =', show(config))
 
 if config.robotarm_mode in {'gripper', 'no gripper'}:
-    with_gripper = config.robotarm_mode == 'gripper'
-    robot = Robotarm(config)
-    robot.set_speed(75)
-    robot.send(generate_robot_main(with_gripper=with_gripper))
-    robot.recv_until('log: ready')
-    robot.close()
+    Robotarm(config).start_main()
 
 events = sleek_h21_movements(events)
 
