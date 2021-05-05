@@ -19,13 +19,13 @@ def execute(events: list[Event], config: Config) -> None:
     log = []
     for event in events:
         print(event.command)
-        start = datetime.now()
+        start_time = datetime.now()
         event.command.execute(config)
-        stop = datetime.now()
+        stop_time = datetime.now()
         entry = dict(
-            start = str(start),
-            stop = str(stop),
-            duration=(stop-start).total_seconds(),
+            start_time = str(start_time),
+            stop_time = str(stop_time),
+            duration=(stop_time - start_time).total_seconds(),
             plate_id=event.plate_id,
             command=event.machine(),
             **asdict(event.command),

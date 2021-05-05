@@ -5,11 +5,19 @@ from typing import *
 from pprint import pformat
 import re
 
+prims = (int, float, bool, str, bytes, type(None))
+
+try:
+    import pandas as pd
+    prims = (*prims, pd.DataFrame, pd.Series)
+except:
+    pass
+
 def primlike(x: object) -> bool:
     if isinstance(x, (tuple, list, set, frozenset)):
         return all(map(primlike, x))
     else:
-        return isinstance(x, (int, float, bool, str, bytes, type(None)))
+        return isinstance(x, prims)
 
 def show_key(x: object) -> str:
     if isinstance(x, (str, int)):
