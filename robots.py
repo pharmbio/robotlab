@@ -183,6 +183,20 @@ class Robotarm:
     def close(self) -> None:
         self.s.close()
 
+    def set_speed(self, value: int):
+        if not (0 < value <= 100):
+            raise ValueError
+        # The speed is set on the RTDE interface on port 30003:
+        self.send(reindent(f'''
+            # newline
+            sec set_speed():
+                socket_open("127.0.0.1", 30003)
+                socket_send_line("set speed {value/100}")
+                socket_close()
+            end
+            # newline
+        '''))
+
 @dataclass(frozen=True)
 class robotarm_cmd(Command):
     program_name: str

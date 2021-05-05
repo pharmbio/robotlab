@@ -60,6 +60,7 @@ print(f'Using config =', show(config))
 if config.robotarm_mode in {'gripper', 'no gripper'}:
     with_gripper = config.robotarm_mode == 'gripper'
     robot = Robotarm(config)
+    robot.set_speed(75)
     robot.send(generate_robot_main(with_gripper=with_gripper))
     robot.recv_until('log: ready')
     robot.close()
