@@ -97,7 +97,14 @@ configs: dict[str, Config] = dict(
         disp_mode='simulate',
         wash_mode='simulate',
         incu_mode='execute',
-        time_mode='execute',
+        time_mode='fast forward',
+    ),
+    live_execute_all_ff_time = Config(
+        robotarm_mode='gripper',
+        disp_mode='execute',
+        wash_mode='execute',
+        incu_mode='execute',
+        time_mode='fast forward',
     ),
     live_execute_all = Config(
         robotarm_mode='gripper',

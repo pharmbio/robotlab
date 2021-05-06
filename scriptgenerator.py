@@ -282,10 +282,11 @@ programs |= resolve('disp_get', 'scripts/dan_disp_putget.script', [
         gripper('Gripper Move35% (1)'),
         movejoint('neu_deli'),
         movel('above_dis'),
-        movel('disp_pickup'),
+        movel('disp_pickup', dz=0.05),
     ]),
     section('part2', [
         section('to_h21_drop', [
+            movel('disp_pickup'),
             gripper('Gripper Close (1)'),
             movel('above_dis'),
             movel('neu_deli'),

@@ -125,46 +125,48 @@ def cell_painting(plate_id: str, initial_wait_seconds: float, incu_loc: str, lid
     cmds = [
         # 2 Compound treatment
         timer_cmd(initial_wait_seconds / 60.0, plate_id),
-        *incu_to_wash,
-        wash_cmd('', est=90),
-        *wash_to_disp,
 
         # 3 Mitotracker staining
-        disp_cmd('peripump 1, mitotracker solution', est=15),
+        *incu_to_wash,
+        wash_cmd('automation/2_4_6_W-3X_FinalAspirate_test.LHC', est=90),
+        *wash_to_disp,
+        disp_cmd('automation/1_D_P1_30ul_mito.LHC', est=15),
         *disp_to_incu,
         timer_cmd(30, plate_id),
-        *incu_to_wash,
-        wash_cmd('pump D, PBS', est=90),
-        *wash_to_disp,
 
         # 4 Fixation
-        disp_cmd('Syringe A, 4% PFA', est=19),
+        *incu_to_wash,
+        wash_cmd('automation/2_4_6_W-3X_FinalAspirate_test.LHC', est=90),
+        *wash_to_disp,
+        disp_cmd('automation/3_D_SA_384_50ul_PFA.LHC', est=19),
         *disp_to_RT_incu,
         timer_cmd(20, plate_id),
-        *RT_incu_to_wash,
-        wash_cmd('pump D, PBS', est=90),
-        *wash_to_disp,
 
         # 5 Permeabilization
-        disp_cmd('Syringe B, 0.1% Triton X-100 in PBS', est=21),
+        *RT_incu_to_wash,
+        wash_cmd('automation/2_4_6_W-3X_FinalAspirate_test.LHC', est=90),
+        *wash_to_disp,
+        disp_cmd('automation/5_D_SB_384_50ul_TRITON.LHC', est=21),
         *disp_to_RT_incu,
         timer_cmd(20, plate_id),
-        *RT_incu_to_wash,
-        wash_cmd('pump D, PBS', est=90),
-        *wash_to_disp,
 
         # 6 Post-fixation staining
-        disp_cmd('peripump 2, staining mixture in PBS', est=22),
+        *RT_incu_to_wash,
+        wash_cmd('automation/2_4_6_W-3X_FinalAspirate_test.LHC', est=90),
+        *wash_to_disp,
+        disp_cmd('automation/7_D_P2_20ul_STAINS.LHC', est=22),
         *disp_to_RT_incu,
         timer_cmd(20, plate_id),
+
+        # Last wash
         *RT_incu_to_wash,
-        wash_cmd('pump D, PBS', est=120),
+        wash_cmd('automation/8_W-4X_NoFinalAspirate.LHC', est=120),
 
         # park it in RT, move to output hotel when there's time
         *wash_to_RT_incu,
 
-        # 7 Imaging
-        *to_output_hotel,
+        # # 7 Imaging
+        # *to_output_hotel,
     ]
 
     t = 0.0
