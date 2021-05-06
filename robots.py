@@ -293,7 +293,6 @@ class incu_cmd(Command):
     action: Literal['put' | 'get']
     incu_loc: str
     est: float
-    busywait: bool = True
     def execute(self, config: Config) -> None:
         assert self.action in 'put get'.split()
         if config.incu_mode == 'dry run':
