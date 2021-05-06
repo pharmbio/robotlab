@@ -1,6 +1,8 @@
 from __future__ import annotations
 from typing import *
 
+import sys
+
 from utils import *
 from robots import *
 
@@ -19,9 +21,9 @@ if args.get(0) == '--disp':
     wait_for_ready_cmd('disp').execute(config)
 
 if args.get(0) == '--incu-put':
-    incu_cmd('put', args.get(1), est=0).execute(config)
+    incu_cmd('put', args[1], est=0).execute(config)
     wait_for_ready_cmd('incu').execute(config)
 
 if args.get(0) == '--incu-get':
-    incu_cmd('get', args.get(1), est=0).execute(config)
+    incu_cmd('get', args[1], est=0).execute(config)
     wait_for_ready_cmd('incu').execute(config)
