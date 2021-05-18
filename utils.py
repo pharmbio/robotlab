@@ -5,7 +5,7 @@ from typing import *
 from pprint import pformat
 import re
 
-prims = (int, float, bool, str, bytes, type(None))
+prims: list[Type] = (int, float, bool, str, bytes, type(None))
 
 try:
     import pandas as pd

@@ -91,9 +91,9 @@ def cell_painting(plate_id: str, initial_wait_seconds: float, incu_loc: str, lid
         *disp_get,
         robotarm_cmd(f'lid_{lid_loc}_get'),
         robotarm_cmd('incu_put_part1'),
-        incu_cmd('put', incu_loc, est=0), # should be in 37°C within a second or so
+        incu_cmd('put', incu_loc, est=0),
         robotarm_cmd('incu_put_part2'),
-        wait_for_ready_cmd('incu'), # make sure incu is finished to be on the safe side
+        wait_for_ready_cmd('incu'),
     ]
 
     disp_to_RT_incu = [

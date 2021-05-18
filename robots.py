@@ -17,6 +17,7 @@ import abc
 import socket
 import re
 
+
 @dataclass(frozen=True)
 class Env:
     robotarm_host: str
@@ -30,18 +31,18 @@ ENV = Env(
     # Use start-proxies.sh to forward robot to localhost
     robotarm_host = os.environ.get('ROBOT_IP', 'localhost'),
     robotarm_port = 30001,
-    disp_url = os.environ.get('DISP_URL'),
-    wash_url = os.environ.get('WASH_URL'),
-    incu_url = os.environ.get('INCU_URL'),
+    disp_url = os.environ.get('DISP_URL', '?'),
+    wash_url = os.environ.get('WASH_URL', '?'),
+    incu_url = os.environ.get('INCU_URL', '?'),
 )
 
 @dataclass(frozen=True)
 class Config:
-    robotarm_mode: Literal['dry run' | 'no gripper' | 'gripper']
-    disp_mode: Literal['dry run' | 'simulate' | 'execute']
-    wash_mode: Literal['dry run' | 'simulate' | 'execute']
-    incu_mode: Literal['dry run' | 'fail if used' | 'execute']
-    time_mode: Literal['dry run' | 'execute' | 'fast forward']
+    robotarm_mode: Literal['dry run', 'no gripper', 'gripper']
+    disp_mode: Literal['dry run', 'simulate', 'execute']
+    wash_mode: Literal['dry run', 'simulate', 'execute']
+    incu_mode: Literal['dry run', 'fail if used', 'execute']
+    time_mode: Literal['dry run', 'execute', 'fast forward']
     timers: dict[str, datetime] = field(default_factory=dict) # something something
     def name(self) -> str:
         for k, v in configs.items():
@@ -163,7 +164,6 @@ class wait_for_timer_cmd(Command):
         else:
             raise ValueError
 
-
 class Robotarm:
     s: socket.socket
     with_gripper: bool
@@ -267,7 +267,6 @@ class wash_cmd(Command):
     def time_estimate(self) -> float:
         return self.est
 
-
 @dataclass(frozen=True)
 class disp_cmd(Command):
     protocol_path: str
@@ -290,7 +289,7 @@ class disp_cmd(Command):
 
 @dataclass(frozen=True)
 class incu_cmd(Command):
-    action: Literal['put' | 'get']
+    action: Literal['put', 'get']
     incu_loc: str
     est: float
     def execute(self, config: Config) -> None:
@@ -339,5 +338,4 @@ class wait_for_ready_cmd(Command):
 
     def time_estimate(self) -> float:
         return 0
-
 
