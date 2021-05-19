@@ -2,6 +2,7 @@ secrets.sh
 scripts
 generated
 *json
+!moves/*json
 *pdf
 cobot/
 logs/

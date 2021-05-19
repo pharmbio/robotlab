@@ -1,6 +1,6 @@
 from __future__ import annotations
 from dataclasses import dataclass, field, replace, astuple
-from typing import Any
+from typing import *
 
 from utils import show
 
@@ -21,17 +21,12 @@ class ScriptStep(ABC):
 @dataclass(frozen=True)
 class movel(ScriptStep):
     name: str
-    dx: None | float = None
-    dy: None | float = None
-    dz: None | float = None
     slow: bool = False
+    tag: str | None = None
 
 @dataclass(frozen=True)
 class movej(ScriptStep):
     name: str
-    dx: None | float = None
-    dy: None | float = None
-    dz: None | float = None
 
 @dataclass(frozen=True)
 class gripper(ScriptStep):
@@ -111,49 +106,65 @@ def parse_lines(lines: list[str]) -> ParsedScript:
 
     return res
 
-def resolve(name: str, filename: str, steps: list[ScriptStep]) -> dict[str, str]:
-    return resolve_with(name, parse(filename), steps)
+def resolve(filename: str, steps: list[ScriptStep]) -> list[Move]:
+    return list(resolve_parsed(parse(filename), steps))
 
-def resolve_with(name: str, script: ParsedScript, steps: list[ScriptStep]) -> dict[str, str]:
-    out: list[str] = []
-    sections: dict[str, str] = {}
+from scipy.spatial.transform import Rotation, Rotation as R
+from moves import *
+
+nice_trf : Rotation
+nice_trf = R.from_euler("xyz", [-90, 90, 0], degrees=True)
+
+nice_trf_pose : list[float]
+nice_trf_pose = [0, 0, 0, nice_trf.as_rotvec()]
+
+def round_nnz(x, ndigits=1):
+    '''
+    Round and normalize negative zero
+    '''
+    v = round(x, ndigits)
+    if v == -0.0:
+        return 0.0
+    else:
+        return v
+
+def make_nice(in_zero_trf: list[float]) -> tuple[list[float], list[float]]:
+    '''
+    Converts a UR pose given in the zero TRF (as in set_tcp(0,0,0,0,0,0))
+    and makes it nice as described in MoveLin.
+
+    >>> make_nice([0.605825, -0.720087, 0.233797, 1.640554, -0.010878, 0.011601])
+    ([605.8, -720.1, 233.8], [-0.8, -4.0, 90.1])
+    '''
+    xyz_m = in_zero_trf[:3]
+    xyz = [round_nnz(c * 1000, 1) for c in xyz_m]
+    rv = in_zero_trf[3:]
+    rv_R = R.from_rotvec(rv)
+    in_nice_R = rv_R * nice_trf
+    rpy = in_nice_R.as_euler('xyz', degrees=True)
+    rpy = [round_nnz(c, 1) for c in rpy]
+    return xyz, rpy
+
+import math
+
+def resolve_parsed(script: ParsedScript, steps: list[ScriptStep], active_sections: list[str]=[]) -> Iterator[Move]:
     for step in steps:
-        lines: list[str] = []
-        if isinstance(step, (movel, movej)):
-            q_name = step.name + '_q'
-            p_name = step.name + '_p'
-            lines += [
-                f'{p_name} = p{script.defs[p_name]}',
-            ]
-            for i, d_name in enumerate('dx dy dz'.split()):
-                if offset := getattr(step, d_name):
-                    lines += [
-                        f'{p_name}[{i}] = {p_name}[{i}] + {offset}'
-                    ]
-            if isinstance(step, movel):
-                if step.slow:
-                    lines += [
-                        f'movel({p_name}, a=0.3, v=0.10)'
-                    ]
-                else:
-                    lines += [
-                        f'movel({p_name}, a=1.2, v=0.25)'
-                    ]
-            elif isinstance(step, movej):
-                lines += [
-                    f'{q_name} = {script.defs[q_name]}',
-                    f'movej(get_inverse_kin({p_name}, qnear={q_name}), a=1.4, v=1.05)',
-                ]
+        if isinstance(step, movel):
+            p = script.defs[step.name + '_p']
+            xyz, rpy = make_nice(p)
+            yield MoveLin(xyz=xyz, rpy=rpy, slow=step.slow, name=step.name, tag=step.tag)
+        elif isinstance(step, movej):
+            q = script.defs[step.name + '_q']
+            yield MoveJoint(joints=[round(math.degrees(v)) for v in q], name=step.name)
         elif isinstance(step, gripper):
-            lines += script.subs[step.name]
+            yield GripperRaw(code=[] and script.subs[step.name], name=step.name)
         elif isinstance(step, section):
-            subname = name + '_' + step.name
-            sections |= resolve_with(subname, script, step.steps)
-            lines = [sections[subname]]
+            inner_sections = [*active_sections, step.name]
+            yield Section(sections=' '.join(inner_sections))
+            yield from resolve_parsed(script, step.steps, active_sections=inner_sections)
+            yield Section(sections=' '.join(active_sections))
         else:
             raise ValueError
-        out += lines
-    return {name: '\n'.join(out)} | sections
 
 @dataclass(frozen=True)
 class test:
@@ -243,29 +254,42 @@ def test_parse_and_resolve() -> None:
     steps: list[ScriptStep] = [
         gripper('Gripper Move30% (1)'),
         movel('h21_neu'),
-        movel('h21_neu', dy=-0.3),
+        movel('h21_neu', tag='h19', slow=True),
         movej('above_washr'),
     ]
 
-    resolved = resolve_with('root', script, steps)['root']
+    resolved = list(resolve_parsed(script, steps))
 
-    assert test(resolved) == dedent('''
-        # Gripper Move30% (1)
-        rq_set_pos_spd_for(77, 0, 0, "1")
-        rq_go_to("1")
-        rq_wait("1")
-        h21_neu_p = p[0.2, -0.4, 0.8, 1.6, -0.0, 0.0]
-        movel(h21_neu_p, a=1.2, v=0.25)
-        h21_neu_p = p[0.2, -0.4, 0.8, 1.6, -0.0, 0.0]
-        h21_neu_p[1] = h21_neu_p[1] + -0.3
-        movel(h21_neu_p, a=1.2, v=0.25)
-        above_washr_p = p[-0.2, 0.1, 0.3, 1.2, -1.2, -1.2]
-        above_washr_q = [-1.6, -2.2, 2.5, -0.3, -0.0, 0.987654]
-        movej(get_inverse_kin(above_washr_p, qnear=above_washr_q), a=1.4, v=1.05)
-    ''').strip()
+    assert test(resolved) == [
+      GripperRaw(
+        code=
+          [] and ['# Gripper Move30% (1)',
+           'rq_set_pos_spd_for(77, 0, 0, "1")',
+           'rq_go_to("1")',
+           'rq_wait("1")'],
+        name='Gripper Move30% (1)',
+      ),
+      MoveLin(
+        xyz=[200.0, -400.0, 800.0],
+        rpy=[0.0, -1.7, 90.0],
+        name='h21_neu',
+      ),
+      MoveLin(
+        xyz=[200.0, -400.0, 800.0],
+        rpy=[0.0, -1.7, 90.0],
+        name='h21_neu',
+        slow=True,
+        tag='h19',
+      ),
+      MoveJoint(
+        joints=[-92, -126, 143, -17, 0, 57],
+        name='above_washr',
+      ),
+    ]
 
     if '-v' in sys.argv:
         print(__file__, 'passed tests')
 
 test_parse_and_resolve()
-
+import doctest
+doctest.testmod()

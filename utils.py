@@ -5,10 +5,10 @@ from typing import *
 from pprint import pformat
 import re
 
-prims: list[Type] = (int, float, bool, str, bytes, type(None))
+prims: tuple[Any, ...] = (int, float, bool, str, bytes, type(None))
 
 try:
-    import pandas as pd
+    import pandas as pd # type: ignore
     prims = (*prims, pd.DataFrame, pd.Series)
 except:
     pass
