@@ -2,11 +2,27 @@
 
 set -ueo pipefail
 
+ROBOT_IP=localhost
+
 send () {
     printf '%s\n' "$1" | nc localhost 30001 |
         grep --text --only-matching --ignore-case --perl-regexp \
-            '(log|program|\w*exception|\w*error)[\x20-\x7f]*'
+            '(log|program|\w*exception|\w\+_\w\+:|\w*error)[\x20-\x7f]*'
 }
+
+send 'def example():
+    textmsg("log ", get_actual_tcp_pose())
+end'
+
+send '
+def unbalanced_parens():
+    textmsg("log ", get_actual_tcp_pose()
+end
+def undefined_function():
+    textmsg("log ", get_tcp_pose())
+end'
+
+
 
 python -c '
 from scipy.spatial.transform import Rotation as R

@@ -72,7 +72,8 @@ In the lab:
 
 
 ### Cell painting workflow
-From https://docs.google.com/spreadsheets/d/17Tc3-pu8PlIvbBNSVf0f7W_Em4n6ECiMjXvrObrig2Y
+Jonne's workflow from
+https://docs.google.com/spreadsheets/d/17Tc3-pu8PlIvbBNSVf0f7W_Em4n6ECiMjXvrObrig2Y
 
 <table>
 <tr><th>   </th></th><th>  action                                           </th><th>  equipment                         </th><th>  solution                 </th><th>  temp  </th></tr>
@@ -184,6 +185,356 @@ Using the simulator, this is how some of the protocols look like.
 We will use netcat `nc`. Another alternative is `socat`.
 In python use the `socket` module.
 
+### port 30001: primary
+
+This protocol accepts urscript programs and continuously dumps a lot of
+binary data in 10hz.  The `textmsg` function writes to the polyscope log but
+is also written to this primary protocol.  This example sends a UR script
+using netcat which the robot controller executes.
+
+```sh
+ROBOT_IP=localhost
+
+send () {
+    printf '%s\n' "$1" | nc $ROBOT_IP 30001 |
+        grep --text --only-matching --ignore-case --perl-regexp \
+            '(log|program|\w*exception|\w*error)[\x20-\x7f]*'
+}
+
+send 'def example():
+    textmsg("log ", get_actual_tcp_pose())
+end'
+```
+
+This is how it looks when run:
+
+```
+$ ./robocom.sh
+PROGRAM_XXX_STARTEDexample
+log p[0.605825,-0.720087,0.233797,-0.0111368,-0.0111357,1.57073]
+PROGRAM_XXX_STOPPEDexample
+```
+
+The grep is set up so errors and exceptions can be seen:
+
+```sh
+send '
+def unbalanced_parens():
+    textmsg("log ", get_actual_tcp_pose()
+end
+def undefined_function():
+    textmsg("log ", get_tcp_pose())
+end'
+```
+
+This gives:
+
+```
+$ ./robocom.sh
+syntax_error_on_line:3:end:
+compile_error_name_not_found:get_tcp_pose:
+```
+
+### Speed setting via RTDE port 30003
+
+The speed setting on the teach pendant can be set on the RTDE interface on
+port 30003. We can send this via the primary protocol for convenience instead:
+
+```sh
+send 'sec set_speed():
+    socket_open("127.0.0.1", 30003)
+    socket_send_line("set speed 0.8")
+    socket_close()
+end'
+```
+
+### Gripper communication
+
+The gripper is on port 63352 on the robot controller box. This protocol
+is unsupported but the one used by the gripper URScript snipped
+created by robotiq. I wrote to Robotiq about this and got this reply:
+
+Here's a list of the socket commands, note that these aren't officially
+supported and are subject to change in a future release of the URCap.
+
+SET commands:
+
+    ACT activateRequest
+    MOD gripperMode
+    GTO goto
+    ATR automaticReleaseRoutine
+    ARD autoreleaseDirection
+    MSC maxPeakSupplyCurrent
+    POS positionRequest
+    SPE speedRequest
+    FOR forceRequest
+    SCN_BLOCK scanBlockRequest
+    SCN scanRequest
+    NID updateGripperSlaveId
+    SID socketSlaveId
+
+GET commands:
+
+    ACT activateRequest
+    MOD gripperMode
+    GTO goto
+    STA status
+    VST vacuumStatus
+    OBJ objectDetected
+    FLT fault
+    MSC maxPeakSupplyCurrent
+    PRE positionRequestEcho
+    POS positionRequest
+    COU motorCurrent
+    SNU serialNumber
+    PYE productionYear
+    NCY numberOfCycles
+    PON numberOfSecondsPumpIsOn
+    NPA numberOfPumpActivations
+    FWV firmwareVersion
+    VER driverVersion
+    SPE speedRequest
+    FOR forceRequest
+    DRI printableState
+    SID socketSlaveId
+
+These two are also used in the code but were not included in the email I got:
+
+    DST driver_state
+    PCO probleme_connection
+
+This is how it looks if you request all values:
+
+```sh
+dan@NUC-robotlab:~/robot-remote-control$ printf 'GET %s\n' MOD GTO STA VST OBJ FLT MSC PRE POS COU SNU PYE NCY PON NPA FWV VER SPE FOR DRI SID | timeout 0.1 nc $ROBOT_IP 63352; echo
+MOD 0
+GTO 1
+STA 3
+VST 0
+OBJ 3
+FLT 00
+MSC 0
+PRE 077
+POS 77
+COU 0
+SNU C-42182
+PYE 2019
+NCY 2008
+PON 135636
+NPA 821
+FWV GC3-1.6.9
+VER DCU-2.0.0
+SPE 0
+FOR 0
+DRI RUNNING
+SID [9]
+```
+
+If `FLT` is nonzero there is some kind of fault. There should be a LED blinking on the gripper.
+
+The gripper id is 9, so `SID` should be 9.
+
+The robot needs to be activated before run. The gripper is (re-)activated by setting `SET ACT 1`
+and it replies with the three bytes `b"ack"`:
+
+
+```
+dan@NUC-robotlab:~/robot-remote-control$ echo SET ACT 1 | timeout 0.1 nc $ROBOT_IP 63352 | xxd
+00000000: 6163 6b                                  ack
+```
+
+The gripper activation status is in `STA`:
+* `STA == 0x00` - Gripper is in reset ( or automatic release )state. See Fault Status if Gripper is activated.
+* `STA == 0x01` - Activation in progress.
+* `STA == 0x02` - Not used.
+* `STA == 0x03` - Activation is completed.
+
+We should also initialize it with:
+
+* lowest speed (`SET SPE 0`) (TODO: maybe this should be `255`)
+* lowest force (`SET FOR 0`) (TODO: maybe this should be `255`)
+* zero max current (`SET MSC 0`)
+* goto mode (`SET GTO 1`)
+
+The robot is closed with `SET POS 255` and opened to a position good for plates with `SET POS 77`:
+This is how it looks when closing then opening:
+
+```sh
+$ for POS in 255 77; do { echo SET POS $POS; while true; do printf 'GET %s\n' PRE POS OBJ; sleep 0.8; done } | timeout 5 nc $ROBOT_IP 63352; done
+ackPRE 077
+POS 77
+OBJ 3
+PRE 255
+POS 118
+OBJ 0
+PRE 255
+POS 164
+OBJ 0
+PRE 255
+POS 210
+OBJ 0
+PRE 255
+POS 227
+OBJ 3
+PRE 255
+POS 227
+OBJ 3
+PRE 255
+POS 227
+OBJ 3
+ackPRE 255
+POS 227
+OBJ 3
+PRE 077
+POS 184
+OBJ 0
+PRE 077
+POS 138
+OBJ 0
+PRE 077
+POS 91
+OBJ 0
+PRE 077
+POS 77
+OBJ 3
+PRE 077
+POS 77
+OBJ 3
+PRE 077
+POS 77
+OBJ 3
+```
+
+It takes a little bit of time after the `ack` for the requested position
+to update and `OBJ` to go from 3 into 0. When the motion is completed it is at 3 again. These are the explanations for `OBJ`:
+
+* `OBJ == 0x00`: Fingers are in motion towards requested position. No object detected.
+* `OBJ == 0x01`: Fingers have stopped due to a contact while opening before requested position. Object detected opening.
+* `OBJ == 0x02`: Fingers have stopped due to a contact while closing before requested position. Object detected closing.
+* `OBJ == 0x03`: Fingers are at requested position. No object detected or object has been loss / dropped.
+
+Communicate with the gripper on the socket using a URScript:
+
+```sh
+send 'def gripper_close():
+    socket_open("127.0.0.1", 63352, socket_name="gripper")
+    socket_send_line("SET POS 255", socket_name="gripper")
+    ack = socket_read_byte_list(3, socket_name="gripper", timeout=0.1)
+    textmsg("log ack:", ack)
+    textmsg("log ack?", ack == [3,97,99,107])
+    socket_close(socket_name="gripper")
+end'
+```
+
+We can get its values like this:
+
+```sh
+send 'def gripper_get_state():
+    socket_open("127.0.0.1", 63352, socket_name="gripper")
+    def get_var(varname):
+        socket_send_line(str_cat("GET ", varname), socket_name="gripper")
+        s = socket_read_string(socket_name="gripper") # "PRE 077\n"
+        s = str_sub(s, 0, str_len(s) - 1)             # drop "\n"
+        s = str_sub(s, str_find(s, " "))              # drop "PRE "
+        return to_num(s)
+    end
+    textmsg("log PRE ", get_var("PRE"))
+    textmsg("log POS ", get_var("POS"))
+    textmsg("log OBJ ", get_var("OBJ"))
+    textmsg("log FLT ", get_var("FLT"))
+    textmsg("log STA ", get_var("STA"))
+    textmsg("log GTO ", get_var("GTO"))
+    textmsg("log ACT ", get_var("ACT"))
+    textmsg("log SPE ", get_var("SPE"))
+    textmsg("log FOR ", get_var("FOR"))
+    textmsg("log MSC ", get_var("MSC"))
+    socket_close(socket_name="gripper")
+end'
+```
+
+This returns:
+
+```
+PROGRAM_XXX_STARTEDgripper_get_state
+log PRE 77
+log POS 77
+log OBJ 3
+log FLT 0
+log STA 3
+log GTO 1
+log ACT 1
+log SPE 0
+log FOR 0
+log MSC 0
+PROGRAM_XXX_STOPPEDgripper_get_state
+```
+
+A full program to close and then open the gripper:
+
+```sh
+send '
+def gripper_move_test():
+    socket_open("127.0.0.1", 63352, socket_name="gripper")
+
+    def fail(msg, msg2=""):
+        textmsg("log fail ", str_cat(msg, msg2))
+        str_at("error", 100) # raise an error
+    end
+
+    def get_var(varname):
+        socket_send_line(str_cat("GET ", varname), socket_name="gripper") # send "GET PRE\n"
+        s = socket_read_string(socket_name="gripper")  # recv "PRE 077\n"
+        s = str_sub(s, 0, str_len(s) - 1)              # drop "\n"
+        s = str_sub(s, str_find(s, " "))               # drop "PRE "
+        value = to_num(s)
+        return value
+    end
+
+    def set_var(varname, value):
+        socket_set_var(varname, value, socket_name="gripper") # send "SET POS 77\n"
+        ack_bytes = socket_read_byte_list(3, socket_name="gripper", timeout=0.1)
+        ack = ack_bytes == [3, 97, 99, 107] # 3 bytes received, then ascii for "ack"
+        if not ack:
+            fail("gripper request did not ack for var ", varname)
+        end
+    end
+
+    if get_var("STA") != 3:
+        fail("gripper needs to be activated")
+    end
+    if get_var("FLT") != 0:
+        fail("gripper fault")
+    end
+
+    set_var("GTO", 1)
+    set_var("SPE", 0)
+    set_var("FOR", 0)
+    set_var("MSC", 0)
+
+    def gripper_move(pos):
+        set_var("POS", pos)
+        while (get_var("PRE") != pos):
+            sleep(0.02)
+        end
+        while (get_var("OBJ") == 0):
+            sleep(0.02)
+        end
+        if get_var("OBJ") != 3:
+            fail("gripper move complete but in unknown mode")
+        end
+        if get_var("FLT") != 0:
+            fail("gripper fault")
+        end
+    end
+
+    gripper_move(255) # close
+    gripper_move(77)  # open
+
+    socket_close(socket_name="gripper")
+end
+'
+```
+
 ### port 29999: Dashboard
 
 A few high-level commands can be sent here.
@@ -200,75 +551,6 @@ Now we can type things like `running` and `programState` and it will reply:
     programState
     STOPPED <unnamed>
 
-### port 30001: primary
-
-This protocol accepts urscript programs and continuously dumps a lot of binary data in 10hz.
-
-    $ nc localhost 30001 | xxd | head
-    00000000: 0000 0037 14ff ffff ffff ffff fffe 0309  ...7............
-    00000010: 5552 436f 6e74 726f 6c05 0400 0000 0000  URControl.......
-    00000020: 0000 0032 312d 3036 2d32 3031 392c 2031  ...21-06-2019, 1
-    00000030: 303a 3033 3a30 3200 0000 1814 ffff ffff  0:03:02.........
-    00000040: ffff ffff fe0c 0000 0000 0000 0000 0100  ................
-    00000050: 0000 b518 3fc3 3333 3333 3333 4039 0000  ....?.333333@9..
-    00000060: 0000 0000 0000 0000 0000 0000 4000 0000  ............@...
-    00000070: 0000 0000 3fc9 9999 9999 999a 3fc9 9999  ....?.......?...
-    00000080: 9999 999a 3fc9 9999 9999 999a 3fc9 9999  ....?.......?...
-    00000090: 9999 999a 3fc9 9999 9999 999a 3fc9 9999  ....?.......?...
-    write(stdout): Broken pipe
-
-This example sends a script which the robot controller executes.  The `textmsg` function
-writes to the polyscope log but is also written to this primary protocol.
-
-    $ printf '%s\n' 'def silly():' ' textmsg("nonce nonce nonce pharmbio says hello")' end |
-        timeout 1 netcat localhost 30001 | xxd | grep -A 2 nonce
-    000009f0: 0000 03d0 6e4f 00fd 006e 6f6e 6365 206e  ....nO...nonce n
-    00000a00: 6f6e 6365 206e 6f6e 6365 2070 6861 726d  once nonce pharm
-    00000a10: 6269 6f20 7361 7973 2068 656c 6c6f 0000  bio says hello..
-    00000a20: 0010 19ff ffff ffff ffff ff01 0000 0000  ................
-
-We also get `PROGRAM_XXX_STARTED` messages when program starts and a similar
-when it stops:
-
-    $ printf '%s\n' 'def silly():' end |
-        timeout 1 netcat localhost 30001 |
-        xxd | grep -A 2 -P '[PROGRAM_X_silly]{3}'
-    000009d0: 0013 5052 4f47 5241 4d5f 5858 585f 5354  ..PROGRAM_XXX_ST
-    000009e0: 4152 5445 4473 696c 6c79 0000 0030 1400  ARTEDsilly...0..
-    000009f0: 0000 03df 7e0d 50fd 0700 0000 0000 0000  ....~.P.........
-    00000a00: 0013 5052 4f47 5241 4d5f 5858 585f 5354  ..PROGRAM_XXX_ST
-    00000a10: 4f50 5045 4473 696c 6c79 0000 0010 19ff  OPPEDsilly......
-    00000a20: ffff ffff ffff ff01 0000 0000 0009 0500  ................
-    00000a30: 0000 0000 0002 cc10 0000 002f 0000 0000  .........../....
-
-We also get errors when trying to run scripts:
-
-    $ printf '%s\n' 'def silly()' end |
-        timeout 1 netcat localhost 30001 |
-        xxd | grep -C 1 -P [error_]{3}
-    00000450: 0000 0032 14ff ffff ffff ffff fffd 0a00  ...2............
-    00000460: 0000 0200 0000 0173 796e 7461 785f 6572  .......syntax_er
-    00000470: 726f 725f 6f6e 5f6c 696e 653a 323a 656e  ror_on_line:2:en
-    00000480: 643a 0000 056a 1000 0000 2f00 0000 0003  d:...j..../.....
-    $ printf '%s\n' 'def silly():' ' txtmsg("")' end |
-        timeout 1 netcat localhost 30001 |
-        xxd | grep -C 1 -P [error_]{3}
-    00000450: 0000 003b 14ff ffff ffff ffff fffd 0a00  ...;............
-    00000460: 0000 0200 0000 0263 6f6d 7069 6c65 5f65  .......compile_e
-    00000470: 7272 6f72 5f6e 616d 655f 6e6f 745f 666f  rror_name_not_fo
-    00000480: 756e 643a 7478 746d 7367 3a00 0005 6a10  und:txtmsg:...j.
-
-The actual layout of the binary data packages is outlined in an excel file.
-I spent some time parsing the excel file and then unpacking the structs.
-This was brittle and we won't need all that data. If we do we can get
-it through easier means. Notably, judicious use of `textmsg` can make the
-robot reply any data available inside URScripts. This example obtains
-the current joint space coordinates:
-
-    $ printf '%s\n' 'def silly():' ' textmsg("BEGIN ", str_cat(get_actual_joint_positions(), " END"))' end |
-        timeout 1 netcat localhost 30001 |
-        cat -v | grep -oP 'BEGIN.*?END'
-    BEGIN [1.2, -1.125651, -2, 0, -0, 0] END
 
 ## Scripting the robot: URScript and .URP files
 
