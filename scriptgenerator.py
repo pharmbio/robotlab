@@ -482,7 +482,7 @@ if __name__ == '__main__':
     elif '--generate-json' in sys.argv:
         for name, movelist in programs.items():
             filename = f'./moves/{name}.json'
-            Moves(movelist).normalize().to_rel().to_abs().to_json(filename)
+            MoveList(movelist).normalize().adjust_tagged('h11', dz=70.94).to_json(filename)
     elif '--old-style' in sys.argv:
         open('./generated/robot_main', 'w').write(generate_robot_main())
         open('./generated/robot_main_nogripper', 'w').write(generate_robot_main(with_gripper=False))

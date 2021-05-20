@@ -157,7 +157,7 @@ def resolve_parsed(script: ParsedScript, steps: list[ScriptStep], active_section
             q = script.defs[step.name + '_q']
             yield MoveJoint(joints=[round(math.degrees(v)) for v in q], name=step.name)
         elif isinstance(step, gripper):
-            yield GripperRaw(code=[] and script.subs[step.name], name=step.name)
+            yield GripperRaw(code=script.subs[step.name], name=step.name)
         elif isinstance(step, section):
             inner_sections = [*active_sections, step.name]
             yield Section(sections=' '.join(inner_sections))
@@ -263,7 +263,7 @@ def test_parse_and_resolve() -> None:
     assert test(resolved) == [
       GripperRaw(
         code=
-          [] and ['# Gripper Move30% (1)',
+          ['# Gripper Move30% (1)',
            'rq_set_pos_spd_for(77, 0, 0, "1")',
            'rq_go_to("1")',
            'rq_wait("1")'],
