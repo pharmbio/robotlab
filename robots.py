@@ -164,6 +164,8 @@ class wait_for_timer_cmd(Command):
         else:
             raise ValueError
 
+import gripper
+
 class Robotarm:
     s: socket.socket
     with_gripper: bool

@@ -10,6 +10,7 @@ Vocabulary outline:
     Teach pendant: the handheld tablet
     PolyScope: the handheld tablet user interface.
     TCP: tool center point, in our case a gripper.
+    Tool flange: the end point of the last joint where the tool is attached to
     URCap: a UR capability: a tool attached to the UR (we have a gripper)
     Robotiq: the company that made our gripper
     CB: ControlBox, the controller cabinet of the UR robot.
@@ -151,9 +152,9 @@ possible joint configurations to the same point. (16 for 6-armed robots?)
     RPY: roll pitch yaw, a way of denoting the tool rotation similar to polar coordinates.
         not the UR default way to write rotations.
 
-https://www.universal-robots.com/articles/ur/application-installation/explanation-on-robot-orientation/
+https://forum.universal-robots.com/t/robot-theory-and-how-to-use-it-in-ur-robots/3863/7
 https://www.mecademic.com/en/how-is-orientation-in-space-represented-with-euler-angles
-https://www.researchgate.net/publication/336061230_An_image_vision_and_automatic_calibration_system_for_universal_robots
+https://www.universal-robots.com/articles/ur/application-installation/explanation-on-robot-orientation/
 
 ## URSim: the Simulator
 
@@ -171,14 +172,14 @@ It allows you to access the PolyScope GUI forwarded to the browser on localhost:
 - Forum thread: https://forum.universal-robots.com/t/communication-interfaces/29
     - > It is generally recommended to use RTDE and fieldbus protocols
         (Modbus Client, Ethernet IP or Profinet) rather than the Primary, Secondary,
-        Realtime and Dashboard server interfeces.
+        Realtime and Dashboard server interfaces.
 - port 30001: primary https://www.universal-robots.com/articles/ur/interface-communication/remote-control-via-tcpip/
 - port 30002: secondary https://www.universal-robots.com/articles/ur/interface-communication/remote-control-via-tcpip/
 - port 30003: real-time https://www.universal-robots.com/articles/ur/interface-communication/remote-control-via-tcpip/
 - port 30004: RTDE https://www.universal-robots.com/articles/ur/interface-communication/real-time-data-exchange-rtde-guide/
 - port 29999: Dashboard https://www.universal-robots.com/articles/ur/dashboard-server-e-series-port-29999/
 - port 30020: Interpreter mode. This is a more recent way of queuing up URScript snippets inside a running URScript with `interpreter_mode()` on.
-- xml-rpc: URScript function calls xml remote procedure protocol on a http server
+- xml-rpc: URScript function calls xml remote procedure protocol on a http server (note that you can do remote communication on sockets using URScript 30001 as well)
 - modbus: an industry standard for robot communication
 
 Using the simulator, this is how some of the protocols look like.
@@ -198,7 +199,7 @@ ROBOT_IP=localhost
 send () {
     printf '%s\n' "$1" | nc $ROBOT_IP 30001 |
         grep --text --only-matching --ignore-case --perl-regexp \
-            '(log|program|\w*exception|\w*error)[\x20-\x7f]*'
+            '(log|program|\w*exception|\w+_\w+:)[\x20-\x7f]*'
 }
 
 send 'def example():
@@ -215,7 +216,7 @@ log p[0.605825,-0.720087,0.233797,-0.0111368,-0.0111357,1.57073]
 PROGRAM_XXX_STOPPEDexample
 ```
 
-The grep is set up so errors and exceptions can be seen:
+The grep is set up so that errors and exceptions can be seen:
 
 ```sh
 send '
@@ -247,6 +248,8 @@ send 'sec set_speed():
     socket_close()
 end'
 ```
+
+This sets the speed to 80%.
 
 ### Gripper communication
 
@@ -357,52 +360,26 @@ We should also initialize it with:
 * goto mode (`SET GTO 1`)
 
 The robot is closed with `SET POS 255` and opened to a position good for plates with `SET POS 77`:
-This is how it looks when closing then opening:
+This is how it looks when closing then opening, re-formatted for clarity:
 
 ```sh
 $ for POS in 255 77; do { echo SET POS $POS; while true; do printf 'GET %s\n' PRE POS OBJ; sleep 0.8; done } | timeout 5 nc $ROBOT_IP 63352; done
-ackPRE 077
-POS 77
-OBJ 3
-PRE 255
-POS 118
-OBJ 0
-PRE 255
-POS 164
-OBJ 0
-PRE 255
-POS 210
-OBJ 0
-PRE 255
-POS 227
-OBJ 3
-PRE 255
-POS 227
-OBJ 3
-PRE 255
-POS 227
-OBJ 3
-ackPRE 255
-POS 227
-OBJ 3
-PRE 077
-POS 184
-OBJ 0
-PRE 077
-POS 138
-OBJ 0
-PRE 077
-POS 91
-OBJ 0
-PRE 077
-POS 77
-OBJ 3
-PRE 077
-POS 77
-OBJ 3
-PRE 077
-POS 77
-OBJ 3
+ack
+PRE 077   POS  77   OBJ 3
+PRE 255   POS 118   OBJ 0
+PRE 255   POS 164   OBJ 0
+PRE 255   POS 210   OBJ 0
+PRE 255   POS 227   OBJ 3
+PRE 255   POS 227   OBJ 3
+PRE 255   POS 227   OBJ 3
+ack
+PRE 255   POS 227   OBJ 3
+PRE 077   POS 184   OBJ 0
+PRE 077   POS 138   OBJ 0
+PRE 077   POS  91   OBJ 0
+PRE 077   POS  77   OBJ 3
+PRE 077   POS  77   OBJ 3
+PRE 077   POS  77   OBJ 3
 ```
 
 It takes a little bit of time after the `ack` for the requested position
@@ -534,6 +511,8 @@ def gripper_move_test():
 end
 '
 ```
+
+This is in `gripper.py`.
 
 ### port 29999: Dashboard
 

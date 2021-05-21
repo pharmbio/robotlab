@@ -7,11 +7,22 @@ ROBOT_IP=localhost
 send () {
     printf '%s\n' "$1" | nc localhost 30001 |
         grep --text --only-matching --ignore-case --perl-regexp \
-            '(log|program|\w*exception|\w\+_\w\+:|\w*error)[\x20-\x7f]*'
+            '(log|assert|program|\w*exception|\w+_\w+:)[\x20-\x7f]*'
 }
 
+send 'def test():
+    socket_open("127.0.0.1", 4321)
+    socket_send_line("Hello world")
+    socket_close() # maybe closing is automaticw
+end'
+
 send 'def example():
-    textmsg("log ", get_actual_tcp_pose())
+    textmsg("log hello")
+    popup("error", "fail", error=True, blocking=True)
+    # textmsg("log ", get_actual_tcp_pose())
+    halt
+    # assert(False) # , "lol assert fail")
+    # textmsg("log ", get_actual_tcp_pose())
 end'
 
 send '
