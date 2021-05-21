@@ -178,9 +178,6 @@ https://s3-eu-west-1.amazonaws.com/ur-support-site/105063/URSim_Linux-5.10.0.106
 
 - Overview: https://www.universal-robots.com/articles/ur/interface-communication/overview-of-client-interfaces/
 - Forum thread: https://forum.universal-robots.com/t/communication-interfaces/29
-    - > It is generally recommended to use RTDE and fieldbus protocols
-        (Modbus Client, Ethernet IP or Profinet) rather than the Primary, Secondary,
-        Realtime and Dashboard server interfaces.
 - port 30001: primary https://www.universal-robots.com/articles/ur/interface-communication/remote-control-via-tcpip/
 - port 30002: secondary https://www.universal-robots.com/articles/ur/interface-communication/remote-control-via-tcpip/
 - port 30003: real-time https://www.universal-robots.com/articles/ur/interface-communication/remote-control-via-tcpip/
