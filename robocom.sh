@@ -10,11 +10,38 @@ send () {
             '(log|assert|program|\w*exception|\w+_\w+:)[\x20-\x7f]*'
 }
 
-send 'def test():
-    socket_open("127.0.0.1", 4321)
-    socket_send_line("Hello world")
-    socket_close() # maybe closing is automaticw
-end'
+# socat -v TCP-LISTEN:4321 STDIO &
+
+dont () { true; }
+doit () { "$@"; }
+
+doit send '
+sec test1():
+    textmsg("log lol")
+    socket_open("192.168.1.68", 4321, "s1")
+    socket_send_line("Hello world 1", "s1")
+end
+def test2():
+    textmsg("log lol2")
+    socket_open("192.168.1.68", 4321, "s2")
+    socket_send_line("Hello world 2", "s2")
+end
+'
+
+dont send '
+def incu():
+    set_tcp(p[0, 0, 0, 0, 0, 0])
+    delid_neu_p = p[0.209084, -0.397829, 0.822311, 1.640584, -0.010865, 0.011505]
+    delid_neu_q = [1.690578, -1.941649, 1.587662, 0.423754, 1.689734, 0.020869]
+    movej(delid_neu_q, a=1.4, v=1.05)
+    incu_neu_p = p[0.605826, -0.397832, 0.262734, 1.640572, -0.010862, 0.011566]
+    movel(incu_neu_p, a=1.2, v=0.25)
+    incu_pick_above_p = p[0.605807, -0.720077, 0.262754, 1.640564, -0.010901, 0.011549]
+    movel(incu_pick_above_p, a=1.2, v=0.25)
+    incu_pick_p = p[0.605825, -0.720087, 0.233797, 1.640554, -0.010878, 0.011601]
+    movel(incu_pick_p, a=1.2, v=0.25)
+end
+'
 
 send 'def example():
     textmsg("log hello")
@@ -69,25 +96,8 @@ print((zero_rpy * make_nice).as_euler("xyz", degrees=True))
 # print(list(rpy2rotvec([0, 90, 0])))
 '
 
-dont () { true; }
-dent () { "$@"; }
-
 dont send 'set_tcp(p[0, 0, 0, 0, 0, 0])'
 
-dont send '
-def incu():
-    set_tcp(p[0, 0, 0, 0, 0, 0])
-    delid_neu_p = p[0.209084, -0.397829, 0.822311, 1.640584, -0.010865, 0.011505]
-    delid_neu_q = [1.690578, -1.941649, 1.587662, 0.423754, 1.689734, 0.020869]
-    movej(delid_neu_q, a=1.4, v=1.05)
-    incu_neu_p = p[0.605826, -0.397832, 0.262734, 1.640572, -0.010862, 0.011566]
-    movel(incu_neu_p, a=1.2, v=0.25)
-    incu_pick_above_p = p[0.605807, -0.720077, 0.262754, 1.640564, -0.010901, 0.011549]
-    movel(incu_pick_above_p, a=1.2, v=0.25)
-    incu_pick_p = p[0.605825, -0.720087, 0.233797, 1.640554, -0.010878, 0.011601]
-    movel(incu_pick_p, a=1.2, v=0.25)
-end
-'
 send '
 def x():
     i = 0

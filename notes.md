@@ -158,13 +158,21 @@ https://www.universal-robots.com/articles/ur/application-installation/explanatio
 
 ## URSim: the Simulator
 
+Easiest is to run the virualbox version: As of late May 2021 the most recent virtual box version is at:
+
+https://s3-eu-west-1.amazonaws.com/ur-support-site/112647/URSim_VIRTUAL-5.10.2.106319.rar
+
+Enable port forwarding to at least 30001.
+
 The best docker image I found is https://github.com/ahobsonsayers/DockURSim
 It allows you to access the PolyScope GUI forwarded to the browser on localhost:8080.
 
     docker volume create dockursim
     docker run -d --name=dockursim -e ROBOT_MODEL=UR10 \
-        -p 8080:8080 -p 29999:29999 -p 30001-30004:30001-30004 \
-        -v dockursim:/ursim --privileged --cpus=1 arranhs/dockursim:latest
+        --net host -v dockursim:/ursim --privileged --cpus=1 arranhs/dockursim:latest
+
+In late May 2021 the latest linux version is at:
+https://s3-eu-west-1.amazonaws.com/ur-support-site/105063/URSim_Linux-5.10.0.106288.tar
 
 ## Robot communication interfaces
 

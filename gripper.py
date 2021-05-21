@@ -9,7 +9,7 @@ def code(simulate: bool=False) -> str:
         GripperMove,
         GripperClose,
         GripperOpen,
-        GripperCleanup.
+        GripperSocketCleanup.
 
     They initialize the gripper socket and variables when called the first time.
     Exception: cleanup does not force initialization.
@@ -63,7 +63,7 @@ def code(simulate: bool=False) -> str:
             set_gripper("MSC", 0)
         end
 
-        def GripperCleanup():
+        def GripperSocketCleanup():
             if gripper_initialized:
                 socket_close(socket_name="gripper")
             end
