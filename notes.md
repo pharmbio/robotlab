@@ -182,6 +182,7 @@ https://s3-eu-west-1.amazonaws.com/ur-support-site/105063/URSim_Linux-5.10.0.106
 - port 30002: secondary https://www.universal-robots.com/articles/ur/interface-communication/remote-control-via-tcpip/
 - port 30003: real-time https://www.universal-robots.com/articles/ur/interface-communication/remote-control-via-tcpip/
 - port 30004: RTDE https://www.universal-robots.com/articles/ur/interface-communication/real-time-data-exchange-rtde-guide/
+    - c++/python library to communicate on the RTDE: https://gitlab.com/sdurobotics/ur_rtde
 - port 29999: Dashboard https://www.universal-robots.com/articles/ur/dashboard-server-e-series-port-29999/
 - port 30020: Interpreter mode. This is a more recent way of queuing up URScript snippets inside a running URScript with `interpreter_mode()` on.
 - xml-rpc: URScript function calls xml remote procedure protocol on a http server (note that you can do remote communication on sockets using URScript 30001 as well)
