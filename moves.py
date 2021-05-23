@@ -1,10 +1,12 @@
+'''
+robotarm moves
+'''
 from __future__ import annotations
 from dataclasses import *
 from typing import *
 
-from functools import lru_cache
 from textwrap import dedent, shorten
-from utils import show
+from utils import *
 import abc
 import ast
 import json
@@ -123,12 +125,9 @@ def context(xs: list[A]) -> list[tuple[A | None, A, A | None]]:
         [None] + xs + [None],     # type: ignore
         xs + [None, None]))[1:-1] # type: ignore
 
-@dataclass(frozen=True)
-class MoveList:
-    movelist: list[Move]
-
+class MoveList(list[Move]):
     def to_json(self, filename: None | str = None) -> str:
-        ms = [m.to_dict() for m in self.movelist]
+        ms = [m.to_dict() for m in self]
         jsons = []
         for m in ms:
             short = json.dumps(m)
@@ -154,7 +153,7 @@ class MoveList:
 
     def normalize(self) -> MoveList:
         out = []
-        for prev, m, next in context(self.movelist):
+        for prev, m, next in context(self):
             if isinstance(m, Section) and (isinstance(next, Section) or next is None):
                 pass
             else:
@@ -164,7 +163,7 @@ class MoveList:
     def to_rel(self) -> MoveList:
         out: list[Move] = []
         last: MoveLin | None = None
-        for m in self.to_abs().movelist:
+        for m in self.to_abs():
             if isinstance(m, MoveLin):
                 if last is None:
                     out += [m]
@@ -189,7 +188,7 @@ class MoveList:
     def to_abs(self) -> MoveList:
         out: list[Move] = []
         last: MoveLin | None = None
-        for m in self.movelist:
+        for m in self:
             if isinstance(m, MoveLin):
                 last = m
                 out += [last]
@@ -212,13 +211,57 @@ class MoveList:
 
     def adjust_tagged(self, tag: str, dz: float) -> MoveList:
         out: list[Move] = []
-        for m in self.movelist:
+        for m in self:
             if isinstance(m, MoveLin) and m.tag == tag:
                 x, y, z = list(m.xyz)
-                out += [replace(m, xyz=[x, y, round(z + dz, 1)])]
+                out += [replace(m, tag=None, xyz=[x, y, round(z + dz, 1)])]
             elif isinstance(m, MoveRel) and m.tag == tag:
                 raise ValueError('Tagged move must be MoveLin')
             else:
                 out += [m]
         return MoveList(out)
 
+    def tags(self) -> list[str]:
+        out = []
+        for m in self:
+            if hasattr(m, 'tag'):
+                tag = getattr(m, 'tag')
+                if tag is not None:
+                    out += [tag]
+        return out
+
+    def apply_dz_tags(self) -> MoveList:
+        dzs: dict[str, float] = {}
+        for tag in self.tags():
+            if tag.startswith('dz='):
+                dzs[tag] = float(tag[len('dz='):])
+        res: MoveList = self
+        for tag, dz in dzs.items():
+            res = res.adjust_tagged(tag, dz)
+        return res
+
+movelists: dict[str, list[Move]]
+movelists = {}
+
+hotel_dist: float = 70.94
+
+from pathlib import Path
+
+for filename in Path('./movelists').glob('*.json'):
+    name = filename.with_suffix('').name
+    ml = MoveList([Move.from_dict(m) for m in json.load(open(filename))])
+    ml = ml.apply_dz_tags()
+    for tag in set(ml.tags()):
+        if m := re.match('(\d+)/21$', tag):
+            ref_h = int(m.group(1))
+            assert str(ref_h) in name
+            for h in [1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21]:
+                dz = (h - ref_h) / 2 * hotel_dist
+                name_h = name.replace(str(ref_h), str(h), 1)
+                movelists[name_h] = ml.adjust_tagged(tag, dz)
+    movelists[name] = ml
+
+pr(movelists['lid_h21_put'])
+pr(movelists.keys())
+
+# TODO: expand sections

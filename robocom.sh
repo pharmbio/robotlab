@@ -15,6 +15,12 @@ send () {
 dont () { true; }
 doit () { "$@"; }
 
+send '
+def gbl():
+    x = 3
+end
+'
+
 send 'def curl():
     socket_open("192.168.1.68", 8000, "curl")
     socket_send_string("GET / HTTP/1.1", "curl")

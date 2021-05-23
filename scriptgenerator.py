@@ -33,12 +33,12 @@ for i in [11]: # [1, 3, 5, 7, 9, 11, 13, 15, 17, 19]:
             gripper('Gripper Close (1)'),
             movel('h21_pick_neu'),
             movel('h21_neu'),
-            movel('h11_neu',     tag='h11'),
-            movel('h11_drop_up', tag='h11'),
-            movel('h11_drop',    tag='h11'),
+            movel('h11_neu',     tag='11/21'),
+            movel('h11_drop_up', tag='11/21'),
+            movel('h11_drop',    tag='11/21'),
             gripper('Gripper Move30% (1)'),
-            movel('h11_drop_neu',tag='h11'),
-            movel('h11_neu',     tag='h11'),
+            movel('h11_drop_neu',tag='11/21'),
+            movel('h11_neu',     tag='11/21'),
             movel('h21_neu'),
         ])
     ])
@@ -48,12 +48,12 @@ for i in [11]: # [1, 3, 5, 7, 9, 11, 13, 15, 17, 19]:
         section('to_h21_drop', [
             gripper('Gripper Move30% (1)'),
             movejoint('h21_neu'),
-            movel('h11_neu',      tag='h11'),
-            movel('h11_drop_neu', tag='h11'),
-            movel('h11_pick',     tag='h11'),
+            movel('h11_neu',      tag='11/21'),
+            movel('h11_drop_neu', tag='11/21'),
+            movel('h11_pick',     tag='11/21'),
             gripper('Gripper Close (1)'),
-            movel('h11_drop_neu', tag='h11'),
-            movel('h11_neu',      tag='h11'),
+            movel('h11_drop_neu', tag='11/21'),
+            movel('h11_neu',      tag='11/21'),
             movel('h21_neu'),
             movel('h21_pick_neu'),
             movel('h21_drop'),
@@ -75,10 +75,10 @@ for i in [19]: # [1, 3, 5, 7, 9, 11, 13, 15, 17, 19]:
             gripper('Gripper Close (1)'),
             movel('delid_pick_up'),
             movel('delid_neu2'),
-            movel('lid_neu',                tag='h19'),
-            movel('lid_drop',               tag='h19'),
+            movel('lid_neu',                tag='19/21'),
+            movel('lid_drop',               tag='19/21'),
             gripper('Gripper Move30% (1)'),
-            movel('lid_neu2',               tag='h19'),
+            movel('lid_neu2',               tag='19/21'),
             movel('delid_neu3'),
         ]),
     ])
@@ -87,11 +87,11 @@ for i in [19]: # [1, 3, 5, 7, 9, 11, 13, 15, 17, 19]:
         section('to_h21_drop', [
             gripper('Gripper Move30% (1)'),
             movejoint('delid_neu3'),
-            movel('lid_neu3',    tag='h19'),
-            movel('lid_pick',    tag='h19'),
+            movel('lid_neu3',    tag='19/21'),
+            movel('lid_pick',    tag='19/21'),
             gripper('Gripper Close (1)'),
-            movel('lid_pick_up', tag='h19'),
-            movel('lid_neu4',    tag='h19'),
+            movel('lid_pick_up', tag='19/21'),
+            movel('lid_neu4',    tag='19/21'),
             movel('delid_neu4'),
             movel('delid_drop_up'),
             movel('delid_drop'),
@@ -112,12 +112,12 @@ for i in [21]: # [1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21]:
             gripper('Gripper Close (1)'),
             movel('h21_pick_neu'),
             movel('h21_neu'),
-            movel('r21_neu',      tag='r21'),
-            movel('r21_drop_neu', tag='r21'),
-            movel('r21_drop',     tag='r21'),
+            movel('r21_neu',      tag='21/21'),
+            movel('r21_drop_neu', tag='21/21'),
+            movel('r21_drop',     tag='21/21'),
             gripper('Gripper Move30% (1)'),
-            movel('r21_drop_neu', tag='r21'),
-            movel('r21_neu',      tag='r21'),
+            movel('r21_drop_neu', tag='21/21'),
+            movel('r21_neu',      tag='21/21'),
             movel('h21_neu'),
         ])
     ])
@@ -126,12 +126,12 @@ for i in [21]: # [1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21]:
         section('to_h21_drop', [
             gripper('Gripper Move30% (1)'),
             movejoint('h21_neu'),
-            movel('r21_neu',      tag='r21'),
-            movel('r21_drop_neu', tag='r21'),
-            movel('r21_pick',     tag='r21'),
+            movel('r21_neu',      tag='21/21'),
+            movel('r21_drop_neu', tag='21/21'),
+            movel('r21_pick',     tag='21/21'),
             gripper('Gripper Close (1)'),
-            movel('r21_drop_neu', tag='r21'),
-            movel('r21_neu',      tag='r21'),
+            movel('r21_drop_neu', tag='21/21'),
+            movel('r21_neu',      tag='21/21'),
             movel('h21_neu'),
             movel('h21_pick_neu'),
             movel('h21_drop'),
@@ -153,12 +153,12 @@ for i in [21]: # [1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21]:
             movel('h21_pick_neu'),
             movel('h21_neu'),
             movel('out_neu'),
-            movel('out_neu',                tag='out21'),
-            movel('o18_drop_neu',           tag='out21'),
-            movel('o18_drop',               tag='out21'),
+            movel('out_neu',                tag='21/21'),
+            movel('o18_drop_neu',           tag='21/21'),
+            movel('o18_drop',               tag='21/21'),
             gripper('Gripper Move30% (1)'),
-            movel('o18_drop_neu',           tag='out21'),
-            movel('out_neu',                tag='out21'),
+            movel('o18_drop_neu',           tag='21/21'),
+            movel('out_neu',                tag='21/21'),
             movel('out_neu'),
             movel('h21_neu'),
         ])
@@ -284,7 +284,7 @@ programs['disp_get'] = resolve('scripts/dan_disp_putget.script', [
         gripper('Gripper Move35% (1)'),
         movejoint('neu_deli'),
         movel('above_dis'),
-        movel('disp_pickup', tag='dz=0.05'),
+        movel('disp_pickup', tag='dz=50'),
     ]),
     section('part2', [
         section('to_h21_drop', [
@@ -306,7 +306,7 @@ programs['wash_to_disp'] = resolve('scripts/dan_wash_to_disp.script', [
         gripper('Gripper Move35% (1)'),
         movejoint('neu_deli'),
         movejoint('above_washr'),
-        movel('pickup', tag='dz=0.03', slow=True),
+        movel('pickup', tag='dz=30', slow=True),
     ]),
     section('part2', [
         movel('pickup', slow=True),
@@ -363,7 +363,7 @@ if __name__ == '__main__':
         generate_stubs()
     elif args.generate_json:
         for name, movelist in programs.items():
-            filename = f'./moves/{name}.json'
-            MoveList(movelist).normalize().adjust_tagged('h11', dz=70.94).to_json(filename)
+            filename = f'./movelists/{name}.json'
+            MoveList(movelist).normalize().to_json(filename)
     else:
         parser.print_help()

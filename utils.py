@@ -5,6 +5,8 @@ from typing import *
 from pprint import pformat
 import re
 
+import color
+
 prims: tuple[Any, ...] = (int, float, bool, str, bytes, type(None))
 
 try:
@@ -15,6 +17,7 @@ except:
 
 def primlike(x: object) -> bool:
     if isinstance(x, (tuple, list, set, frozenset)):
+        return False
         return all(map(primlike, x))
     else:
         return isinstance(x, prims)
@@ -40,14 +43,15 @@ def show(x: Any, show_key: Any=show_key, width: int=80) -> str:
         is_set = isinstance(x, (set, frozenset))
         has_iter = hasattr(x, '__iter__')
         if is_dataclass(x):
-            begin, end = x.__class__.__name__ + '(', ')'
-            if len(asdict(x)) == 0:
+            begin, end = color.none(x.__class__.__name__) + '(', ')'
+            if len(fields(x)) == 0:
                 yield dent + pre + begin + end + post
             else:
                 yield dent + pre + begin
-                for k in asdict(x).keys():
+                for field in fields(x):
+                    k = field.name
                     v = getattr(x, k)
-                    yield from go(indent, show_key(k) + '=', v, ',')
+                    yield from go(indent, color.none(show_key(k)) + '=', v, ',')
                 yield dent + end + post
         elif isinstance(x, dict):
             if len(x) == 0:
@@ -55,7 +59,7 @@ def show(x: Any, show_key: Any=show_key, width: int=80) -> str:
             else:
                 yield dent + pre + '{'
                 for k, v in x.items():
-                    yield from go(indent, show_key(k) + ': ', v, ',')
+                    yield from go(indent, color.none(show_key(k)) + ': ', v, ',')
                 yield dent + '}' + post
         elif (is_tuple or is_list or is_set or has_iter) and not primlike(x):
             if is_list:
@@ -66,12 +70,24 @@ def show(x: Any, show_key: Any=show_key, width: int=80) -> str:
                 begin, end = '{', '}'
             elif has_iter:
                 begin, end = '*(', ')'
-                x = tuple(x)
-            if len(x) == 0:
+            values = list(x)
+            oneline: str | None = ''
+            for v in values:
+                for out in go('', '', v, ', '):
+                    oneline += out
+                    if len(oneline) > 2 * width:
+                        # oops lengths are totally wrong because of escape codes
+                        oneline = None
+                        break
+                if oneline is None:
+                    break
+            if len(values) == 0:
                 yield dent + pre + begin + end + post
+            elif oneline is not None and len(dent) + len(oneline) < 2 * width:
+                yield dent + pre + begin + oneline[:-2] + end + post
             else:
                 yield dent + pre + begin
-                for v in x:
+                for v in values:
                     yield from go(indent, '', v, ',')
                 yield dent + end + post
         else:
@@ -82,7 +98,14 @@ def show(x: Any, show_key: Any=show_key, width: int=80) -> str:
                 width=max(width-len(indent), 1),
             ).split('\n')
             if len(lines) == 1:
-                yield dent + pre + lines[0] + post
+                if isinstance(x, str):
+                    yield dent + pre + color.green(lines[0]) + post
+                elif isinstance(x, (bool, type(None))):
+                    yield dent + pre + color.lightred(lines[0]) + post
+                elif isinstance(x, (int, float)):
+                    yield dent + pre + color.purple(lines[0]) + post
+                else:
+                    yield dent + pre + lines[0] + post
             else:
                 *init, last = lines
                 yield dent + pre
