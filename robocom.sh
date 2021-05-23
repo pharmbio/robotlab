@@ -7,7 +7,7 @@ ROBOT_IP=localhost
 send () {
     printf '%s\n' "$1" | nc localhost 30001 |
         grep --text --only-matching --ignore-case --perl-regexp \
-            '(log|assert|program|\w*exception|\w+_\w+:)[\x20-\x7f]*'
+            '(log|assert|program|\w*exception|\w+_\w+:|index)[\x20-\x7f]*'
 }
 
 # socat -v TCP-LISTEN:4321 STDIO &
@@ -15,7 +15,101 @@ send () {
 dont () { true; }
 doit () { "$@"; }
 
-doit send '
+send 'def curl():
+    socket_open("192.168.1.68", 8000, "curl")
+    socket_send_string("GET / HTTP/1.1", "curl")
+    socket_send_byte(13, "curl")
+    socket_send_byte(10, "curl")
+    socket_send_string("Host: localhost:8000", "curl")
+    socket_send_byte(13, "curl")
+    socket_send_byte(10, "curl")
+    socket_send_string("Accept: */*", "curl")
+    socket_send_byte(13, "curl")
+    socket_send_byte(10, "curl")
+    socket_send_byte(13, "curl")
+    socket_send_byte(10, "curl")
+    textmsg("log sent all!")
+    i = 100
+    while i > 0:
+        textmsg("log ", socket_read_line("curl"))
+        i = i - 1
+    end
+    socket_close()
+end'
+
+dont send 'def spam():
+    i = 0
+    while i < 10000:
+        i = i + 1
+        textmsg("log i=", i)
+        sleep(0.1)
+    end
+end'
+
+send 'def T():
+    if True: a = 1 v = 2
+    else:    a = 2 v = 2
+    end
+    textmsg("log a ", a)
+end
+'
+
+send 'def z():
+    set_tcp(p[0, 0, 0, -1.2092, 1.2092, 1.2092])
+
+    global last_xyz = [0, 0, 0]
+    global last_rpy = [0, 0, 0]
+    global last_lin = False
+
+    def test():
+        if False:
+            textmsg("log true")
+            return None
+        end
+        textmsg("log false")
+    end
+
+    test()
+
+    def MoveLin(x, y, z, r, p, yaw):
+        rv = rpy2rotvec([d2r(r), d2r(p), d2r(yaw)])
+        movel(p[x/1000, y/1000, z/1000, rv[0], rv[1], rv[2]])
+        last_xyz = [x, y, z]
+        last_rpy = [r, p, yaw]
+        last_lin = True
+    end
+
+    def MoveRel(x, y, z, r, p, yaw):
+        if not last_lin:
+            popup("MoveRel without preceding linear move", error=True)
+            halt
+        end
+        MoveLin(
+            last_xyz[0] + x, last_xyz[1] + y, last_xyz[2] + z,
+            last_rpy[0] + r, last_rpy[1] + p, last_rpy[2] + yaw
+        )
+    end
+
+    def MoveJoint(q1, q2, q3, q4, q5, q6):
+        q = [d2r(q1), d2r(q2), d2r(q3), d2r(q4), d2r(q5), d2r(q6)]
+        movej(q)
+        last_xyz = [0, 0, 0]
+        last_rpy = [0, 0, 0]
+        last_lin = False
+    end
+
+    MoveJoint(96, -109, 90, 23, 96, 1)
+    MoveLin(209.1, -580.1, 818.0, -0.8, -4.0, 90.1)
+    MoveLin(209.1, -580.1, 801.3, -0.8, -4.0, 90.1)
+    MoveLin(209.1, -580.1, 801.3, 0, 0, 90.0)
+    MoveRel(0, 0, 0, 0, 0, 10)
+    MoveRel(0, 0, 0, 0, 10, -10)
+    MoveRel(0, 0, 0, 0, -10, 10)
+    MoveRel(0, 0, 0, 0, 0, -10)
+end
+'
+
+dont send '
 sec test1():
     textmsg("log lol")
     socket_open("192.168.1.68", 4321, "s1")
@@ -28,14 +122,14 @@ def test2():
 end
 '
 
-dont send '
+doit send '
 def incu():
     set_tcp(p[0, 0, 0, 0, 0, 0])
     delid_neu_p = p[0.209084, -0.397829, 0.822311, 1.640584, -0.010865, 0.011505]
     delid_neu_q = [1.690578, -1.941649, 1.587662, 0.423754, 1.689734, 0.020869]
     movej(delid_neu_q, a=1.4, v=1.05)
     incu_neu_p = p[0.605826, -0.397832, 0.262734, 1.640572, -0.010862, 0.011566]
-    movel(incu_neu_p, a=1.2, v=0.25)
+    movel(incu_neu_p, a=1.2, v=0.25, r=0.32)
     incu_pick_above_p = p[0.605807, -0.720077, 0.262754, 1.640564, -0.010901, 0.011549]
     movel(incu_pick_above_p, a=1.2, v=0.25)
     incu_pick_p = p[0.605825, -0.720087, 0.233797, 1.640554, -0.010878, 0.011601]
@@ -61,40 +155,6 @@ def undefined_function():
 end'
 
 
-
-python -c '
-from scipy.spatial.transform import Rotation as R
-rotvec2rpy = lambda rv: R.from_rotvec(rv).as_euler("xyz", degrees=True)
-rpy2rotvec = lambda rpy: R.from_euler("xyz", rpy, degrees=True).as_rotvec()
-
-# print(list(rotvec2rpy()))
-rv = R.from_rotvec([1.640584, -0.010865, 0.011505])
-print(list(rv.as_euler("xyz", degrees=True).round(2)))
-rv_tcp = R.from_euler("xyz", [-90, 90, 0], degrees=True)
-print(list(rv_tcp.as_rotvec().round(4)))
-print(list(rv_tcp.as_euler("xyz", degrees=True).round(4)))
-# rv_tcp = R.from_euler("xyz", [90, 90, 0], degrees=True)
-# print(list(rv_tcp.as_rotvec().round(4)))
-
-
-zero_rpy = R.from_euler("xyz", [93.998567, -0.812385, -0.002227], degrees=True)
-nice_rpy = R.from_euler("xyz", [-0.814393, -3.99814, 90.054582], degrees=True)
-
-# zero_rpy * make_nice = nice_rpy
-#            make_nice = zero_rpy^-1 * nice_rpy
-
-make_nice = zero_rpy.inv() * nice_rpy
-make_nice = zero_rpy.inv() * nice_rpy
-
-print(make_nice.as_euler("xyz", degrees=True))
-print(make_nice.as_rotvec())
-print((zero_rpy * make_nice).as_euler("xyz", degrees=True))
-
-# print(list(rpy2rotvec([0, 10, 90])))
-# print(list(rpy2rotvec([90, 10, 0])))
-# print(list(rpy2rotvec([90, 10, 90])))
-# print(list(rpy2rotvec([0, 90, 0])))
-'
 
 dont send 'set_tcp(p[0, 0, 0, 0, 0, 0])'
 

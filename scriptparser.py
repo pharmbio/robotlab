@@ -2,18 +2,15 @@ from __future__ import annotations
 from dataclasses import dataclass, field, replace, astuple
 from typing import *
 
+import textwrap
+
+from abc import ABC
+from functools import lru_cache
 from utils import show
 
 import ast
-
 import re
-from textwrap import dedent, shorten
-
 import sys
-
-from abc import ABC
-
-from functools import lru_cache
 
 class ScriptStep(ABC):
     pass
@@ -31,6 +28,7 @@ class movej(ScriptStep):
 @dataclass(frozen=True)
 class gripper(ScriptStep):
     name: str
+    pos: int | None = None
 
 @dataclass(frozen=True)
 class section(ScriptStep):
@@ -42,9 +40,7 @@ class ParsedScript:
     '''
     The parser extracts and returns a tuple of:
     - steps: moves and gripper commands,
-    - defs: coordinates,
-    - subs: dict of extracted gripper subprograms and the header.
-    The header sets up the env and gripper.
+    - defs: coordinates and gripper open in percent to raw gripper pos,
 
     The moves are used to generate program stubs which
     are manually rewritten to cut up the program loops to atomic programs.
@@ -55,7 +51,6 @@ class ParsedScript:
     '''
     steps: list[ScriptStep] = field(default_factory=list)
     defs: dict[str, list[float]] = field(default_factory=dict)
-    subs: dict[str, list[str]] = field(default_factory=dict)
 
 @lru_cache
 def parse(filename: str) -> ParsedScript:
@@ -63,10 +58,8 @@ def parse(filename: str) -> ParsedScript:
 
 def parse_lines(lines: list[str]) -> ParsedScript:
     res = ParsedScript()
-    last_header_line_index: None | int = None
+    last_gripper_name = ""
     for i, line in enumerate(lines):
-        if 'end: URCap Installation Node' in line:
-            last_header_line_index = i
         if m := re.match(' *global *(\w*) *= *p?(.*)$', line):
             name, value = m.groups()
             try:
@@ -81,35 +74,20 @@ def parse_lines(lines: list[str]) -> ParsedScript:
         elif m := re.match(' *movej.*?(\w*)_[pq]', line):
             name, = m.groups()
             res.steps += [movej(name)]
-        elif m := re.match('( *)\$ \d* "(Gripper.*)"', line):
-            indent, name = m.groups()
-            subprogram = ['# ' + name]
-            gripper_init = ['# Gripper init']
-            for line2 in lines[i+1:]:
-                line2 = line2.strip()
-                if '# end: URCap Program Node' in line2:
-                    break
-                elif line2.startswith('rq'):
-                    subprogram += [line2]
-                elif not re.match('gripper_\d_(selected|used)', line2):
-                    gripper_init += [line2]
-            res.subs[name] = subprogram
-            # we only need one copy of gripper init
-            res.subs['gripper_init'] = gripper_init
-            res.steps += [gripper(name)]
-
-    if last_header_line_index is not None:
-        header = lines[1:last_header_line_index]
-        if m := re.match(' *', header[0]):
-            header_indent = m.end()
-            res.subs['header'] = [line[header_indent:].rstrip() for line in header]
+        elif m := re.match(' *\$ \d* "(Gripper.*)"', line):
+            name, = m.groups()
+            last_gripper_name = name
+        elif m := re.match(' *rq_set_pos_spd_for\((\d+)', line):
+            pos, = m.groups()
+            res.steps += [gripper(pos=int(pos), name=last_gripper_name)]
+            res.defs[last_gripper_name] = [int(pos)]
 
     return res
 
 def resolve(filename: str, steps: list[ScriptStep]) -> list[Move]:
     return list(resolve_parsed(parse(filename), steps))
 
-from scipy.spatial.transform import Rotation, Rotation as R
+from scipy.spatial.transform import Rotation, Rotation as R # type: ignore
 from moves import *
 
 nice_trf : Rotation
@@ -118,7 +96,7 @@ nice_trf = R.from_euler("xyz", [-90, 90, 0], degrees=True)
 nice_trf_pose : list[float]
 nice_trf_pose = [0, 0, 0, nice_trf.as_rotvec()]
 
-def round_nnz(x, ndigits=1):
+def round_nnz(x: float, ndigits: int=1) -> float:
     '''
     Round and normalize negative zero
     '''
@@ -157,7 +135,8 @@ def resolve_parsed(script: ParsedScript, steps: list[ScriptStep], active_section
             q = script.defs[step.name + '_q']
             yield MoveJoint(joints=[round(math.degrees(v)) for v in q], name=step.name)
         elif isinstance(step, gripper):
-            yield GripperRaw(code=script.subs[step.name], name=step.name)
+            pos = script.defs[step.name][0] if step.pos is None else step.pos
+            yield GripperMove(pos=int(pos))
         elif isinstance(step, section):
             inner_sections = [*active_sections, step.name]
             yield Section(sections=' '.join(inner_sections))
@@ -175,11 +154,11 @@ class test:
         if not true:
             print(f'lhs = {show(lhs)}\nrhs = {show(rhs)}')
         elif '-v' in sys.argv:
-            print(f'passed test(...) == {shorten(repr(rhs), 60, placeholder=" ...")}')
+            print(f'passed test(...) == {textwrap.shorten(repr(rhs), 60, placeholder=" ...")}')
         return true
 
 def test_parse_and_resolve() -> None:
-    example_script = dedent('''
+    example_script = textwrap.dedent('''
         def example():
             set_gravity([0.0, 0.0, 9.8])
             # end: URCap Installation Node
@@ -218,7 +197,7 @@ def test_parse_and_resolve() -> None:
     script = parse_lines(lines)
 
     assert test(script.steps) == [
-        gripper('Gripper Move30% (1)'),
+        gripper('Gripper Move30% (1)', 77),
         movel('h21_neu'),
         movej('above_washr'),
     ]
@@ -228,52 +207,28 @@ def test_parse_and_resolve() -> None:
         'h21_neu_q': [1.6, -1.9, 1.5, 0.4, 1.6, 0.0],
         'above_washr_p': [-0.2, 0.1, 0.3, 1.2, -1.2, -1.2],
         'above_washr_q': [-1.6, -2.2, 2.5, -0.3, -0.0, 0.987654],
-    }
-
-    assert test(script.subs) == {
-        'Gripper Move30% (1)': [
-            '# Gripper Move30% (1)',
-            'rq_set_pos_spd_for(77, 0, 0, "1")',
-            'rq_go_to("1")',
-            'rq_wait("1")',
-        ],
-        'gripper_init': [
-          '# Gripper init',
-          'if (connectivity_checked[0] != 1):',
-            'gripper_id_ascii = rq_gripper_id_to_ascii("1")',
-            'gripper_id_list = rq_get_sid("1")',
-            'if not(rq_is_gripper_in_sid_list(gripper_id_ascii, gripper_id_list)):',
-              'popup("Gripper 1 must be connected to run this program.", "No connection", False, True, True)',
-            'end',
-            'connectivity_checked[0] = 1',
-          'end',
-        ],
-        'header': ['set_gravity([0.0, 0.0, 9.8])'],
+        'Gripper Move30% (1)': [77],
     }
 
     steps: list[ScriptStep] = [
         gripper('Gripper Move30% (1)'),
         movel('h21_neu'),
-        movel('h21_neu', tag='h19', slow=True),
-        movej('above_washr'),
+        section('final_part', [
+            movel('h21_neu', tag='h19', slow=True),
+            movej('above_washr'),
+        ])
     ]
 
     resolved = list(resolve_parsed(script, steps))
 
     assert test(resolved) == [
-      GripperRaw(
-        code=
-          ['# Gripper Move30% (1)',
-           'rq_set_pos_spd_for(77, 0, 0, "1")',
-           'rq_go_to("1")',
-           'rq_wait("1")'],
-        name='Gripper Move30% (1)',
-      ),
+      GripperMove(77),
       MoveLin(
         xyz=[200.0, -400.0, 800.0],
         rpy=[0.0, -1.7, 90.0],
         name='h21_neu',
       ),
+      Section('final_part'),
       MoveLin(
         xyz=[200.0, -400.0, 800.0],
         rpy=[0.0, -1.7, 90.0],
@@ -285,6 +240,7 @@ def test_parse_and_resolve() -> None:
         joints=[-92, -126, 143, -17, 0, 57],
         name='above_washr',
       ),
+      Section(''),
     ]
 
     if '-v' in sys.argv:

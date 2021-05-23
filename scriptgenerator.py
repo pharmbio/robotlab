@@ -21,7 +21,7 @@ programs: dict[str, list[Move]] = {}
 #     programA_to_h21_drop
 #     programB_from_h21_drop
 
-for i in [19]: # [1, 3, 5, 7, 9, 11, 13, 15, 17, 19]:
+for i in [11]: # [1, 3, 5, 7, 9, 11, 13, 15, 17, 19]:
     dz = (i - 11) / 2 * hotel_dist
     # puts h21 on h{i}
     programs[f'h{i}_put'] = resolve('scripts/dan_lid_21_11.script', [
@@ -101,7 +101,7 @@ for i in [19]: # [1, 3, 5, 7, 9, 11, 13, 15, 17, 19]:
         movel('delid_neu5'),
     ])
 
-for i in [19]: # [1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21]:
+for i in [21]: # [1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21]:
     dz = (i - 21) / 2 * hotel_dist
     programs[f'r{i}_put'] = resolve('scripts/dan_h21_r21.script', [
         gripper('Gripper Move30% (1)'),
@@ -141,7 +141,7 @@ for i in [19]: # [1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21]:
         movel('h21_neu'),
     ])
 
-for i in [19]: # [1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21]:
+for i in [21]: # [1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21]:
     dz = (i - 21) / 2 * hotel_dist
     programs[f'out{i}_put'] = resolve('scripts/dan_to_out18.script', [
         gripper('Gripper Move30% (1)'),
@@ -337,7 +337,7 @@ def generate_stubs() -> None:
     for short, filename in filenames.items():
         script = parse(filename)
         print()
-        print(f'[{short!r}]pograms += resolve({filename!r}, [')
+        print(f'programs[{short!r}] = resolve({filename!r}, [')
         for step in script.steps:
             if isinstance(step, movel):
                 con, arg = 'movel', step.name
@@ -351,142 +351,19 @@ def generate_stubs() -> None:
         print('])')
         print()
 
-import hashlib
-import json
-from datetime import datetime
-from textwrap import dedent
-
-def reindent(s: str) -> str:
-    out: list[str] = []
-    i = 0
-    for line in s.strip().split('\n'):
-        line = line.strip()
-        if line == 'end' or line.startswith('elif') or line.startswith('else'):
-            i -= 2
-        if line:
-            out += [' ' * i + line]
-        if line.endswith(':') and not line.startswith('#'):
-            i += 2
-    return '\n'.join(out)
-
-def checksum(s: str) -> str:
-    hash = hashlib.sha256(s.encode()).hexdigest()
-    return hash[:6]
-
-num_bits: index = 10
-assert num_bits <= 31
-version_program_index = 2**num_bits - 1
-assert len(programs) < version_program_index, 'num_bits too small'
-
-def generate_robot_main(with_gripper=True) -> str:
-    # The header sets up the env and gripper, it's the same for all scripts
-    if with_gripper:
-        one_script = parse('scripts/dan_h21_r21.script')
-        header = '\n'.join(one_script.subs['header'] + one_script.subs['gripper_init'])
-    else:
-        header = '''
-            def rq_set_pos_spd_for(a, b, c, d):
-                return 1
-            end
-            def rq_go_to(a):
-                return 1
-            end
-            def rq_wait(a):
-                return 1
-            end
-        '''
-
-    contents: str = ''.join(f'''
-        elif program_index == {program_index}:
-            textmsg("log: exec {program_name} {checksum(program_body)}")
-            {program_body}
-            textmsg("log: done {program_name} {checksum(program_body)}")
-        '''
-        for program_index, (program_name, program_body) in enumerate(programs.items())
-    )
-    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    hash = checksum(header + contents)
-    prog_id = f'{now} {hash}'
-    newline = '\n'
-    if with_gripper:
-        def_name = f'robot_main_{hash}'
-    else:
-        def_name = f'robot_main_nogripper_{hash}'
-    return reindent(f'''
-        # newline
-        def {def_name}():
-            textmsg("log: running {prog_id}")
-            {header}
-            while True:
-                set_flag(31, False)
-                textmsg("log: ready")
-                while not get_flag(31):
-                    sleep(0.02)
-                end
-
-                # 2**{num_bits} possible message types
-                bits =
-                [ {', '.join(f'get_flag({i}){newline}' for i in range(num_bits))}
-                ]
-                program_index = binary_list_to_integer(bits)
-
-                if program_index == {version_program_index}:
-                    textmsg("log: version {prog_id}")
-                {contents}
-                else:
-                    textmsg("log: unknown program_index=", program_index)
-                end
-            end
-        end
-        # newline
-    ''')
-
-def generate_robot_send(program_name: str) -> str:
-    if program_name == 'version':
-        program_index = version_program_index
-        program_hash = ''
-    else:
-        for program_index, (name, program_body) in enumerate(programs.items()):
-            if name == program_name:
-                program_hash = checksum(program_body)
-                break
-        else:
-            raise ValueError(f'Unknown program: {program_name} in {list(programs.keys())}')
-    newline = '\n'
-    return reindent(f'''
-        # newline
-        sec robot_send_{program_index}():
-            if get_flag(31):
-                textmsg("log: error already busy")
-            else:
-                bits = integer_to_binary_list({program_index})
-                {newline.join(f'set_flag({i}, bits[{i}])' for i in range(num_bits))}
-                set_flag(31, True)
-                textmsg("log: sent {program_name} {program_hash}")
-            end
-        end
-        # newline
-    ''')
-
 if __name__ == '__main__':
-    if '-h' in sys.argv or '--help' in sys.argv:
-        print('''
-            --generate-stubs:
-                writes stub programs for manual editing to stdout
+    import argparse
 
-            (default, no command line option)
-                generates new scripts to generated/
-        ''')
-    elif '--generate-stubs' in sys.argv:
+    parser = argparse.ArgumentParser(description='Bridge urscript files and our json format', )
+    parser.add_argument('--generate-stubs', '--stubs', action='store_true', help='Generate stubs from urscript files')
+    parser.add_argument('--generate-json', '--json', action='store_true', help='Generate json from stubs in this file')
+    args = parser.parse_args()
+
+    if args.generate_stubs:
         generate_stubs()
-    elif '--generate-json' in sys.argv:
+    elif args.generate_json:
         for name, movelist in programs.items():
             filename = f'./moves/{name}.json'
             MoveList(movelist).normalize().adjust_tagged('h11', dz=70.94).to_json(filename)
-    elif '--old-style' in sys.argv:
-        open('./generated/robot_main', 'w').write(generate_robot_main())
-        open('./generated/robot_main_nogripper', 'w').write(generate_robot_main(with_gripper=False))
-        open('./generated/robot_send_version', 'w').write(generate_robot_send('version'))
-
-        # pp(list(enumerate(programs.keys())))
-
+    else:
+        parser.print_help()

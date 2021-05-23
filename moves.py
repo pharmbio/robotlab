@@ -5,10 +5,12 @@ from typing import *
 from functools import lru_cache
 from textwrap import dedent, shorten
 from utils import show
+import abc
 import ast
+import json
 import re
 import sys
-import abc
+import textwrap
 
 class Move(abc.ABC):
     def to_dict(self) -> dict[str, Any]:
@@ -27,6 +29,15 @@ class Move(abc.ABC):
         d = d.copy()
         return subs[d.pop('type')](**d) # type: ignore
 
+    @abc.abstractmethod
+    def to_script(self) -> str:
+        raise NotImplementedError
+
+def call(name: str, *args: Any, **kwargs: Any) -> str:
+    strs = [str(arg) for arg in args]
+    strs += [k + '=' + str(v) for k, v in kwargs.items()]
+    return name + '(' + ', '.join(strs) + ')'
+
 @dataclass(frozen=True)
 class MoveLin(Move):
     '''
@@ -41,9 +52,12 @@ class MoveLin(Move):
     '''
     xyz: list[float]
     rpy: list[float]
+    tag: str | None = None
     name: str = ""
     slow: bool = False
-    tag: str | None = None
+
+    def to_script(self) -> str:
+        return call('MoveLin', *self.xyz, *self.rpy, **(dict(slow=True) if self.slow else {}))
 
 @dataclass(frozen=True)
 class MoveRel(Move):
@@ -60,9 +74,12 @@ class MoveRel(Move):
     '''
     xyz: list[float]
     rpy: list[float]
+    tag: str | None = None
     name: str = ""
     slow: bool = False
-    tag: str | None = None
+
+    def to_script(self) -> str:
+        return call('MoveRel', *self.xyz, *self.rpy, **(dict(slow=True) if self.slow else {}))
 
 @dataclass(frozen=True)
 class MoveJoint(Move):
@@ -73,29 +90,31 @@ class MoveJoint(Move):
     name: str = ""
     slow: bool = False
 
+    def to_script(self) -> str:
+        return call('MoveJoint', *self.joints, **(dict(slow=True) if self.slow else {}))
+
+
 @dataclass(frozen=True)
-class GripperRaw(Move):
-    '''
-    TODO convert to something sensible, right now we just inline the code
-    '''
-    code: list[str]
-    name: str = ""
+class GripperMove(Move):
+    pos: int
+    def to_script(self) -> str:
+        return call('GripperMove', self.pos)
 
 @dataclass(frozen=True)
 class GripperClose(Move):
-    pass
+    def to_script(self) -> str:
+        return call('GripperClose')
 
 @dataclass(frozen=True)
 class GripperOpen(Move):
-    pass
+    def to_script(self) -> str:
+        return call('GripperOpen')
 
 @dataclass(frozen=True)
 class Section(Move):
     sections: str
-
-import json
-import textwrap
-import re
+    def to_script(self) -> str:
+        return ''
 
 A = TypeVar('A')
 def context(xs: list[A]) -> list[tuple[A | None, A, A | None]]:
@@ -202,8 +221,4 @@ class MoveList:
             else:
                 out += [m]
         return MoveList(out)
-
-# def moves_to_json(movelist: list[Move], dest_path:None|str=None) -> str:
-
-
 

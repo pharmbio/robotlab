@@ -1,21 +1,21 @@
 from __future__ import annotations
-
-from dataclasses import dataclass, field, replace, astuple
+from dataclasses import *
 from typing import *
-from datetime import datetime, timedelta
+
 from contextlib import *
-
-from utils import show
-
-from scriptgenerator import *
-
-import time
+from datetime import datetime, timedelta
 from urllib.request import urlopen
-import json
 
 import abc
-import socket
+import json
+import os
 import re
+import socket
+import time
+
+from scriptgenerator import *
+from robotarm import Robotarm
+from utils import show
 
 
 @dataclass(frozen=True)
@@ -164,66 +164,10 @@ class wait_for_timer_cmd(Command):
         else:
             raise ValueError
 
-import gripper
-
-class Robotarm:
-    s: socket.socket
-    with_gripper: bool
-    def __init__(self, config: Config):
-        assert config.robotarm_mode in {'gripper', 'no gripper'}
-        self.with_gripper = config.robotarm_mode == 'gripper'
-        print('connecting to robot...', end=' ')
-        self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.s.connect((ENV.robotarm_host, ENV.robotarm_port))
-        print('connected!')
-
-    def send(self, prog_str: str) -> None:
-        self.s.sendall(prog_str.encode())
-
-    def recv(self) -> Iterator[bytes]:
-        while True:
-            data = self.s.recv(4096)
-            for m in re.findall(b'[\x20-\x7e]*(?:log|program|exception|error)[\x20-\x7e]*', data, re.IGNORECASE):
-                # RuntimeExceptionMessage, looks like:
-                # b'syntax_error_on_line:4:    movej([0.5, -1, -2, 0, 0, -0], a=0.25, v=1.0):'
-                # b'compile_error_name_not_found:getactual_joint_positions:'
-                # b'SECONDARY_PROGRAM_EXCEPTION_XXXType error: str_sub takes exact'
-
-                # KeyMessage, looks like:
-                # PROGRAM_XXX_STARTEDtestmove2910
-                # PROGRAM_XXX_STOPPEDtestmove2910
-                m = m.decode()
-                print(f'{m = }')
-            yield data
-
-    def recv_until(self, needle: str) -> None:
-        for data in self.recv():
-            if needle.encode() in data:
-                print(f'received {needle}')
-                return
-
-    def close(self) -> None:
-        self.s.close()
-
-    def set_speed(self, value: int):
-        if not (0 < value <= 100):
-            raise ValueError
-        # The speed is set on the RTDE interface on port 30003:
-        self.send(reindent(f'''
-            # newline
-            sec set_speed():
-                socket_open("127.0.0.1", 30003)
-                socket_send_line("set speed {value/100}")
-                socket_close()
-            end
-            # newline
-        '''))
-
-    def start_main(self):
-        self.set_speed(80)
-        self.send(generate_robot_main(with_gripper=self.with_gripper))
-        self.recv_until('log: ready')
-        self.close()
+def get_robotarm(config: Config) -> Robotarm:
+    assert config.robotarm_mode in {'gripper', 'no gripper'}
+    with_gripper = config.robotarm_mode == 'gripper'
+    return Robotarm(ENV.robotarm_host, ENV.robotarm_port, with_gripper)
 
 @dataclass(frozen=True)
 class robotarm_cmd(Command):
@@ -237,16 +181,10 @@ class robotarm_cmd(Command):
         return 5.0
 
     def execute(self, config: Config) -> None:
-        program_name = self.program_name
-        program = generate_robot_send(program_name)
         if config.robotarm_mode == 'dry run':
             # print('dry run', self)
             return
-        assert config.robotarm_mode in {'gripper', 'no gripper'}
-        robot = Robotarm(config)
-        robot.send(program)
-        robot.recv_until('log: done ' + program_name)
-        robot.close()
+        get_robotarm(config).execute_moves(programs[self.program_name])
 
 @dataclass(frozen=True)
 class wash_cmd(Command):
