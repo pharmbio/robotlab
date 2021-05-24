@@ -84,7 +84,7 @@ def now():
     return s[:-3]
 
 @serve
-def index():
+def index() -> Iterator[head | str]:
     zoom = int(request.args.get('zoom', '200'))
     plates = int(request.args.get('plates', '2'))
     delay_str: str = request.args.get('delay', 'auto')

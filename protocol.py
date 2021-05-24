@@ -1,16 +1,23 @@
 from __future__ import annotations
-
-from dataclasses import dataclass, field, replace
 from typing import *
+from dataclasses import *
+
 from datetime import datetime, timedelta
-
-import robots
-from utils import show, Mutable
 from moves import movelists
+from robots import Config, configs
 
+from utils import pr, show
+from utils import Mutable
+
+import json
+import os
+import platform
+import protocol
 import re
-import utils
+import robots
+import sys
 import textwrap
+import utils
 
 @dataclass(frozen=True)
 class Event:
@@ -228,3 +235,36 @@ def cell_paint_many(plates: int, delay: int | Literal['auto'], offset: int=60) -
 
     return events
 
+def execute(events: list[Event], config: Config) -> None:
+    metadata = dict(
+        experiment_time = str(datetime.now()).split('.')[0],
+        host = platform.node(),
+        config_name = config.name(),
+    )
+    log_name = ' '.join(['event log', *metadata.values()])
+    log_name = 'logs/' + log_name.replace(' ', '_') + '.json'
+    os.makedirs('logs/', exist_ok=True)
+    log: list[dict[str, Any]] = []
+    for event in events:
+        print(event.command)
+        start_time = datetime.now()
+        event.command.execute(config)
+        stop_time = datetime.now()
+        entry = dict(
+            start_time = str(start_time),
+            stop_time = str(stop_time),
+            duration=(stop_time - start_time).total_seconds(),
+            plate_id=event.plate_id,
+            command=event.machine(),
+            **asdict(event.command),
+        )
+        pr(entry)
+        entry = {**entry, **metadata}
+        log += [entry]
+        with open(log_name, 'w') as fp:
+            json.dump(log, fp, indent=2)
+
+def main(num_plates: int, config: Config) -> None:
+    events = protocol.cell_paint_many(num_plates, delay='auto')
+    events = protocol.sleek_h21_movements(events)
+    execute(events, config)
