@@ -8,7 +8,6 @@ from moves import Move, MoveList
 import re
 import socket
 
-
 prelude = '''
     set_gravity([0.0, 0.0, 9.82])
     set_tcp(p[0, 0, 0, -1.2092, 1.2092, 1.2092])
@@ -205,26 +204,28 @@ def make_script(movelist: list[Move], with_gripper: bool) -> str:
         end
     ''')
 
-@dataclass
+@dataclass(frozen=True)
 class Robotarm:
-    host: str
-    port: int
-    with_gripper: bool
-    s: socket.socket = cast(Any, None)
-    def __post_init__(self) -> None:
-        print('connecting to robot...', end=' ')
-        self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.s.connect((self.host, self.port))
+
+    @staticmethod
+    def init(host: str, port: int, with_gripper: bool) -> Robotarm:
+        print('connecting to robotarm...', end=' ')
+        socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        socket.connect((host, port))
         print('connected!')
+        return Robotarm(with_gripper, socket)
+
+    with_gripper: bool
+    socket: socket.socket
 
     def send(self, prog_str: str) -> Robotarm:
         print(prog_str)
-        self.s.sendall(prog_str.encode())
+        self.socket.sendall(prog_str.encode())
         return self
 
     def recv(self) -> Iterator[bytes]:
         while True:
-            data = self.s.recv(4096)
+            data = self.socket.recv(4096)
             for m in re.findall(b'[\x20-\x7e]*(?:log|program|assert|\w+exception|error|\w+_\w+:)[\x20-\x7e]*', data, re.IGNORECASE):
                 m = m.decode()
                 print(f'{m = }')
@@ -237,7 +238,7 @@ class Robotarm:
                 return
 
     def close(self) -> None:
-        self.s.close()
+        self.socket.close()
 
     def set_speed(self, value: int) -> Robotarm:
         if not (0 < value <= 100):

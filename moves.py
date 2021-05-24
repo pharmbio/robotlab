@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import *
 from typing import *
 
+from pathlib import Path
 from textwrap import dedent, shorten
 from utils import *
 import abc
@@ -118,14 +119,23 @@ class Section(Move):
     def to_script(self) -> str:
         return ''
 
-A = TypeVar('A')
-def context(xs: list[A]) -> list[tuple[A | None, A, A | None]]:
+_A = TypeVar('_A')
+def context(xs: list[_A]) -> list[tuple[_A | None, _A, _A | None]]:
     return list(zip(
         [None, None] + xs,        # type: ignore
         [None] + xs + [None],     # type: ignore
         xs + [None, None]))[1:-1] # type: ignore
 
 class MoveList(list[Move]):
+    '''
+    Utility class for dealing with moves in a list
+    '''
+
+    @staticmethod
+    def from_json_file(filename: str | Path) -> MoveList:
+        with open(filename) as fp:
+            return MoveList([Move.from_dict(m) for m in json.load(fp)])
+
     def to_json(self, filename: None | str = None) -> str:
         ms = [m.to_dict() for m in self]
         jsons = []
@@ -210,6 +220,9 @@ class MoveList(list[Move]):
         return MoveList(out)
 
     def adjust_tagged(self, tag: str, dz: float) -> MoveList:
+        '''
+        Adjusts the z in room reference frame for all MoveLin with the given tag.
+        '''
         out: list[Move] = []
         for m in self:
             if isinstance(m, MoveLin) and m.tag == tag:
@@ -231,6 +244,10 @@ class MoveList(list[Move]):
         return out
 
     def apply_dz_tags(self) -> MoveList:
+        '''
+        This is a jig and can be removed when the json movelists are the
+        source of truth
+        '''
         dzs: dict[str, float] = {}
         for tag in self.tags():
             if tag.startswith('dz='):
@@ -243,25 +260,28 @@ class MoveList(list[Move]):
 movelists: dict[str, list[Move]]
 movelists = {}
 
-hotel_dist: float = 70.94
+def read_movelists():
 
-from pathlib import Path
+    hotel_dist: float = 70.94
 
-for filename in Path('./movelists').glob('*.json'):
-    name = filename.with_suffix('').name
-    ml = MoveList([Move.from_dict(m) for m in json.load(open(filename))])
-    ml = ml.apply_dz_tags()
-    for tag in set(ml.tags()):
-        if m := re.match('(\d+)/21$', tag):
-            ref_h = int(m.group(1))
-            assert str(ref_h) in name
-            for h in [1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21]:
-                dz = (h - ref_h) / 2 * hotel_dist
-                name_h = name.replace(str(ref_h), str(h), 1)
-                movelists[name_h] = ml.adjust_tagged(tag, dz)
-    movelists[name] = ml
+    for filename in Path('./movelists').glob('*.json'):
+        ml = MoveList.from_json_file(filename)
+        ml = ml.apply_dz_tags()
+        name = filename.with_suffix('').name
+        for tag in set(ml.tags()):
+            if m := re.match('(\d+)/21$', tag):
+                ref_h = int(m.group(1))
+                assert str(ref_h) in name
+                for h in [1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21]:
+                    dz = (h - ref_h) / 2 * hotel_dist
+                    name_h = name.replace(str(ref_h), str(h), 1)
+                    movelists[name_h] = ml.adjust_tagged(tag, dz)
+        movelists[name] = ml
 
-pr(movelists['lid_h21_put'])
-pr(movelists.keys())
+    pr(movelists['lid_h21_put'])
+    pr(movelists.keys())
 
-# TODO: expand sections
+    # TODO: expand sections
+
+read_movelists()
+

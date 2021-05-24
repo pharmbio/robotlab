@@ -56,9 +56,6 @@ for arg in sys.argv[1:]:
 
 print(f'Using config =', show(config))
 
-if config.robotarm_mode in {'gripper', 'no gripper'}:
-    Robotarm(config).start_main()
-
 events = sleek_h21_movements(events)
 
 execute(events, config)

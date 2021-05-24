@@ -167,7 +167,7 @@ class wait_for_timer_cmd(Command):
 def get_robotarm(config: Config) -> Robotarm:
     assert config.robotarm_mode in {'gripper', 'no gripper'}
     with_gripper = config.robotarm_mode == 'gripper'
-    return Robotarm(ENV.robotarm_host, ENV.robotarm_port, with_gripper)
+    return Robotarm.init(ENV.robotarm_host, ENV.robotarm_port, with_gripper)
 
 @dataclass(frozen=True)
 class robotarm_cmd(Command):
