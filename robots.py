@@ -2,7 +2,6 @@ from __future__ import annotations
 from dataclasses import *
 from typing import *
 
-from contextlib import *
 from datetime import datetime, timedelta
 from urllib.request import urlopen
 
@@ -14,7 +13,6 @@ import socket
 import time
 
 from moves import movelists
-# from scriptgenerator import *
 from robotarm import Robotarm
 from utils import show
 
@@ -166,6 +164,8 @@ class wait_for_timer_cmd(Command):
             raise ValueError
 
 def get_robotarm(config: Config) -> Robotarm:
+    if config.robotarm_mode == 'dry run':
+        return Robotarm.init_simulate(with_gripper=True)
     assert config.robotarm_mode in {'gripper', 'no gripper'}
     with_gripper = config.robotarm_mode == 'gripper'
     return Robotarm.init(ENV.robotarm_host, ENV.robotarm_port, with_gripper)
@@ -182,10 +182,7 @@ class robotarm_cmd(Command):
         return 5.0
 
     def execute(self, config: Config) -> None:
-        if config.robotarm_mode == 'dry run':
-            # print('dry run', self)
-            return
-        get_robotarm(config).execute_moves(movelists[self.program_name])
+        get_robotarm(config).execute_moves(movelists[self.program_name], name=self.program_name)
 
 @dataclass(frozen=True)
 class wash_cmd(Command):

@@ -6,14 +6,14 @@ from dataclasses import *
 from typing import *
 
 from pathlib import Path
-from textwrap import dedent, shorten
-from utils import *
+from utils import show, pr
 import abc
 import ast
 import json
 import re
 import sys
 import textwrap
+import utils
 
 class Move(abc.ABC):
     def to_dict(self) -> dict[str, Any]:
@@ -119,13 +119,6 @@ class Section(Move):
     def to_script(self) -> str:
         return textwrap.indent(', '.join(self.sections), '# ')
 
-_A = TypeVar('_A')
-def context(xs: list[_A]) -> list[tuple[_A | None, _A, _A | None]]:
-    return list(zip(
-        [None, None] + xs,        # type: ignore
-        [None] + xs + [None],     # type: ignore
-        xs + [None, None]))[1:-1] # type: ignore
-
 class MoveList(list[Move]):
     '''
     Utility class for dealing with moves in a list
@@ -142,7 +135,7 @@ class MoveList(list[Move]):
 
     def to_json(self) -> str:
         ms = [m.to_dict() for m in self]
-        jsons = []
+        jsons: list[str] = []
         for m in ms:
             short = json.dumps(m)
             if len(short) < 120:
@@ -161,16 +154,16 @@ class MoveList(list[Move]):
         return json_str
 
     def normalize(self) -> MoveList:
-        out = []
-        for prev, m, next in context(self):
+        out = MoveList()
+        for prev, m, next in utils.context(self):
             if isinstance(m, Section) and (isinstance(next, Section) or next is None):
                 pass
             else:
                 out += [m]
-        return MoveList(out)
+        return out
 
     def to_rel(self) -> MoveList:
-        out: list[Move] = []
+        out = MoveList()
         last: MoveLin | None = None
         for m in self.to_abs():
             if isinstance(m, MoveLin):
@@ -190,12 +183,13 @@ class MoveList(list[Move]):
                 assert False, 'to_abs returned a MoveRel'
             elif isinstance(m, MoveJoint):
                 last = None
+                out += [m]
             else:
                 out += [m]
-        return MoveList(out)
+        return out
 
     def to_abs(self) -> MoveList:
-        out: list[Move] = []
+        out = MoveList()
         last: MoveLin | None = None
         for m in self:
             if isinstance(m, MoveLin):
@@ -204,25 +198,22 @@ class MoveList(list[Move]):
             elif isinstance(m, MoveRel):
                 if last is None:
                     raise ValueError('MoveRel without MoveLin reference')
-                last = MoveLin(
-                    xyz=[round(a + b, 1) for a, b in zip(m.xyz, last.xyz)],
-                    rpy=[round(a + b, 1) for a, b in zip(m.rpy, last.rpy)],
-                    name=m.name,
-                    slow=m.slow,
-                    tag=m.tag,
-                )
+                xyz = [round(float(a + b), 1) for a, b in zip(m.xyz, last.xyz)]
+                rpy = [round(float(a + b), 1) for a, b in zip(m.rpy, last.rpy)]
+                last = MoveLin(xyz=xyz, rpy=rpy, name=m.name, slow=m.slow, tag=m.tag)
                 out += [last]
             elif isinstance(m, MoveJoint):
                 last = None
+                out += [m]
             else:
                 out += [m]
-        return MoveList(out)
+        return out
 
     def adjust_tagged(self, tag: str, *, dz: float) -> MoveList:
         '''
         Adjusts the z in room reference frame for all MoveLin with the given tag.
         '''
-        out: list[Move] = []
+        out = MoveList()
         for m in self:
             if isinstance(m, MoveLin) and m.tag == tag:
                 x, y, z = list(m.xyz)
@@ -231,10 +222,10 @@ class MoveList(list[Move]):
                 raise ValueError('Tagged move must be MoveLin')
             else:
                 out += [m]
-        return MoveList(out)
+        return out
 
     def tags(self) -> list[str]:
-        out = []
+        out: list[str] = []
         for m in self:
             if hasattr(m, 'tag'):
                 tag = getattr(m, 'tag')
@@ -249,9 +240,9 @@ class MoveList(list[Move]):
         "lid_h19_put" becomes "lid_h1_put" and so on.
         '''
         hotel_dist: float = 70.94
-        out = {}
+        out: dict[str, MoveList] = {}
         for tag in set(self.tags()):
-            if m := re.match('(\d+)/21$', tag):
+            if m := re.match(r'(\d+)/21$', tag):
                 ref_h = int(m.group(1))
                 assert str(ref_h) in name
                 assert ref_h in [1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21]
@@ -271,7 +262,7 @@ class MoveList(list[Move]):
             else:
                 with_section += [(active, move)]
                 for i, _ in enumerate(active):
-                    sections.add(active[:i+1])
+                    sections.add(tuple(active[:i+1]))
 
         out: dict[str, MoveList] = {base_name: self}
         for section in sections:
@@ -287,21 +278,17 @@ class MoveList(list[Move]):
 
 
 def read_movelists() -> dict[str, MoveList]:
-
-    movelists: dict[str, MoveList] = {}
+    out: dict[str, MoveList] = {}
 
     for filename in Path('./movelists').glob('*.json'):
         ml = MoveList.from_json_file(filename)
         name = filename.with_suffix('').name
 
         for name, ml in ml.expand_sections(name).items():
-            movelists |= ml.expand_hotels(name)
-            movelists[name] = ml
+            out |= ml.expand_hotels(name)
+            out[name] = ml.to_rel()
 
-    pr(movelists['lid_h21_put'])
-    pr(movelists.keys())
-
-    return movelists
+    return out
 
 movelists: dict[str, MoveList]
 movelists = read_movelists()

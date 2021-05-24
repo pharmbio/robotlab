@@ -8,6 +8,8 @@ from abc import ABC
 from functools import lru_cache
 from utils import show
 
+from moves import Move, MoveLin, MoveJoint, GripperMove, Section
+
 import ast
 import re
 import sys
@@ -60,7 +62,7 @@ def parse_lines(lines: list[str]) -> ParsedScript:
     res = ParsedScript()
     last_gripper_name = ""
     for i, line in enumerate(lines):
-        if m := re.match(' *global *(\w*) *= *p?(.*)$', line):
+        if m := re.match(r' *global *(\w*) *= *p?(.*)$', line):
             name, value = m.groups()
             try:
                 val = ast.literal_eval(value)
@@ -68,16 +70,16 @@ def parse_lines(lines: list[str]) -> ParsedScript:
                 res.defs[name] = val
             except:
                 pass
-        elif m := re.match(' *movel.*?(\w*)_[pq]', line):
+        elif m := re.match(r' *movel.*?(\w*)_[pq]', line):
             name, = m.groups()
             res.steps += [movel(name)]
-        elif m := re.match(' *movej.*?(\w*)_[pq]', line):
+        elif m := re.match(r' *movej.*?(\w*)_[pq]', line):
             name, = m.groups()
             res.steps += [movej(name)]
-        elif m := re.match(' *\$ \d* "(Gripper.*)"', line):
+        elif m := re.match(r' *\$ \d* "(Gripper.*)"', line):
             name, = m.groups()
             last_gripper_name = name
-        elif m := re.match(' *rq_set_pos_spd_for\((\d+)', line):
+        elif m := re.match(r' *rq_set_pos_spd_for\((\d+)', line):
             pos, = m.groups()
             res.steps += [gripper(pos=int(pos), name=last_gripper_name)]
             res.defs[last_gripper_name] = [int(pos)]
@@ -88,7 +90,6 @@ def resolve(filename: str, steps: list[ScriptStep]) -> list[Move]:
     return list(resolve_parsed(parse(filename), steps))
 
 from scipy.spatial.transform import Rotation, Rotation as R # type: ignore
-from moves import *
 
 nice_trf : Rotation
 nice_trf = R.from_euler("xyz", [-90, 90, 0], degrees=True)

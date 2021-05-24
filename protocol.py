@@ -1,30 +1,23 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field, replace, astuple
+from dataclasses import dataclass, field, replace
 from typing import *
 from datetime import datetime, timedelta
 
-from robots import *
-from utils import show
+import robots
+from utils import show, Mutable
+from moves import movelists
 
 import re
-
+import utils
 import textwrap
-
-A = TypeVar('A')
-def concat(xss: list[list[A]]) -> list[A]:
-    return sum(xss, [])
-
-@dataclass(frozen=False)
-class Mutable(Generic[A]):
-    value: A
 
 @dataclass(frozen=True)
 class Event:
     begin: float
     end: float
     plate_id: str | None
-    command: Command
+    command: robots.Command
     overlap: Mutable[bool] = field(default_factory=lambda: Mutable(False))
 
     def machine(self) -> str:
@@ -41,23 +34,24 @@ def calculate_overlap(events: list[Event]) -> None:
                 fst.overlap.value = True
                 snd.overlap.value = True
 
-def skip(n, xs):
-    for i, x in enumerate(xs):
-        if i >= n:
-            yield x
+def sleek_h21_movements(events: list[Event]) -> list[Event]:
+    '''
+    if programA ends by h21 drop and programB starts with h21 drop then instead run:
+        programA_to_h21_drop
+        programB_from_h21_drop
+    '''
 
-def sleek_h21_movements(events: list[Event]) -> None:
     out = [*events]
 
     for i, event in enumerate(events):
-        if isinstance(event.command, robotarm_cmd):
-            for j, next in skip(i+1, enumerate(events)):
-                if isinstance(next.command, robotarm_cmd):
+        if isinstance(event.command, robots.robotarm_cmd):
+            for j, next in utils.skip(i+1, enumerate(events)):
+                if isinstance(next.command, robots.robotarm_cmd):
                     a = event.command.program_name
                     b = next.command.program_name
                     a += '_to_h21_drop'
                     b += '_from_h21_drop'
-                    if a in programs and b in programs:
+                    if a in movelists and b in movelists:
                         out[i] = replace(event, command=replace(event.command, program_name=a))
                         out[j] = replace(event, command=replace(event.command, program_name=b))
                     break
@@ -66,101 +60,101 @@ def sleek_h21_movements(events: list[Event]) -> None:
 
 def cell_painting(plate_id: str, initial_wait_seconds: float, incu_loc: str, lid_loc: str, r_loc: str, out_loc: str) -> list[Event]:
     incu_to_wash = [
-        robotarm_cmd('incu_get_part1', prep=True),
-        wait_for_timer_cmd(plate_id),
-        incu_cmd('get', incu_loc, est=10),
-        wait_for_ready_cmd('incu'),
-        robotarm_cmd('incu_get_part2'),
-        robotarm_cmd(f'lid_{lid_loc}_put'),
-        robotarm_cmd('wash_put'),
+        robots.robotarm_cmd('incu_get_part1', prep=True),
+        robots.wait_for_timer_cmd(plate_id),
+        robots.incu_cmd('get', incu_loc, est=10),
+        robots.wait_for_ready_cmd('incu'),
+        robots.robotarm_cmd('incu_get_part2'),
+        robots.robotarm_cmd(f'lid_{lid_loc}_put'),
+        robots.robotarm_cmd('wash_put'),
     ]
 
     wash_to_disp = [
-        robotarm_cmd('wash_to_disp_part1', prep=True),
-        wait_for_ready_cmd('wash'),
-        robotarm_cmd('wash_to_disp_part2'),
+        robots.robotarm_cmd('wash_to_disp_part1', prep=True),
+        robots.wait_for_ready_cmd('wash'),
+        robots.robotarm_cmd('wash_to_disp_part2'),
     ]
 
     disp_get = [
-        robotarm_cmd('disp_get_part1', prep=True),
-        wait_for_ready_cmd('disp'),
-        robotarm_cmd('disp_get_part2'),
+        robots.robotarm_cmd('disp_get_part1', prep=True),
+        robots.wait_for_ready_cmd('disp'),
+        robots.robotarm_cmd('disp_get_part2'),
     ]
 
     disp_to_incu = [
         *disp_get,
-        robotarm_cmd(f'lid_{lid_loc}_get'),
-        robotarm_cmd('incu_put_part1'),
-        incu_cmd('put', incu_loc, est=0),
-        robotarm_cmd('incu_put_part2'),
-        wait_for_ready_cmd('incu'),
+        robots.robotarm_cmd(f'lid_{lid_loc}_get'),
+        robots.robotarm_cmd('incu_put_part1'),
+        robots.incu_cmd('put', incu_loc, est=0),
+        robots.robotarm_cmd('incu_put_part2'),
+        robots.wait_for_ready_cmd('incu'),
     ]
 
     disp_to_RT_incu = [
         *disp_get,
-        robotarm_cmd(f'lid_{lid_loc}_get'),
-        robotarm_cmd(f'{r_loc}_put'),
+        robots.robotarm_cmd(f'lid_{lid_loc}_get'),
+        robots.robotarm_cmd(f'{r_loc}_put'),
     ]
 
     RT_incu_to_wash = [
-        wait_for_timer_cmd(plate_id),
-        robotarm_cmd(f'{r_loc}_get'),
-        robotarm_cmd(f'lid_{lid_loc}_put'),
-        robotarm_cmd('wash_put'),
+        robots.wait_for_timer_cmd(plate_id),
+        robots.robotarm_cmd(f'{r_loc}_get'),
+        robots.robotarm_cmd(f'lid_{lid_loc}_put'),
+        robots.robotarm_cmd('wash_put'),
     ]
 
     wash_to_RT_incu = [
-        robotarm_cmd('wash_get_part1', prep=True),
-        wait_for_ready_cmd('wash'),
-        robotarm_cmd('wash_get_part2'),
-        robotarm_cmd(f'lid_{lid_loc}_get'),
-        robotarm_cmd(f'{r_loc}_put'),
+        robots.robotarm_cmd('wash_get_part1', prep=True),
+        robots.wait_for_ready_cmd('wash'),
+        robots.robotarm_cmd('wash_get_part2'),
+        robots.robotarm_cmd(f'lid_{lid_loc}_get'),
+        robots.robotarm_cmd(f'{r_loc}_put'),
     ]
 
     to_output_hotel = [
-        robotarm_cmd(f'{r_loc}_get'),
-        robotarm_cmd(f'{out_loc}_put'), # postponable=True
+        robots.robotarm_cmd(f'{r_loc}_get'),
+        robots.robotarm_cmd(f'{out_loc}_put'), # postponable=True
     ]
 
     cmds = [
         # 2 Compound treatment
-        timer_cmd(initial_wait_seconds / 60.0, plate_id),
+        robots.timer_cmd(initial_wait_seconds / 60.0, plate_id),
 
         # 3 Mitotracker staining
         *incu_to_wash,
-        wash_cmd('automation/2_4_6_W-3X_FinalAspirate_test.LHC', est=90),
+        robots.wash_cmd('automation/2_4_6_W-3X_FinalAspirate_test.LHC', est=90),
         *wash_to_disp,
-        disp_cmd('automation/1_D_P1_30ul_mito.LHC', est=15),
+        robots.disp_cmd('automation/1_D_P1_30ul_mito.LHC', est=15),
         *disp_to_incu,
-        timer_cmd(30, plate_id),
+        robots.timer_cmd(30, plate_id),
 
         # 4 Fixation
         *incu_to_wash,
-        wash_cmd('automation/2_4_6_W-3X_FinalAspirate_test.LHC', est=90),
+        robots.wash_cmd('automation/2_4_6_W-3X_FinalAspirate_test.LHC', est=90),
         *wash_to_disp,
-        disp_cmd('automation/3_D_SA_384_50ul_PFA.LHC', est=19),
+        robots.disp_cmd('automation/3_D_SA_384_50ul_PFA.LHC', est=19),
         *disp_to_RT_incu,
-        timer_cmd(20, plate_id),
+        robots.timer_cmd(20, plate_id),
 
         # 5 Permeabilization
         *RT_incu_to_wash,
-        wash_cmd('automation/2_4_6_W-3X_FinalAspirate_test.LHC', est=90),
+        robots.wash_cmd('automation/2_4_6_W-3X_FinalAspirate_test.LHC', est=90),
         *wash_to_disp,
-        disp_cmd('automation/5_D_SB_384_50ul_TRITON.LHC', est=21),
+        robots.disp_cmd('automation/5_D_SB_384_50ul_TRITON.LHC', est=21),
         *disp_to_RT_incu,
-        timer_cmd(20, plate_id),
+        robots.timer_cmd(20, plate_id),
 
         # 6 Post-fixation staining
         *RT_incu_to_wash,
-        wash_cmd('automation/2_4_6_W-3X_FinalAspirate_test.LHC', est=90),
+        robots.wash_cmd('automation/2_4_6_W-3X_FinalAspirate_test.LHC', est=90),
         *wash_to_disp,
-        disp_cmd('automation/7_D_P2_20ul_STAINS.LHC', est=22),
+        robots.disp_cmd('automation/7_D_P2_20ul_STAINS.LHC', est=22),
         *disp_to_RT_incu,
-        timer_cmd(20, plate_id),
+        robots.timer_cmd(20, plate_id),
 
         # Last wash
         *RT_incu_to_wash,
-        wash_cmd('automation/8_W-4X_NoFinalAspirate.LHC', est=120),
+        robots.wash_cmd('automation/8_W-4X_NoFinalAspirate.LHC', est=120),
 
         # park it in RT, move to output hotel when there's time
         *wash_to_RT_incu,
@@ -208,7 +202,7 @@ def cell_paint_smallest_delay(plates: int, offset: int=60) -> int:
         events = cell_paint_many(plates, delay, offset)
         if not any(e.overlap.value for e in events):
             return delay
-    return delay
+    return 400
 
 def cell_paint_many(plates: int, delay: int | Literal['auto'], offset: int=60) -> list[Event]:
 
@@ -219,7 +213,7 @@ def cell_paint_many(plates: int, delay: int | Literal['auto'], offset: int=60) -
     D = delay
     O = 60
 
-    events = concat([
+    events = utils.flatten([
         cell_painting(
             f'p{i}', O + i * D,
             incu_locs[i], lid_locs[i], r_locs[i], r_locs[i]

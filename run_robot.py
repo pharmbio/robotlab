@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from typing import *
 
-from utils import *
-from robots import *
+from utils import show
+from robots import Config, configs
+import robots
 
 from moves import movelists
 
@@ -20,9 +21,9 @@ else:
 
     print(f'Using config =', show(config))
 
-    get_robotarm(config).set_speed(80).close()
+    robots.get_robotarm(config).set_speed(80).close()
 
     for name in sys.argv:
         if name in movelists:
-            robotarm_cmd(name).execute(config)
+            robots.robotarm_cmd(name).execute(config)
 

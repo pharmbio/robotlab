@@ -182,8 +182,8 @@ def reindent(s: str) -> str:
     i = 0
     for line in s.strip().split('\n'):
         line = line.strip()
-        if '"' not in line:
-            line = re.sub('#.*$', '', line).strip()
+        # if '"' not in line:
+        #     line = re.sub('#.*$', '', line).strip()
         if line == 'end' or line.startswith('elif') or line.startswith('else'):
             i -= 2
         if line:
@@ -192,15 +192,21 @@ def reindent(s: str) -> str:
             i += 2
     return '\n'.join(out) + '\n'  # final newline required when sending on socket
 
-def make_script(movelist: list[Move], with_gripper: bool) -> str:
-    body = '\n'.join(m.to_script() for m in movelist)
+def make_script(movelist: list[Move], with_gripper: bool, name: str='script') -> str:
+    body = '\n'.join(
+        ("# " + getattr(m, 'name') + '\n' if hasattr(m, 'name') else '')
+        + m.to_script()
+        for m in movelist
+    )
+    print(body)
+    assert re.match(r'(?!\d)\w*$', name)
     return reindent(f'''
-        def script():
+        def {name}():
             {prelude}
             {gripper_code(with_gripper)}
             {body}
             GripperSocketCleanup()
-            textmsg("log script done")
+            textmsg("log {name} done")
         end
     ''')
 
@@ -215,29 +221,42 @@ class Robotarm:
         print('connected!')
         return Robotarm(with_gripper, sock)
 
+    @staticmethod
+    def init_simulate(with_gripper: bool) -> Robotarm:
+        return Robotarm(with_gripper, 'simulate')
+
     with_gripper: bool
-    sock: socket.socket
+    sock: socket.socket | Literal['simulate']
 
     def send(self, prog_str: str) -> Robotarm:
-        print(prog_str)
-        self.sock.sendall(prog_str.encode())
+        prog_bytes = prog_str.encode()
+        if self.sock == 'simulate':
+            return self
+        # print(prog_str)
+        self.sock.sendall(prog_bytes)
         return self
 
     def recv(self) -> Iterator[bytes]:
+        if self.sock == 'simulate':
+            raise RuntimeError
         while True:
             data = self.sock.recv(4096)
-            for m in re.findall(b'[\x20-\x7e]*(?:log|program|assert|\w+exception|error|\w+_\w+:)[\x20-\x7e]*', data, re.IGNORECASE):
+            for m in re.findall(rb'[\x20-\x7e]*(?:log|program|assert|\w+exception|error|\w+_\w+:)[\x20-\x7e]*', data, re.IGNORECASE):
                 m = m.decode()
                 print(f'{m = }')
             yield data
 
     def recv_until(self, needle: str) -> None:
+        if self.sock == 'simulate':
+            return
         for data in self.recv():
             if needle.encode() in data:
                 print(f'received {needle}')
                 return
 
     def close(self) -> None:
+        if self.sock == 'simulate':
+            return
         self.sock.close()
 
     def set_speed(self, value: int) -> Robotarm:
@@ -253,7 +272,7 @@ class Robotarm:
         '''))
         return self
 
-    def execute_moves(self, movelist: list[Move]) -> None:
-        self.send(make_script(movelist, self.with_gripper))
-        self.recv_until("log script done")
+    def execute_moves(self, movelist: list[Move], name: str='script') -> None:
+        self.send(make_script(movelist, self.with_gripper, name=name))
+        self.recv_until(f'log {name} done')
         self.close()

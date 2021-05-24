@@ -1,16 +1,20 @@
 from __future__ import annotations
 
-from dataclasses import *
+from dataclasses import dataclass, replace, asdict
 from typing import *
 
 from datetime import datetime, timedelta
 
-from utils import pr
-from robots import *
-from protocol import *
+from utils import pr, show
+import protocol
+
+from robots import Config, configs
+from protocol import Event
 
 import platform
 import os
+import sys
+import json
 
 def execute(events: list[Event], config: Config) -> None:
     metadata = dict(
@@ -21,7 +25,7 @@ def execute(events: list[Event], config: Config) -> None:
     log_name = ' '.join(['event log', *metadata.values()])
     log_name = 'logs/' + log_name.replace(' ', '_') + '.json'
     os.makedirs('logs/', exist_ok=True)
-    log = []
+    log: list[dict[str, Any]] = []
     for event in events:
         print(event.command)
         start_time = datetime.now()
@@ -43,20 +47,20 @@ def execute(events: list[Event], config: Config) -> None:
 
 num_plates = 1
 
-events = cell_paint_many(num_plates, delay='auto')
+events = protocol.cell_paint_many(num_plates, delay='auto')
 
-config = configs['dry_run']
+config: Config = configs['dry_run']
 
 for arg in sys.argv[1:]:
     arg = arg.replace('-', '_')
-    if configs.get(arg):
-        config = configs.get(arg)
-    else:
+    try:
+        config = configs[arg]
+    except KeyError:
         raise ValueError(f'Unknown config with name {arg}. Available: {show(configs.keys())}')
 
 print(f'Using config =', show(config))
 
-events = sleek_h21_movements(events)
+events = protocol.sleek_h21_movements(events)
 
 execute(events, config)
 

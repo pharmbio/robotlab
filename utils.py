@@ -25,7 +25,7 @@ def primlike(x: object) -> bool:
 def show_key(x: object) -> str:
     if isinstance(x, (str, int)):
         k = str(x)
-        if re.match('\w*$', k):
+        if re.match(r'\w*$', k):
             return k
     return repr(x)
 
@@ -70,18 +70,22 @@ def show(x: Any, show_key: Any=show_key, width: int=80) -> str:
                 begin, end = '{', '}'
             elif has_iter:
                 begin, end = '*(', ')'
+            else:
+                raise ValueError
             values = list(x)
             oneline: str | None = ''
             for v in values:
+                if oneline is None:
+                    break
                 for out in go('', '', v, ', '):
+                    if oneline is None:
+                        break
                     oneline += out
                     if len(oneline) > 2 * width:
                         # oops lengths are totally wrong because of escape codes
                         # idea: use textwrap.fill if all values are primitive
                         oneline = None
                         break
-                if oneline is None:
-                    break
             if len(values) == 0:
                 yield dent + pre + begin + end + post
             elif oneline is not None and len(dent) + len(oneline) < 2 * width:
@@ -117,8 +121,27 @@ def show(x: Any, show_key: Any=show_key, width: int=80) -> str:
 
     return '\n'.join(go('', '', x, ''))
 
-_A = TypeVar('_A')
+A = TypeVar('A')
 
-def pr(x: _A) -> _A:
+def pr(x: A) -> A:
     print(show(x))
     return x
+
+def flatten(xss: list[list[A]]) -> list[A]:
+    return sum(xss, cast(list[A], []))
+
+@dataclass(frozen=False)
+class Mutable(Generic[A]):
+    value: A
+
+def skip(n: int, xs: Iterable[A]) -> Iterable[A]:
+    for i, x in enumerate(xs):
+        if i >= n:
+            yield x
+
+def context(xs: list[A]) -> list[tuple[A | None, A, A | None]]:
+    return list(zip(
+        [None, None] + xs,        # type: ignore
+        [None] + xs + [None],     # type: ignore
+        xs + [None, None]))[1:-1] # type: ignore
+
