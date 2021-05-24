@@ -115,9 +115,9 @@ class GripperOpen(Move):
 
 @dataclass(frozen=True)
 class Section(Move):
-    sections: str
+    sections: list[str]
     def to_script(self) -> str:
-        return ''
+        return textwrap.indent(', '.join(self.sections), '# ')
 
 _A = TypeVar('_A')
 def context(xs: list[_A]) -> list[tuple[_A | None, _A, _A | None]]:
@@ -133,10 +133,14 @@ class MoveList(list[Move]):
 
     @staticmethod
     def from_json_file(filename: str | Path) -> MoveList:
-        with open(filename) as fp:
-            return MoveList([Move.from_dict(m) for m in json.load(fp)])
+        with open(filename) as f:
+            return MoveList([Move.from_dict(m) for m in json.load(f)])
 
-    def to_json(self, filename: None | str = None) -> str:
+    def write_json(self, filename: str | Path) -> None:
+        with open(filename, 'w') as f:
+            f.write(self.to_json())
+
+    def to_json(self) -> str:
         ms = [m.to_dict() for m in self]
         jsons = []
         for m in ms:
@@ -154,11 +158,6 @@ class MoveList(list[Move]):
             +   ',\n  '.join(jsons)
             + '\n]'
         )
-        # json_str = json.dumps(M, indent=2)
-        # mini_ws = lambda s: re.sub(r'[\s\n]+', ' ', s, flags=re.MULTILINE)
-        # json_str = re.sub(r'\[[-\d\.\s,\n]*\]', lambda m: mini_ws(m.group(0)), json_str, flags=re.MULTILINE)
-        if filename:
-            with open(filename, 'w') as f: f.write(json_str)
         return json_str
 
     def normalize(self) -> MoveList:
@@ -243,30 +242,15 @@ class MoveList(list[Move]):
                     out += [tag]
         return out
 
-    def apply_dz_tags(self) -> MoveList:
-        '''
-        This is a jig and can be removed when the json movelists are the
-        source of truth
-        '''
-        dzs: dict[str, float] = {}
-        for tag in self.tags():
-            if tag.startswith('dz='):
-                dzs[tag] = float(tag[len('dz='):])
-        res: MoveList = self
-        for tag, dz in dzs.items():
-            res = res.adjust_tagged(tag, dz)
-        return res
-
 movelists: dict[str, list[Move]]
 movelists = {}
 
-def read_movelists():
+def read_movelists() -> None:
 
     hotel_dist: float = 70.94
 
     for filename in Path('./movelists').glob('*.json'):
         ml = MoveList.from_json_file(filename)
-        ml = ml.apply_dz_tags()
         name = filename.with_suffix('').name
         for tag in set(ml.tags()):
             if m := re.match('(\d+)/21$', tag):

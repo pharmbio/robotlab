@@ -364,6 +364,22 @@ if __name__ == '__main__':
     elif args.generate_json:
         for name, movelist in programs.items():
             filename = f'./movelists/{name}.json'
-            MoveList(movelist).normalize().to_json(filename)
+
+            def apply_dz_tags(self) -> MoveList:
+                '''
+                This is a jig and can be removed when the json movelists are the
+                source of truth
+                '''
+                dzs: dict[str, float] = {}
+                for tag in self.tags():
+                    if tag.startswith('dz='):
+                        dzs[tag] = float(tag[len('dz='):])
+                res: MoveList = self
+                for tag, dz in dzs.items():
+                    res = res.adjust_tagged(tag, dz)
+                return res
+
+            ml = MoveList(movelist)
+            ml = apply_dz_tags(ml).normalize().write_json(filename)
     else:
         parser.print_help()

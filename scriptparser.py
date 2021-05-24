@@ -125,7 +125,9 @@ def make_nice(in_zero_trf: list[float]) -> tuple[list[float], list[float]]:
 
 import math
 
-def resolve_parsed(script: ParsedScript, steps: list[ScriptStep], active_sections: list[str]=[]) -> Iterator[Move]:
+def resolve_parsed(script: ParsedScript, steps: list[ScriptStep], sections: list[str]=[]) -> Iterator[Move]:
+    if sections:
+        yield Section(sections)
     for step in steps:
         if isinstance(step, movel):
             p = script.defs[step.name + '_p']
@@ -138,10 +140,8 @@ def resolve_parsed(script: ParsedScript, steps: list[ScriptStep], active_section
             pos = script.defs[step.name][0] if step.pos is None else step.pos
             yield GripperMove(pos=int(pos))
         elif isinstance(step, section):
-            inner_sections = [*active_sections, step.name]
-            yield Section(sections=' '.join(inner_sections))
-            yield from resolve_parsed(script, step.steps, active_sections=inner_sections)
-            yield Section(sections=' '.join(active_sections))
+            yield from resolve_parsed(script, step.steps, sections=[*sections, step.name])
+            yield Section(sections)
         else:
             raise ValueError
 
@@ -215,8 +215,8 @@ def test_parse_and_resolve() -> None:
         movel('h21_neu'),
         section('final_part', [
             movel('h21_neu', tag='h19', slow=True),
-            movej('above_washr'),
-        ])
+        ]),
+        movej('above_washr'),
     ]
 
     resolved = list(resolve_parsed(script, steps))
@@ -228,7 +228,7 @@ def test_parse_and_resolve() -> None:
         rpy=[0.0, -1.7, 90.0],
         name='h21_neu',
       ),
-      Section('final_part'),
+      Section(['final_part']),
       MoveLin(
         xyz=[200.0, -400.0, 800.0],
         rpy=[0.0, -1.7, 90.0],
@@ -236,11 +236,11 @@ def test_parse_and_resolve() -> None:
         slow=True,
         tag='h19',
       ),
+      Section([]),
       MoveJoint(
         joints=[-92, -126, 143, -17, 0, 57],
         name='above_washr',
       ),
-      Section(''),
     ]
 
     if '-v' in sys.argv:
