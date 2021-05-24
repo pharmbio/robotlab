@@ -127,7 +127,7 @@ def pr(x: A) -> A:
     print(show(x))
     return x
 
-def flatten(xss: list[list[A]]) -> list[A]:
+def flatten(xss: Iterable[list[A]]) -> list[A]:
     return sum(xss, cast(list[A], []))
 
 @dataclass(frozen=False)
@@ -139,9 +139,20 @@ def skip(n: int, xs: Iterable[A]) -> Iterable[A]:
         if i >= n:
             yield x
 
-def context(xs: list[A]) -> list[tuple[A | None, A, A | None]]:
+def context(xs: Iterable[A]) -> list[tuple[A | None, A, A | None]]:
     return list(zip(
         [None, None] + xs,        # type: ignore
         [None] + xs + [None],     # type: ignore
         xs + [None, None]))[1:-1] # type: ignore
+
+def partition(cs: Iterable[A], by: Callable[[A], bool]) -> tuple[list[A], list[A]]:
+    y: list[A]
+    n: list[A]
+    y, n = [], []
+    for c in cs:
+        if by(c):
+            y += [c]
+        else:
+            n += [c]
+    return y, n
 

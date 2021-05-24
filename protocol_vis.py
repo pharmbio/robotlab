@@ -1,31 +1,15 @@
 from __future__ import annotations
 from typing import *
 
-from viable import *
+from viable import head, serve, esc, make_classes
+from flask import request
 from collections import *
 import re
+import textwrap
 
-from protocol import *
-
-def make_classes(html):
-    classes = {}
-    def repl(m):
-        decls = textwrap.dedent(m.group(1)).strip()
-        if decls in classes:
-            name = classes[decls]
-        else:
-            name = f'css-{len(classes)}'
-            classes[decls] = name
-        return name
-
-    html_out = re.sub('css="([^"]*)"', repl, html, flags=re.MULTILINE)
-    style = '\n'.join(
-        decls.replace('&', f'[{name}]')
-        if '&' in decls else
-        f'[{name}] {{ {decls} }}'
-        for decls, name in classes.items()
-    )
-    return head(f'<style>{style}</style>'), html_out
+from protocol import Event
+import protocol
+from robots import Config, configs
 
 colors = dict(
     background = '#fff',
@@ -50,7 +34,6 @@ colors = dict(
 
 colors_css = '\n    '.join(f'--{k}: {v};' for k, v in colors.items())
 
-from base64 import b64encode
 stripe_size = 4
 stripe_width = 1.2
 sz = stripe_size
@@ -81,7 +64,9 @@ stripes_dn_faint = f'''
     ' stroke='{colors["color1"]}88' stroke-width='{stripe_width}'/>
   </svg>
 '''
-def b64svg(s):
+
+from base64 import b64encode
+def b64svg(s: str):
     return f"url('data:image/svg+xml;base64,{b64encode(s.encode()).decode()}')"
 
 stripes_html = stripes_up
@@ -100,23 +85,23 @@ def now():
 
 @serve
 def index():
-
     zoom = int(request.args.get('zoom', '200'))
     plates = int(request.args.get('plates', '2'))
-    delay_str = request.args.get('delay', 'auto')
+    delay_str: str = request.args.get('delay', 'auto')
+    delay: Literal['auto'] | int
     if delay_str == 'auto':
-        delay: Literal['auto'] = 'auto'
+        delay = 'auto'
     else:
         delay = int(delay_str)
-    sortby = request.args.get('sortby', 'plate')
+    sortby: str = request.args.get('sortby', 'plate')
 
-    events = cell_paint_many(plates, delay, offset=60)
+    events = protocol.cell_paint_many(plates, delay, offset=60)
 
     def execute(events: list[Event], config: Config) -> None:
         for event in events:
             event.command.execute(config) # some of the execute events are just wait until ready commands
 
-    with_group = []
+    with_group: list[tuple[tuple[int | str | None, ...], Event]] = []
     for index, event in enumerate(events):
         m = event.machine()
         if 'wait' in m:
@@ -137,11 +122,11 @@ def index():
              event)
         ]
 
-    grouped = defaultdict(list)
+    grouped: defaultdict[tuple[int | str | None, ...], list[Event]] = defaultdict(list)
     for g, e in sorted(with_group, key=lambda xy: xy[0]):
         grouped[g] += [e]
 
-    tbl = []
+    tbl: list[str] = []
     for g, events in grouped.items():
         divs = ''
         overlaps = False
@@ -158,7 +143,7 @@ def index():
             )
             color_var = f'--{color.get(machine, "color15")}'
             try:
-                prep = event.command.prep
+                prep = event.command.prep # type: ignore
             except:
                 prep = False
             overlap = event.overlap.value
@@ -206,12 +191,12 @@ def index():
 
                         width: 100000px;
                         position: relative;
-                    ">{dedent(divs)}</td>
+                    ">{textwrap.dedent(divs)}</td>
             </tr>
         ''']
 
     nl = '\n'
-    return head('''
+    yield head('''
         <style>
             body, html {
                 font-family: monospace;
@@ -246,7 +231,8 @@ def index():
                 background-image: ''' + stripes_dn_faint + ''';
             }
         </style>
-    '''), make_classes(f'''
+    ''')
+    yield from make_classes(f'''
         <body style="--zoom: {zoom};">
         <form
             nonchange="set_query(this); refresh()"
