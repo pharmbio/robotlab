@@ -13,7 +13,8 @@ import re
 import socket
 import time
 
-from scriptgenerator import *
+from moves import movelists
+# from scriptgenerator import *
 from robotarm import Robotarm
 from utils import show
 
@@ -184,7 +185,7 @@ class robotarm_cmd(Command):
         if config.robotarm_mode == 'dry run':
             # print('dry run', self)
             return
-        get_robotarm(config).execute_moves(programs[self.program_name])
+        get_robotarm(config).execute_moves(movelists[self.program_name])
 
 @dataclass(frozen=True)
 class wash_cmd(Command):

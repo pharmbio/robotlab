@@ -218,7 +218,7 @@ class MoveList(list[Move]):
                 out += [m]
         return MoveList(out)
 
-    def adjust_tagged(self, tag: str, dz: float) -> MoveList:
+    def adjust_tagged(self, tag: str, *, dz: float) -> MoveList:
         '''
         Adjusts the z in room reference frame for all MoveLin with the given tag.
         '''
@@ -242,30 +242,66 @@ class MoveList(list[Move]):
                     out += [tag]
         return out
 
-movelists: dict[str, list[Move]]
-movelists = {}
+    def expand_hotels(self, name: str) -> dict[str, MoveList]:
+        '''
+        If there is a tag like 19/21 then expand to all heights 1/21, 3/21, .., 21/21
+        The first occurence of 19 in the name is replaced with 1, 3, .., 21, so
+        "lid_h19_put" becomes "lid_h1_put" and so on.
+        '''
+        hotel_dist: float = 70.94
+        out = {}
+        for tag in set(self.tags()):
+            if m := re.match('(\d+)/21$', tag):
+                ref_h = int(m.group(1))
+                assert str(ref_h) in name
+                assert ref_h in [1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21]
+                for h in [1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21]:
+                    dz = (h - ref_h) / 2 * hotel_dist
+                    name_h = name.replace(str(ref_h), str(h), 1)
+                    out[name_h] = self.adjust_tagged(tag, dz=dz)
+        return out
 
-def read_movelists() -> None:
+    def expand_sections(self, base_name: str) -> dict[str, MoveList]:
+        sections: set[tuple[str, ...]] = {tuple()}
+        active: tuple[str, ...] = tuple()
+        with_section: list[tuple[tuple[str, ...], Move]] = []
+        for i, move in enumerate(self):
+            if isinstance(move, Section):
+                active = tuple(move.sections)
+            else:
+                with_section += [(active, move)]
+                for i, _ in enumerate(active):
+                    sections.add(active[:i+1])
 
-    hotel_dist: float = 70.94
+        out: dict[str, MoveList] = {base_name: self}
+        for section in sections:
+            pos = {i for i, (active, _) in enumerate(with_section) if section == active[:len(section)]}
+            maxi = max(pos)
+            assert all(i == maxi or i + 1 in pos for i in pos), f'section {section} not contiguous'
+
+            name = '_'.join([base_name, *section])
+            out[name] = MoveList(m for active, m in with_section if section == active[:len(section)])
+
+        return out
+
+
+
+def read_movelists() -> dict[str, MoveList]:
+
+    movelists: dict[str, MoveList] = {}
 
     for filename in Path('./movelists').glob('*.json'):
         ml = MoveList.from_json_file(filename)
         name = filename.with_suffix('').name
-        for tag in set(ml.tags()):
-            if m := re.match('(\d+)/21$', tag):
-                ref_h = int(m.group(1))
-                assert str(ref_h) in name
-                for h in [1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21]:
-                    dz = (h - ref_h) / 2 * hotel_dist
-                    name_h = name.replace(str(ref_h), str(h), 1)
-                    movelists[name_h] = ml.adjust_tagged(tag, dz)
-        movelists[name] = ml
+
+        for name, ml in ml.expand_sections(name).items():
+            movelists |= ml.expand_hotels(name)
+            movelists[name] = ml
 
     pr(movelists['lid_h21_put'])
     pr(movelists.keys())
 
-    # TODO: expand sections
+    return movelists
 
-read_movelists()
-
+movelists: dict[str, MoveList]
+movelists = read_movelists()

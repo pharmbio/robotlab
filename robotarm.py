@@ -123,7 +123,7 @@ def gripper_code(with_gripper: bool=False) -> str:
             gripper_initialized = True
             ok = socket_open("127.0.0.1", 63352, socket_name="gripper")
             if not ok:
-                gripper_fail("could not open socket")
+                gripper_fail("could not open socket to gripper")
             end
             if get_gripper("STA") != 3:
                 gripper_fail("gripper needs to be activated, STA=", get_gripper("STA"))
@@ -210,22 +210,22 @@ class Robotarm:
     @staticmethod
     def init(host: str, port: int, with_gripper: bool) -> Robotarm:
         print('connecting to robotarm...', end=' ')
-        socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        socket.connect((host, port))
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.connect((host, port))
         print('connected!')
-        return Robotarm(with_gripper, socket)
+        return Robotarm(with_gripper, sock)
 
     with_gripper: bool
-    socket: socket.socket
+    sock: socket.socket
 
     def send(self, prog_str: str) -> Robotarm:
         print(prog_str)
-        self.socket.sendall(prog_str.encode())
+        self.sock.sendall(prog_str.encode())
         return self
 
     def recv(self) -> Iterator[bytes]:
         while True:
-            data = self.socket.recv(4096)
+            data = self.sock.recv(4096)
             for m in re.findall(b'[\x20-\x7e]*(?:log|program|assert|\w+exception|error|\w+_\w+:)[\x20-\x7e]*', data, re.IGNORECASE):
                 m = m.decode()
                 print(f'{m = }')
@@ -238,7 +238,7 @@ class Robotarm:
                 return
 
     def close(self) -> None:
-        self.socket.close()
+        self.sock.close()
 
     def set_speed(self, value: int) -> Robotarm:
         if not (0 < value <= 100):

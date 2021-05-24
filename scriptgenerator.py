@@ -376,7 +376,7 @@ if __name__ == '__main__':
                         dzs[tag] = float(tag[len('dz='):])
                 res: MoveList = self
                 for tag, dz in dzs.items():
-                    res = res.adjust_tagged(tag, dz)
+                    res = res.adjust_tagged(tag, dz=dz)
                 return res
 
             ml = MoveList(movelist)
