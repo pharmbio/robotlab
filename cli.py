@@ -1,9 +1,13 @@
+from __future__ import annotations
+from typing import *
+
 import argparse
 
 from robots import Config, configs
 from utils import show
 
 import robots
+import moves
 from moves import movelists
 
 import protocol
@@ -22,6 +26,7 @@ def main():
 
     parser.add_argument('--list-robotarm-programs', action='store_true', help='List the robot arm programs')
     parser.add_argument('--robotarm', action='store_true', help='Run robot arm')
+    parser.add_argument('--robotarm-send', metavar='STR', type=str, help='Send a raw program to the robot arm')
     parser.add_argument('--robotarm-speed', metavar='N', type=int, default=80, help='Robot arm speed [1-100]')
     parser.add_argument('program_name', type=str, nargs='*', help='Robot arm program name to run')
 
@@ -46,6 +51,12 @@ def main():
                 robots.robotarm_cmd(name).execute(config)
             else:
                 print('Unknown program:', name)
+
+    elif args.robotarm_send:
+        arm = robots.get_robotarm(config)
+        arm.set_speed(args.robotarm_speed)
+        arm.execute_moves([moves.RawCode(args.robotarm_send)], name='raw')
+        arm.close()
 
     elif args.list_robotarm_programs:
         for name in movelists.keys():

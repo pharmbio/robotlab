@@ -119,6 +119,12 @@ class Section(Move):
     def to_script(self) -> str:
         return textwrap.indent(', '.join(self.sections), '# ')
 
+@dataclass(frozen=True)
+class RawCode(Move):
+    code: str
+    def to_script(self) -> str:
+        return self.code
+
 class MoveList(list[Move]):
     '''
     Utility class for dealing with moves in a list
