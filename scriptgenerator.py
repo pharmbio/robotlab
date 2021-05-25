@@ -14,6 +14,11 @@ h21_drop_neu = 'h21 drop neu'
 
 programs: dict[str, list[Move]] = {}
 
+programs[f'neu'] = resolve('scripts/dan_disp_putget.script', [
+    gripper('Gripper Move35% (1)'),
+    movejoint('neu_deli'),
+])
+
 # puts h21 on h11
 programs[f'h11'] = resolve('scripts/dan_lid_21_11.script', [
     section('put', [

@@ -174,6 +174,25 @@ def gripper_code(with_gripper: bool=False) -> str:
         def GripperOpen():
             GripperMove(77)
         end
+
+        def Shake():
+            w = 0.25
+            MoveRel(-0.5,    0, w, w, w, w) w = -w
+            MoveRel(   0, -0.5, w, w, w, w) w = -w
+            MoveRel(   1,    0, w, w, w, w) w = -w
+            MoveRel(   0,    1, w, w, w, w) w = -w
+            MoveRel(  -1,    0, w, w, w, w) w = -w
+            MoveRel(   0,   -1, w, w, w, w) w = -w
+            MoveRel( 0.5,    0, w, w, w, w) w = -w
+            MoveRel(   0,  0.5, w, w, w, w) w = -w
+        end
+
+        def GripperTest():
+            GripperClose() MoveRel(0, 0,  21, 0, 0, 0)
+            Shake()        MoveRel(0, 0, -20, 0, 0, 0)
+            GripperOpen()  MoveRel(0, 0,  20, 0, 0, 0)
+            Shake()        MoveRel(0, 0, -21, 0, 0, 0)
+        end
     '''
 
 

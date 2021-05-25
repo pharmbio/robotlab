@@ -109,6 +109,50 @@ def edit_at(program_name: str, i: int, changes: dict[str, Any]):
     ml[i] = m
     ml.write_json(filename)
 
+@expose
+def keydown(program_name: str, args: dict[str, Any]):
+    i = int(args.pop('selected'))
+    mm: float = 1.0
+    deg: float = 1.0
+    if args.get('ctrlKey'):
+        mm = 10.0
+        deg = 90.0 / 8
+    if args.get('altKey'):
+        mm = 100.0
+        deg = 90.0
+    if args.get('shiftKey'):
+        mm = 0.25
+        deg = 0.25
+    k = str(args['key']).lower()
+    keymap = dict(
+        h=dict(dxyz=[-mm, 0, 0]),
+        t=dict(dxyz=[0,  mm, 0]),
+        n=dict(dxyz=[0, -mm, 0]),
+        s=dict(dxyz=[ mm, 0, 0]),
+        f=dict(dxyz=[0, 0,  mm]),
+        d=dict(dxyz=[0, 0, -mm]),
+        c=dict(drpy=[0, 0, -deg]),
+        r=dict(drpy=[0, 0,  deg]),
+        w=dict(drpy=[0, -deg, 0]),
+        v=dict(drpy=[0,  deg, 0]),
+        j=dict(dpos=[-1]),
+        k=dict(dpos=[1]),
+    )
+    if changes := keymap.get(k):
+        edit_at.call(program_name, i, changes) # type: ignore
+
+    if k == 'm' or k == 'g':
+        filename = get_programs()[program_name]
+        ml = MoveList.from_json_file(filename)
+        m = ml[i]
+        if k == 'm':
+            arm_do.call(m.to_dict()) # type: ignore
+        if k == 'g':
+            arm_do.call( # type: ignore
+                m.to_dict(),
+                moves.RawCode("GripperTest()").to_dict()
+            )
+
 def get_programs() -> dict[str, Path]:
     return {
         path.with_suffix('').name: path
@@ -117,9 +161,22 @@ def get_programs() -> dict[str, Path]:
 
 @serve
 def index() -> Iterator[head | str]:
+    programs = get_programs()
+    program_name = request.args.get('program', next(iter(programs.keys())))
+    ml = MoveList.from_json_file(programs[program_name])
+
     yield '''
         <body
-            onkeydown="console.log(event)"
+            onkeydown="
+                console.log(event)
+                call(''' + keydown(program_name) + ''', {
+                    selected: window.selected,
+                    key: event.key,
+                    ctrlKey: event.ctrlKey,
+                    altKey: event.altKey,
+                    shiftKey: event.shiftKey,
+                })
+            "
             css="
                 & {
                     font-family: monospace;
@@ -144,11 +201,7 @@ def index() -> Iterator[head | str]:
             ">
     '''
 
-    program_name = request.args.get('program', next(iter(get_programs().keys())))
-    programs = get_programs()
-    ml = MoveList.from_json_file(programs[program_name])
-
-    yield '<div css="display: flex; flex-direction: row; flex-wrap: wrap;">'
+    yield '<div css="display: flex; flex-direction: row; flex-wrap: wrap; justify-content: center;">'
     for name in programs.keys():
         yield '''
             <div
@@ -156,6 +209,7 @@ def index() -> Iterator[head | str]:
                     text-align: center;
                     cursor: pointer;
                     padding: 5px 10px;
+                    margin: 0 5px;
                 "
                 css="
                     &[selected] {
@@ -204,8 +258,10 @@ def index() -> Iterator[head | str]:
                         visibility: hidden;
                     }
                 "
-            >
-        '''
+                onmouseover="window.selected=Number(this.dataset.index)"
+            ''' + f'''
+                data-index={i}
+            >'''
 
         yield '<pre style="flex-grow: 3; text-align: center">'
         if isinstance(m_abs, moves.MoveLin) and (xyz := info.get("xyz")) and (rpy := info.get("rpy")):
@@ -223,24 +279,7 @@ def index() -> Iterator[head | str]:
                 onclick=call({
                     arm_do(
                         m.to_dict(),
-                        moves.RawCode(textwrap.dedent("""
-                            def Shake():
-                                w = 0.25
-                                MoveRel(-0.5,    0, w, w, w, w) w = -w
-                                MoveRel(   0, -0.5, w, w, w, w) w = -w
-                                MoveRel(   1,    0, w, w, w, w) w = -w
-                                MoveRel(   0,    1, w, w, w, w) w = -w
-                                MoveRel(  -1,    0, w, w, w, w) w = -w
-                                MoveRel(   0,   -1, w, w, w, w) w = -w
-                                MoveRel( 0.5,    0, w, w, w, w) w = -w
-                                MoveRel(   0,  0.5, w, w, w, w) w = -w
-                            end
-
-                            GripperClose() MoveRel(0, 0,  21, 0, 0, 0)
-                            Shake()        MoveRel(0, 0, -20, 0, 0, 0)
-                            GripperOpen()  MoveRel(0, 0,  20, 0, 0, 0)
-                            Shake()        MoveRel(0, 0, -21, 0, 0, 0)
-                        """)).to_dict()
+                        moves.RawCode("GripperTest()").to_dict()
                     )
                 })
             >grip test</button>
@@ -252,30 +291,8 @@ def index() -> Iterator[head | str]:
                 oninput=call({edit_at(program_name, i)},{{name:event.target.value}}).then(refresh)
             >
             <pre style="flex-grow: 8">{m.to_script()}</pre>
+            </div>
         '''
-
-        buttons = {
-            'x -': dict(dxyz=[-1, 0, 0]),
-            'x +': dict(dxyz=[ 1, 0, 0]),
-            'y -': dict(dxyz=[0, -1, 0]),
-            'y +': dict(dxyz=[0,  1, 0]),
-            'z -': dict(dxyz=[0, 0, -1]),
-            'z +': dict(dxyz=[0, 0,  1]),
-            'Y -': dict(drpy=[0, 0, -1]),
-            'Y +': dict(drpy=[0, 0,  1]),
-            # 'yaw N': dict(drpy=[0, 0, 0]),
-            # 'yaw E': dict(drpy=[0, 0, 90]),
-            # 'yaw W': dict(drpy=[0, 0, 180]),
-            # 'yaw S': dict(drpy=[0, 0, 270]),
-            'P -': dict(drpy=[0, -1, 0]),
-            'P +': dict(drpy=[0,  1, 0]),
-        }
-        buttons.clear()
-        for label, changes in buttons.items():
-            yield f'''
-                <button onclick=call({edit_at(program_name, i, changes)}).then(refresh)>{label}</button>
-            '''
-        yield '</div>'
 
     yield '''
         <div css="

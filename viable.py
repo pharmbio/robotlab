@@ -67,6 +67,7 @@ def expose(f: Callable[..., Any], *args: Any, **kws: Any) -> Callable[..., Any]:
     if args or kws or name.startswith('<lambda>'):   #
         return inner(*args, **kws)                   # type: ignore
     else:                                            #
+        inner.call = lambda *a, **ka: f(*a, **ka)    # type: ignore
         return inner                                 # type: ignore
 
 def serve(f: Callable[..., str | Iterable[head | str]]):
