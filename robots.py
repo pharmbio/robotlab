@@ -163,12 +163,12 @@ class wait_for_timer_cmd(Command):
         else:
             raise ValueError
 
-def get_robotarm(config: Config) -> Robotarm:
+def get_robotarm(config: Config, quiet: bool = False) -> Robotarm:
     if config.robotarm_mode == 'dry run':
-        return Robotarm.init_simulate(with_gripper=True)
+        return Robotarm.init_simulate(with_gripper=True, quiet=quiet)
     assert config.robotarm_mode in {'gripper', 'no gripper'}
     with_gripper = config.robotarm_mode == 'gripper'
-    return Robotarm.init(ENV.robotarm_host, ENV.robotarm_port, with_gripper)
+    return Robotarm.init(ENV.robotarm_host, ENV.robotarm_port, with_gripper, quiet=quiet)
 
 @dataclass(frozen=True)
 class robotarm_cmd(Command):

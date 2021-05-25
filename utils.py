@@ -156,3 +156,21 @@ def partition(cs: Iterable[A], by: Callable[[A], bool]) -> tuple[list[A], list[A
             n += [c]
     return y, n
 
+def round_nnz(x: float, ndigits: int=1) -> float:
+    '''
+    Round and normalize negative zero
+    '''
+    v = round(x, ndigits)
+    if v == -0.0:
+        return 0.0
+    else:
+        return v
+
+def zip_with(f: Callable[[float, float], float], xs: list[float], ys: list[float], ndigits: int=1) -> list[float]:
+    return [round_nnz(f(a, b), ndigits=ndigits) for a, b in zip(xs, ys)]
+
+def zip_sub(xs: list[float], ys: list[float], ndigits: int=1) -> list[float]:
+    return zip_with(lambda a, b: a - b, xs, ys, ndigits=ndigits)
+
+def zip_add(xs: list[float], ys: list[float], ndigits: int=1) -> list[float]:
+    return zip_with(lambda a, b: a + b, xs, ys, ndigits=ndigits)

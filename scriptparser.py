@@ -7,6 +7,7 @@ import textwrap
 from abc import ABC
 from functools import lru_cache
 from utils import show
+import utils
 
 from moves import Move, MoveLin, MoveJoint, GripperMove, Section
 
@@ -89,23 +90,15 @@ def parse_lines(lines: list[str]) -> ParsedScript:
 def resolve(filename: str, steps: list[ScriptStep]) -> list[Move]:
     return list(resolve_parsed(parse(filename), steps))
 
-from scipy.spatial.transform import Rotation, Rotation as R # type: ignore
+from scipy.spatial.transform import Rotation, Rotation # type: ignore
 
-nice_trf : Rotation
-nice_trf = R.from_euler("xyz", [-90, 90, 0], degrees=True)
+R = cast(Any, Rotation)
+
+nice_trf: Rotation
+nice_trf = R.from_euler("xyz", [-90, 90, 0], degrees=True)  # type: ignore
 
 nice_trf_pose : list[float]
-nice_trf_pose = [0, 0, 0, nice_trf.as_rotvec()]
-
-def round_nnz(x: float, ndigits: int=1) -> float:
-    '''
-    Round and normalize negative zero
-    '''
-    v = round(x, ndigits)
-    if v == -0.0:
-        return 0.0
-    else:
-        return v
+nice_trf_pose = [0, 0, 0, nice_trf.as_rotvec()] # type: ignore
 
 def make_nice(in_zero_trf: list[float]) -> tuple[list[float], list[float]]:
     '''
@@ -116,12 +109,12 @@ def make_nice(in_zero_trf: list[float]) -> tuple[list[float], list[float]]:
     ([605.8, -720.1, 233.8], [-0.8, -4.0, 90.1])
     '''
     xyz_m = in_zero_trf[:3]
-    xyz = [round_nnz(c * 1000, 1) for c in xyz_m]
+    xyz = [utils.round_nnz(c * 1000, 1) for c in xyz_m]
     rv = in_zero_trf[3:]
     rv_R = R.from_rotvec(rv)
-    in_nice_R = rv_R * nice_trf
-    rpy = in_nice_R.as_euler('xyz', degrees=True)
-    rpy = [round_nnz(c, 1) for c in rpy]
+    in_nice_R = rv_R * nice_trf                                # type: ignore
+    rpy: list[float] = in_nice_R.as_euler('xyz', degrees=True) # type: ignore
+    rpy = [utils.round_nnz(c, 1) for c in rpy]
     return xyz, rpy
 
 import math

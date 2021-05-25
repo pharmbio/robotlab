@@ -19,7 +19,7 @@ __serializer = URLSafeSerializer(secrets.token_hex(32)) # type: ignore
 class head:
     content: str
 
-def make_classes(html: str) -> Iterable[str | head]:
+def make_classes(html: str) -> tuple[head, str]:
     classes: dict[str, str] = {}
     def repl(m: re.Match[str]) -> str:
         decls = textwrap.dedent(m.group(1)).strip()
@@ -37,7 +37,7 @@ def make_classes(html: str) -> Iterable[str | head]:
         f'[{name}] {{ {decls} }}'
         for decls, name in classes.items()
     )
-    return [head(f'<style>{style}</style>'), html_out]
+    return head(f'<style>{style}</style>'), html_out
 
 app = Flask(__name__)
 
@@ -185,7 +185,7 @@ def serve(f: Callable[..., str | Iterable[head | str]]):
                         const doc = parser.parseFromString(text, "text/html")
                         morph(document.head, doc.head)
                         morph(document.body, doc.body)
-                        for (let script of document.querySelectorAll('script[eval]')) {
+                        for (const script of document.querySelectorAll('script[eval]')) {
                             const global_eval = eval
                             global_eval(script.textContent)
                         }
@@ -203,6 +203,7 @@ def serve(f: Callable[..., str | Iterable[head | str]]):
                     }
                 }
             }
+            window.refresh = refresh
             async function long_poll() {
                 try {
                     while (await fetch('/ping'));
@@ -301,6 +302,8 @@ def serve(f: Callable[..., str | Iterable[head | str]]):
             heads += ['<link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgo=">']
         if bodies and not bodies[0].lstrip().startswith('<body'):
             bodies = ['<body>', *bodies, '</body>']
+        css_head, body = make_classes('\n'.join(bodies))
+        head_str = '\n'.join([*heads, css_head.content])
         html = textwrap.dedent('''
             <!doctype html>
             <html lang="en">
@@ -311,10 +314,7 @@ def serve(f: Callable[..., str | Iterable[head | str]]):
             </head>
             {body}
             </html>
-        ''').strip().format(
-            head='\n'.join(heads),
-            body='\n'.join(bodies)
-        )
+        ''').strip().format(head=head_str, body=body)
         if 'gzip' in request.accept_encodings:
             return gzip.compress(html.encode()), {'Content-Encoding': 'gzip'}
         else:

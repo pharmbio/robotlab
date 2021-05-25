@@ -214,19 +214,20 @@ def make_script(movelist: list[Move], with_gripper: bool, name: str='script') ->
 class Robotarm:
 
     @staticmethod
-    def init(host: str, port: int, with_gripper: bool) -> Robotarm:
-        print('connecting to robotarm...', end=' ')
+    def init(host: str, port: int, with_gripper: bool, quiet: bool = False) -> Robotarm:
+        quiet or print('connecting to robotarm...', end=' ')
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.connect((host, port))
-        print('connected!')
-        return Robotarm(with_gripper, sock)
+        quiet or print('connected!')
+        return Robotarm(with_gripper, sock, quiet)
 
     @staticmethod
-    def init_simulate(with_gripper: bool) -> Robotarm:
-        return Robotarm(with_gripper, 'simulate')
+    def init_simulate(with_gripper: bool, quiet: bool = False) -> Robotarm:
+        return Robotarm(with_gripper, 'simulate', quiet)
 
     with_gripper: bool
     sock: socket.socket | Literal['simulate']
+    quiet: bool = False
 
     def send(self, prog_str: str) -> Robotarm:
         prog_bytes = prog_str.encode()
@@ -243,7 +244,7 @@ class Robotarm:
             data = self.sock.recv(4096)
             for m in re.findall(rb'[\x20-\x7e]*(?:log|program|assert|\w+exception|error|\w+_\w+:)[\x20-\x7e]*', data, re.IGNORECASE):
                 m = m.decode()
-                print(f'{m = }')
+                self.quiet or print(f'{m = }')
             yield data
 
     def recv_until(self, needle: str) -> None:
@@ -251,7 +252,7 @@ class Robotarm:
             return
         for data in self.recv():
             if needle.encode() in data:
-                print(f'received {needle}')
+                self.quiet or print(f'received {needle}')
                 return
 
     def close(self) -> None:

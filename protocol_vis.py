@@ -232,7 +232,7 @@ def index() -> Iterator[head | str]:
             }
         </style>
     ''')
-    yield from make_classes(f'''
+    yield f'''
         <body style="--zoom: {zoom};">
         <form
             nonchange="set_query(this); refresh()"
@@ -302,5 +302,5 @@ def index() -> Iterator[head | str]:
                 position: fixed;
             "
             ></pre>
-    ''')
+    '''
 
