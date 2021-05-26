@@ -151,8 +151,8 @@ def keydown(program_name: str, args: dict[str, Any]):
         m = ml[i]
         if isinstance(m, (moves.MoveLin, moves.MoveRel)):
             v = asdict(m)
-            v['xyz'] = polled_info['xyz']
-            v['rpy'] = polled_info['rpy']
+            v['xyz'] = [utils.round_nnz(v, 1) for v in polled_info['xyz']]
+            v['rpy'] = [utils.round_nnz(v, 1) for v in polled_info['rpy']]
             ml = MoveList(ml)
             ml[i] = moves.MoveLin(**v)
             ml.write_json(filename)
@@ -164,7 +164,7 @@ def keydown(program_name: str, args: dict[str, Any]):
             ml.write_json(filename)
         elif isinstance(m, (moves.MoveJoint)):
             v = asdict(m)
-            v['joints'] = polled_info['joints']
+            v['joints'] = [utils.round_nnz(v, 1) for v in polled_info['joints']]
             ml = MoveList(ml)
             ml[i] = moves.MoveJoint(**v)
             ml.write_json(filename)
