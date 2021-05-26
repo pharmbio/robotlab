@@ -27,8 +27,8 @@ import logging
 log = logging.getLogger('werkzeug')
 log.setLevel(logging.ERROR)
 
-config: Config = configs['live_robotarm_no_gripper']
-# config: Config = configs['live_robotarm_only']
+# config: Config = configs['live_robotarm_no_gripper']
+config: Config = configs['live_robotarm_only']
 
 utils.pr(config)
 
@@ -39,7 +39,7 @@ polled_info: dict[str, list[float]] = {}
 
 @spawn
 def poll() -> None:
-    arm = robots.get_robotarm(config, quiet=True)
+    arm = robots.get_robotarm(config, quiet=False)
     while True:
         arm.send(robotarm.reindent('''
             sec poll():
@@ -49,22 +49,28 @@ def poll() -> None:
                 xyz = [p[0]*1000, p[1]*1000, p[2]*1000]
                 q = get_actual_joint_positions()
                 q = [r2d(q[0]), r2d(q[1]), r2d(q[2]), r2d(q[3]), r2d(q[4]), r2d(q[5])]
+                tick = 1 + read_output_integer_register(1)
+                write_output_integer_register(1, tick)
                 textmsg("poll {" +
                     "'xyz': " + to_str(xyz) + ", " +
                     "'rpy': " + to_str(rpy) + ", " +
                     "'joints': " + to_str(q) + ", " +
                     "'pos': " + to_str([read_output_integer_register(0)]) + ", " +
+                    "'tick': " + to_str([floor(tick / 4) % 9 + 1]) + ", " +
                 "}")
             end
         '''))
         for b in arm.recv():
             if m := re.search(rb'poll (.*\})', b):
-                v = m.group(1).decode()
                 # print('poll:', v)
-                polled_info.update(ast.literal_eval(v))
+                try:
+                    v = m.group(1).decode(errors='replace')
+                    polled_info.update(ast.literal_eval(v))
+                except:
+                    import traceback as tb
+                    tb.print_exc()
                 break
         # arm.close()
-        # time.sleep(0.1)
 
 _A = TypeVar('_A')
 
@@ -103,7 +109,7 @@ def edit_at(program_name: str, i: int, changes: dict[str, Any]):
 def keydown(program_name: str, args: dict[str, Any]):
     mm: float = 1.0
     deg: float = 1.0
-    if args.get('ctrlKey') or args.get('metaKey'):
+    if args.get('ctrlKey'):
         mm = 10.0
         deg = 90.0 / 8
     if args.get('altKey'):
@@ -125,6 +131,8 @@ def keydown(program_name: str, args: dict[str, Any]):
         Insert     = moves.MoveRel(xyz=[0, 0, 0], rpy=[0, -deg, 0]),
         Delete     = moves.MoveRel(xyz=[0, 0, 0], rpy=[0,  deg, 0]),
         j          = moves.RawCode(f'GripperMove(read_output_integer_register(0) - {int(mm)})'),
+        c          = moves.RawCode(f'GripperMove(read_output_integer_register(0) + {int(mm)})'),
+        r          = moves.RawCode(f'GripperMove(read_output_integer_register(0) - {int(mm)})'),
         k          = moves.RawCode(f'GripperMove(read_output_integer_register(0) + {int(mm)})'),
     )
     keymap |= {k.upper(): v for k, v in keymap.items()}
@@ -137,7 +145,7 @@ def keydown(program_name: str, args: dict[str, Any]):
         )
 
     i = catch(lambda: int(args.pop('selected')))
-    if i is not None and k in {'m', ' '}:
+    if i is not None and k in {'b', 'm'}:
         filename = get_programs()[program_name]
         ml = MoveList.from_json_file(filename)
         m = ml[i]
@@ -179,7 +187,7 @@ def index() -> Iterator[head | str]:
             onkeydown="
                 if (event.target.tagName == 'INPUT') {
                     console.log('keydown event handled by input', event)
-                } else if (event.key.match(/F\d+|^[a-iln-z]$|Tab|Enter|Escape/)) {
+                } else if (event.repeat || event.metaKey || event.key.match(/F\d+|^[^bmjkcr]$|Tab|Enter|Escape|Meta|Control|Alt|Shift/)) {
                     console.log('keydown event passed on', event)
                 } else {
                     event.preventDefault()
@@ -190,7 +198,6 @@ def index() -> Iterator[head | str]:
                         ctrlKey: event.ctrlKey,
                         altKey: event.altKey,
                         shiftKey: event.shiftKey,
-                        metaKey: event.metaKey,
                     })
                 }
             "
@@ -322,7 +329,7 @@ def index() -> Iterator[head | str]:
 
         yield f'''
             <button
-                style="flex-grow: 0.8"
+                style="flex-grow: 1.2"
                 {"" if show_grip_test else "hide"}
                 onclick=call({
                     arm_do(
@@ -333,7 +340,7 @@ def index() -> Iterator[head | str]:
             >grip test</button>
             <button
                 {"" if show_go_btn else "hide"}
-                style="flex-grow: 0.4" onclick=call({arm_do(m.to_dict())})>go</button>
+                style="flex-grow: 0.8" onclick=call({arm_do(m.to_dict())})>go</button>
         '''
 
 
@@ -347,7 +354,7 @@ def index() -> Iterator[head | str]:
             >
         '''
         if isinstance(m, moves.Section):
-            yield '''<div style="flex-grow: 6; display: flex; margin-top: 12px; padding-bottom: 4px;"
+            yield '''<div style="flex-grow: 5; display: flex; margin-top: 12px; padding-bottom: 4px;"
                 css="
                     & button {
                         padding: 1px 14px 5px;
@@ -371,7 +378,7 @@ def index() -> Iterator[head | str]:
             yield f'''</div>'''
         else:
             yield f'''
-                <code style="flex-grow: 6">{m.to_script()}</code>
+                <code style="flex-grow: 5">{m.to_script()}</code>
             '''
         yield '''
             </div>
@@ -403,8 +410,15 @@ def index() -> Iterator[head | str]:
 
         <div style="flex-grow: 1"></div>
 
-        <button onclick=call({arm_do(moves.RawCode("freedrive_mode()").to_dict())}).then(refresh)>enter freedrive</button>
-        <button onclick=call({arm_do(moves.RawCode("end_freedrive_mode()").to_dict())}).then(refresh)>exit freedrive</button>
+        <button onclick=call({arm_do(moves.RawCode("freedrive_mode() sleep(3600)").to_dict())}).then(refresh)>enter freedrive</button>
+
+            <button
+                onclick=call({
+                    arm_do(
+                        moves.RawCode("EnsureRelPos() GripperTest()").to_dict(),
+                    )
+                })
+            >grip test</button>
         </div>
     '''
 
