@@ -127,16 +127,17 @@ def gripper_code(with_gripper: bool=False) -> str:
         end
 
         def Shake():
-            w = -0.5 MoveRel(w, w, w, w/4, w/4, w/4)
-            w =  1.0 MoveRel(w, w, w, w/4, w/4, w/4)
-            w = -0.5 MoveRel(w, w, w, w/4, w/4, w/4)
+            w = -0.2 MoveRel(w, w, w, w/4, w/4, w/4)
+            w =  0.4 MoveRel(w, w, w, w/4, w/4, w/4)
+            w = -0.2 MoveRel(w, w, w, w/4, w/4, w/4)
         end
 
         def GripperTest():
             start_pos = read_output_integer_register(0)
-            GripperMove(255)       MoveRel(0, 0,  21.0, 0, 0, 0)
-            Shake()                MoveRel(0, 0, -20.5, 0, 0, 0)
-            GripperMove(start_pos) MoveRel(0, 0,  -0.5, 0, 0, 0)
+            d = 14.0
+            GripperMove(255)       MoveRel(0, 0,  d,       0, 0, 0)
+            Shake()                MoveRel(0, 0, -d + 0.5, 0, 0, 0)
+            GripperMove(start_pos) MoveRel(0, 0,     -0.5, 0, 0, 0)
         end
     '''
 

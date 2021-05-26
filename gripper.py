@@ -1451,7 +1451,7 @@ gripper_code = str('''
       end
       status_checked[0] = 1
     end
-    rq_set_pos_spd_for(pos, 255, 0, "1")
+    rq_set_pos_spd_for(pos, 0, 0, "1")
     rq_go_to("1")
     rq_wait("1")
     gripper_1_selected = True

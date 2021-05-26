@@ -328,7 +328,7 @@ def index() -> Iterator[head | str]:
         show_go_btn = not isinstance(m, moves.Section)
 
         yield f'''
-            <button
+            <button tabindex=-1
                 style="flex-grow: 1.2"
                 {"" if show_grip_test else "hide"}
                 onclick=call({
@@ -338,7 +338,7 @@ def index() -> Iterator[head | str]:
                     )
                 })
             >grip test</button>
-            <button
+            <button tabindex=-1
                 {"" if show_go_btn else "hide"}
                 style="flex-grow: 0.8" onclick=call({arm_do(m.to_dict())})>go</button>
         '''
@@ -363,14 +363,14 @@ def index() -> Iterator[head | str]:
                         font-size: 16px;
                     }
                 ">'''
-            yield f'''<button
+            yield f'''<button tabindex=-1
                     onclick="update_query({{ section: '' }})"
                     style="cursor: pointer;"
                     >{program_name}</button>'''
             seen: list[str] = []
             for s in m.sections:
                 seen += [s]
-                yield f'''<button
+                yield f'''<button tabindex=-1
                     onclick="update_query({{ section: {' '.join(seen)!r} }})"
                     style="cursor: pointer;"
                     >{s}</button>'''
@@ -400,19 +400,19 @@ def index() -> Iterator[head | str]:
             }
         ">
     ''' + f'''
-        <button onclick=call({edit_at(program_name, 0, dict(to_rel=True))}).then(refresh)>to_rel</button>
-        <button onclick=call({edit_at(program_name, 0, dict(to_abs=True))}).then(refresh)>to_abs</button>
+        <button tabindex=-1 onclick=call({edit_at(program_name, 0, dict(to_rel=True))}).then(refresh)>to_rel</button>
+        <button tabindex=-1 onclick=call({edit_at(program_name, 0, dict(to_abs=True))}).then(refresh)>to_abs</button>
 
         <div style="flex-grow: 1"></div>
 
-        <button onclick=call({arm_do(*[m.to_dict() for m in visible_moves])}).then(refresh)>run program</button>
-        <button onclick=call({arm_do()}).then(refresh)>stop robot</button>
+        <button tabindex=-1 onclick=call({arm_do(*[m.to_dict() for m in visible_moves])}).then(refresh)>run program</button>
+        <button tabindex=-1 onclick=call({arm_do()}).then(refresh)>stop robot</button>
 
         <div style="flex-grow: 1"></div>
 
-        <button onclick=call({arm_do(moves.RawCode("freedrive_mode() sleep(3600)").to_dict())}).then(refresh)>enter freedrive</button>
+        <button tabindex=-1 onclick=call({arm_do(moves.RawCode("freedrive_mode() sleep(3600)").to_dict())}).then(refresh)>enter freedrive</button>
 
-            <button
+            <button tabindex=-1
                 onclick=call({
                     arm_do(
                         moves.RawCode("EnsureRelPos() GripperTest()").to_dict(),
