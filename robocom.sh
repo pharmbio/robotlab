@@ -202,7 +202,7 @@ note '
 function sync-files {
     set -x
     rsync -rtuv ./* robotlab:robot-remote-control
-    rsync -rtuv robotlab:robot-remote-control/ .
+    # rsync -rtuv robotlab:robot-remote-control/ .
 }
 
 note '
@@ -223,14 +223,14 @@ note '
     Get a plate from the incubator
 '
 function incu-get {
-    python cli.py --incu-get "$1"
+    python cli.py --config live-execute-all --incu-get "$1"
 }
 
 note '
     Put a plate into the incubator
 '
 function incu-put {
-    python cli.py --incu-put "$1"
+    python cli.py --config live-execute-all --incu-put "$1"
 }
 
 main () {

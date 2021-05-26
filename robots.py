@@ -266,7 +266,7 @@ class wait_for_ready_cmd(Command):
     machine: Literal['disp', 'wash', 'incu']
     def execute(self, config: Config) -> None:
         mode = getattr(config, self.machine + '_mode')
-        if mode == 'execute':
+        if mode in ('execute', 'simulate'):
             while not is_ready(self.machine, config):
                 time.sleep(0.1)
         elif mode == 'dry run':
