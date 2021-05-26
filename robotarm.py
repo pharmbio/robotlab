@@ -7,6 +7,9 @@ from moves import Move, MoveList
 
 import re
 import socket
+import gripper
+
+        # printf '%s\n' 'def u():' ' socket_open("127.0.0.1", 63352, socket_name="gripper")' ' socket_send_line("SET " + "POS" + " " + to_str(77), socket_name="gripper")' 'end' | nc localhost 30001
 
 prelude = '''
     set_gravity([0.0, 0.0, 9.82])
@@ -26,6 +29,8 @@ prelude = '''
     set_tool_digital_output_mode(1, 1)
     set_tool_voltage(0)
     set_safety_mode_transition_hardness(1)
+
+    set_tool_voltage(24) # urk
 
     global last_xyz = [0, 0, 0]
     global last_rpy = [0, 0, 0]
@@ -79,94 +84,20 @@ def gripper_code(with_gripper: bool=False) -> str:
         GripperMove,
         GripperClose,
         GripperOpen,
-        GripperSocketCleanup.
 
-    They initialize the gripper socket and variables when called the first time.
-    Exception: cleanup does not force initialization.
     '''
 
-    return f'''
-        def gripper_fail(msg1, msg2=""):
-            msg = str_cat(msg1, msg2)
-            textmsg("log gripper fail ", msg)
-            popup(str_cat("Gripper fail ", msg), error=True)
-            halt
-        end
-
-        gripper_initialized = False
-
-        def get_gripper(varname):
-            if not gripper_initialized:
-                gripper_init()
-            end
-            socket_send_line(str_cat("GET ", varname), socket_name="gripper") # send "GET PRE\\n"
-            s = socket_read_string(socket_name="gripper")  # recv "PRE 077\\n"
-            s = str_sub(s, 4)                              # drop "PRE "
-            s = str_sub(s, 0, str_len(s) - 1)              # drop "\\n"
-            value = to_num(s)
-            return value
-        end
-
-        def set_gripper(varname, value):
-            if not gripper_initialized:
-                gripper_init()
-            end
-            socket_set_var(varname, value, socket_name="gripper") # send "SET POS 77\\n"
-            ack_bytes = socket_read_byte_list(3, socket_name="gripper", timeout=0.1)
-            ack = ack_bytes == [3, 97, 99, 107] # 3 bytes received, then ascii for "ack"
-            if not ack:
-                gripper_fail("gripper request did not ack for var ", varname)
-            end
-        end
-
-        def gripper_init():
-            gripper_initialized = True
-            ok = socket_open("127.0.0.1", 63352, socket_name="gripper")
-            if not ok:
-                gripper_fail("could not open socket to gripper")
-            end
-            if get_gripper("STA") != 3:
-                gripper_fail("gripper needs to be activated, STA=", get_gripper("STA"))
-            end
-            if get_gripper("FLT") != 0:
-                gripper_fail("gripper fault, FLT=", get_gripper("FLT"))
-            end
-
-            set_gripper("GTO", 1)
-            set_gripper("SPE", 0)
-            set_gripper("FOR", 0)
-            set_gripper("MSC", 0)
-        end
-
-        def GripperSocketCleanup():
-            # I don't think we actually need this: the robotiq gripper script
-            # never explicitly closes the socket so we shouldn't need to either
-            if gripper_initialized:
-                socket_close(socket_name="gripper")
-            end
-        end
-
-        def GripperMove(pos):
-            if {not with_gripper}:
+    if with_gripper:
+        code = gripper.gripper_code
+    else:
+        code = '''
+            def GripperMove(pos):
                 textmsg("log gripper simulated, pretending to move to ", pos)
                 sleep(0.1)
-                return None
             end
-            set_gripper("POS", pos)
-            while (get_gripper("PRE") != pos):
-                sleep(0.02)
-            end
-            while (get_gripper("OBJ") == 0):
-                sleep(0.02)
-            end
-            if get_gripper("OBJ") != 3:
-                gripper_fail("gripper move complete but OBJ != 3, OBJ=", get_gripper("OBJ"))
-            end
-            if get_gripper("FLT") != 0:
-                gripper_fail("gripper fault FLT=", get_gripper("FLT"))
-            end
-        end
+        '''
 
+    return code + '''
         def GripperClose():
             GripperMove(255)
         end
@@ -181,17 +112,14 @@ def gripper_code(with_gripper: bool=False) -> str:
             MoveRel(   0, -0.5, w, w, w, w) w = -w
             MoveRel(   1,    0, w, w, w, w) w = -w
             MoveRel(   0,    1, w, w, w, w) w = -w
-            MoveRel(  -1,    0, w, w, w, w) w = -w
-            MoveRel(   0,   -1, w, w, w, w) w = -w
-            MoveRel( 0.5,    0, w, w, w, w) w = -w
-            MoveRel(   0,  0.5, w, w, w, w) w = -w
+            MoveRel(-0.5,    0, w, w, w, w) w = -w
+            MoveRel(   0, -0.5, w, w, w, w) w = -w
         end
 
         def GripperTest():
             GripperClose() MoveRel(0, 0,  21, 0, 0, 0)
             Shake()        MoveRel(0, 0, -20, 0, 0, 0)
-            GripperOpen()  MoveRel(0, 0,  20, 0, 0, 0)
-            Shake()        MoveRel(0, 0, -21, 0, 0, 0)
+            GripperOpen()  MoveRel(0, 0,  -1, 0, 0, 0)
         end
     '''
 
@@ -224,7 +152,6 @@ def make_script(movelist: list[Move], with_gripper: bool, name: str='script') ->
             {prelude}
             {gripper_code(with_gripper)}
             {body}
-            GripperSocketCleanup()
             textmsg("log {name} done")
         end
     ''')
@@ -295,4 +222,4 @@ class Robotarm:
     def execute_moves(self, movelist: list[Move], name: str='script') -> None:
         self.send(make_script(movelist, self.with_gripper, name=name))
         self.recv_until(f'log {name} done')
-        self.close()
+        # self.close()

@@ -27,7 +27,8 @@ import logging
 log = logging.getLogger('werkzeug')
 log.setLevel(logging.ERROR)
 
-config: Config = configs['live_robotarm_no_gripper']
+# config: Config = configs['live_robotarm_no_gripper']
+config: Config = configs['live_robotarm_only']
 
 def spawn(f: Callable[[], None]) -> None:
     threading.Thread(target=f, daemon=True).start()
@@ -73,7 +74,7 @@ def catch(m: Callable[[], _A], default: _A=None) -> _A:
 @expose
 def arm_do(*ms: dict[str, Any]):
     arm = robots.get_robotarm(config)
-    arm.set_speed(80)
+    # arm.set_speed(10)
     arm.execute_moves([Move.from_dict(m) for m in ms], name='gui')
     arm.close()
 
@@ -135,8 +136,8 @@ def keydown(program_name: str, args: dict[str, Any]):
         r=dict(drpy=[0, 0,  deg]),
         w=dict(drpy=[0, -deg, 0]),
         v=dict(drpy=[0,  deg, 0]),
-        j=dict(dpos=[-1]),
-        k=dict(dpos=[1]),
+        j=dict(dpos=-1),
+        k=dict(dpos=1),
     )
     if changes := keymap.get(k):
         edit_at.call(program_name, i, changes) # type: ignore
@@ -268,7 +269,7 @@ def index() -> Iterator[head | str]:
             dx, dy, dz = dxyz = utils.zip_sub(m_abs.xyz, xyz, ndigits=6)
             drpy = utils.zip_sub(m_abs.rpy, rpy, ndigits=6)
             dist = math.sqrt(sum(c*c for c in dxyz))
-            yield f'({dx: 4.0f}, {dy: 4.0f}, {dz: 4.0f})' #   {dist: 5.0f}  '
+            yield f'({dx: 6.1f}, {dy: 6.1f}, {dz: 6.1f})' #   {dist: 5.0f}  '
         yield '</pre>'
 
         show_grip_test = catch(lambda: isinstance(ml[i+1], moves.GripperMove))
