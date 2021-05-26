@@ -30,8 +30,6 @@ prelude = '''
     set_tool_voltage(0)
     set_safety_mode_transition_hardness(1)
 
-    set_tool_voltage(24) # urk
-
     global last_xyz = [0, 0, 0]
     global last_rpy = [0, 0, 0]
     global last_lin = False
@@ -60,6 +58,22 @@ prelude = '''
             last_rpy[0] + r, last_rpy[1] + p, last_rpy[2] + yaw,
             slow=slow
         )
+    end
+
+    def EnsureRelPos():
+        if not last_lin:
+            while not is_steady():
+                sync()
+            end
+            p = get_actual_tcp_pose()
+            rpy = rotvec2rpy([p[3], p[4], p[5]])
+            rpy = [r2d(rpy[0]), r2d(rpy[1]), r2d(rpy[2])]
+            xyz = [p[0]*1000, p[1]*1000, p[2]*1000]
+            last_xyz = xyz
+            last_rpy = rpy
+            last_lin = True
+            textmsg("log set reference pos to " + to_str(xyz) + " " + to_str(rpy))
+        end
     end
 
     def MoveJoint(q1, q2, q3, q4, q5, q6, slow=False):
@@ -92,7 +106,13 @@ def gripper_code(with_gripper: bool=False) -> str:
     else:
         code = '''
             def GripperMove(pos):
+                if pos > 255:
+                    pos = 255
+                elif pos < 0:
+                    pos = 0
+                end
                 textmsg("log gripper simulated, pretending to move to ", pos)
+                write_output_integer_register(0, pos)
                 sleep(0.1)
             end
         '''
@@ -107,19 +127,15 @@ def gripper_code(with_gripper: bool=False) -> str:
         end
 
         def Shake():
-            w = 0.25
-            MoveRel(-0.5,    0, w, w, w, w) w = -w
-            MoveRel(   0, -0.5, w, w, w, w) w = -w
-            MoveRel(   1,    0, w, w, w, w) w = -w
-            MoveRel(   0,    1, w, w, w, w) w = -w
-            MoveRel(-0.5,    0, w, w, w, w) w = -w
-            MoveRel(   0, -0.5, w, w, w, w) w = -w
+            w = -0.5 MoveRel(w, w, w, w/4, w/4, w/4)
+            w =  1.0 MoveRel(w, w, w, w/4, w/4, w/4)
+            w = -0.5 MoveRel(w, w, w, w/4, w/4, w/4)
         end
 
         def GripperTest():
-            GripperClose() MoveRel(0, 0,  21, 0, 0, 0)
-            Shake()        MoveRel(0, 0, -20, 0, 0, 0)
-            GripperOpen()  MoveRel(0, 0,  -1, 0, 0, 0)
+            GripperClose() MoveRel(0, 0,  21.0, 0, 0, 0)
+            Shake()        MoveRel(0, 0, -20.5, 0, 0, 0)
+            GripperOpen()  MoveRel(0, 0,  -0.5, 0, 0, 0)
         end
     '''
 
@@ -139,7 +155,7 @@ def reindent(s: str) -> str:
             i += 2
     return '\n'.join(out) + '\n'  # final newline required when sending on socket
 
-def make_script(movelist: list[Move], with_gripper: bool, name: str='script') -> str:
+def make_script(movelist: list[Move], with_gripper: bool, name: str='script', def_or_sec: str='def') -> str:
     body = '\n'.join(
         ("# " + getattr(m, 'name') + '\n' if hasattr(m, 'name') else '')
         + m.to_script()
@@ -148,7 +164,7 @@ def make_script(movelist: list[Move], with_gripper: bool, name: str='script') ->
     print(body)
     assert re.match(r'(?!\d)\w*$', name)
     return reindent(f'''
-        def {name}():
+        {def_or_sec} {name}():
             {prelude}
             {gripper_code(with_gripper)}
             {body}
@@ -161,7 +177,7 @@ class Robotarm:
 
     @staticmethod
     def init(host: str, port: int, with_gripper: bool, quiet: bool = False) -> Robotarm:
-        quiet or print('connecting to robotarm...', end=' ')
+        quiet or print('connecting to robotarm...', locals(), end=' ')
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.connect((host, port))
         quiet or print('connected!')
@@ -219,7 +235,7 @@ class Robotarm:
         '''))
         return self
 
-    def execute_moves(self, movelist: list[Move], name: str='script') -> None:
-        self.send(make_script(movelist, self.with_gripper, name=name))
+    def execute_moves(self, movelist: list[Move], name: str='script', def_or_sec: str='def') -> None:
+        self.send(make_script(movelist, self.with_gripper, name=name, def_or_sec=def_or_sec))
         self.recv_until(f'log {name} done')
         # self.close()

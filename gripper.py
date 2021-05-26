@@ -1431,6 +1431,11 @@ gripper_code = str('''
   # end: URCap Installation Node
 
   def GripperMove(pos):
+    if pos > 255:
+      pos = 255
+    elif pos < 0:
+      pos = 0
+    end
     gripper_1_used = True
     if (connectivity_checked[0] != 1):
       gripper_id_ascii = rq_gripper_id_to_ascii("1")
@@ -1457,5 +1462,7 @@ gripper_code = str('''
     gripper_2_used = False
     gripper_3_used = False
     gripper_4_used = False
+    pos = rq_current_pos()
+    write_output_integer_register(0, pos)  # save position for pharmbio GUI
   end
 ''')

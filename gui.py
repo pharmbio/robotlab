@@ -27,8 +27,8 @@ import logging
 log = logging.getLogger('werkzeug')
 log.setLevel(logging.ERROR)
 
-# config: Config = configs['live_robotarm_no_gripper']
-config: Config = configs['live_robotarm_only']
+config: Config = configs['live_robotarm_no_gripper']
+# config: Config = configs['live_robotarm_only']
 
 def spawn(f: Callable[[], None]) -> None:
     threading.Thread(target=f, daemon=True).start()
@@ -51,6 +51,7 @@ def poll() -> None:
                     "'xyz': " + to_str(xyz) + ", " +
                     "'rpy': " + to_str(rpy) + ", " +
                     "'joints': " + to_str(q) + ", " +
+                    "'pos': " + to_str([read_output_integer_register(0)]) + ", " +
                 "}")
             end
         '''))
@@ -74,7 +75,6 @@ def catch(m: Callable[[], _A], default: _A=None) -> _A:
 @expose
 def arm_do(*ms: dict[str, Any]):
     arm = robots.get_robotarm(config)
-    # arm.set_speed(10)
     arm.execute_moves([Move.from_dict(m) for m in ms], name='gui')
     arm.close()
 
@@ -86,19 +86,6 @@ def edit_at(program_name: str, i: int, changes: dict[str, Any]):
     for k, v in changes.items():
         if k in 'rpy xyz joints name slow pos tag sections'.split():
             m = replace(m, **{k: v})
-        elif k in 'dxyz drpy djoints'.split():
-            key = k[1:]
-            now = getattr(m, key)
-            next = [ round(a + b, 2) for a, b in zip(now, v) ]
-            m = replace(m, **{key: next})
-        elif k in 'dpos'.split():
-            key = k[1:]
-            now = getattr(m, key)
-            next = now + v
-            if key in 'pos'.split():
-                next = min(next, 255)
-                next = max(next, 0)
-            m = replace(m, **{key: next})
         elif k == 'to_abs':
             ml = ml.to_abs()
         elif k == 'to_rel':
@@ -112,10 +99,9 @@ def edit_at(program_name: str, i: int, changes: dict[str, Any]):
 
 @expose
 def keydown(program_name: str, args: dict[str, Any]):
-    i = int(args.pop('selected'))
     mm: float = 1.0
     deg: float = 1.0
-    if args.get('ctrlKey'):
+    if args.get('ctrlKey') or args.get('metaKey'):
         mm = 10.0
         deg = 90.0 / 8
     if args.get('altKey'):
@@ -124,35 +110,54 @@ def keydown(program_name: str, args: dict[str, Any]):
     if args.get('shiftKey'):
         mm = 0.25
         deg = 0.25
-    k = str(args['key']).lower()
+    k = str(args['key'])
     keymap = dict(
-        h=dict(dxyz=[-mm, 0, 0]),
-        t=dict(dxyz=[0,  mm, 0]),
-        n=dict(dxyz=[0, -mm, 0]),
-        s=dict(dxyz=[ mm, 0, 0]),
-        f=dict(dxyz=[0, 0,  mm]),
-        d=dict(dxyz=[0, 0, -mm]),
-        c=dict(drpy=[0, 0, -deg]),
-        r=dict(drpy=[0, 0,  deg]),
-        w=dict(drpy=[0, -deg, 0]),
-        v=dict(drpy=[0,  deg, 0]),
-        j=dict(dpos=-1),
-        k=dict(dpos=1),
+        ArrowRight = moves.MoveRel(xyz=[ mm, 0, 0], rpy=[0, 0, 0]),
+        ArrowLeft  = moves.MoveRel(xyz=[-mm, 0, 0], rpy=[0, 0, 0]),
+        ArrowUp    = moves.MoveRel(xyz=[0,  mm, 0], rpy=[0, 0, 0]),
+        ArrowDown  = moves.MoveRel(xyz=[0, -mm, 0], rpy=[0, 0, 0]),
+        PageUp     = moves.MoveRel(xyz=[0, 0,  mm], rpy=[0, 0, 0]),
+        PageDown   = moves.MoveRel(xyz=[0, 0, -mm], rpy=[0, 0, 0]),
+        Home       = moves.MoveRel(xyz=[0, 0, 0], rpy=[0, 0, -deg]),
+        End        = moves.MoveRel(xyz=[0, 0, 0], rpy=[0, 0,  deg]),
+        Insert     = moves.MoveRel(xyz=[0, 0, 0], rpy=[0, -deg, 0]),
+        Delete     = moves.MoveRel(xyz=[0, 0, 0], rpy=[0,  deg, 0]),
+        j          = moves.RawCode(f'GripperMove(read_output_integer_register(0) - {int(mm)})'),
+        k          = moves.RawCode(f'GripperMove(read_output_integer_register(0) + {int(mm)})'),
     )
-    if changes := keymap.get(k):
-        edit_at.call(program_name, i, changes) # type: ignore
+    keymap |= {k.upper(): v for k, v in keymap.items()}
+    utils.pr(k)
+    if m := keymap.get(k):
+        utils.pr(m)
+        arm_do.call( # type: ignore
+            moves.RawCode("EnsureRelPos()").to_dict(),
+            m.to_dict(),
+        )
 
-    if k == 'm' or k == 'g':
+    i = catch(lambda: int(args.pop('selected')))
+    if i is not None and k in {'m', ' '}:
         filename = get_programs()[program_name]
         ml = MoveList.from_json_file(filename)
         m = ml[i]
-        if k == 'm':
-            arm_do.call(m.to_dict()) # type: ignore
-        if k == 'g':
-            arm_do.call( # type: ignore
-                m.to_dict(),
-                moves.RawCode("GripperTest()").to_dict()
-            )
+        if isinstance(m, (moves.MoveLin, moves.MoveRel)):
+            v = asdict(m)
+            v['xyz'] = polled_info['xyz']
+            v['rpy'] = polled_info['rpy']
+            ml = MoveList(ml)
+            ml[i] = moves.MoveLin(**v)
+            ml.write_json(filename)
+        elif isinstance(m, (moves.GripperMove)):
+            v = asdict(m)
+            v['pos'] = polled_info['pos'][0]
+            ml = MoveList(ml)
+            ml[i] = moves.GripperMove(**v)
+            ml.write_json(filename)
+        elif isinstance(m, (moves.MoveJoint)):
+            v = asdict(m)
+            v['joints'] = polled_info['joints']
+            ml = MoveList(ml)
+            ml[i] = moves.MoveJoint(**v)
+            ml.write_json(filename)
 
 def get_programs() -> dict[str, Path]:
     return {
@@ -169,14 +174,20 @@ def index() -> Iterator[head | str]:
     yield '''
         <body
             onkeydown="
-                console.log(event)
-                call(''' + keydown(program_name) + ''', {
-                    selected: window.selected,
-                    key: event.key,
-                    ctrlKey: event.ctrlKey,
-                    altKey: event.altKey,
-                    shiftKey: event.shiftKey,
-                })
+                if (event.target.tagName == 'INPUT') {
+                    console.log('keydown event handled by input', event)
+                } else {
+                    event.preventDefault()
+                    console.log(event)
+                    call(''' + keydown(program_name) + ''', {
+                        selected: window.selected,
+                        key: event.key,
+                        ctrlKey: event.ctrlKey,
+                        altKey: event.altKey,
+                        shiftKey: event.shiftKey,
+                        metaKey: event.metaKey,
+                    })
+                }
             "
             css="
                 & {
@@ -248,11 +259,12 @@ def index() -> Iterator[head | str]:
                         flex-grow: 1;
                         flex-basis: 0;
                         margin: 0px;
-                        padding: 8px;
+                        padding: 8px 0;
                     }
-                    input {
+                    & > input {
                         border: 0;
                         background: unset;
+                        margin-left: 5px;
                         min-width: 0; /* makes flex able to shrink element */
                     }
                     & [hide] {
@@ -264,18 +276,38 @@ def index() -> Iterator[head | str]:
                 data-index={i}
             >'''
 
-        yield '<pre style="flex-grow: 3; text-align: center">'
         if isinstance(m_abs, moves.MoveLin) and (xyz := info.get("xyz")) and (rpy := info.get("rpy")):
             dx, dy, dz = dxyz = utils.zip_sub(m_abs.xyz, xyz, ndigits=6)
-            drpy = utils.zip_sub(m_abs.rpy, rpy, ndigits=6)
+            dR, dP, dY = drpy = utils.zip_sub(m_abs.rpy, rpy, ndigits=6)
             dist = math.sqrt(sum(c*c for c in dxyz))
-            yield f'({dx: 6.1f}, {dy: 6.1f}, {dz: 6.1f})' #   {dist: 5.0f}  '
-        yield '</pre>'
+            buttons = [
+                (f'{dx: 6.1f}', moves.MoveRel(xyz=[dx, 0, 0], rpy=[0, 0, 0])),
+                (f'{dy: 6.1f}', moves.MoveRel(xyz=[0, dy, 0], rpy=[0, 0, 0])),
+                (f'{dz: 6.1f}', moves.MoveRel(xyz=[0, 0, dz], rpy=[0, 0, 0])),
+                # (f'P', moves.MoveRel(xyz=[0, 0, 0],  rpy=[0, dP, 0])),
+                # (f'Y', moves.MoveRel(xyz=[0, 0, 0],  rpy=[0, 0, dY])),
+            ]
+            if any(abs(d) < 10.0 for d in dxyz):
+                for k, v in buttons:
+                    yield f'''
+                        <pre style="cursor: pointer; flex-grow: 0.8; text-align: right"
+                            onclick=call({arm_do(
+                                moves.RawCode("EnsureRelPos()").to_dict(),
+                                v.to_dict(),
+                            )})
+                        >{k}  </pre>
+                    '''
+            else:
+                # yield f'{dx: 6.1f}, {dy: 6.1f}, {dz: 6.1f}   '
+                yield f'<pre style="flex-grow: 2.4; text-align: right">{dist: 5.0f}  </pre>'
+        else:
+            yield f'<pre style="flex-grow: 2.4"></pre>'
 
         show_grip_test = catch(lambda: isinstance(ml[i+1], moves.GripperMove))
+
         yield f'''
             <button
-                style="flex-grow: 2"
+                style="flex-grow: 0.8"
                 {"" if show_grip_test else "hide"}
                 onclick=call({
                     arm_do(
@@ -284,14 +316,19 @@ def index() -> Iterator[head | str]:
                     )
                 })
             >grip test</button>
-            <button onclick=call({arm_do(m.to_dict())})>go</button>
-            <input style="flex-grow: 3"
+            <button style="flex-grow: 0.4" onclick=call({arm_do(m.to_dict())})>go</button>
+        '''
+
+
+
+        yield f'''
+            <input style="flex-grow: 2"
                 type=text
                 {"" if hasattr(m, "name") else "disabled"}
                 value="{esc(catch(lambda: getattr(m, "name"), ""))}"
                 oninput=call({edit_at(program_name, i)},{{name:event.target.value}}).then(refresh)
             >
-            <pre style="flex-grow: 8">{m.to_script()}</pre>
+            <code style="flex-grow: 6">{m.to_script()}</code>
             </div>
         '''
 
