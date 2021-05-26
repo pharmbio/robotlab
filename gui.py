@@ -126,6 +126,8 @@ def keydown(program_name: str, args: dict[str, Any]):
         ArrowDown  = moves.MoveRel(xyz=[0, -mm, 0], rpy=[0, 0, 0]),
         PageUp     = moves.MoveRel(xyz=[0, 0,  mm], rpy=[0, 0, 0]),
         PageDown   = moves.MoveRel(xyz=[0, 0, -mm], rpy=[0, 0, 0]),
+        u          = moves.MoveRel(xyz=[0, 0,  mm], rpy=[0, 0, 0]),
+        d          = moves.MoveRel(xyz=[0, 0, -mm], rpy=[0, 0, 0]),
         Home       = moves.MoveRel(xyz=[0, 0, 0], rpy=[0, 0, -deg]),
         End        = moves.MoveRel(xyz=[0, 0, 0], rpy=[0, 0,  deg]),
         Insert     = moves.MoveRel(xyz=[0, 0, 0], rpy=[0, -deg, 0]),
@@ -182,12 +184,15 @@ def index() -> Iterator[head | str]:
     section: tuple[str, ...] = tuple(request.args.get('section', "").split())
     ml = MoveList.from_json_file(programs[program_name])
 
+    title = ' '.join([program_name, *section])
+    yield head(f'<title>{title}</title>')
+
     yield r'''
         <body
             onkeydown="
                 if (event.target.tagName == 'INPUT') {
                     console.log('keydown event handled by input', event)
-                } else if (event.repeat || event.metaKey || event.key.match(/F\d+|^[^bmjkcr]$|Tab|Enter|Escape|Meta|Control|Alt|Shift/)) {
+                } else if (event.repeat || event.metaKey || event.key.match(/F\d+|^[^dubmjkcr]$|Tab|Enter|Escape|Meta|Control|Alt|Shift/)) {
                     console.log('keydown event passed on', event)
                 } else {
                     event.preventDefault()
