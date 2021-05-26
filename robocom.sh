@@ -187,6 +187,52 @@ function curl {
     '
 }
 
+note '
+    Forward the remote robot to localhost via the jumphost
+'
+function start-proxies {
+    set -x
+    trap 'kill $(jobs -p)' EXIT
+    ssh -N -L "30001:$ROBOT_IP:30001" -l "$JUMPHOST_USER" "$JUMPHOST" -p "$JUMPHOST_PORT"
+}
+
+note '
+    Copy localhost files to robotlab and vice versa
+'
+function sync-files {
+    set -x
+    rsync -rtuv ./* robotlab:robot-remote-control
+    rsync -rtuv robotlab:robot-remote-control/ .
+}
+
+note '
+    Start the gui with entr live-reloading
+'
+function entr-gui {
+    ls *py | entr -r python gui.py
+}
+
+note '
+    Start the protocol visualization with entr live-reloading
+'
+function entr-protocol-vis {
+    ls *py | entr -r python protocol_vis.py
+}
+
+note '
+    Get a plate from the incubator
+'
+function incu-get {
+    python cli.py --incu-get "$1"
+}
+
+note '
+    Put a plate into the incubator
+'
+function incu-put {
+    python cli.py --incu-put "$1"
+}
+
 main () {
     if test "$#" -gt 0 && test "$(type -t -- "$1")" = 'function'; then
         "$@"
