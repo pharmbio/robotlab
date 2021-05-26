@@ -30,6 +30,8 @@ log.setLevel(logging.ERROR)
 config: Config = configs['live_robotarm_no_gripper']
 # config: Config = configs['live_robotarm_only']
 
+utils.pr(config)
+
 def spawn(f: Callable[[], None]) -> None:
     threading.Thread(target=f, daemon=True).start()
 
@@ -169,13 +171,16 @@ def get_programs() -> dict[str, Path]:
 def index() -> Iterator[head | str]:
     programs = get_programs()
     program_name = request.args.get('program', next(iter(programs.keys())))
+    section: tuple[str, ...] = tuple(request.args.get('section', "").split())
     ml = MoveList.from_json_file(programs[program_name])
 
-    yield '''
+    yield r'''
         <body
             onkeydown="
                 if (event.target.tagName == 'INPUT') {
                     console.log('keydown event handled by input', event)
+                } else if (event.key.match(/F\d+|^[a-iln-z]$|Tab|Enter|Escape/)) {
+                    console.log('keydown event passed on', event)
                 } else {
                     event.preventDefault()
                     console.log(event)
@@ -245,7 +250,12 @@ def index() -> Iterator[head | str]:
 
     from pprint import pformat
 
-    for i, (m, m_abs) in enumerate(zip(ml, ml.to_abs())):
+    visible_moves: list[Move] = []
+
+    for i, ((m_section, m), m_abs) in enumerate(zip(ml.with_sections(include_Section=True), ml.to_abs())):
+        if section != m_section[:len(section)]:
+            continue
+        visible_moves += [m]
         yield '''
             <div css="display: flex; flex-direction: row;"
                 css="
@@ -303,7 +313,12 @@ def index() -> Iterator[head | str]:
         else:
             yield f'<pre style="flex-grow: 2.4"></pre>'
 
-        show_grip_test = catch(lambda: isinstance(ml[i+1], moves.GripperMove))
+        show_grip_test = catch(lambda:
+                isinstance(m, (moves.MoveLin, moves.MoveRel))
+            and isinstance(ml[i+1], moves.GripperMove)
+        )
+
+        show_go_btn = not isinstance(m, moves.Section)
 
         yield f'''
             <button
@@ -316,7 +331,9 @@ def index() -> Iterator[head | str]:
                     )
                 })
             >grip test</button>
-            <button style="flex-grow: 0.4" onclick=call({arm_do(m.to_dict())})>go</button>
+            <button
+                {"" if show_go_btn else "hide"}
+                style="flex-grow: 0.4" onclick=call({arm_do(m.to_dict())})>go</button>
         '''
 
 
@@ -328,7 +345,35 @@ def index() -> Iterator[head | str]:
                 value="{esc(catch(lambda: getattr(m, "name"), ""))}"
                 oninput=call({edit_at(program_name, i)},{{name:event.target.value}}).then(refresh)
             >
-            <code style="flex-grow: 6">{m.to_script()}</code>
+        '''
+        if isinstance(m, moves.Section):
+            yield '''<div style="flex-grow: 6; display: flex; margin-top: 12px; padding-bottom: 4px;"
+                css="
+                    & button {
+                        padding: 1px 14px 5px;
+                        margin-right: 6px;
+                        font-family: sans;
+                        font-size: 16px;
+                    }
+                ">'''
+            yield f'''<button
+                    onclick="update_query({{ section: '' }})"
+                    style="cursor: pointer;"
+                    >{program_name}</button>'''
+            seen: list[str] = []
+            for s in m.sections:
+                seen += [s]
+                yield f'''<button
+                    onclick="update_query({{ section: {' '.join(seen)!r} }})"
+                    style="cursor: pointer;"
+                    >{s}</button>'''
+                    # {m.to_script()}
+            yield f'''</div>'''
+        else:
+            yield f'''
+                <code style="flex-grow: 6">{m.to_script()}</code>
+            '''
+        yield '''
             </div>
         '''
 
@@ -353,7 +398,7 @@ def index() -> Iterator[head | str]:
 
         <div style="flex-grow: 1"></div>
 
-        <button onclick=call({arm_do(*[m.to_dict() for m in ml])}).then(refresh)>run program</button>
+        <button onclick=call({arm_do(*[m.to_dict() for m in visible_moves])}).then(refresh)>run program</button>
         <button onclick=call({arm_do()}).then(refresh)>stop robot</button>
 
         <div style="flex-grow: 1"></div>
@@ -361,10 +406,16 @@ def index() -> Iterator[head | str]:
         <button onclick=call({arm_do(moves.RawCode("freedrive_mode()").to_dict())}).then(refresh)>enter freedrive</button>
         <button onclick=call({arm_do(moves.RawCode("end_freedrive_mode()").to_dict())}).then(refresh)>exit freedrive</button>
         </div>
-        <pre style="user-select: text">{pformat(info, sort_dicts=False)}</pre>
+    '''
+
+    yield '''
         <script eval>
             if (window.rt) window.clearTimeout(window.rt)
             window.rt = window.setTimeout(() => refresh(0, () => 0), 150)
         </script>
+    '''
+
+    yield f'''
+        <pre style="user-select: text; text-align: center">{info}</pre>
     '''
 

@@ -133,9 +133,10 @@ def gripper_code(with_gripper: bool=False) -> str:
         end
 
         def GripperTest():
-            GripperClose() MoveRel(0, 0,  21.0, 0, 0, 0)
-            Shake()        MoveRel(0, 0, -20.5, 0, 0, 0)
-            GripperOpen()  MoveRel(0, 0,  -0.5, 0, 0, 0)
+            start_pos = read_output_integer_register(0)
+            GripperMove(255)       MoveRel(0, 0,  21.0, 0, 0, 0)
+            Shake()                MoveRel(0, 0, -20.5, 0, 0, 0)
+            GripperMove(start_pos) MoveRel(0, 0,  -0.5, 0, 0, 0)
         end
     '''
 

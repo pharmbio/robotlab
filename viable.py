@@ -214,6 +214,12 @@ def serve(f: Callable[..., str | Iterable[head | str]]):
             }
             long_poll()
             window.onpopstate = () => refresh()
+            function get_query(q) {
+                return Object.fromEntries(new URLSearchParams(location.search))
+            }
+            function update_query(q) {
+                return set_query({...get_query(), ...q})
+            }
             function set_query(q) {
                 if (typeof q === 'string' && q[0] == '#') {
                     q = document.querySelector(q)

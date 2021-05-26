@@ -258,17 +258,24 @@ class MoveList(list[Move]):
                     out[name_h] = self.adjust_tagged(tag, dz=dz)
         return out
 
-    def expand_sections(self, base_name: str) -> dict[str, MoveList]:
-        sections: set[tuple[str, ...]] = {tuple()}
+    def with_sections(self, include_Section: bool=False) -> list[tuple[tuple[str, ...], Move]]:
+        out: list[tuple[tuple[str, ...], Move]] = []
         active: tuple[str, ...] = tuple()
-        with_section: list[tuple[tuple[str, ...], Move]] = []
         for i, move in enumerate(self):
             if isinstance(move, Section):
                 active = tuple(move.sections)
+                if include_Section:
+                    out += [(active, move)]
             else:
-                with_section += [(active, move)]
-                for i, _ in enumerate(active):
-                    sections.add(tuple(active[:i+1]))
+                out += [(active, move)]
+        return out
+
+    def expand_sections(self, base_name: str) -> dict[str, MoveList]:
+        with_section = self.with_sections()
+        sections: set[tuple[str, ...]] = {
+            sect
+            for sect, move in with_section
+        }
 
         out: dict[str, MoveList] = {base_name: self}
         for section in sections:
