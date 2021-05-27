@@ -30,9 +30,22 @@ prelude = '''
     set_tool_voltage(0)
     set_safety_mode_transition_hardness(1)
 
-    global last_xyz = [0, 0, 0]
-    global last_rpy = [0, 0, 0]
-    global last_lin = False
+    global last_xyz = [read_output_float_register(0), read_output_float_register(1), read_output_float_register(2)]
+    global last_rpy = [read_output_float_register(3), read_output_float_register(4), read_output_float_register(5)]
+    global last_lin = read_output_boolean_register(0)
+
+    def set_last(x, y, z, r, p, yaw, flag):
+        write_output_float_register(0, x)
+        write_output_float_register(1, y)
+        write_output_float_register(2, z)
+        write_output_float_register(3, r)
+        write_output_float_register(4, p)
+        write_output_float_register(5, yaw)
+        write_output_boolean_register(0, flag)
+        last_xyz = [x, y, z]
+        last_rpy = [r, p, yaw]
+        last_lin = flag
+    end
 
     def MoveLin(x, y, z, r, p, yaw, slow=False):
         rv = rpy2rotvec([d2r(r), d2r(p), d2r(yaw)])
@@ -42,9 +55,7 @@ prelude = '''
         else:
             movel(pose, a=1.2, v=0.25)
         end
-        last_xyz = [x, y, z]
-        last_rpy = [r, p, yaw]
-        last_lin = True
+        set_last(x, y, z, r, p, yaw, True)
     end
 
     def MoveRel(x, y, z, r, p, yaw, slow=False):
@@ -69,9 +80,7 @@ prelude = '''
             rpy = rotvec2rpy([p[3], p[4], p[5]])
             rpy = [r2d(rpy[0]), r2d(rpy[1]), r2d(rpy[2])]
             xyz = [p[0]*1000, p[1]*1000, p[2]*1000]
-            last_xyz = xyz
-            last_rpy = rpy
-            last_lin = True
+            set_last(xyz[0], xyz[1], xyz[2], rpy[0], rpy[1], rpy[2], True)
             textmsg("log set reference pos to " + to_str(xyz) + " " + to_str(rpy))
         end
     end
@@ -83,9 +92,7 @@ prelude = '''
         else:
             movej(q, a=1.4, v=1.05)
         end
-        last_xyz = [0, 0, 0]
-        last_rpy = [0, 0, 0]
-        last_lin = False
+        set_last(0, 0, 0, 0, 0, 0, False)
     end
 '''
 
