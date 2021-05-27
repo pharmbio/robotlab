@@ -170,7 +170,6 @@ def make_script(movelist: list[Move], with_gripper: bool, name: str='script', de
             {prelude}
             {gripper_code(with_gripper)}
             {body}
-            textmsg("log {name} done")
         end
     ''')
 
@@ -239,5 +238,5 @@ class Robotarm:
 
     def execute_moves(self, movelist: list[Move], name: str='script', def_or_sec: str='def') -> None:
         self.send(make_script(movelist, self.with_gripper, name=name, def_or_sec=def_or_sec))
-        self.recv_until(f'log {name} done')
+        self.recv_until(f'PROGRAM_XXX_STOPPED{name}')
         # self.close()
