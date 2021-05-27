@@ -68,12 +68,15 @@ function send-example-errors {
 }
 
 note '
-    Set the speed to a value in the range [0.01, 1.00]
+    Set the speed to a value in the range [0.01, 1.00].
+    All URScript speeds are affected by this teach pendant speed slider.
 '
 function set-speed {
     # The speed setting on the teach pendant can be set on the RTDE interface
     # on port 30003. We can send this via the primary protocol for convenience
     # instead.
+    #
+    # https://forum.universal-robots.com/t/speed-slider-thru-modbus-and-dashboard/8259/2
     send '
         sec set_speed():
             socket_open("127.0.0.1", 30003)

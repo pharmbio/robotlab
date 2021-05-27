@@ -1,8 +1,8 @@
 # robot remote control
 
-dev dependencies: flask, pandas, scipy
+dependencies: python 3.9, flask, pandas, scipy
 
-optional dev dependency: pyright
+optional dev dependencies: pyright, entr
 
 rewrite in progress
 

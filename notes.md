@@ -127,12 +127,10 @@ needed by the incubator.
 grips. Vertical grips are difficult by the washer and dispenser because the
 arm collides with the machine.
 
+### Robot positions and kinematics
+
 It is not enough to only store points (position + tool rotation) since there are many
 possible joint configurations to the same point. (16 for 6-armed robots?)
-- **inverse kinematics** (multi-)mapping cartesian space to joint space
-- **forward kinematics** mapping joint space to cartesian space
-
-### Robot positions and kinematics
 
     joint space: the rotations of the six robot joints
         denoted in radians starting from the base
@@ -141,9 +139,12 @@ possible joint configurations to the same point. (16 for 6-armed robots?)
     qdd: joint acceleration
 
     pose: cartesian position of the robot tool center point
-        3 cartesian coordinates in metres
-        3 axis-angle in radians
-    p:   pose coordinate
+          3 cartesian coordinates in metres
+          3 rotation vector in radians
+    p:    pose coordinate
+
+    inverse kinematics : p -> [q]   # (multi-)mapping cartesian space to joint space
+    forward kinematics : q ->  p    # mapping joint space to cartesian space
 
     Gimbal lock, singularity:
         when the robot loses a degree of movement freedom
@@ -152,112 +153,154 @@ possible joint configurations to the same point. (16 for 6-armed robots?)
     RPY: roll pitch yaw, a way of denoting the tool rotation similar to polar coordinates.
         not the UR default way to write rotations.
 
-https://forum.universal-robots.com/t/robot-theory-and-how-to-use-it-in-ur-robots/3863/7
-https://www.mecademic.com/en/how-is-orientation-in-space-represented-with-euler-angles
-https://www.universal-robots.com/articles/ur/application-installation/explanation-on-robot-orientation/
+* https://rock-learning.github.io/pytransform3d/rotations.html
+* https://www.mecademic.com/en/how-is-orientation-in-space-represented-with-euler-angles
+* https://opensource.docs.anymal.com/doxygen/kindr/master/cheatsheet_latest.pdf
+* https://forum.universal-robots.com/t/robot-theory-and-how-to-use-it-in-ur-robots/3863/7
+* https://www.universal-robots.com/articles/ur/application-installation/explanation-on-robot-orientation/
 
 ## URSim: the Simulator
 
-Easiest is to run the virualbox version: As of late May 2021 the most recent virtual box version is at:
+**virtualbox** Easiest is to run the virtualbox version: As of late May 2021 the most recent virtual box version is at:
 
 https://s3-eu-west-1.amazonaws.com/ur-support-site/112647/URSim_VIRTUAL-5.10.2.106319.rar
 
 Enable port forwarding to at least 30001.
 
-The best docker image I found is https://github.com/ahobsonsayers/DockURSim
+**linux version in docker** The best docker image I found is
+
+https://github.com/ahobsonsayers/DockURSim
+
 It allows you to access the PolyScope GUI forwarded to the browser on localhost:8080.
 
     docker volume create dockursim
     docker run -d --name=dockursim -e ROBOT_MODEL=UR10 \
         --net host -v dockursim:/ursim --privileged --cpus=1 arranhs/dockursim:latest
 
-In late May 2021 the latest linux version is at:
+**linux native** In late May 2021 the latest linux version is at:
+
 https://s3-eu-west-1.amazonaws.com/ur-support-site/105063/URSim_Linux-5.10.0.106288.tar
+
+**other simulators** Open source simulator alternatives include `gazebo`
+and `OpenRave` but I have not had time to try any of them
 
 ## Robot communication interfaces
 
-- Overview: https://www.universal-robots.com/articles/ur/interface-communication/overview-of-client-interfaces/
-- Forum thread: https://forum.universal-robots.com/t/communication-interfaces/29
-- port 30001: primary https://www.universal-robots.com/articles/ur/interface-communication/remote-control-via-tcpip/
-- port 30002: secondary https://www.universal-robots.com/articles/ur/interface-communication/remote-control-via-tcpip/
-- port 30003: real-time https://www.universal-robots.com/articles/ur/interface-communication/remote-control-via-tcpip/
-- port 30004: RTDE https://www.universal-robots.com/articles/ur/interface-communication/real-time-data-exchange-rtde-guide/
-    - c++/python library to communicate on the RTDE: https://gitlab.com/sdurobotics/ur_rtde
-- port 29999: Dashboard https://www.universal-robots.com/articles/ur/dashboard-server-e-series-port-29999/
-- port 30020: Interpreter mode. This is a more recent way of queuing up URScript snippets inside a running URScript with `interpreter_mode()` on.
-- xml-rpc: URScript function calls xml remote procedure protocol on a http server (note that you can do remote communication on sockets using URScript 30001 as well)
-- modbus: an industry standard for robot communication
+| | |
+| --- | --- |
+| Overview                   | https://www.universal-robots.com/articles/ur/interface-communication/overview-of-client-interfaces/
+| Forum thread               | https://forum.universal-robots.com/t/communication-interfaces/29
+| port 29999 Dashboard       | https://www.universal-robots.com/articles/ur/dashboard-server-e-series-port-29999/
+| port 30001 10hz  primary   | https://www.universal-robots.com/articles/ur/interface-communication/remote-control-via-tcpip/
+| port 30002 10hz  secondary | https://www.universal-robots.com/articles/ur/interface-communication/remote-control-via-tcpip/
+| port 30003 500hz real-time | https://www.universal-robots.com/articles/ur/interface-communication/remote-control-via-tcpip/
+| port 30004 125hz RTDE      | https://www.universal-robots.com/articles/ur/interface-communication/real-time-data-exchange-rtde-guide/
+| RTDE c++/python lib        | https://gitlab.com/sdurobotics/ur_rtde
+| port 30020                 | Interpreter mode. This is a more recent way of queuing up URScript snippets inside a running URScript with `interpreter_mode()` on.
+| xml-rpc                    | URScript function calls xml remote procedure protocol on a http server. Note: that you can do remote communication on sockets using URScript 30001 as well
+| modbus                     | An industry standard for robot communication
 
-Using the simulator, this is how some of the protocols look like.
-We will use netcat `nc`. Another alternative is `socat`.
-In python use the `socket` module.
+Read the `robocom.sh` file for examples how to use `nc` to
+explore the protocols, in particular the one on port 30001 (primary).
 
-### port 30001: primary
+An alternative to `nc` is `socat`. In python use the `socket` module.
 
-This protocol accepts urscript programs and continuously dumps a lot of
-binary data in 10hz.  The `textmsg` function writes to the polyscope log but
-is also written to this primary protocol.  This example sends a UR script
-using netcat which the robot controller executes.
+## Scripting the robot: URScript and .URP files
 
-```sh
-ROBOT_IP=localhost
+- URScript: a Python-esque script language for programming the robot.
+- URP: file extension for scripts made in the PolyScope tablet. This is a gzipped xml.
 
-send () {
-    printf '%s\n' "$1" | nc $ROBOT_IP 30001 |
-        grep --text --only-matching --ignore-case --perl-regexp \
-            '(log|program|\w*exception|\w+_\w+:)[\x20-\x7f]*'
-}
+### URScript manual
 
-send 'def example():
-    textmsg("log ", get_actual_tcp_pose())
-end'
+The URScript manual is surprisingly difficult to find on their web page.
+The manual is also quite hard to read because it is not well typeset (update:
+the newer version is better in this respect) and functions are mostly sorted
+by name and not functionality.  Nevertheless, it is an absolute must read.
+
+Search for SCRIPT MANUAL - E-SERIES.
+
+https://www.universal-robots.com/download/manuals-e-series/script/script-manual-e-series-sw-56/
+https://www.universal-robots.com/download/manuals-e-series/script/script-manual-e-series-sw-510/
+
+### URP programs created on the PolyScope handheld tablet
+
+Artifacts produced when making a script on the poly-scope handheld tablet:
+
+- `.urp`: gzipped xml
+- `.txt`: textual representation
+- `.script`: URScript (Python-esque)
+
+The `.script` file and definitely the `.txt` file is generated from the XML.
+
+The text file is simply this:
+
+```text
+ Program
+   Robot Program
+     MoveJ
+       Waypoint_1
 ```
 
-This is how it looks when run:
-
-```
-$ ./robocom.sh
-PROGRAM_XXX_STARTEDexample
-log p[0.605825,-0.720087,0.233797,-0.0111368,-0.0111357,1.57073]
-PROGRAM_XXX_STOPPEDexample
-```
-
-The grep is set up so that errors and exceptions can be seen:
-
-```sh
-send '
-def unbalanced_parens():
-    textmsg("log ", get_actual_tcp_pose()
-end
-def undefined_function():
-    textmsg("log ", get_tcp_pose())
-end'
+In the .urp file we have a waypoint represented like this:
+```html
+    <Waypoint type="Fixed" name="Waypoint_1" kinematicsFlags="1">
+      <motionParameters/>
+      <position>
+        <JointAngles angles="1.9942498207092285, -1.6684614620604457, 1.9330504576312464, -0.2718423169902344, 1.3209004402160645, 0.0036344528198242188"/>
+        <TCPOffset pose="0.0, 0.0, 0.0, 0.0, 0.0, 0.0"/>
+        <Kinematics status="LINEARIZED" validChecksum="true">
+          <deltaTheta value="-8.844411260213857E-8, -0.032582961261549755, -0.8772929446404238, 0.9098787703504071, 2.101429764675086E-6, -1.9523604853220917E-7"/>
+          <a value="1.2280920183406098E-4, -0.6118328650166482, -0.35064142434212725, 6.353071874199852E-5, -8.491717228743712E-5, 0.0"/>
+          <d value="0.18107019996630838, -11.986107840354439, 254.02185121292118, -241.86139249326118, 0.11978728860232488, 0.11569307278026907"/>
+          <alpha value="1.570573614624119, 0.0016638537326948237, -0.0018631164519257151, 1.5706607381785331, -1.5704473543987978, 0.0"/>
+          <jointChecksum value="-1858852621, -1856465696, 659529794, -1323325273, -1859399821, -1861357583"/>
+        </Kinematics>
+      </position>
+      <BaseToFeature pose="0.0, 0.0, 0.0, 0.0, 0.0, 0.0"/>
+    </Waypoint>
 ```
 
-This gives:
+In the .script file the same waypoint and move is represented like this:
 
-```
-$ ./robocom.sh
-syntax_error_on_line:3:end:
-compile_error_name_not_found:get_tcp_pose:
-```
-
-### Speed setting via RTDE port 30003
-
-The speed setting on the teach pendant can be set on the RTDE interface on
-port 30003. We can send this via the primary protocol for convenience instead:
-
-```sh
-send 'sec set_speed():
-    socket_open("127.0.0.1", 30003)
-    socket_send_line("set speed 0.8")
-    socket_close()
-end'
+```python
+  global Waypoint_1_p=p[.433025361705, -.467959205379, .522310714714, 1.500318891221, .521427297251, .530987104689]
+  global Waypoint_1_q=[1.9942498207092285, -1.6684614620604457, 1.9330504576312464, -0.2718423169902344, 1.3209004402160645, 0.0036344528198242188]
+  $ 1 "Robot Program"
+  $ 2 "MoveJ"
+  $ 3 "Waypoint_1"
+  movej(get_inverse_kin(Waypoint_1_p, qnear=Waypoint_1_q), a=1.3962634015954636, v=1.0471975511965976)
 ```
 
-This sets the speed to 80%.
+Here:
+* `p` is a pose with X,Y,Z in m (metres), and a rotation vector RX,RY,RZ in radians.
+* `q` is the six joint positions in radians from base out to the last wrist joint
+* `movej` + `get_inverse_kin`:
+  Calculate the inverse kinematic transformation (tool space -> joint space).
+  If qnear is defined, the solution closest to qnear is returned.
+  Otherwise, the solution closest to the current joint positions is returned.
+
+  I don't know why they went via inverse kinematics instead of just generating
+  `movej(Waypoint_1_q)`.
+* `a` is acceleration in rad/s^2, `v` is velocity in rad/s.
+
+  The default values for `movej` are `a=1.40` and `v=1.05` so this is the
+  defaults plus some rounding errors.
+
 
 ### Gripper communication
+
+We use the URScript code from robotiq to work with the gripper.
+We had to make a tweak, there is a 1.5 seconds sleep at start up
+setting a variable `MSC` to zero, but this variable is always at
+zero anyway so we have removed the sleep and it seems to work
+anyway. The tweaked script is embedded in `gripper.py`.
+
+Internally the gripper uses a value 0-255 for how open the gripper
+is where 0 is open to the max and 255 is closed. We use this
+value directly. It's quite opaque but so was their suggested
+remapping the range to 0-100%.
+
+This rest of this section is outdated but kept for now.
 
 The gripper is on port 63352 on the robot controller box. This protocol
 is unsupported but the one used by the gripper URScript snipped
@@ -396,295 +439,3 @@ to update and `OBJ` to go from 3 into 0. When the motion is completed it is at 3
 * `OBJ == 0x02`: Fingers have stopped due to a contact while closing before requested position. Object detected closing.
 * `OBJ == 0x03`: Fingers are at requested position. No object detected or object has been loss / dropped.
 
-Communicate with the gripper on the socket using a URScript:
-
-```sh
-send 'def gripper_close():
-    socket_open("127.0.0.1", 63352, socket_name="gripper")
-    socket_send_line("SET POS 255", socket_name="gripper")
-    ack = socket_read_byte_list(3, socket_name="gripper", timeout=0.1)
-    textmsg("log ack:", ack)
-    textmsg("log ack?", ack == [3,97,99,107])
-    socket_close(socket_name="gripper")
-end'
-```
-
-We can get its values like this:
-
-```sh
-send 'def gripper_get_state():
-    socket_open("127.0.0.1", 63352, socket_name="gripper")
-    def get_var(varname):
-        socket_send_line(str_cat("GET ", varname), socket_name="gripper")
-        s = socket_read_string(socket_name="gripper") # "PRE 077\n"
-        s = str_sub(s, 0, str_len(s) - 1)             # drop "\n"
-        s = str_sub(s, str_find(s, " "))              # drop "PRE "
-        return to_num(s)
-    end
-    textmsg("log PRE ", get_var("PRE"))
-    textmsg("log POS ", get_var("POS"))
-    textmsg("log OBJ ", get_var("OBJ"))
-    textmsg("log FLT ", get_var("FLT"))
-    textmsg("log STA ", get_var("STA"))
-    textmsg("log GTO ", get_var("GTO"))
-    textmsg("log ACT ", get_var("ACT"))
-    textmsg("log SPE ", get_var("SPE"))
-    textmsg("log FOR ", get_var("FOR"))
-    textmsg("log MSC ", get_var("MSC"))
-    socket_close(socket_name="gripper")
-end'
-```
-
-This returns:
-
-```
-PROGRAM_XXX_STARTEDgripper_get_state
-log PRE 77
-log POS 77
-log OBJ 3
-log FLT 0
-log STA 3
-log GTO 1
-log ACT 1
-log SPE 0
-log FOR 0
-log MSC 0
-PROGRAM_XXX_STOPPEDgripper_get_state
-```
-
-A full program to close and then open the gripper:
-
-```sh
-send '
-def gripper_move_test():
-    socket_open("127.0.0.1", 63352, socket_name="gripper")
-
-    def fail(msg, msg2=""):
-        textmsg("log fail ", str_cat(msg, msg2))
-        str_at("error", 100) # raise an error
-    end
-
-    def get_var(varname):
-        socket_send_line(str_cat("GET ", varname), socket_name="gripper") # send "GET PRE\n"
-        s = socket_read_string(socket_name="gripper")  # recv "PRE 077\n"
-        s = str_sub(s, 0, str_len(s) - 1)              # drop "\n"
-        s = str_sub(s, str_find(s, " "))               # drop "PRE "
-        value = to_num(s)
-        return value
-    end
-
-    def set_var(varname, value):
-        socket_set_var(varname, value, socket_name="gripper") # send "SET POS 77\n"
-        ack_bytes = socket_read_byte_list(3, socket_name="gripper", timeout=0.1)
-        ack = ack_bytes == [3, 97, 99, 107] # 3 bytes received, then ascii for "ack"
-        if not ack:
-            fail("gripper request did not ack for var ", varname)
-        end
-    end
-
-    if get_var("STA") != 3:
-        fail("gripper needs to be activated")
-    end
-    if get_var("FLT") != 0:
-        fail("gripper fault")
-    end
-
-    set_var("GTO", 1)
-    set_var("SPE", 0)
-    set_var("FOR", 0)
-    set_var("MSC", 0)
-
-    def gripper_move(pos):
-        set_var("POS", pos)
-        while (get_var("PRE") != pos):
-            sleep(0.02)
-        end
-        while (get_var("OBJ") == 0):
-            sleep(0.02)
-        end
-        if get_var("OBJ") != 3:
-            fail("gripper move complete but in unknown mode")
-        end
-        if get_var("FLT") != 0:
-            fail("gripper fault")
-        end
-    end
-
-    gripper_move(255) # close
-    gripper_move(77)  # open
-
-    socket_close(socket_name="gripper")
-end
-'
-```
-
-This is in `gripper.py`.
-
-### port 29999: Dashboard
-
-A few high-level commands can be sent here.
-
-    $ nc localhost 29999
-    Connected: Universal Robots Dashboard Server
-
-Now we can type things like `running` and `programState` and it will reply:
-
-    $ nc localhost 29999
-    Connected: Universal Robots Dashboard Server
-    running
-    Program running: false
-    programState
-    STOPPED <unnamed>
-
-
-## Scripting the robot: URScript and .URP files
-
-- URScript: a Python-esque script language for programming the robot.
-- URP: file extension for scripts made in the PolyScope tablet. This is a gzipped xml.
-
-### URScript manual
-
-The URScript manual is surprisingly difficult to find on their web page.
-The manual is also quite hard to read because it is not well typeset (update:
-the newer version is better in this respect) and functions are mostly sorted
-by name and not functionality.  Nevertheless, it is an absolute must read.
-
-Search for SCRIPT MANUAL - E-SERIES.
-
-https://www.universal-robots.com/download/manuals-e-series/script/script-manual-e-series-sw-56/
-https://www.universal-robots.com/download/manuals-e-series/script/script-manual-e-series-sw-510/
-
-### URScript and the teach pendant speed slider
-
-All URScript speeds are affected by the teach pendant speed slider. Luckily,
-it seems like it can be set using code on the RTDE interface:
-
-https://forum.universal-robots.com/t/speed-slider-thru-modbus-and-dashboard/8259/2
-
-You can access the slider through a socket connection to port 30003. Here is an
-example of a script function we use to set the speed slider programmatically
-within a robot program. You could also send this from an external source,
-PLC or PC, if you open a client to the server similar to sending a command
-to the dashboard server.
-
-```python
-def runSlow(speed):
-  socket_open("127.0.0.1",30003)
-  socket_send_string("set speed")
-  socket_send_string(speed)  # float in range 0.01 to 1.00
-  socket_send_byte(10)
-  socket_close()
-end
-``` ￼￼
-
-### URP programs created on the PolyScope handheld tablet
-
-Artifacts produced when making a script on the poly-scope handheld tablet:
-
-- `.urp`: gzipped xml
-- `.txt`: textual representation
-- `.script`: URScript (Python-esque)
-
-Hypothesis: the `.script` file (and definitely the `.txt` file) is generated from the XML.
-
-In the .urp file we have a waypoint represented like this:
-```html
-    <Waypoint type="Fixed" name="Waypoint_1" kinematicsFlags="1">
-      <motionParameters/>
-      <position>
-        <JointAngles angles="1.9942498207092285, -1.6684614620604457, 1.9330504576312464, -0.2718423169902344, 1.3209004402160645, 0.0036344528198242188"/>
-        <TCPOffset pose="0.0, 0.0, 0.0, 0.0, 0.0, 0.0"/>
-        <Kinematics status="LINEARIZED" validChecksum="true">
-          <deltaTheta value="-8.844411260213857E-8, -0.032582961261549755, -0.8772929446404238, 0.9098787703504071, 2.101429764675086E-6, -1.9523604853220917E-7"/>
-          <a value="1.2280920183406098E-4, -0.6118328650166482, -0.35064142434212725, 6.353071874199852E-5, -8.491717228743712E-5, 0.0"/>
-          <d value="0.18107019996630838, -11.986107840354439, 254.02185121292118, -241.86139249326118, 0.11978728860232488, 0.11569307278026907"/>
-          <alpha value="1.570573614624119, 0.0016638537326948237, -0.0018631164519257151, 1.5706607381785331, -1.5704473543987978, 0.0"/>
-          <jointChecksum value="-1858852621, -1856465696, 659529794, -1323325273, -1859399821, -1861357583"/>
-        </Kinematics>
-      </position>
-      <BaseToFeature pose="0.0, 0.0, 0.0, 0.0, 0.0, 0.0"/>
-    </Waypoint>
-```
-
-In the .script file the same waypoint and move is represented like this:
-
-```python
-  global Waypoint_1_p=p[.433025361705, -.467959205379, .522310714714, 1.500318891221, .521427297251, .530987104689]
-  global Waypoint_1_q=[1.9942498207092285, -1.6684614620604457, 1.9330504576312464, -0.2718423169902344, 1.3209004402160645, 0.0036344528198242188]
-  $ 1 "Robot Program"
-  $ 2 "MoveJ"
-  $ 3 "Waypoint_1"
-  movej(get_inverse_kin(Waypoint_1_p, qnear=Waypoint_1_q), a=1.3962634015954636, v=1.0471975511965976)
-```
-
-There is some coordinate tranformation happening. The coordinate systems seem to be different. I'm not sure which systems are used here.
-
-For reference, the text file is simply this:
-
-```text
- Program
-   Robot Program
-     MoveJ
-       Waypoint_1
-```
-
-### URScript: controlling the gripper
-
-Use the generated code when making a script in PolyScope.
-
-This code for the gripper is generated when you make a script in PolyScope. It
-looks like this:
-
-```python
-   # begin: URCap Program Node
-   #   Source: Robotiq_Grippers, 1.7.1.2, Robotiq Inc.
-   #   Type: Gripper
-   $ 4 "Gripper Open (1)"
-   gripper_1_used = True
-   if (connectivity_checked[0] != 1):
-     gripper_id_ascii = rq_gripper_id_to_ascii("1")
-     gripper_id_list = rq_get_sid("1")
-     if not(rq_is_gripper_in_sid_list(gripper_id_ascii, gripper_id_list)):
-       popup("Gripper 1 must be connected to run this program.", "No connection", False, True, True)
-     end
-     connectivity_checked[0] = 1
-   end
-   if (status_checked[0] != 1):
-     if not(rq_is_gripper_activated("1")):
-       popup("Gripper 1 is not activated. Go to Installation tab > Gripper to activate it and run the program again.", "Not activated", False, True, True)
-     end
-     status_checked[0] = 1
-   end
-   rq_set_pos_spd_for(0, 0, 0, "1")
-   rq_go_to("1")
-   rq_wait("1")
-   gripper_1_selected = True
-   gripper_2_selected = False
-   gripper_3_selected = False
-   gripper_4_selected = False
-   gripper_1_used = False
-   gripper_2_used = False
-   gripper_3_used = False
-   gripper_4_used = False
-   # end: URCap Program Node
-```
-
-### movej + `get_inverse_kin`
-
-From the URScript guide:
-
-Calculate the inverse kinematic transformation (tool space -> joint space).
-If qnear is defined, the solution closest to qnear is returned.
-Otherwise, the solution closest to the current joint positions is returned.
-
-```python
-global Waypoint_1_p=p[.434, -.469, .599, 1.500, .521, .530]
-global Waypoint_1_q=[1.995, -1.690, 1.815, -0.132, 1.321, 0.003]
-movej(get_inverse_kin(Waypoint_1_p, qnear=Waypoint_1_q), a=1.396, v=1.047)
-```
-
-## Loose ends
-
-- Some UR web pages mention a SDK. I don't know what or where it is. It could be that they meant the URCap SDK.
-- Open source simulator alternatives include `gazebo` and `OpenRave`.
-- How can we get the currently accepted URScript version? Version incompabilities has not been a problem yet though.
