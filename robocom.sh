@@ -205,14 +205,23 @@ note '
 function sync-files {
     set -x
     rsync -rtuv ./* robotlab:robot-remote-control
-    # rsync -rtuv robotlab:robot-remote-control/ .
+    rsync -rtuv robotlab:robot-remote-control/logs/ logs/
+}
+
+note '
+    Copy URP scripts from the robot via $JUMPHOST
+'
+function copy-urp-scripts {
+    set -x
+    mkdir -p scripts
+    scp -p -o "ProxyJump=$JUMPHOST_USER@$JUMPHOST:$JUMPHOST_PORT" "root@$ROBOT_IP:/data/programs/dan_*" scripts/
 }
 
 note '
     Start the gui with entr live-reloading
 '
 function entr-gui {
-    ls *py | entr -r python gui.py
+    ls *py | entr -r python gui.py "$@"
 }
 
 note '

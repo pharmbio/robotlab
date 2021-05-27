@@ -27,8 +27,11 @@ import logging
 log = logging.getLogger('werkzeug')
 log.setLevel(logging.ERROR)
 
-# config: Config = configs['live_robotarm_no_gripper']
+import sys
+
 config: Config = configs['live_robotarm_only']
+if '--no-gripper' in sys.argv:
+    config = configs['live_robotarm_no_gripper']
 
 utils.pr(config)
 
@@ -56,13 +59,12 @@ def poll() -> None:
                     "'rpy': " + to_str(rpy) + ", " +
                     "'joints': " + to_str(q) + ", " +
                     "'pos': " + to_str([read_output_integer_register(0)]) + ", " +
-                    "'tick': " + to_str([floor(tick / 4) % 9 + 1]) + ", " +
-                "}")
+                    "'tick': " + to_str([floor(tick / 5) % 9 + 1]) + ", " +
+                "} eom")
             end
         '''))
         for b in arm.recv():
-            if m := re.search(rb'poll (.*\})', b):
-                # print('poll:', v)
+            if m := re.search(rb'poll (.*\}) eom', b):
                 try:
                     v = m.group(1).decode(errors='replace')
                     polled_info.update(ast.literal_eval(v))
@@ -70,7 +72,6 @@ def poll() -> None:
                     import traceback as tb
                     tb.print_exc()
                 break
-        # arm.close()
 
 _A = TypeVar('_A')
 
@@ -430,7 +431,7 @@ def index() -> Iterator[head | str]:
     yield '''
         <script eval>
             if (window.rt) window.clearTimeout(window.rt)
-            window.rt = window.setTimeout(() => refresh(0, () => 0), 150)
+            window.rt = window.setTimeout(() => refresh(0, () => 0), 100)
         </script>
     '''
 
