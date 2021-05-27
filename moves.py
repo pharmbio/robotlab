@@ -104,16 +104,6 @@ class GripperMove(Move):
         return call('GripperMove', self.pos)
 
 @dataclass(frozen=True)
-class GripperClose(Move):
-    def to_script(self) -> str:
-        return call('GripperClose')
-
-@dataclass(frozen=True)
-class GripperOpen(Move):
-    def to_script(self) -> str:
-        return call('GripperOpen')
-
-@dataclass(frozen=True)
 class Section(Move):
     sections: list[str]
     def to_script(self) -> str:

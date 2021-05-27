@@ -9,13 +9,14 @@ import re
 import socket
 import gripper
 
-        # printf '%s\n' 'def u():' ' socket_open("127.0.0.1", 63352, socket_name="gripper")' ' socket_send_line("SET " + "POS" + " " + to_str(77), socket_name="gripper")' 'end' | nc localhost 30001
-
 prelude = '''
-    set_gravity([0.0, 0.0, 9.82])
+    # Set TCP so that RPY makes sense
     set_tcp(p[0, 0, 0, -1.2092, 1.2092, 1.2092])
 
+    set_gravity([0.0, 0.0, 9.82])
     set_payload(0.1)
+
+    # Section copied from generated scripts
     set_standard_analog_input_domain(0, 1)
     set_standard_analog_input_domain(1, 1)
     set_tool_analog_input_domain(0, 1)
@@ -102,9 +103,8 @@ def gripper_code(with_gripper: bool=False) -> str:
 
     The public commands are:
 
-        GripperMove,
-        GripperClose,
-        GripperOpen,
+        GripperMove(pos)  # pos in range [0, 255]: 255=closed, 0=maximally open
+        GripperTest()
 
     '''
 
@@ -125,14 +125,6 @@ def gripper_code(with_gripper: bool=False) -> str:
         '''
 
     return code + '''
-        def GripperClose():
-            GripperMove(255)
-        end
-
-        def GripperOpen():
-            GripperMove(77)
-        end
-
         def Shake():
             w = -0.2 MoveRel(w, w, w, w/4, w/4, w/4)
             w =  0.4 MoveRel(w, w, w, w/4, w/4, w/4)
