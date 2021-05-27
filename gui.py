@@ -81,9 +81,9 @@ def catch(m: Callable[[], _A], default: _A=None) -> _A:
         return default
 
 @expose
-def arm_do(*ms: dict[str, Any]):
+def arm_do(*ms: Move):
     arm = robots.get_robotarm(config)
-    arm.execute_moves([Move.from_dict(m) for m in ms], name='gui')
+    arm.execute_moves(list(ms), name='gui')
     arm.close()
 
 @expose
@@ -142,8 +142,8 @@ def keydown(program_name: str, args: dict[str, Any]):
     if m := keymap.get(k):
         utils.pr(m)
         arm_do.call( # type: ignore
-            moves.RawCode("EnsureRelPos()").to_dict(),
-            m.to_dict(),
+            moves.RawCode("EnsureRelPos()"),
+            m,
         )
 
     i = catch(lambda: int(args.pop('selected')))
@@ -314,8 +314,8 @@ def index() -> Iterator[head | str]:
                     yield f'''
                         <pre style="cursor: pointer; flex-grow: 0.8; text-align: right"
                             onclick=call({arm_do(
-                                moves.RawCode("EnsureRelPos()").to_dict(),
-                                v.to_dict(),
+                                moves.RawCode("EnsureRelPos()"),
+                                v,
                             )})
                         >{k}  </pre>
                     '''
@@ -338,14 +338,14 @@ def index() -> Iterator[head | str]:
                 {"" if show_grip_test else "hide"}
                 onclick=call({
                     arm_do(
-                        m.to_dict(),
-                        moves.RawCode("GripperTest()").to_dict()
+                        m,
+                        moves.RawCode("GripperTest()")
                     )
                 })
             >grip test</button>
             <button tabindex=-1
                 {"" if show_go_btn else "hide"}
-                style="flex-grow: 0.8" onclick=call({arm_do(m.to_dict())})>go</button>
+                style="flex-grow: 0.8" onclick=call({arm_do(m)})>go</button>
         '''
 
 
@@ -410,17 +410,17 @@ def index() -> Iterator[head | str]:
 
         <div style="flex-grow: 1"></div>
 
-        <button tabindex=-1 onclick=call({arm_do(*[m.to_dict() for m in visible_moves])}).then(refresh)>run program</button>
+        <button tabindex=-1 onclick=call({arm_do(*visible_moves)}).then(refresh)>run program</button>
         <button tabindex=-1 onclick=call({arm_do()}).then(refresh)>stop robot</button>
 
         <div style="flex-grow: 1"></div>
 
-        <button tabindex=-1 onclick=call({arm_do(moves.RawCode("freedrive_mode() sleep(3600)").to_dict())}).then(refresh)>enter freedrive</button>
+        <button tabindex=-1 onclick=call({arm_do(moves.RawCode("freedrive_mode() sleep(3600)"))}).then(refresh)>enter freedrive</button>
 
             <button tabindex=-1
                 onclick=call({
                     arm_do(
-                        moves.RawCode("EnsureRelPos() GripperTest()").to_dict(),
+                        moves.RawCode("EnsureRelPos() GripperTest()"),
                     )
                 })
             >grip test</button>

@@ -9,11 +9,12 @@ import inspect
 import re
 import sys
 import time
+import pickle
 
 from itsdangerous.url_safe import URLSafeSerializer # type: ignore
 import secrets
 
-__serializer = URLSafeSerializer(secrets.token_hex(32)) # type: ignore
+__serializer = URLSafeSerializer(secrets.token_hex(32), serializer=pickle) # type: ignore
 
 @dataclass(frozen=True)
 class head:
@@ -62,8 +63,8 @@ def expose(f: Callable[..., Any], *args: Any, **kws: Any) -> Callable[..., Any]:
         assert __exposed[name] == f                  # type: ignore
     __exposed[name] = f                              #
     def inner(*args, **kws):                         # type: ignore
-        msg = __serializer.dumps((name, *args, kws)) # type: ignore
-        return f"'/call/{msg}'"                      #
+        msg: bytes = __serializer.dumps((name, *args, kws)) # type: ignore
+        return f"'/call/{msg.decode()}'"                      #
     if args or kws or name.startswith('<lambda>'):   #
         return inner(*args, **kws)                   # type: ignore
     else:                                            #
