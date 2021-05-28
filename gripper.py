@@ -1436,6 +1436,9 @@ gripper_code = str('''
     elif pos < 0:
       pos = 0
     end
+    while not is_steady():
+        sync()
+    end
     gripper_1_used = True
     if (connectivity_checked[0] != 1):
       gripper_id_ascii = rq_gripper_id_to_ascii("1")
