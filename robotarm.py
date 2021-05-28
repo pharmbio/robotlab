@@ -51,12 +51,12 @@ prelude = '''
     def MoveLin(x, y, z, r, p, yaw, slow=False):
         rv = rpy2rotvec([d2r(r), d2r(p), d2r(yaw)])
         pose = p[x/1000, y/1000, z/1000, rv[0], rv[1], rv[2]]
+        set_last(x, y, z, r, p, yaw, True)
         if slow:
             movel(pose, a=0.3, v=0.10)
         else:
             movel(pose, a=1.2, v=0.25)
         end
-        set_last(x, y, z, r, p, yaw, True)
     end
 
     def MoveRel(x, y, z, r, p, yaw, slow=False):
@@ -164,6 +164,7 @@ def make_script(movelist: list[Move], with_gripper: bool, name: str='script', de
     )
     print(body)
     assert re.match(r'(?!\d)\w*$', name)
+    # TODO remove this sec, cannot ever be sec
     return reindent(f'''
         {def_or_sec} {name}():
             {prelude}
@@ -177,7 +178,7 @@ class Robotarm:
 
     @staticmethod
     def init(host: str, port: int, with_gripper: bool, quiet: bool = False) -> Robotarm:
-        quiet or print('connecting to robotarm...', locals(), end=' ')
+        quiet or print('connecting to robotarm...', end=' ')
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.connect((host, port))
         quiet or print('connected!')

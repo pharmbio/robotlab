@@ -40,6 +40,9 @@ def spawn(f: Callable[[], None]) -> None:
 
 polled_info: dict[str, list[float]] = {}
 
+from datetime import datetime, timedelta
+server_start = datetime.now()
+
 @spawn
 def poll() -> None:
     arm = robots.get_robotarm(config, quiet=False)
@@ -110,15 +113,19 @@ def edit_at(program_name: str, i: int, changes: dict[str, Any]):
 def keydown(program_name: str, args: dict[str, Any]):
     mm: float = 1.0
     deg: float = 1.0
-    if args.get('ctrlKey'):
-        mm = 10.0
-        deg = 90.0 / 8
-    if args.get('altKey'):
-        mm = 100.0
-        deg = 90.0
-    if args.get('shiftKey'):
+
+    A = bool(args.get('altKey'))
+    S = bool(args.get('shiftKey'))
+    C = bool(args.get('ctrlKey'))
+    if S:
         mm = 0.25
         deg = 0.25
+    if A:
+        mm = 10.0
+        deg = 90.0 / 8
+    if C or (S and A):
+        mm = 100.0
+        deg = 90.0
     k = str(args['key'])
     keymap = dict(
         ArrowRight = moves.MoveRel(xyz=[ mm, 0, 0], rpy=[0, 0, 0]),
@@ -260,6 +267,8 @@ def index() -> Iterator[head | str]:
         k: [utils.round_nnz(v, 1) for v in vs]
         for k, vs in polled_info.items()
     }
+
+    info['server_age'] = round((datetime.now() - server_start).total_seconds())
 
     from pprint import pformat
 
@@ -416,15 +425,19 @@ def index() -> Iterator[head | str]:
 
         <div style="flex-grow: 1"></div>
 
-        <button tabindex=-1 onclick=call({arm_do(moves.RawCode("freedrive_mode() sleep(3600)"))}).then(refresh)>enter freedrive</button>
+        <button tabindex=-1
+            onclick=call({
+                arm_do(
+                    moves.RawCode("freedrive_mode() sleep(3600)")
+                )
+            })>enter freedrive</button>
 
-            <button tabindex=-1
-                onclick=call({
-                    arm_do(
-                        moves.RawCode("EnsureRelPos() GripperTest()"),
-                    )
-                })
-            >grip test</button>
+        <button tabindex=-1
+            onclick=call({
+                arm_do(
+                    moves.RawCode("EnsureRelPos() GripperTest()"),
+                )
+            })>grip test</button>
         </div>
     '''
 
