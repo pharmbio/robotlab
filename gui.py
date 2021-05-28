@@ -114,16 +114,15 @@ def keydown(program_name: str, args: dict[str, Any]):
     mm: float = 1.0
     deg: float = 1.0
 
-    A = bool(args.get('altKey'))
-    S = bool(args.get('shiftKey'))
-    C = bool(args.get('ctrlKey'))
-    if S:
+    Alt = bool(args.get('altKey'))
+    Shift = bool(args.get('shiftKey'))
+    if Shift:
         mm = 0.25
         deg = 0.25
-    if A:
+    if Alt:
         mm = 10.0
         deg = 90.0 / 8
-    if C or (S and A):
+    if Shift and Alt:
         mm = 100.0
         deg = 90.0
     k = str(args['key'])
@@ -208,7 +207,6 @@ def index() -> Iterator[head | str]:
                     call(''' + keydown(program_name) + ''', {
                         selected: window.selected,
                         key: event.key,
-                        ctrlKey: event.ctrlKey,
                         altKey: event.altKey,
                         shiftKey: event.shiftKey,
                     })
