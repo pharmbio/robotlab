@@ -342,16 +342,6 @@ def index() -> Iterator[head | str]:
 
         yield f'''
             <button tabindex=-1
-                style="flex-grow: 1.2"
-                {"" if show_grip_test else "hide"}
-                onclick=call({
-                    arm_do(
-                        m,
-                        moves.RawCode("GripperTest()")
-                    )
-                })
-            >grip test</button>
-            <button tabindex=-1
                 {"" if show_go_btn else "hide"}
                 style="flex-grow: 0.8" onclick=call({arm_do(m)})>go</button>
         '''
