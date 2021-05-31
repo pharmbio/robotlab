@@ -98,10 +98,6 @@ def edit_at(program_name: str, i: int, changes: dict[str, Any]):
     for k, v in changes.items():
         if k in 'rpy xyz joints name slow pos tag sections'.split():
             m = replace(m, **{k: v})
-        elif k == 'to_abs':
-            ml = ml.to_abs()
-        elif k == 'to_rel':
-            ml = ml.to_rel()
         else:
             raise ValueError(k)
 
@@ -403,8 +399,12 @@ def index() -> Iterator[head | str]:
             }
         ">
     ''' + f'''
-        <button tabindex=-1 onclick=call({edit_at(program_name, 0, dict(to_rel=True))}).then(refresh)>to_rel</button>
-        <button tabindex=-1 onclick=call({edit_at(program_name, 0, dict(to_abs=True))}).then(refresh)>to_abs</button>
+        <button tabindex=-1
+            onclick=call({
+                arm_do(
+                    moves.RawCode("freedrive_mode() sleep(3600)")
+                )
+            })>freedrive</button>
 
         <div style="flex-grow: 1"></div>
 
@@ -412,13 +412,6 @@ def index() -> Iterator[head | str]:
         <button tabindex=-1 onclick=call({arm_do()}).then(refresh)>stop robot</button>
 
         <div style="flex-grow: 1"></div>
-
-        <button tabindex=-1
-            onclick=call({
-                arm_do(
-                    moves.RawCode("freedrive_mode() sleep(3600)")
-                )
-            })>enter freedrive</button>
 
         <button tabindex=-1
             onclick=call({
