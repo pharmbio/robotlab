@@ -41,6 +41,9 @@ def call(name: str, *args: Any, **kwargs: Any) -> str:
     strs += [k + '=' + str(v) for k, v in kwargs.items()]
     return name + '(' + ', '.join(strs) + ')'
 
+def keep_true(**kvs: Any) -> dict[str, Any]:
+    return {k: v for k, v in kvs.items() if v}
+
 @dataclass(frozen=True)
 class MoveLin(Move):
     '''
@@ -60,7 +63,7 @@ class MoveLin(Move):
     slow: bool = False
 
     def to_script(self) -> str:
-        return call('MoveLin', *self.xyz, *self.rpy, **(dict(slow=True) if self.slow else {}))
+        return call('MoveLin', *self.xyz, *self.rpy, **keep_true(slow=self.slow))
 
 @dataclass(frozen=True)
 class MoveRel(Move):
@@ -82,7 +85,7 @@ class MoveRel(Move):
     slow: bool = False
 
     def to_script(self) -> str:
-        return call('MoveRel', *self.xyz, *self.rpy, **(dict(slow=True) if self.slow else {}))
+        return call('MoveRel', *self.xyz, *self.rpy, **keep_true(slow=self.slow))
 
 @dataclass(frozen=True)
 class MoveJoint(Move):
@@ -94,14 +97,15 @@ class MoveJoint(Move):
     slow: bool = False
 
     def to_script(self) -> str:
-        return call('MoveJoint', *self.joints, **(dict(slow=True) if self.slow else {}))
+        return call('MoveJoint', *self.joints, **keep_true(slow=self.slow))
 
 
 @dataclass(frozen=True)
 class GripperMove(Move):
     pos: int
+    soft: bool = False
     def to_script(self) -> str:
-        return call('GripperMove', self.pos)
+        return call('GripperMove', self.pos, **keep_true(soft=self.soft))
 
 @dataclass(frozen=True)
 class Section(Move):

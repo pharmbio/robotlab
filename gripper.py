@@ -1430,7 +1430,7 @@ gripper_code = str('''
   rq_set_gripper_max_cur(0, "1")
   # end: URCap Installation Node
 
-  def GripperMove(pos):
+  def GripperMove(pos, soft=False):
     if pos > 255:
       pos = 255
     elif pos < 0:
@@ -1454,7 +1454,12 @@ gripper_code = str('''
       end
       status_checked[0] = 1
     end
-    rq_set_pos_spd_for(pos, 0, 255, "1")
+    if soft:
+        force = 0
+    else:
+        force = 255
+    end
+    rq_set_pos_spd_for(pos, 0, force, "1")
     rq_go_to("1")
     rq_wait("1")
     gripper_1_selected = True

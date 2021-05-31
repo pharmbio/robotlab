@@ -112,13 +112,18 @@ def gripper_code(with_gripper: bool=False) -> str:
         code = gripper.gripper_code
     else:
         code = '''
-            def GripperMove(pos):
+            def GripperMove(pos, soft=False):
                 if pos > 255:
                     pos = 255
                 elif pos < 0:
                     pos = 0
                 end
-                textmsg("log gripper simulated, pretending to move to ", pos)
+                if soft:
+                    softly = "softly "
+                else:
+                    softly = ""
+                end
+                textmsg("log gripper simulated, pretending to move " + softly + "to ", pos)
                 write_output_integer_register(0, pos)
                 sleep(0.1)
             end
