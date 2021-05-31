@@ -7,6 +7,8 @@ from collections import *
 import re
 import textwrap
 
+import utils
+
 from protocol import Event
 import protocol
 from robots import Config, configs
@@ -96,10 +98,7 @@ def index() -> Iterator[head | str]:
     sortby: str = request.args.get('sortby', 'plate')
 
     events = protocol.cell_paint_many(plates, delay, offset=20)
-
-    def execute(events: list[Event], config: Config) -> None:
-        for event in events:
-            event.command.execute(config) # some of the execute events are just wait until ready commands
+    events = protocol.sleek_movements(events)
 
     with_group: list[tuple[tuple[int | str | None, ...], Event]] = []
     for index, event in enumerate(events):
@@ -170,7 +169,7 @@ def index() -> Iterator[head | str]:
                         --end:    calc(var(--zoom) / 100 * {event.end}px);
                         --color:  var({color_var});
                     "
-                    data-info="{esc(str(event))}"
+                    data-info="{esc(utils.show(event, use_color=False))}"
                 ></div>
             ''' + divs
 

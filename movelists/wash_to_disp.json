@@ -1,10 +1,10 @@
 [
-  {"type": "Section", "sections": ["part1"]},
+  {"type": "Section", "sections": ["part1/3"]},
   {"type": "GripperMove", "pos": 88},
   {"type": "MoveJoint", "joints": [102, -123, 99, 24, 102, 0], "name": "h21 neu"},
   {"type": "MoveJoint", "joints": [-99, -129, 141, -13, -8, 1], "name": "wash neu"},
   {"type": "MoveLin", "xyz": [-262.5, 197.5, 161.9], "rpy": [0.0, 0.0, -0.7], "name": "wash pick above", "slow": true},
-  {"type": "Section", "sections": ["part2"]},
+  {"type": "Section", "sections": ["part2/3"]},
   {"type": "MoveLin", "xyz": [-269.5, 197.5, 131.9], "rpy": [0.0, 0.0, -0.7], "name": "wash pick", "slow": true},
   {"type": "GripperMove", "pos": 255},
   {"type": "MoveLin", "xyz": [-269.5, 197.5, 420.4], "rpy": [0.0, 0.0, -0.7], "name": "wash neu", "slow": true},
@@ -13,6 +13,8 @@
   {"type": "MoveLin", "xyz": [-133.3, -501.9, 337.2], "rpy": [0.0, 0.0, 0.0], "name": "disp neu"},
   {"type": "MoveLin", "xyz": [-133.3, -501.9, 76.3], "rpy": [0.0, 0.0, 0.0], "name": "disp drop"},
   {"type": "GripperMove", "pos": 89},
+  {"type": "MoveLin", "xyz": [-131.3, -501.7, 126.8], "rpy": [0.0, 0.0, 0.0], "name": "disp_pickup above"},
+  {"type": "Section", "sections": ["part3/3"]},
   {"type": "MoveLin", "xyz": [-133.3, -501.9, 337.2], "rpy": [0.0, 0.0, 0.0], "name": "disp neu"},
   {"type": "MoveLin", "xyz": [208.6, -265.5, 806.7], "rpy": [0.0, 0.0, 90.0], "name": "h21 neu"}
 ]

@@ -167,7 +167,7 @@ def make_script(movelist: list[Move], with_gripper: bool, name: str='script', de
         + m.to_script()
         for m in movelist
     )
-    print(body)
+    # print(body)
     assert re.match(r'(?!\d)\w*$', name)
     # TODO remove this sec, cannot ever be sec
     return reindent(f'''
@@ -242,6 +242,7 @@ class Robotarm:
         return self
 
     def execute_moves(self, movelist: list[Move], name: str='script', def_or_sec: str='def') -> None:
+        name = name.replace('/', '_of_')
         self.send(make_script(movelist, self.with_gripper, name=name, def_or_sec=def_or_sec))
         self.recv_until(f'PROGRAM_XXX_STOPPED{name}')
         # self.close()

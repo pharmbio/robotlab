@@ -5,7 +5,7 @@ from typing import *
 from pprint import pformat
 import re
 
-import color
+from color import color
 
 prims: tuple[Any, ...] = (int, float, bool, str, bytes, type(None))
 
@@ -29,8 +29,8 @@ def show_key(x: object) -> str:
             return k
     return repr(x)
 
-def show(x: Any, show_key: Any=show_key, width: int=80) -> str:
-
+def show(x: Any, show_key: Any=show_key, width: int=80, use_color: bool=True) -> str:
+    color.set_enabled(use_color)
     def go(dent: str, pre: str, x: Any, post: str) -> Iterator[str]:
         '''
         only yield (dent +) pre once,

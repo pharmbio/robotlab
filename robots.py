@@ -277,3 +277,17 @@ class wait_for_ready_cmd(Command):
     def time_estimate(self) -> float:
         return 0
 
+@dataclass(frozen=True)
+class par(Command):
+    sub1: wash_cmd | disp_cmd | incu_cmd
+    sub2: robotarm_cmd
+
+    def sub_cmds(self) -> list[Command]:
+        return [self.sub1, self.sub2]
+
+    def time_estimate(self) -> float:
+        return max(sub.time_estimate() for sub in self.sub_cmds())
+
+    def execute(self, config: Config) -> None:
+        for sub in self.sub_cmds():
+            sub.execute(config)

@@ -1,18 +1,26 @@
+from dataclasses import *
 
-reset      = '\033[0m'
-def none       (s: str) -> str: return              s
-def black      (s: str) -> str: return '\033[30m' + s + reset
-def red        (s: str) -> str: return '\033[31m' + s + reset
-def green      (s: str) -> str: return '\033[32m' + s + reset
-def orange     (s: str) -> str: return '\033[33m' + s + reset
-def blue       (s: str) -> str: return '\033[34m' + s + reset
-def purple     (s: str) -> str: return '\033[35m' + s + reset
-def cyan       (s: str) -> str: return '\033[36m' + s + reset
-def lightgrey  (s: str) -> str: return '\033[37m' + s + reset
-def darkgrey   (s: str) -> str: return '\033[90m' + s + reset
-def lightred   (s: str) -> str: return '\033[91m' + s + reset
-def lightgreen (s: str) -> str: return '\033[92m' + s + reset
-def yellow     (s: str) -> str: return '\033[93m' + s + reset
-def lightblue  (s: str) -> str: return '\033[94m' + s + reset
-def pink       (s: str) -> str: return '\033[95m' + s + reset
-def lightcyan  (s: str) -> str: return '\033[96m' + s + reset
+@dataclass
+class Color:
+    dont: bool = False
+    def set_enabled(self, use_color: bool):
+        self.dont = not use_color
+    reset: str = '\033[0m'
+    def none       (self, s: str) -> str: return s
+    def black      (self, s: str) -> str: return s if self.dont else ('\033[30m' + s + self.reset)
+    def red        (self, s: str) -> str: return s if self.dont else ('\033[31m' + s + self.reset)
+    def green      (self, s: str) -> str: return s if self.dont else ('\033[32m' + s + self.reset)
+    def orange     (self, s: str) -> str: return s if self.dont else ('\033[33m' + s + self.reset)
+    def blue       (self, s: str) -> str: return s if self.dont else ('\033[34m' + s + self.reset)
+    def purple     (self, s: str) -> str: return s if self.dont else ('\033[35m' + s + self.reset)
+    def cyan       (self, s: str) -> str: return s if self.dont else ('\033[36m' + s + self.reset)
+    def lightgrey  (self, s: str) -> str: return s if self.dont else ('\033[37m' + s + self.reset)
+    def darkgrey   (self, s: str) -> str: return s if self.dont else ('\033[90m' + s + self.reset)
+    def lightred   (self, s: str) -> str: return s if self.dont else ('\033[91m' + s + self.reset)
+    def lightgreen (self, s: str) -> str: return s if self.dont else ('\033[92m' + s + self.reset)
+    def yellow     (self, s: str) -> str: return s if self.dont else ('\033[93m' + s + self.reset)
+    def lightblue  (self, s: str) -> str: return s if self.dont else ('\033[94m' + s + self.reset)
+    def pink       (self, s: str) -> str: return s if self.dont else ('\033[95m' + s + self.reset)
+    def lightcyan  (self, s: str) -> str: return s if self.dont else ('\033[96m' + s + self.reset)
+
+color = Color()
