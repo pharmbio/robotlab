@@ -457,7 +457,7 @@ gripper_code = str('''
   def rq_set_gripper_max_current_mA(current_mA, gripper_socket="1"):
       current = floor(current_mA / 10)
       rq_set_var(MSC, current, gripper_socket)
-      textmsg("skipping sleep 15 (1.5)")
+      textmsg("gripper.py skipping sleep 1.5")
       # sleep(1.5)
   end
 
