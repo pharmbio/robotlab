@@ -204,8 +204,8 @@ note '
 '
 function sync-files {
     set -x
-    rsync -rtuv ./* robotlab:robot-remote-control
-    rsync -rtuv robotlab:robot-remote-control/logs/ logs/
+    rsync -e 'ssh -p 32222' -rtuv ./* robotlab:robot-remote-control
+    rsync -e 'ssh -p 32222' -rtuv robotlab:robot-remote-control/logs/ logs/
 }
 
 note '
