@@ -90,12 +90,12 @@ def index() -> Iterator[head | str]:
     delay_str: str = request.args.get('delay', 'auto')
     delay: Literal['auto'] | int
     if delay_str == 'auto':
-        delay = 'auto'
+        delay = protocol.cell_paint_get_smallest_delay(plates, offset=20)
     else:
         delay = int(delay_str)
     sortby: str = request.args.get('sortby', 'plate')
 
-    events = protocol.cell_paint_many(plates, delay, offset=60)
+    events = protocol.cell_paint_many(plates, delay, offset=20)
 
     def execute(events: list[Event], config: Config) -> None:
         for event in events:

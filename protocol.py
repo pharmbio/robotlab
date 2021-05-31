@@ -118,9 +118,12 @@ def cell_painting(plate_id: str, initial_wait_seconds: float, incu_loc: str, lid
         robots.robotarm_cmd(f'{r_loc}_put'),
     ]
 
-    to_output_hotel = [
-        robots.robotarm_cmd(f'{r_loc}_get'),
-        robots.robotarm_cmd(f'{out_loc}_put'), # postponable=True
+    wash_to_out = [
+        robots.robotarm_cmd('wash_get_part1', prep=True),
+        robots.wait_for_ready_cmd('wash'),
+        robots.robotarm_cmd('wash_get_part2'),
+        robots.robotarm_cmd(f'lid_{lid_loc}_get'),
+        robots.robotarm_cmd(f'{out_loc}_put'),
     ]
 
     cmds = [
@@ -163,11 +166,8 @@ def cell_painting(plate_id: str, initial_wait_seconds: float, incu_loc: str, lid
         *RT_incu_to_wash,
         robots.wash_cmd('automation/8_W-4X_NoFinalAspirate.LHC', est=120),
 
-        # park it in RT, move to output hotel when there's time
-        *wash_to_RT_incu,
-
-        # # 7 Imaging
-        # *to_output_hotel,
+        # move to output hotel now
+        *wash_to_out,
     ]
 
     t = 0.0
@@ -192,7 +192,7 @@ def cell_painting(plate_id: str, initial_wait_seconds: float, incu_loc: str, lid
 
 H = [21, 19, 17, 15, 13, 11, 9, 7, 5, 3, 1]
 I = [i+1 for i in range(22)]
-Out = list(H)
+Out = list(reversed(H))
 
 h21 = 'h21'
 
@@ -202,30 +202,24 @@ r_locs:    list[str] = [f'r{i}' for i in H]
 out_locs:  list[str] = [f'out{i}' for i in Out]
 lid_locs:  list[str] = [h for h in h_locs if h != h21]
 
-# out_locs += r_locs
-
-def cell_paint_smallest_delay(plates: int, offset: int=60) -> int:
+def cell_paint_get_smallest_delay(plates: int, offset: int=60) -> int:
     for delay in range(400):
         events = cell_paint_many(plates, delay, offset)
         if not any(e.overlap.value for e in events):
             return delay
     return 400
 
-def cell_paint_many(plates: int, delay: int | Literal['auto'], offset: int=60) -> list[Event]:
+def cell_paint_many(num_plates: int, delay: int | Literal['auto'], offset: int=60) -> list[Event]:
 
     if delay == 'auto':
-        delay = cell_paint_smallest_delay(plates, offset)
-
-    N = plates
-    D = delay
-    O = 60
+        delay = cell_paint_get_smallest_delay(num_plates, offset)
 
     events = utils.flatten([
         cell_painting(
-            f'p{i}', O + i * D,
-            incu_locs[i], lid_locs[i], r_locs[i], r_locs[i]
+            f'p{i}', offset + i * delay,
+            incu_locs[i], lid_locs[i], r_locs[i], out_locs[i]
         )
-        for i in range(N)
+        for i in range(num_plates)
     ])
 
     events = sorted(events, key=lambda e: e.end)
