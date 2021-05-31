@@ -262,7 +262,7 @@ def index() -> Iterator[head | str]:
         for k, vs in polled_info.items()
     }
 
-    info['server_age'] = round((datetime.now() - server_start).total_seconds())
+    info['server_age'] = round((datetime.now() - server_start).total_seconds()) # type: ignore
 
     from pprint import pformat
 
@@ -286,12 +286,6 @@ def index() -> Iterator[head | str]:
                         flex-basis: 0;
                         margin: 0px;
                         padding: 8px 0;
-                    }
-                    & > input {
-                        border: 0;
-                        background: unset;
-                        margin-left: 5px;
-                        min-width: 0; /* makes flex able to shrink element */
                     }
                     & [hide] {
                         visibility: hidden;
@@ -317,6 +311,16 @@ def index() -> Iterator[head | str]:
                 for k, v in buttons:
                     yield f'''
                         <pre style="cursor: pointer; flex-grow: 0.8; text-align: right"
+                            css="
+                                &:hover {{
+                                    background: #fff8;
+                                    box-shadow:
+                                        inset  1px  0px #0006,
+                                        inset  0px  1px #0006,
+                                        inset -1px  0px #0006,
+                                        inset  0px -1px #0006;
+                                }}
+                            "
                             onclick=call({arm_do(
                                 moves.RawCode("EnsureRelPos()"),
                                 v,
@@ -339,6 +343,7 @@ def index() -> Iterator[head | str]:
         yield f'''
             <button tabindex=-1
                 {"" if show_go_btn else "hide"}
+                css="margin: 0 10px;"
                 style="flex-grow: 0.8" onclick=call({arm_do(m)})>go</button>
         '''
 
@@ -347,6 +352,25 @@ def index() -> Iterator[head | str]:
         yield f'''
             <input style="flex-grow: 2"
                 type=text
+                css="
+                    &:hover:not([disabled]) {{
+                        background: #fff8;
+                        box-shadow:
+                            inset  1px  0px #0006,
+                            inset  0px  1px #0006,
+                            inset -1px  0px #0006,
+                            inset  0px -1px #0006;
+                    }}
+                "
+                css="
+                    padding: 0 10px;
+                    margin-right: 10px;
+                    border: 0;
+                    background: unset;
+                    min-width: 0; /* makes flex able to shrink element */
+                    font-size: 14px;
+                "
+
                 {"" if hasattr(m, "name") else "disabled"}
                 value="{esc(catch(lambda: getattr(m, "name"), ""))}"
                 oninput=call({edit_at(program_name, i)},{{name:event.target.value}}).then(refresh)
@@ -424,8 +448,10 @@ def index() -> Iterator[head | str]:
 
     yield '''
         <script eval>
-            if (window.rt) window.clearTimeout(window.rt)
-            window.rt = window.setTimeout(() => refresh(0, () => 0), 100)
+            window.requestAnimationFrame(() => {
+                if (window.rt) window.clearTimeout(window.rt)
+                window.rt = window.setTimeout(() => refresh(0, () => 0), 100)
+            })
         </script>
     '''
 
