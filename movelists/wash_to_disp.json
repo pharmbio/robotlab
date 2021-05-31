@@ -11,7 +11,7 @@
   {"type": "MoveJoint", "joints": [-98.6, -129.5, 141.0, -12.6, -7.9, 1.1], "name": "wash neu"},
   {"type": "MoveJoint", "joints": [68, -89, 125, -36, 158, 0], "name": "disp neu"},
   {"type": "MoveLin", "xyz": [-133.3, -501.9, 337.2], "rpy": [0.0, 0.0, 0.0], "name": "disp neu"},
-  {"type": "MoveLin", "xyz": [-133.3, -501.9, 76.3], "rpy": [0.0, 0.0, 0.0], "name": "disp drop TODO: improve"},
+  {"type": "MoveLin", "xyz": [-133.3, -501.9, 76.3], "rpy": [0.0, 0.0, 0.0], "name": "disp drop"},
   {"type": "GripperMove", "pos": 89},
   {"type": "MoveLin", "xyz": [-133.3, -501.9, 337.2], "rpy": [0.0, 0.0, 0.0], "name": "disp neu"},
   {"type": "MoveLin", "xyz": [208.6, -265.5, 806.7], "rpy": [0.0, 0.0, 90.0], "name": "h21 neu"}
