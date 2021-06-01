@@ -105,64 +105,71 @@ def sleek_put_get_movements(events: list[Event]) -> list[Event]:
 
 
 def cell_painting(plate_id: str, initial_wait_seconds: float, incu_loc: str, lid_loc: str, r_loc: str, out_loc: str) -> list[Event]:
-    incu_to_wash_part1 = [
+
+    incu_get = [
         robots.wait_for_timer_cmd(plate_id),
-        par(
-            robots.incu_cmd('get', incu_loc, est=10),
-            robots.robotarm_cmd('incu_get_part1'),
-        ),
+        robots.incu_cmd('get', incu_loc, est=10),
+        robots.robotarm_cmd('incu_get_prep'),
         robots.wait_for_ready_cmd('incu'),
-        robots.robotarm_cmd('incu_get_part2'),
+        robots.robotarm_cmd('incu_get_main'),
         robots.robotarm_cmd(f'lid_{lid_loc}_put'),
-        robots.robotarm_cmd('wash_put_part1'),
     ]
 
-    wash_to_disp = [
-        robots.robotarm_cmd('wash_to_disp_part1/3', prep=True),
-        robots.wait_for_ready_cmd('wash'),
-        robots.robotarm_cmd('wash_to_disp_part2/3'),
-    ]
+    def incu_put(minutes: int):
+        return [
+            robots.robotarm_cmd(f'lid_{lid_loc}_get'),
+            robots.robotarm_cmd('incu_put_main'),
+            robots.incu_cmd('put', incu_loc, est=0),
+            robots.timer_cmd(minutes, plate_id),
+            robots.robotarm_cmd('incu_put_rest'),
+            robots.wait_for_ready_cmd('incu'),
+        ]
 
-    disp_get = [
-        robots.robotarm_cmd('disp_get_part1', prep=True),
-        robots.wait_for_ready_cmd('disp'),
-        robots.robotarm_cmd('disp_get_part2'),
-    ]
+    def RT(minutes: int):
+        return [
+            robots.robotarm_cmd(f'lid_{lid_loc}_get'),
+            robots.robotarm_cmd(f'{r_loc}_put'),
+            robots.timer_cmd(minutes, plate_id),
+            robots.wait_for_timer_cmd(plate_id),
+            robots.robotarm_cmd(f'{r_loc}_get'),
+            robots.robotarm_cmd(f'lid_{lid_loc}_put'),
+        ]
 
-    disp_to_incu = [
-        *disp_get,
-        robots.robotarm_cmd(f'lid_{lid_loc}_get'),
-        robots.robotarm_cmd('incu_put_part1'),
-        robots.incu_cmd('put', incu_loc, est=0),
-        robots.robotarm_cmd('incu_put_part2'),
-        robots.wait_for_ready_cmd('incu'),
-    ]
+    def wash(wash_path: str):
+        return [
+            robots.robotarm_cmd('wash_put_main'),
+            par(
+                robots.wash_cmd(wash_path, est=90),
+                robots.robotarm_cmd('wash_put_rest'),
+            ),
 
-    disp_to_RT_incu = [
-        *disp_get,
-        robots.robotarm_cmd(f'lid_{lid_loc}_get'),
-        robots.robotarm_cmd(f'{r_loc}_put'),
-    ]
+            robots.robotarm_cmd('wash_get_prep', prep=True),
+            # Yields:
+            robots.wait_for_ready_cmd('wash'),
 
-    RT_incu_to_wash_part1 = [
-        robots.wait_for_timer_cmd(plate_id),
-        robots.robotarm_cmd(f'{r_loc}_get'),
-        robots.robotarm_cmd(f'lid_{lid_loc}_put'),
-        robots.robotarm_cmd('wash_put_part1'),
-    ]
+            robots.robotarm_cmd('wash_get_main'),
+        ]
 
-    wash_to_RT_incu = [
-        robots.robotarm_cmd('wash_get_part1', prep=True),
-        robots.wait_for_ready_cmd('wash'),
-        robots.robotarm_cmd('wash_get_part2'),
-        robots.robotarm_cmd(f'lid_{lid_loc}_get'),
-        robots.robotarm_cmd(f'{r_loc}_put'),
-    ]
+    def wash_disp(wash_path: str, disp_path: str):
+        return [
+            robots.robotarm_cmd('wash_put_main'),
+            par(
+                robots.wash_cmd(wash_path, est=90),
+                robots.robotarm_cmd('wash_put_rest'),
+            ),
 
-    wash_to_out = [
-        robots.robotarm_cmd('wash_get_part1', prep=True),
-        robots.wait_for_ready_cmd('wash'),
-        robots.robotarm_cmd('wash_get_part2'),
+            robots.robotarm_cmd('wash_to_disp_prep', prep=True),
+            # Yields:
+            robots.wait_for_ready_cmd('wash'),
+
+            robots.robotarm_cmd('wash_to_disp_main'),
+            robots.disp_cmd(disp_path, est=15),
+            robots.wait_for_ready_cmd('disp'),
+            robots.robotarm_cmd('disp_get_main'),
+            # (dispensing is so fast so we don't yield)
+        ]
+
+    to_out = [
         robots.robotarm_cmd(f'lid_{lid_loc}_get'),
         robots.robotarm_cmd(f'{out_loc}_put'),
     ]
@@ -172,70 +179,42 @@ def cell_painting(plate_id: str, initial_wait_seconds: float, incu_loc: str, lid
         robots.timer_cmd(initial_wait_seconds / 60.0, plate_id),
 
         # 3 Mitotracker staining
-        *incu_to_wash_part1,
-        par(
-            robots.wash_cmd('automation/2_4_6_W-3X_FinalAspirate_test.LHC', est=90),
-            robots.robotarm_cmd('wash_put_part2'),
+        *incu_get,
+        *wash_disp(
+            'automation/2_4_6_W-3X_FinalAspirate.LHC',
+            'automation/1_D_P1_30ul_mito.LHC',
         ),
-        *wash_to_disp,
-        par(
-            robots.disp_cmd('automation/1_D_P1_30ul_mito.LHC', est=15),
-            robots.robotarm_cmd('wash_to_disp_part3/3'),
-        ),
-        *disp_to_incu,
-        robots.timer_cmd(30, plate_id),
+        *incu_put(30),
 
         # 4 Fixation
-        *incu_to_wash_part1,
-        par(
-            robots.wash_cmd('automation/2_4_6_W-3X_FinalAspirate_test.LHC', est=90),
-            robots.robotarm_cmd('wash_put_part2'),
+        *incu_get,
+        *wash_disp(
+            'automation/2_4_6_W-3X_FinalAspirate.LHC',
+            'automation/3_D_SA_384_50ul_PFA.LHC',
         ),
-        *wash_to_disp,
-        par(
-            robots.disp_cmd('automation/3_D_SA_384_50ul_PFA.LHC', est=19),
-            robots.robotarm_cmd('wash_to_disp_part3/3'),
-        ),
-        *disp_to_RT_incu,
-        robots.timer_cmd(20, plate_id),
+        *RT(20),
 
         # 5 Permeabilization
-        *RT_incu_to_wash_part1,
-        par(
-            robots.wash_cmd('automation/2_4_6_W-3X_FinalAspirate_test.LHC', est=90),
-            robots.robotarm_cmd('wash_put_part2'),
+        *wash_disp(
+            'automation/2_4_6_W-3X_FinalAspirate.LHC',
+            'automation/5_D_SB_384_50ul_TRITON.LHC',
         ),
-        *wash_to_disp,
-        par(
-            robots.disp_cmd('automation/5_D_SB_384_50ul_TRITON.LHC', est=21),
-            robots.robotarm_cmd('wash_to_disp_part3/3'),
-        ),
-        *disp_to_RT_incu,
-        robots.timer_cmd(20, plate_id),
+        *RT(20),
 
         # 6 Post-fixation staining
-        *RT_incu_to_wash_part1,
-        par(
-            robots.wash_cmd('automation/2_4_6_W-3X_FinalAspirate_test.LHC', est=90),
-            robots.robotarm_cmd('wash_put_part2'),
+        *wash_disp(
+            'automation/2_4_6_W-3X_FinalAspirate.LHC',
+            'automation/7_D_P2_20ul_STAINS.LHC',
         ),
-        *wash_to_disp,
-        par(
-            robots.disp_cmd('automation/7_D_P2_20ul_STAINS.LHC', est=22),
-            robots.robotarm_cmd('wash_to_disp_part3/3'),
-        ),
-        *disp_to_RT_incu,
-        robots.timer_cmd(20, plate_id),
+        *RT(20),
 
         # Last wash
-        *RT_incu_to_wash_part1,
-        par(
-            robots.wash_cmd('automation/8_W-4X_NoFinalAspirate.LHC', est=120),
-            robots.robotarm_cmd('wash_put_part2'),
+        *wash(
+            'automation/8_W-4X_NoFinalAspirate.LHC',
         ),
 
-        # move to output hotel now
-        *wash_to_out,
+        # Move to output hotel
+        *to_out,
     ]
 
     t = 0.0
