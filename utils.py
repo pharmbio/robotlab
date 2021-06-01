@@ -5,13 +5,11 @@ from typing import *
 from pprint import pformat
 import re
 
-from color import color
-
 prims: tuple[Any, ...] = (int, float, bool, str, bytes, type(None))
 
 try:
     import pandas as pd # type: ignore
-    prims = (*prims, pd.DataFrame, pd.Series)
+    prims = (*prims, pd.DataFrame, pd.Series) # type: ignore
 except:
     pass
 
@@ -30,7 +28,7 @@ def show_key(x: object) -> str:
     return repr(x)
 
 def show(x: Any, show_key: Any=show_key, width: int=80, use_color: bool=True) -> str:
-    color.set_enabled(use_color)
+    color = Color(use_color)
     def go(dent: str, pre: str, x: Any, post: str) -> Iterator[str]:
         '''
         only yield (dent +) pre once,
@@ -174,3 +172,32 @@ def zip_sub(xs: list[float], ys: list[float], ndigits: int=1) -> list[float]:
 
 def zip_add(xs: list[float], ys: list[float], ndigits: int=1) -> list[float]:
     return zip_with(lambda a, b: a + b, xs, ys, ndigits=ndigits)
+
+@dataclass
+class Color:
+    enabled: bool = True
+
+    def do(self, code: str, s: str) -> str:
+        if self.enabled:
+            reset: str = '\033[0m'
+            return code + s + reset
+        else:
+            return s
+
+    def none       (self, s: str) -> str: return s
+    def black      (self, s: str) -> str: return self.do('\033[30m', s)
+    def red        (self, s: str) -> str: return self.do('\033[31m', s)
+    def green      (self, s: str) -> str: return self.do('\033[32m', s)
+    def orange     (self, s: str) -> str: return self.do('\033[33m', s)
+    def blue       (self, s: str) -> str: return self.do('\033[34m', s)
+    def purple     (self, s: str) -> str: return self.do('\033[35m', s)
+    def cyan       (self, s: str) -> str: return self.do('\033[36m', s)
+    def lightgrey  (self, s: str) -> str: return self.do('\033[37m', s)
+    def darkgrey   (self, s: str) -> str: return self.do('\033[90m', s)
+    def lightred   (self, s: str) -> str: return self.do('\033[91m', s)
+    def lightgreen (self, s: str) -> str: return self.do('\033[92m', s)
+    def yellow     (self, s: str) -> str: return self.do('\033[93m', s)
+    def lightblue  (self, s: str) -> str: return self.do('\033[94m', s)
+    def pink       (self, s: str) -> str: return self.do('\033[95m', s)
+    def lightcyan  (self, s: str) -> str: return self.do('\033[96m', s)
+
