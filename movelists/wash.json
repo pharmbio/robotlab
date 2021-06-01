@@ -1,6 +1,5 @@
 [
   {"type": "Section", "sections": ["put"]},
-  {"type": "GripperMove", "pos": 89},
   {"type": "MoveJoint", "joints": [98, -116, 96, 20, 98, 0], "name": "h neu"},
   {"type": "MoveLin", "xyz": [209.4, -560.1, 814.0], "rpy": [0.0, 0.0, 90.0], "name": "h21 neu"},
   {"type": "MoveLin", "xyz": [209.4, -560.1, 790.6], "rpy": [0.0, 0.0, 90.0], "name": "h21 pick"},

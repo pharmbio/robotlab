@@ -1,5 +1,4 @@
 [
-  {"type": "GripperMove", "pos": 88},
   {"type": "MoveJoint", "joints": [102, -123, 99, 24, 102, 0], "name": "h neu"},
   {"type": "MoveJoint", "joints": [-99, -129, 141, -13, -8, 1], "name": "wash above"},
   {"type": "MoveLin", "xyz": [-269.5, 197.5, 161.9], "rpy": [0.0, 0.0, -0.7], "name": "wash neu", "slow": true},
