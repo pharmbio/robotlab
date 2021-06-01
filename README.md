@@ -41,6 +41,5 @@ dry-run       | instant noop | instant noop  | instant noop | instant noop
 | copyscripts.sh      | copy the scripts made on the teach pendant to `scripts/`
 |                     | _utils_
 | utils.py            | pretty printing and other small utils
-| color.py            | print in color
 | viable.py           | a viable alternative to front-end programming
 |                     |

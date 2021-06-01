@@ -29,9 +29,9 @@ log.setLevel(logging.ERROR)
 
 import sys
 
-config: Config = configs['live_robotarm_only']
+config: Config = configs['live']
 if '--no-gripper' in sys.argv:
-    config = configs['live_robotarm_no_gripper']
+    config = configs['simulator']
 
 utils.pr(config)
 
