@@ -387,10 +387,12 @@ def read_movelists() -> dict[str, MoveList]:
         for k, v in secs.items():
             out: dict[str, MoveList] = {k: v}
             if any(machine in k for machine in 'incu wash disp'.split()):
-                if k.endswith('get'):
+                if k.endswith('get') or k == 'wash_to_disp':
                     out |= expand_get(v, k)
-                if k.endswith('put'):
+                if k.endswith('put') or k == 'wash_to_disp':
                     out |= expand_put(v, k)
+            if k == 'wash_to_disp':
+                del out['wash_to_disp main']
             out |= {
                 kk: vv
                 for k, v in out.items()

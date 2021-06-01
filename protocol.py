@@ -64,7 +64,7 @@ def sleek_movements(events: list[Event]) -> list[Event]:
                             kb = b + ' from ' + dest
                             if kb in movelists:
                                 out[i] = replace(event, command=replace(event.command, program_name=ka))
-                                out[j] = replace(event, command=replace(event.command, program_name=kb))
+                                out[j] = replace(next, command=replace(next.command, program_name=kb))
                     break
 
     return out
@@ -123,7 +123,7 @@ def cell_painting(plate_id: str, initial_wait_seconds: float, incu_loc: str, lid
                 robots.robotarm_cmd('wash put return'),
             ),
 
-            robots.robotarm_cmd('wash get prep', prep=True),
+            robots.robotarm_cmd('wash_to_disp prep', prep=True),
             # Yields:
             robots.wait_for_ready_cmd('wash'),
 
