@@ -19,7 +19,6 @@
   {"type": "MoveLin", "xyz": [208.6, -261.0, 806.7], "rpy": [0.0, 0.0, 90.0], "name": "h safe"},
   {"type": "MoveLin", "xyz": [208.6, -361.0, 806.7], "rpy": [0.0, 0.0, 90.0], "name": "h neu"},
   {"type": "Section", "sections": ["get"]},
-  {"type": "GripperMove", "pos": 95},
   {"type": "MoveJoint", "joints": [98, -116, 96, 20, 98, 0], "name": "h neu"},
   {"type": "MoveLin", "xyz": [208.6, -261.0, 806.7], "rpy": [0.0, 0.0, 90.0], "name": "h safe"},
   {"type": "MoveJoint", "joints": [102, -123, 99, 24, 102, 0], "name": "h safe"},
