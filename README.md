@@ -6,8 +6,18 @@ optional dev dependencies: pyright, entr
 
 rewrite in progress
 
-| | |
-| --- | --- |
+The command line interface, `cli.py`, accepts the following configurations:
+
+config name   | timers       | disp & wash   | incu         | robotarm
+---           | ---          | ---           | ---          | ---
+live          | wall         | execute       | execute      | execute
+test-all      | fast-forward | execute-short | execute      | execute
+test-arm-incu | fast-forward | instant noop  | execute      | execute
+simulator     | fast-forward | instant noop  | instant noop | execute-no-gripper
+dry-run       | instant noop | instant noop  | instant noop | instant noop
+
+| filename            | description
+| ---                 | ---
 |                     | _a graphical user interface_
 | gui.py              | teach the robotarm moves
 |                     | _a command line interface_

@@ -37,83 +37,26 @@ ENV = Env(
 
 @dataclass(frozen=True)
 class Config:
-    robotarm_mode: Literal['dry run', 'no gripper', 'gripper']
-    disp_mode: Literal['dry run', 'simulate', 'execute']
-    wash_mode: Literal['dry run', 'simulate', 'execute']
-    incu_mode: Literal['dry run', 'fail if used', 'execute']
-    time_mode: Literal['dry run', 'execute', 'fast forward']
-    timers: dict[str, datetime] = field(default_factory=dict) # something something
+    time_mode:          Literal['noop', 'wall', 'fast forward',          ]
+    disp_and_wash_mode: Literal['noop', 'execute', 'execute short',      ]
+    incu_mode:          Literal['noop', 'execute',                       ]
+    robotarm_mode:      Literal['noop', 'execute', 'execute no gripper', ]
+    timers: dict[str, datetime] = field(default_factory=dict)
     def name(self) -> str:
         for k, v in configs.items():
             if v is self:
                 return k
-        return 'unknown_config'
+        raise ValueError(f'unknown config {self}')
 
-configs: dict[str, Config] = dict(
-    dry_run = Config(
-        robotarm_mode='dry run',
-        disp_mode='dry run',
-        wash_mode='dry run',
-        incu_mode='dry run',
-        time_mode='dry run',
-    ),
-    dry_run_with_timers = Config(
-        robotarm_mode='dry run',
-        disp_mode='dry run',
-        wash_mode='dry run',
-        incu_mode='dry run',
-        time_mode='fast forward',
-    ),
-    live_robotarm_no_gripper = Config(
-        robotarm_mode='no gripper',
-        disp_mode='dry run',
-        wash_mode='dry run',
-        incu_mode='dry run',
-        time_mode='fast forward',
-    ),
-    live_robotarm_only_one_plate = Config(
-        robotarm_mode='gripper',
-        disp_mode='dry run',
-        wash_mode='dry run',
-        incu_mode='dry run',
-        time_mode='fast forward',
-    ),
-    live_robotarm_only = Config(
-        robotarm_mode='gripper',
-        disp_mode='dry run',
-        wash_mode='dry run',
-        incu_mode='fail if used',
-        time_mode='fast forward',
-    ),
-    live_robotarm_and_incu_only = Config(
-        robotarm_mode='gripper',
-        disp_mode='dry run',
-        wash_mode='dry run',
-        incu_mode='execute',
-        time_mode='fast forward',
-    ),
-    live_robotarm_sim_disp_wash = Config(
-        robotarm_mode='gripper',
-        disp_mode='simulate',
-        wash_mode='simulate',
-        incu_mode='execute',
-        time_mode='fast forward',
-    ),
-    live_execute_all_ff_time = Config(
-        robotarm_mode='gripper',
-        disp_mode='execute',
-        wash_mode='execute',
-        incu_mode='execute',
-        time_mode='fast forward',
-    ),
-    live_execute_all = Config(
-        robotarm_mode='gripper',
-        disp_mode='execute',
-        wash_mode='execute',
-        incu_mode='execute',
-        time_mode='execute',
-    )
-)
+
+configs: dict[str, Config]
+configs = {
+    'live':          Config('wall',         'execute',       'execute', 'execute'),
+    'test-all':      Config('fast forward', 'execute short', 'execute', 'execute'),
+    'test-arm-incu': Config('fast forward', 'noop',          'execute', 'execute'),
+    'simulator':     Config('fast forward', 'noop',          'noop',    'execute no gripper'),
+    'dry-run':       Config('noop',         'noop',          'noop',    'noop'),
+}
 
 class Command(abc.ABC):
     @abc.abstractmethod
@@ -146,7 +89,7 @@ class wait_for_timer_cmd(Command):
         return 0
 
     def execute(self, config: Config) -> None:
-        if config.time_mode in ('execute', 'fast forward'):
+        if config.time_mode == 'wall' or config.time_mode == 'fast forward':
             remain = config.timers[self.timer_id] - datetime.now()
             remain_s = remain.total_seconds()
             if remain_s > 0:
@@ -156,7 +99,7 @@ class wait_for_timer_cmd(Command):
                 time.sleep(remain_s)
             else:
                 print('Behind time:', -remain_s, 'seconds!')
-        elif config.time_mode == 'dry run':
+        elif config.time_mode == 'noop':
             remain = config.timers[self.timer_id] - datetime.now()
             remain_s = remain.total_seconds()
             print('Dry run, pretending to sleep for', remain_s, 'seconds.')
@@ -164,10 +107,10 @@ class wait_for_timer_cmd(Command):
             raise ValueError
 
 def get_robotarm(config: Config, quiet: bool = False) -> Robotarm:
-    if config.robotarm_mode == 'dry run':
+    if config.robotarm_mode == 'noop':
         return Robotarm.init_simulate(with_gripper=True, quiet=quiet)
-    assert config.robotarm_mode in {'gripper', 'no gripper'}
-    with_gripper = config.robotarm_mode == 'gripper'
+    assert config.robotarm_mode == 'execute' or config.robotarm_mode == 'execute no gripper'
+    with_gripper = config.robotarm_mode == 'execute'
     return Robotarm.init(ENV.robotarm_host, ENV.robotarm_port, with_gripper, quiet=quiet)
 
 @dataclass(frozen=True)
@@ -189,12 +132,13 @@ class wash_cmd(Command):
     protocol_path: str
 
     def execute(self, config: Config) -> None:
-        if config.wash_mode == 'dry run':
+        if config.disp_and_wash_mode == 'noop':
             # print('dry run', self)
             return
-        elif config.wash_mode == 'simulate':
-            url = ENV.wash_url + 'simulate_protocol/' + str(int(self.est))
-        elif config.wash_mode == 'execute':
+        elif config.disp_and_wash_mode == 'execute short':
+            shorter = 'automation/2_4_6_W-3X_FinalAspirate_test.LHC'
+            url = ENV.wash_url + 'execute_protocol/' + shorter
+        elif config.disp_and_wash_mode == 'execute':
             url = ENV.wash_url + 'execute_protocol/' + self.protocol_path
         else:
             raise ValueError
@@ -209,12 +153,10 @@ class wash_cmd(Command):
 class disp_cmd(Command):
     protocol_path: str
     def execute(self, config: Config) -> None:
-        if config.disp_mode == 'dry run':
+        if config.disp_and_wash_mode == 'noop':
             # print('dry run', self)
             return
-        elif config.disp_mode == 'simulate':
-            url = ENV.disp_url + 'simulate_protocol/' + str(int(self.est))
-        elif config.disp_mode == 'execute':
+        elif config.disp_and_wash_mode == 'execute' or config.disp_and_wash_mode == 'execute short':
             url = ENV.disp_url + 'execute_protocol/' + self.protocol_path
         else:
             raise ValueError
@@ -232,11 +174,9 @@ class incu_cmd(Command):
     est: float
     def execute(self, config: Config) -> None:
         assert self.action in 'put get'.split()
-        if config.incu_mode == 'dry run':
+        if config.incu_mode == 'noop':
             # print('dry run', self)
             return
-        elif config.incu_mode == 'fail if used':
-            raise RuntimeError
         elif config.incu_mode == 'execute':
             if self.action == 'put':
                 action_path = 'input_plate'
@@ -265,11 +205,14 @@ def is_ready(machine: Literal['disp', 'wash', 'incu'], config: Config) -> Any:
 class wait_for_ready_cmd(Command):
     machine: Literal['disp', 'wash', 'incu']
     def execute(self, config: Config) -> None:
-        mode = getattr(config, self.machine + '_mode')
-        if mode in ('execute', 'simulate'):
+        if self.machine == 'incu':
+            mode = config.incu_mode
+        else:
+            mode = config.disp_and_wash_mode
+        if mode == 'execute' or mode == 'execute short':
             while not is_ready(self.machine, config):
                 time.sleep(0.1)
-        elif mode == 'dry run':
+        elif mode == 'noop':
             print('Dry run, pretending', self.machine, 'is ready')
         else:
             raise ValueError(f'bad mode: {mode}')

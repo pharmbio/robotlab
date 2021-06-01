@@ -14,13 +14,14 @@ import protocol
 
 def main():
     parser = argparse.ArgumentParser(description='Make the lab robots do things.', )
-    parser.add_argument('--config', metavar='NAME', type=str, default='dry_run', help='Config to use')
-    parser.add_argument('--list-config', action='store_true', help='List available configs')
+    parser.add_argument('--config', metavar='NAME', type=str, default='dry-run', help='Config to use')
+    for k, v in configs.items():
+        parser.add_argument('--' + k, dest="config", action="store_const", const=k, help='Run with config ' + k)
 
     parser.add_argument('--cell-paint', metavar='N', type=int, default=None, help='Cell paint N plates stored in L1, L2, ..')
 
-    parser.add_argument('--wash', action='store_true', help='Run a test program on the washer')
-    parser.add_argument('--disp', action='store_true', help='Run a test program on the dispenser')
+    parser.add_argument('--wash', action='store_true', help='Run a (fixed) test program on the washer')
+    parser.add_argument('--disp', action='store_true', help='Run a (fixed) test program on the dispenser')
     parser.add_argument('--incu-put', metavar='POS', type=str, default=None, help='Put the plate in the transfer station to the argument position POS (L1, .., R1, ..).')
     parser.add_argument('--incu-get', metavar='POS', type=str, default=None, help='Get the plate in the argument position POS. It ends up in the transfer station.')
 
@@ -33,7 +34,7 @@ def main():
     args = parser.parse_args()
     print(f'args =', show(args.__dict__))
 
-    config_name = args.config.replace('-', '_')
+    config_name = args.config
     try:
         config: Config = configs[config_name]
     except KeyError:
