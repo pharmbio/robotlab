@@ -10,7 +10,7 @@
   {"type": "MoveLin", "xyz": [394.5, 251.6, 817.9], "rpy": [-0.0, -4.0, -132.9], "tag": "21/21", "name": "o18 entrance"},
   {"type": "MoveLin", "xyz": [508.0, 370.7, 818.0], "rpy": [-0.0, -4.0, -132.5], "tag": "21/21", "name": "o18 drop neu"},
   {"type": "MoveLin", "xyz": [508.0, 370.7, 800.5], "rpy": [0.0, -4.0, -132.5], "tag": "21/21", "name": "o18 drop"},
-  {"type": "GripperMove", "pos": 77},
+  {"type": "GripperMove", "pos": 88},
   {"type": "MoveLin", "xyz": [508.0, 370.7, 818.0], "rpy": [-0.0, -4.0, -132.5], "tag": "21/21", "name": "o18 drop"},
   {"type": "MoveLin", "xyz": [394.5, 251.6, 817.9], "rpy": [-0.0, -4.0, -132.9], "tag": "21/21", "name": "o18 entrance"},
   {"type": "MoveLin", "xyz": [394.5, 251.6, 817.9], "rpy": [-0.0, -4.0, -132.9], "name": "out neu"},
@@ -29,7 +29,7 @@
   {"type": "MoveLin", "xyz": [208.1, -427.0, 818.0], "rpy": [-0.8, -4.0, 90.4], "name": "h neu"},
   {"type": "MoveLin", "xyz": [208.1, -572.1, 818.1], "rpy": [-0.8, -4.0, 90.4], "name": "h21 neu"},
   {"type": "MoveLin", "xyz": [208.1, -572.1, 802.3], "rpy": [-0.8, -4.0, 90.3], "name": "h21 drop"},
-  {"type": "GripperMove", "pos": 77},
+  {"type": "GripperMove", "pos": 88},
   {"type": "MoveLin", "xyz": [208.1, -572.1, 818.0], "rpy": [-0.8, -4.0, 90.3], "name": "h21 neu"},
   {"type": "MoveLin", "xyz": [208.1, -427.0, 818.1], "rpy": [-0.8, -4.0, 90.4], "name": "h neu"}
 ]

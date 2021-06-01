@@ -9,12 +9,12 @@
   {"type": "MoveLin", "xyz": [32.8, -427.5, 818.0], "rpy": [-0.8, -4.0, 90.1], "tag": "21/21", "name": "r21 entrance"},
   {"type": "MoveLin", "xyz": [32.8, -581.5, 818.0], "rpy": [-0.8, -4.0, 90.1], "tag": "21/21", "name": "r21 neu"},
   {"type": "MoveLin", "xyz": [32.8, -581.0, 801.1], "rpy": [-0.8, -4.0, 90.1], "tag": "21/21", "name": "r21 drop"},
-  {"type": "GripperMove", "pos": 77},
+  {"type": "GripperMove", "pos": 88},
   {"type": "MoveLin", "xyz": [32.8, -581.5, 818.0], "rpy": [-0.8, -4.0, 90.1], "tag": "21/21", "name": "r21 neu"},
   {"type": "MoveLin", "xyz": [32.8, -427.5, 818.0], "rpy": [-0.8, -4.0, 90.1], "tag": "21/21", "name": "r21 entrance"},
   {"type": "MoveLin", "xyz": [209.1, -427.0, 818.0], "rpy": [-0.8, -4.0, 90.1], "name": "h neu"},
   {"type": "Section", "sections": ["get"]},
-  {"type": "GripperMove", "pos": 77},
+  {"type": "GripperMove", "pos": 88},
   {"type": "MoveJoint", "joints": [96, -109, 90, 23, 96, 1], "name": "h neu"},
   {"type": "MoveLin", "xyz": [32.8, -427.5, 818.0], "rpy": [-0.8, -4.0, 90.1], "tag": "21/21", "name": "r21 entrance"},
   {"type": "MoveLin", "xyz": [32.8, -581.5, 818.0], "rpy": [-0.8, -4.0, 90.1], "tag": "21/21", "name": "r21 neu"},
@@ -25,7 +25,7 @@
   {"type": "MoveLin", "xyz": [209.1, -427.0, 818.0], "rpy": [-0.8, -4.0, 90.1], "name": "h neu"},
   {"type": "MoveLin", "xyz": [209.1, -580.1, 818.0], "rpy": [-0.8, -4.0, 90.1], "name": "h21 neu"},
   {"type": "MoveLin", "xyz": [209.1, -580.0, 799.7], "rpy": [-0.8, -4.0, 90.1], "name": "h21 drop"},
-  {"type": "GripperMove", "pos": 77},
+  {"type": "GripperMove", "pos": 88},
   {"type": "MoveLin", "xyz": [209.1, -580.1, 818.0], "rpy": [-0.8, -4.0, 90.1], "name": "h21 neu"},
   {"type": "MoveLin", "xyz": [209.1, -427.0, 818.0], "rpy": [-0.8, -4.0, 90.1], "name": "h neu"}
 ]

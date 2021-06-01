@@ -22,7 +22,7 @@
   {"type": "MoveLin", "xyz": [208.5, -361.0, 806.7], "rpy": [0.0, 0.0, 90.3], "name": "h neu"},
   {"type": "MoveLin", "xyz": [208.5, -552.7, 806.7], "rpy": [0.0, 0.0, 90.3], "name": "h21 neu"},
   {"type": "MoveLin", "xyz": [208.5, -552.7, 791.6], "rpy": [0.0, 0.0, 90.3], "name": "h21 drop"},
-  {"type": "GripperMove", "pos": 84},
+  {"type": "GripperMove", "pos": 88},
   {"type": "MoveLin", "xyz": [208.6, -552.4, 806.7], "rpy": [0.0, 0.0, 90.0], "name": "h21 neu"},
   {"type": "MoveLin", "xyz": [208.6, -361.0, 806.7], "rpy": [0.0, 0.0, 90.0], "name": "h neu"}
 ]
