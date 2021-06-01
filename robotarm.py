@@ -161,7 +161,7 @@ def reindent(s: str) -> str:
             i += 2
     return '\n'.join(out) + '\n'  # final newline required when sending on socket
 
-def make_script(movelist: list[Move], with_gripper: bool, name: str='script', def_or_sec: str='def') -> str:
+def make_script(movelist: list[Move], with_gripper: bool, name: str='script') -> str:
     body = '\n'.join(
         ("# " + getattr(m, 'name') + '\n' if hasattr(m, 'name') else '')
         + m.to_script()
@@ -169,9 +169,9 @@ def make_script(movelist: list[Move], with_gripper: bool, name: str='script', de
     )
     # print(body)
     assert re.match(r'(?!\d)\w*$', name)
-    # TODO remove this sec, cannot ever be sec
+    assert len(name) <= 30
     return reindent(f'''
-        {def_or_sec} {name}():
+        def {name}():
             {prelude}
             {gripper_code(with_gripper)}
             {body}
@@ -243,6 +243,8 @@ class Robotarm:
 
     def execute_moves(self, movelist: list[Move], name: str='script', def_or_sec: str='def') -> None:
         name = name.replace('/', '_of_')
-        self.send(make_script(movelist, self.with_gripper, name=name, def_or_sec=def_or_sec))
+        name = name.replace(' ', '_')
+        name = name[:30]
+        self.send(make_script(movelist, self.with_gripper, name=name))
         self.recv_until(f'PROGRAM_XXX_STOPPED{name}')
         # self.close()
