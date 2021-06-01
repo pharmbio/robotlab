@@ -36,6 +36,25 @@ class Move(abc.ABC):
     def to_script(self) -> str:
         raise NotImplementedError
 
+    def try_name(self) -> str:
+        if hasattr(self, 'name'):
+            return getattr(self, 'name')
+        else:
+            return ""
+
+    def is_close(self) -> bool:
+        if isinstance(self, GripperMove):
+            return self.pos == 255
+        else:
+            return False
+
+    def is_open(self) -> bool:
+        if isinstance(self, GripperMove):
+            return self.pos != 255
+        else:
+            return False
+
+
 def call(name: str, *args: Any, **kwargs: Any) -> str:
     strs = [str(arg) for arg in args]
     strs += [k + '=' + str(v) for k, v in kwargs.items()]
@@ -264,38 +283,135 @@ class MoveList(list[Move]):
                 out += [(active, move)]
         return out
 
-    def expand_sections(self, base_name: str) -> dict[str, MoveList]:
+    def expand_sections(self, base_name: str, include_self: bool=True) -> dict[str, MoveList]:
         with_section = self.with_sections()
         sections: set[tuple[str, ...]] = {
             sect
             for sect, move in with_section
         }
 
-        out: dict[str, MoveList] = {base_name: self}
+        out: dict[str, MoveList] = {}
+        if include_self:
+            out[base_name] = self
         for section in sections:
             pos = {i for i, (active, _) in enumerate(with_section) if section == active[:len(section)]}
             maxi = max(pos)
             assert all(i == maxi or i + 1 in pos for i in pos), f'section {section} not contiguous'
 
-            name = '_'.join([base_name, *section])
+            name = ' '.join([base_name, *section])
             out[name] = MoveList(m for active, m in with_section if section == active[:len(section)])
 
         return out
 
 
+def expand_get(ml: MoveList, base_name: str):
+    '''
+    a get can be split into prep and main
+    prep moves to the last neutral position before pick
+    main continues from there and makes the pick
+    '''
+    out: dict[str, MoveList] = {}
+    for i, _ in enumerate(ml):
+        head = ml[:i]
+        tail = ml[i:]
+
+        if (
+            len(tail) >= 3
+            and tail[0].try_name().endswith('neu')
+            and tail[1].try_name().endswith('pick')
+            and tail[2].is_close()
+        ):
+            out[base_name + ' prep'] = MoveList([*head, tail[0]])
+            out[base_name + ' main'] = MoveList(tail)
+    return out
+
+def expand_put(ml: MoveList, base_name: str):
+    '''
+    a put can be split into main and return
+    main does the actual move and then pauses at the nearby neutral position
+    return goes from the neutral position back to h
+    '''
+    out: dict[str, MoveList] = {}
+    for i, _ in enumerate(ml):
+        head = ml[:i]
+        tail = ml[i:]
+
+        if (
+            len(head) >= 3
+            and head[-3].try_name().endswith('drop')
+            and head[-2].is_open()
+            and head[-1].try_name().endswith('neu')
+        ):
+            out[base_name + ' main'] = MoveList(head)
+            out[base_name + ' return'] = MoveList([head[-1], *tail])
+    return out
+
+neu: set[str] = {
+    'h neu',
+    'h21 neu',
+    'wash neu',
+    'disp neu',
+    'incu pick neu',
+}
+
+def expand_from(ml: MoveList, base_name: str):
+    out: dict[str, MoveList] = {}
+    if 'return' in base_name:
+        return out
+    for i, m in enumerate(ml):
+        if isinstance(m, GripperMove):
+            break
+        if m.try_name() in neu and i > 0:
+            out[base_name + ' from ' + m.try_name()] = MoveList(ml[i:])
+    return out
+
+def expand_to(ml: MoveList, base_name: str):
+    out: dict[str, MoveList] = {}
+    if 'prep' in base_name:
+        return out
+    for i, m in reversed(list(enumerate(ml))):
+        if isinstance(m, GripperMove):
+            break
+        if m.try_name() in neu and i < len(ml) - 1:
+            out[base_name + ' to ' + m.try_name()] = MoveList(ml[:i+1])
+    return out
 
 def read_movelists() -> dict[str, MoveList]:
-    out: dict[str, MoveList] = {}
+    grand_out: dict[str, MoveList] = {}
 
     for filename in Path('./movelists').glob('*.json'):
         ml = MoveList.from_json_file(filename)
         name = filename.with_suffix('').name
+        special = {'wash_to_disp'}
+        secs  = ml.expand_sections(name, include_self=name in special)
+        for k, v in secs.items():
+            out: dict[str, MoveList] = {k: v}
+            if any(machine in k for machine in 'incu wash disp'.split()):
+                if k.endswith('get'):
+                    out |= expand_get(v, k)
+                if k.endswith('put'):
+                    out |= expand_put(v, k)
+            out |= {
+                kk: vv
+                for k, v in out.items()
+                for kk, vv in expand_from(v, k).items()
+            }
+            out |= {
+                kk: vv
+                for k, v in out.items()
+                for kk, vv in expand_to(v, k).items()
+            }
+            out |= {
+                kk: vv
+                for k, v in out.items()
+                for kk, vv in v.expand_hotels(k).items()
+            }
+            for kk, vv in out.items():
+                # print(kk, ':', ' -> '.join([v.try_name() for v in vv]))
+                pass
+            grand_out |= out
 
-        for name, ml in ml.expand_sections(name).items():
-            out |= ml.expand_hotels(name)
-            out[name] = ml.to_rel()
-
-    return out
+    return grand_out
 
 movelists: dict[str, MoveList]
 movelists = read_movelists()

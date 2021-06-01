@@ -8,7 +8,7 @@
   {"type": "MoveLin", "xyz": [209.1, -397.8, 822.3], "rpy": [0.0, -4.0, 90.1], "name": "h neu"},
   {"type": "MoveLin", "xyz": [605.8, -397.8, 262.7], "rpy": [0.0, -4.0, 90.1], "name": "incu neu"},
   {"type": "MoveLin", "xyz": [605.8, -720.1, 262.8], "rpy": [0.0, -4.0, 90.1], "name": "incu pick neu"},
-  {"type": "MoveLin", "xyz": [605.8, -720.1, 233.8], "rpy": [0.0, -4.0, 90.1], "name": "incu pick"},
+  {"type": "MoveLin", "xyz": [605.8, -720.1, 233.8], "rpy": [0.0, -4.0, 90.1], "name": "incu drop"},
   {"type": "GripperMove", "pos": 88},
   {"type": "MoveLin", "xyz": [605.8, -720.1, 262.8], "rpy": [0.0, -4.0, 90.1], "name": "incu pick neu"},
   {"type": "MoveLin", "xyz": [605.8, -397.8, 262.7], "rpy": [0.0, -4.0, 90.1], "name": "incu neu"},

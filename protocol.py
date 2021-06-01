@@ -42,11 +42,6 @@ def calculate_overlap(events: list[Event]) -> None:
                 snd.overlap.value = True
 
 def sleek_movements(events: list[Event]) -> list[Event]:
-    events = sleek_put_get_movements(events)
-    events = sleek_h21_movements(events)
-    return events
-
-def sleek_h21_movements(events: list[Event]) -> list[Event]:
     '''
     if programA ends by h21 drop and programB starts with h21 drop then instead run:
         programA_to_h21_drop
@@ -55,123 +50,93 @@ def sleek_h21_movements(events: list[Event]) -> list[Event]:
 
     out = [*events]
 
-    for i, event in enumerate(events):
+    for i, _ in enumerate(events):
+        event = out[i]
         if isinstance(event.command, robots.robotarm_cmd):
-            for j, next in utils.skip(i+1, enumerate(events)):
+            for j, _ in utils.skip(i+1, enumerate(events)):
+                next = out[j]
                 if isinstance(next.command, robots.robotarm_cmd):
                     a = event.command.program_name
                     b = next.command.program_name
-                    a += '_to_h21_drop'
-                    b += '_from_h21_drop'
-                    if a in movelists and b in movelists:
-                        out[i] = replace(event, command=replace(event.command, program_name=a))
-                        out[j] = replace(event, command=replace(event.command, program_name=b))
+                    for ka in movelists.keys():
+                        if ka.startswith(a + ' to '):
+                            dest = ka.removeprefix(a + ' to ')
+                            kb = b + ' from ' + dest
+                            if kb in movelists:
+                                out[i] = replace(event, command=replace(event.command, program_name=ka))
+                                out[j] = replace(event, command=replace(event.command, program_name=kb))
                     break
 
     return out
-
-def sleek_put_get_movements(events: list[Event]) -> list[Event]:
-    '''
-    don't go back to h21 when working by washer and dispenser if not needed
-    '''
-
-    out = [*events]
-
-    to_remove: set[int] = set()
-
-    for i, event in enumerate(events):
-        if isinstance(event.command, robots.robotarm_cmd):
-            if i in to_remove:
-                continue
-            for j, next in utils.skip(i+1, enumerate(events)):
-                if isinstance(next.command, robots.robotarm_cmd):
-                    a = event.command.program_name
-                    b = next.command.program_name
-                    if [a, b] == ['wash_put_part2', 'wash_get_part1']:
-                        to_remove |= {i, j}
-                    if [a, b] == ['wash_put_part2', 'wash_to_disp_part1/3']:
-                        to_remove |= {i, j}
-                    if [a, b] == ['wash_to_disp_part3/3', 'disp_get_part1']:
-                        to_remove |= {i, j}
-                    break
-
-    out = [
-        event
-        for i, event in enumerate(events)
-        if i not in to_remove
-    ]
-
-    return out
-
 
 def cell_painting(plate_id: str, initial_wait_seconds: float, incu_loc: str, lid_loc: str, r_loc: str, out_loc: str) -> list[Event]:
 
     incu_get = [
         robots.wait_for_timer_cmd(plate_id),
         robots.incu_cmd('get', incu_loc, est=10),
-        robots.robotarm_cmd('incu_get_prep'),
+        robots.robotarm_cmd('incu get prep'),
         robots.wait_for_ready_cmd('incu'),
-        robots.robotarm_cmd('incu_get_main'),
-        robots.robotarm_cmd(f'lid_{lid_loc}_put'),
+        robots.robotarm_cmd('incu get main'),
+        robots.robotarm_cmd(f'lid_{lid_loc} put'),
     ]
 
     def incu_put(minutes: int):
         return [
-            robots.robotarm_cmd(f'lid_{lid_loc}_get'),
-            robots.robotarm_cmd('incu_put_main'),
+            robots.robotarm_cmd(f'lid_{lid_loc} get'),
+            robots.robotarm_cmd('incu put main'),
             robots.incu_cmd('put', incu_loc, est=0),
             robots.timer_cmd(minutes, plate_id),
-            robots.robotarm_cmd('incu_put_rest'),
+            robots.robotarm_cmd('incu put return'),
             robots.wait_for_ready_cmd('incu'),
         ]
 
     def RT(minutes: int):
         return [
-            robots.robotarm_cmd(f'lid_{lid_loc}_get'),
-            robots.robotarm_cmd(f'{r_loc}_put'),
+            robots.robotarm_cmd(f'lid_{lid_loc} get'),
+            robots.robotarm_cmd(f'{r_loc} put'),
             robots.timer_cmd(minutes, plate_id),
             robots.wait_for_timer_cmd(plate_id),
-            robots.robotarm_cmd(f'{r_loc}_get'),
-            robots.robotarm_cmd(f'lid_{lid_loc}_put'),
+            robots.robotarm_cmd(f'{r_loc} get'),
+            robots.robotarm_cmd(f'lid_{lid_loc} put'),
         ]
 
     def wash(wash_path: str):
         return [
-            robots.robotarm_cmd('wash_put_main'),
+            robots.robotarm_cmd('wash put main'),
             par(
                 robots.wash_cmd(wash_path, est=90),
-                robots.robotarm_cmd('wash_put_rest'),
+                robots.robotarm_cmd('wash put return'),
             ),
 
-            robots.robotarm_cmd('wash_get_prep', prep=True),
+            robots.robotarm_cmd('wash get prep', prep=True),
             # Yields:
             robots.wait_for_ready_cmd('wash'),
 
-            robots.robotarm_cmd('wash_get_main'),
+            robots.robotarm_cmd('wash get main'),
         ]
 
     def wash_disp(wash_path: str, disp_path: str):
         return [
-            robots.robotarm_cmd('wash_put_main'),
+            robots.robotarm_cmd('wash put main'),
             par(
                 robots.wash_cmd(wash_path, est=90),
-                robots.robotarm_cmd('wash_put_rest'),
+                robots.robotarm_cmd('wash put return'),
             ),
 
-            robots.robotarm_cmd('wash_to_disp_prep', prep=True),
+            robots.robotarm_cmd('wash get prep', prep=True),
             # Yields:
             robots.wait_for_ready_cmd('wash'),
 
-            robots.robotarm_cmd('wash_to_disp_main'),
+            robots.robotarm_cmd('wash_to_disp from wash neu to disp neu'),
             robots.disp_cmd(disp_path, est=15),
             robots.wait_for_ready_cmd('disp'),
-            robots.robotarm_cmd('disp_get_main'),
+            robots.robotarm_cmd('disp get main'),
             # (dispensing is so fast so we don't yield)
         ]
 
     to_out = [
-        robots.robotarm_cmd(f'lid_{lid_loc}_get'),
-        robots.robotarm_cmd(f'{out_loc}_put'),
+        robots.robotarm_cmd(f'lid_{lid_loc} get'),
+        robots.robotarm_cmd(f'{out_loc} put'),
     ]
 
     cmds: list[Command] = [

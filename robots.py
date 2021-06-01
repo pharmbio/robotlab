@@ -125,7 +125,12 @@ class robotarm_cmd(Command):
         return 5.0
 
     def execute(self, config: Config) -> None:
-        get_robotarm(config).execute_moves(movelists[self.program_name], name=self.program_name)
+        try:
+            get_robotarm(config).execute_moves(movelists[self.program_name], name=self.program_name)
+        except Exception as e:
+            import utils
+            utils.pr((self, movelists.keys()))
+            raise e
 
 @dataclass(frozen=True)
 class wash_cmd(Command):

@@ -4,6 +4,7 @@
   {"type": "MoveLin", "xyz": [-269.5, 197.5, 161.9], "rpy": [0.0, 0.0, -0.7], "name": "wash neu", "slow": true},
   {"type": "MoveLin", "xyz": [-269.5, 197.5, 131.9], "rpy": [0.0, 0.0, -0.7], "name": "wash pick", "slow": true},
   {"type": "GripperMove", "pos": 255},
+  {"type": "MoveLin", "xyz": [-269.5, 197.5, 161.9], "rpy": [0.0, 0.0, -0.7], "name": "wash neu", "slow": true},
   {"type": "MoveLin", "xyz": [-269.5, 197.5, 420.4], "rpy": [0.0, 0.0, -0.7], "name": "wash above", "slow": true},
   {"type": "MoveJoint", "joints": [-98.6, -129.5, 141.0, -12.6, -7.9, 1.1], "name": "wash above"},
   {"type": "MoveJoint", "joints": [68, -89, 125, -36, 158, 0], "name": "disp above"},
