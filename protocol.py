@@ -85,9 +85,9 @@ def cell_painting(plate_id: str, initial_wait_seconds: float, incu_loc: str, lid
             robots.robotarm_cmd(f'lid_{lid_loc} get'),
             robots.robotarm_cmd('incu put main'),
             robots.incu_cmd('put', incu_loc, est=0),
-            robots.timer_cmd(minutes, plate_id),
             robots.robotarm_cmd('incu put return'),
             robots.wait_for_ready_cmd('incu'),
+            robots.timer_cmd(minutes, plate_id),
         ]
 
     def RT(minutes: int):
