@@ -167,7 +167,6 @@ def make_script(movelist: list[Move], with_gripper: bool, name: str='script') ->
         + m.to_script()
         for m in movelist
     )
-    # print(body)
     assert re.match(r'(?!\d)\w*$', name)
     assert len(name) <= 30
     return reindent(f'''
@@ -175,6 +174,7 @@ def make_script(movelist: list[Move], with_gripper: bool, name: str='script') ->
             {prelude}
             {gripper_code(with_gripper)}
             {body}
+            textmsg("log {name} done")
         end
     ''')
 
@@ -214,6 +214,7 @@ class Robotarm:
                 m = m.decode()
                 self.quiet or print(f'{m = }')
                 if 'panic' in m:
+                    self.sock.sendall('textmsg("panic stop")\n'.encode())
                     raise RuntimeError(m)
             yield data
 
@@ -243,10 +244,12 @@ class Robotarm:
         '''))
         return self
 
-    def execute_moves(self, movelist: list[Move], name: str='script', def_or_sec: str='def') -> None:
+    def execute_moves(self, movelist: list[Move], name: str='script', allow_partial_completion: bool=False) -> None:
         name = name.replace('/', '_of_')
         name = name.replace(' ', '_')
         name = name[:30]
         self.send(make_script(movelist, self.with_gripper, name=name))
-        self.recv_until(f'PROGRAM_XXX_STOPPED{name}')
-        # self.close()
+        if allow_partial_completion:
+            self.recv_until(f'PROGRAM_XXX_STOPPED{name}')
+        else:
+            self.recv_until(f'log {name} done')

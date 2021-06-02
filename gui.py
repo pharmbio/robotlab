@@ -80,7 +80,7 @@ def poll() -> None:
 @expose
 def arm_do(*ms: Move):
     arm = robots.get_robotarm(config)
-    arm.execute_moves(list(ms), name='gui')
+    arm.execute_moves(list(ms), name='gui', allow_partial_completion=True)
     arm.close()
 
 @expose
