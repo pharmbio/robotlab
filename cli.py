@@ -26,6 +26,7 @@ def main():
     parser.add_argument('--incu-get', metavar='POS', type=str, default=None, help='Get the plate in the argument position POS. It ends up in the transfer station.')
 
     parser.add_argument('--list-robotarm-programs', action='store_true', help='List the robot arm programs')
+    parser.add_argument('--inspect-robotarm-programs', action='store_true', help='Inspect steps of robotarm programs')
     parser.add_argument('--robotarm', action='store_true', help='Run robot arm')
     parser.add_argument('--robotarm-send', metavar='STR', type=str, help='Send a raw program to the robot arm')
     parser.add_argument('--robotarm-speed', metavar='N', type=int, default=80, help='Robot arm speed [1-100]')
@@ -60,8 +61,22 @@ def main():
         arm.close()
 
     elif args.list_robotarm_programs:
+
         for name in movelists.keys():
             print(name)
+
+    elif args.inspect_robotarm_programs:
+
+        events = protocol.cell_paint_many(2, delay='auto')
+        events = protocol.sleek_movements(events)
+
+        for k, v in movelists.items():
+            import re
+            m = re.search(r'\d+', k)
+            if not m or m.group(0) in {"19", "21"}:
+                import textwrap
+                print()
+                print(k + ':\n' + textwrap.indent(v.describe(), '  '))
 
     elif args.wash:
         robots.wash_cmd('automation/2_4_6_W-3X_FinalAspirate_test.LHC', est=0).execute(config)
