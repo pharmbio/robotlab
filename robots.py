@@ -159,7 +159,7 @@ class disp_cmd(Command):
 
         idle_time_priming_threshold = timedelta(minutes=20)
         if config.time_mode == 'fast forward':
-            idle_time_priming_threshold /= 1000
+            idle_time_priming_threshold = timedelta(minutes=5)
 
         last_use = config.timers.get(self.disp_pump)
         needs_priming = (

@@ -325,11 +325,8 @@ def cell_paint_batches_auto(
     for test in range(400):
         events = cell_paint_batches(1, batch_size, 0, test, test_circuit=test_circuit)
         if not any(e.overlap.value for e in events):
-            works += [test]
-
-    within_batch_delay = works[-1]
-    pr(works)
-    # break
+            within_batch_delay = test
+            break
 
     assert within_batch_delay is not None
 
@@ -343,7 +340,7 @@ def cell_paint_batches_auto(
 
     assert between_batch_delay is not None
 
-    return events, within_batch_delay, between_batch_delay
+    return events, between_batch_delay, within_batch_delay
 
 def execute(events: list[Event], config: Config) -> None:
     metadata = dict(
@@ -376,9 +373,9 @@ def execute(events: list[Event], config: Config) -> None:
             json.dump(log, fp, indent=2)
 
 def main(num_batches: int, batch_size: int, config: Config, test_circuit: bool=False) -> None:
-    events, within_batch_delay, between_batch_delay = protocol.cell_paint_batches_auto(num_batches, batch_size, test_circuit=test_circuit)
-    print(f'{within_batch_delay=}')
+    events, between_batch_delay, within_batch_delay = protocol.cell_paint_batches_auto(num_batches, batch_size, test_circuit=test_circuit)
     print(f'{between_batch_delay=}')
+    print(f'{within_batch_delay=}')
     events = protocol.sleek_movements(events)
     execute(events, config)
 
