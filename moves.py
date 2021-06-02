@@ -372,20 +372,30 @@ class MoveList(list[Move]):
             return neu, self_body, next_body
         return None, self, next
 
+    def split_careful(self) -> tuple[MoveList, MoveList, MoveList]:
+        parts = self.split()
+
+        *to_pick_neu, pick_neu, pick_pos = parts.before_pick
+        drop_neu, *from_drop_neu = parts.after_drop
+
+        assert pick_neu.try_name().endswith("neu"),  f'{pick_neu.try_name()} needs a neu before pick'
+        assert pick_pos.try_name().endswith("pick"), f'{pick_pos.try_name()} needs a pick move before gripper pick close'
+        assert drop_neu.try_name().endswith("neu"),  f'{drop_neu.try_name()} needs a neu after drop'
+
+        prep     = MoveList([*to_pick_neu, pick_neu])
+        transfer = MoveList([              pick_neu, pick_pos, *parts.transfer, drop_neu])
+        ret      = MoveList([                                                   drop_neu, *from_drop_neu])
+
+        return prep, transfer, ret
+
     def split_get(self) -> tuple[MoveList, MoveList]:
         '''
         a get can be split into prep and main
         prep moves to the last neutral position before pick
         main continues from there and makes the pick
         '''
-        parts = self.split()
-        *to_neu, neu, pick_pos = parts.before_pick
-        assert neu.try_name().endswith("neu"),       f'{neu.try_name()} needs a neu before pick'
-        assert pick_pos.try_name().endswith("pick"), f'{pick_pos.try_name()} needs a pick move before gripper pick close'
-        prep = MoveList([*to_neu, neu])
-        main = MoveList([neu, pick_pos, *parts.transfer, *parts.after_drop])
-        return prep, main
-
+        prep, transfer, ret = self.split_careful()
+        return prep, MoveList(transfer + ret)
 
     def split_put(self) -> tuple[MoveList, MoveList]:
         '''
@@ -393,12 +403,8 @@ class MoveList(list[Move]):
         main does the actual move and then pauses at the nearby neutral position
         return goes from the neutral position back to h
         '''
-        parts = self.split()
-        neu, *from_neu = parts.after_drop
-        assert neu.try_name().endswith("neu"), f'{neu.try_name()} needs a neu after drop'
-        main = MoveList([*parts.before_pick, *parts.transfer, neu])
-        ret = MoveList([neu, *from_neu])
-        return main, ret
+        prep, transfer, ret = self.split_careful()
+        return MoveList(prep + transfer), ret
 
 @dataclass(frozen=True)
 class MoveListParts:
@@ -440,8 +446,7 @@ def read_movelists() -> dict[str, MoveList]:
                     out[k + ' main'] = main
                     out[k + ' return'] = ret
                 if k == 'wash_to_disp':
-                    prep, main = v.split_get()
-                    transfer, ret = main.split_put()
+                    prep, transfer, ret = v.split_careful()
                     out[k + ' prep'] = prep
                     out[k + ' transfer'] = transfer
                     out[k + ' return'] = ret
