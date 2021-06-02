@@ -43,30 +43,37 @@ def calculate_overlap(events: list[Event]) -> None:
 
 def sleek_movements(events: list[Event]) -> list[Event]:
     '''
-    if programA ends by h21 drop and programB starts with h21 drop then instead run:
-        programA_to_h21_drop
-        programB_from_h21_drop
+    if program A ends by h21 neu and program B by h21 neu then run:
+        program A to h21 neu
+        program B from h21 neu
     '''
 
     out = [*events]
 
-    for i, _ in enumerate(events):
-        event = out[i]
-        if isinstance(event.command, robots.robotarm_cmd):
-            for j, _ in utils.skip(i+1, enumerate(events)):
-                next = out[j]
-                if isinstance(next.command, robots.robotarm_cmd):
-                    a = event.command.program_name
-                    b = next.command.program_name
-                    for ka in movelists.keys():
-                        if ka.startswith(a + ' to '):
-                            dest = ka.removeprefix(a + ' to ')
-                            kb = b + ' from ' + dest
-                            if kb in movelists:
-                                out[i] = replace(event, command=replace(event.command, program_name=ka))
-                                out[j] = replace(next, command=replace(next.command, program_name=kb))
-                    break
+    arm_indicies: list[int] = [
+        i
+        for i, event in enumerate(out)
+        if isinstance(event.command, robots.robotarm_cmd)
+    ]
 
+    for _, i, j in utils.context(arm_indicies):
+        if j is None:
+            continue
+        event_a = out[i]
+        event_b = out[j]
+        a = cast(robots.robotarm_cmd, event_a.command).program_name
+        b = cast(robots.robotarm_cmd, event_b.command).program_name
+        a_ml = movelists[a]
+        b_ml = movelists[b]
+        neu, a_opt, b_opt = a_ml.optimize_transition(b_ml)
+        if neu:
+            neu = neu.removesuffix('neu').strip()
+            a2 = a + ' to ' + neu
+            b2 = b + ' from ' + neu
+            movelists[a2] = a_opt
+            movelists[b2] = b_opt
+            out[i] = replace(event_a, command=replace(event_a.command, program_name=a2))
+            out[j] = replace(event_b, command=replace(event_b.command, program_name=b2))
     return out
 
 def cell_painting(plate_id: str, initial_wait_seconds: float, incu_loc: str, lid_loc: str, r_loc: str, out_loc: str) -> list[Event]:
@@ -127,8 +134,9 @@ def cell_painting(plate_id: str, initial_wait_seconds: float, incu_loc: str, lid
             # Yields:
             robots.wait_for_ready_cmd('wash'),
 
-            robots.robotarm_cmd('wash_to_disp from wash neu to disp neu'),
+            robots.robotarm_cmd('wash_to_disp transfer'),
             robots.disp_cmd(disp_path, est=15),
+            robots.robotarm_cmd('wash_to_disp return'),
             robots.wait_for_ready_cmd('disp'),
             robots.robotarm_cmd('disp get main'),
             # (dispensing is so fast so we don't yield)

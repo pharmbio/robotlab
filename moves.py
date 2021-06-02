@@ -42,6 +42,9 @@ class Move(abc.ABC):
         else:
             return ""
 
+    def is_gripper(self) -> bool:
+        return isinstance(self, GripperMove)
+
     def is_close(self) -> bool:
         if isinstance(self, GripperMove):
             return self.pos == 255
@@ -134,9 +137,16 @@ class Section(Move):
 
 @dataclass(frozen=True)
 class RawCode(Move):
+    '''
+    Send a raw piece of code, used only in the gui and available at the cli.
+    '''
     code: str
     def to_script(self) -> str:
         return self.code
+
+    def is_gripper(self) -> bool: raise ValueError
+    def is_open(self) -> bool: raise ValueError
+    def is_close(self) -> bool: raise ValueError
 
 class MoveList(list[Move]):
     '''
@@ -237,8 +247,8 @@ class MoveList(list[Move]):
             if isinstance(m, MoveLin) and m.tag == tag:
                 x, y, z = list(m.xyz)
                 out += [replace(m, tag=None, xyz=[x, y, round(z + dz, 1)])]
-            elif isinstance(m, MoveRel) and m.tag == tag:
-                raise ValueError('Tagged move must be MoveLin')
+            elif hasattr(m, 'tag') and getattr(m, 'tag') == tag:
+                raise ValueError('Tagged move must be MoveLin for adjust_tagged')
             else:
                 out += [m]
         return out
@@ -303,78 +313,111 @@ class MoveList(list[Move]):
 
         return out
 
+    def has_gripper(self) -> bool:
+        return any(m.is_gripper() for m in self)
 
-def expand_get(ml: MoveList, base_name: str):
-    '''
-    a get can be split into prep and main
-    prep moves to the last neutral position before pick
-    main continues from there and makes the pick
-    '''
-    out: dict[str, MoveList] = {}
-    for i, _ in enumerate(ml):
-        head = ml[:i]
-        tail = ml[i:]
+    def split_at(self, i: int) -> tuple[MoveList, MoveList]:
+        return MoveList(self[:i]), MoveList(self[i:])
 
-        if (
-            len(tail) >= 3
-            and tail[0].try_name().endswith('neu')
-            and tail[1].try_name().endswith('pick')
-            and tail[2].is_close()
-        ):
-            out[base_name + ' prep'] = MoveList([*head, tail[0]])
-            out[base_name + ' main'] = MoveList(tail)
-    return out
+    def split_on(self, pred: Callable[[Move], bool]) -> tuple[MoveList, Move, MoveList]:
+        for i, move in enumerate(self):
+            if pred(move):
+                return MoveList(self[:i]), move, MoveList(self[i+1:])
+        raise ValueError
 
-def expand_put(ml: MoveList, base_name: str):
-    '''
-    a put can be split into main and return
-    main does the actual move and then pauses at the nearby neutral position
-    return goes from the neutral position back to h
-    '''
-    out: dict[str, MoveList] = {}
-    for i, _ in enumerate(ml):
-        head = ml[:i]
-        tail = ml[i:]
+    def split(self) -> MoveListParts:
+        before_pick, close, after_pick = self.split_on(Move.is_close)
+        mid, open, after_drop = after_pick.split_on(Move.is_open)
+        return MoveListParts(
+            before_pick=before_pick,
+            close=close,
+            transfer_inner=mid,
+            open=open,
+            after_drop=after_drop,
+        )
 
-        if (
-            len(head) >= 3
-            and head[-3].try_name().endswith('drop')
-            and head[-2].is_open()
-            and head[-1].try_name().endswith('neu')
-        ):
-            out[base_name + ' main'] = MoveList(head)
-            out[base_name + ' return'] = MoveList([head[-1], *tail])
-    return out
+    def find_first_by_suffix(self, suffix: str) -> None | int:
+        for i, m in enumerate(self):
+            if m.try_name().endswith(suffix):
+                return i
+        return None
 
-neu: set[str] = {
-    'h neu',
-    'h21 neu',
-    'wash neu',
-    'disp neu',
-    'incu pick neu',
-}
+    def find_last_by_suffix(self, suffix: str) -> None | int:
+        for i, m in reversed(list(enumerate(self))):
+            if m.try_name().endswith(suffix):
+                return i
+        return None
 
-def expand_from(ml: MoveList, base_name: str):
-    out: dict[str, MoveList] = {}
-    if 'return' in base_name:
-        return out
-    for i, m in enumerate(ml):
-        if isinstance(m, GripperMove):
-            break
-        if m.try_name() in neu and i > 0:
-            out[base_name + ' from ' + m.try_name()] = MoveList(ml[i:])
-    return out
+    def optimize_transition(self, next: MoveList) -> tuple[str | None, MoveList, MoveList]:
+        for neu in {
+            'h21 neu',
+            'wash neu',
+            'disp neu',
+            'incu pick neu'
+        }:
+            i = self.find_last_by_suffix(neu)
+            j = next.find_first_by_suffix(neu)
+            if i is None:
+                continue
+            if j is None:
+                continue
+            self_body, self_skip = self.split_at(i+1)
+            next_skip, next_body = next.split_at(j)
+            if self_skip.has_gripper():
+                continue
+            if next_skip.has_gripper():
+                continue
+            if not (self_skip or next_skip):
+                continue
+            return neu, self_body, next_body
+        return None, self, next
 
-def expand_to(ml: MoveList, base_name: str):
-    out: dict[str, MoveList] = {}
-    if 'prep' in base_name:
-        return out
-    for i, m in reversed(list(enumerate(ml))):
-        if isinstance(m, GripperMove):
-            break
-        if m.try_name() in neu and i < len(ml) - 1:
-            out[base_name + ' to ' + m.try_name()] = MoveList(ml[:i+1])
-    return out
+    def split_get(self) -> tuple[MoveList, MoveList]:
+        '''
+        a get can be split into prep and main
+        prep moves to the last neutral position before pick
+        main continues from there and makes the pick
+        '''
+        parts = self.split()
+        *to_neu, neu, pick_pos = parts.before_pick
+        assert neu.try_name().endswith("neu"),       f'{neu.try_name()} needs a neu before pick'
+        assert pick_pos.try_name().endswith("pick"), f'{pick_pos.try_name()} needs a pick move before gripper pick close'
+        prep = MoveList([*to_neu, neu])
+        main = MoveList([neu, pick_pos, *parts.transfer, *parts.after_drop])
+        return prep, main
+
+
+    def split_put(self) -> tuple[MoveList, MoveList]:
+        '''
+        a put can be split into main and return
+        main does the actual move and then pauses at the nearby neutral position
+        return goes from the neutral position back to h
+        '''
+        parts = self.split()
+        neu, *from_neu = parts.after_drop
+        assert neu.try_name().endswith("neu"), f'{neu.try_name()} needs a neu after drop'
+        main = MoveList([*parts.before_pick, *parts.transfer, neu])
+        ret = MoveList([neu, *from_neu])
+        return main, ret
+
+@dataclass(frozen=True)
+class MoveListParts:
+    before_pick: MoveList
+    close: Move
+    transfer_inner: MoveList
+    open: Move
+    after_drop: MoveList
+
+    def __post_init__(self):
+        assert not any(m.is_gripper() for m in self.before_pick)
+        assert not any(m.is_gripper() for m in self.transfer_inner)
+        assert not any(m.is_gripper() for m in self.after_drop)
+        assert self.close.is_close()
+        assert self.open.is_open()
+
+    @property
+    def transfer(self) -> MoveList:
+        return MoveList([self.close, *self.transfer_inner, self.open])
 
 def read_movelists() -> dict[str, MoveList]:
     grand_out: dict[str, MoveList] = {}
@@ -386,33 +429,32 @@ def read_movelists() -> dict[str, MoveList]:
         secs  = ml.expand_sections(name, include_self=name in special)
         for k, v in secs.items():
             out: dict[str, MoveList] = {k: v}
-            if any(machine in k for machine in 'incu wash disp'.split()):
-                if k.endswith('get') or k == 'wash_to_disp':
-                    out |= expand_get(v, k)
-                if k.endswith('put') or k == 'wash_to_disp':
-                    out |= expand_put(v, k)
-            if k == 'wash_to_disp':
-                del out['wash_to_disp main']
-            out |= {
-                kk: vv
-                for k, v in out.items()
-                for kk, vv in expand_from(v, k).items()
-            }
-            out |= {
-                kk: vv
-                for k, v in out.items()
-                for kk, vv in expand_to(v, k).items()
-            }
-            out |= {
-                kk: vv
-                for k, v in out.items()
-                for kk, vv in v.expand_hotels(k).items()
-            }
+            pr((k, v))
+            if 'incu' in k or 'wash' in k or 'disp' in k:
+                if k.endswith('get'):
+                    prep, main = v.split_get()
+                    out[k + ' prep'] = prep
+                    out[k + ' main'] = main
+                if k.endswith('put'):
+                    main, ret = v.split_get()
+                    out[k + ' main'] = main
+                    out[k + ' return'] = ret
+                if k == 'wash_to_disp':
+                    prep, main = v.split_get()
+                    transfer, ret = main.split_put()
+                    out[k + ' prep'] = prep
+                    out[k + ' transfer'] = transfer
+                    out[k + ' return'] = ret
             for kk, vv in out.items():
-                # print(kk, ':', ' -> '.join([v.try_name() for v in vv]))
+                print(kk, ':', ' -> '.join([v.try_name() for v in vv]))
                 pass
             grand_out |= out
 
+    grand_out |= {
+        kk: vv
+        for k, v in grand_out.items()
+        for kk, vv in v.expand_hotels(k).items()
+    }
     return grand_out
 
 movelists: dict[str, MoveList]
