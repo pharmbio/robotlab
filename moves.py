@@ -313,6 +313,13 @@ class MoveList(list[Move]):
 
         return out
 
+    def describe(self) -> str:
+        return '\n'.join([
+            m.__class__.__name__ + ' ' +
+            (m.try_name() or utils.catch(lambda: str(getattr(m, 'pos')), ''))
+            for m in self
+        ])
+
     def has_gripper(self) -> bool:
         return any(m.is_gripper() for m in self)
 
@@ -372,7 +379,7 @@ class MoveList(list[Move]):
             return neu, self_body, next_body
         return None, self, next
 
-    def split_careful(self) -> tuple[MoveList, MoveList, MoveList]:
+    def split_carefully(self) -> tuple[MoveList, MoveList, MoveList]:
         parts = self.split()
 
         *to_pick_neu, pick_neu, pick_pos = parts.before_pick
@@ -394,8 +401,8 @@ class MoveList(list[Move]):
         prep moves to the last neutral position before pick
         main continues from there and makes the pick
         '''
-        prep, transfer, ret = self.split_careful()
-        return prep, MoveList(transfer + ret)
+        prep, transfer, ret = self.split_carefully()
+        return prep, MoveList(transfer + ret[1:])
 
     def split_put(self) -> tuple[MoveList, MoveList]:
         '''
@@ -403,8 +410,8 @@ class MoveList(list[Move]):
         main does the actual move and then pauses at the nearby neutral position
         return goes from the neutral position back to h
         '''
-        prep, transfer, ret = self.split_careful()
-        return MoveList(prep + transfer), ret
+        prep, transfer, ret = self.split_carefully()
+        return MoveList(prep[1:] + transfer), ret
 
 @dataclass(frozen=True)
 class MoveListParts:
@@ -435,31 +442,31 @@ def read_movelists() -> dict[str, MoveList]:
         secs  = ml.expand_sections(name, include_self=name in special)
         for k, v in secs.items():
             out: dict[str, MoveList] = {k: v}
-            pr((k, v))
             if 'incu' in k or 'wash' in k or 'disp' in k:
                 if k.endswith('get'):
                     prep, main = v.split_get()
                     out[k + ' prep'] = prep
                     out[k + ' main'] = main
                 if k.endswith('put'):
-                    main, ret = v.split_get()
+                    main, ret = v.split_put()
                     out[k + ' main'] = main
                     out[k + ' return'] = ret
                 if k == 'wash_to_disp':
-                    prep, transfer, ret = v.split_careful()
+                    prep, transfer, ret = v.split_carefully()
                     out[k + ' prep'] = prep
                     out[k + ' transfer'] = transfer
                     out[k + ' return'] = ret
-            for kk, vv in out.items():
-                print(kk, ':', ' -> '.join([v.try_name() for v in vv]))
-                pass
             grand_out |= out
 
-    grand_out |= {
-        kk: vv
-        for k, v in grand_out.items()
-        for kk, vv in v.expand_hotels(k).items()
-    }
+    for k, v in list(grand_out.items()):
+
+        if 'main' in k or 'transfer' in k:
+            assert v.has_gripper(), v.describe()
+        if 'prep' in k or 'return' in k:
+            assert not v.has_gripper(), v.describe()
+
+        grand_out |= v.expand_hotels(k)
+
     return grand_out
 
 movelists: dict[str, MoveList]

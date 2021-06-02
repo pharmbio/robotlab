@@ -21,6 +21,7 @@ import protocol
 import robotarm
 import robots
 import utils
+from utils import catch
 
 # suppress flask logging
 import logging
@@ -75,14 +76,6 @@ def poll() -> None:
                     import traceback as tb
                     tb.print_exc()
                 break
-
-_A = TypeVar('_A')
-
-def catch(m: Callable[[], _A], default: _A=None) -> _A:
-    try:
-        return m()
-    except:
-        return default
 
 @expose
 def arm_do(*ms: Move):

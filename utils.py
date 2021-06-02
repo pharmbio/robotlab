@@ -121,6 +121,7 @@ def show(x: Any, show_key: Any=show_key, width: int=80, use_color: bool=sys.stdo
     return '\n'.join(go('', '', x, ''))
 
 A = TypeVar('A')
+B = TypeVar('B')
 
 def pr(x: A) -> A:
     print(show(x))
@@ -173,6 +174,12 @@ def zip_sub(xs: list[float], ys: list[float], ndigits: int=1) -> list[float]:
 
 def zip_add(xs: list[float], ys: list[float], ndigits: int=1) -> list[float]:
     return zip_with(lambda a, b: a + b, xs, ys, ndigits=ndigits)
+
+def catch(m: Callable[[], A], default: B=None) -> A | B:
+    try:
+        return m()
+    except:
+        return default
 
 @dataclass
 class Color:
