@@ -88,16 +88,24 @@ def now():
 @serve
 def index() -> Iterator[head | str]:
     zoom = int(request.args.get('zoom', '200'))
-    plates = int(request.args.get('plates', '2'))
-    delay_str: str = request.args.get('delay', 'auto')
-    delay: Literal['auto'] | int
-    if delay_str == 'auto':
-        delay = protocol.cell_paint_get_smallest_delay(plates, offset=20)
+    num_batches = int(request.args.get('num_batches', '1'))
+    batch_size = int(request.args.get('batch_size', '2'))
+    between_batch_delay_str: str = request.args.get('between_batch_delay', 'auto')
+    within_batch_delay_str: str = request.args.get('within_batch_delay', 'auto')
+    if (
+        between_batch_delay_str == 'auto' or
+        within_batch_delay_str == 'auto'
+    ):
+        events, between_batch_delay, within_batch_delay = protocol.cell_paint_batches_auto(num_batches, batch_size)
     else:
-        delay = int(delay_str)
+        between_batch_delay: int = int(between_batch_delay_str)
+        within_batch_delay: int  = int(within_batch_delay_str)
+        events = protocol.cell_paint_batches(num_batches, batch_size, between_batch_delay, within_batch_delay)
+
     sortby: str = request.args.get('sortby', 'plate')
 
-    events = protocol.cell_paint_many(plates, delay, offset=20)
+    print(f'{between_batch_delay=}')
+    print(f'{within_batch_delay=}')
     events = protocol.sleek_movements(events)
 
     with_group: list[tuple[tuple[int | str | None, ...], Event]] = []
@@ -270,12 +278,10 @@ def index() -> Iterator[head | str]:
                             }}" />
 
            </div>
-           <div>
-               <input type="range" id="plates" name="plates" min="1" max="10" value={plates} style="width:600px">plates: {plates}
-           </div>
-           <div>
-               <input type="range" id="delay" name="delay" min="0" max="500" value={delay} style="width:600px">delay: {delay}
-           </div>
+           <div><input type="range" id="num_batches" name="num_batches" min="1" max="10" value={num_batches} style="width:600px">num_batches: {num_batches}</div>
+           <div><input type="range" id="batch_size" name="batch_size" min="1" max="10" value={batch_size} style="width:600px">batch_size: {batch_size}</div>
+           <div><input type="range" id="between_batch_delay" name="between_batch_delay" min="3600" max="10800" value={between_batch_delay} style="width:600px">between_batch_delay: {between_batch_delay}</div>
+           <div><input type="range" id="within_batch_delay" name="within_batch_delay" min="0" max="500" value={within_batch_delay} style="width:600px">within_batch_delay: {within_batch_delay}</div>
            <div>
                sort by:
                <label><input type="radio" name="sortby" id="machine,plate" value="machine,plate" {"checked" if sortby == "machine,plate" else ""}>machine,plate</label>
@@ -284,7 +290,7 @@ def index() -> Iterator[head | str]:
                <label><input type="radio" name="sortby" id="machine"       value="machine"       {"checked" if sortby == "machine"       else ""}>machine</label>
            </div>
         </form>
-        <div css="height: 120px"></div>
+        <div css="height: 160px"></div>
         <table css="margin-top: 20px;">
            {nl.join(tbl)}
         </table>

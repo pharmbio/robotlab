@@ -18,7 +18,8 @@ def main():
     for k, v in configs.items():
         parser.add_argument('--' + k, dest="config", action="store_const", const=k, help='Run with config ' + k)
 
-    parser.add_argument('--cell-paint', metavar='N', type=int, default=None, help='Cell paint N plates stored in L1, L2, ..')
+    parser.add_argument('--cell-paint', metavar='BS', type=int, default=None, help='Cell paint with a batch size of BS. Plates stored in L1, L2, ..')
+    parser.add_argument('--num-batches', metavar='N', type=int, default=1, help='Number of batches to use when cell painting')
     parser.add_argument('--test-circuit', action='store_true', help='Test with a circuit protocol which returns plates back into the incubator')
 
     parser.add_argument('--wash', action='store_true', help='Run a (fixed) test program on the washer')
@@ -45,7 +46,12 @@ def main():
     print(f'Using config =', show(config))
 
     if args.cell_paint:
-        protocol.main(num_plates=args.cell_paint, config=config, test_circuit=args.test_circuit)
+        protocol.main(
+            num_batches=args.num_batches,
+            batch_size=args.cell_paint,
+            config=config,
+            test_circuit=args.test_circuit
+        )
 
     elif args.robotarm:
         robots.get_robotarm(config).set_speed(args.robotarm_speed).close()
@@ -67,8 +73,7 @@ def main():
             print(name)
 
     elif args.inspect_robotarm_programs:
-
-        events = protocol.cell_paint_many(2, delay='auto')
+        events, _, _ = protocol.cell_paint_batches_auto(1, 2, test_circuit=True)
         events = protocol.sleek_movements(events)
 
         for k, v in movelists.items():
@@ -84,7 +89,7 @@ def main():
         robots.wait_for_ready_cmd('wash').execute(config)
 
     elif args.disp:
-        robots.disp_cmd('automation/1_D_P1_30ul_mito.LHC', est=0).execute(config)
+        robots.disp_cmd('automation/1_D_P1_30ul_mito.LHC', disp_pump='P1', est=0).execute(config)
         robots.wait_for_ready_cmd('disp').execute(config)
 
     elif args.incu_put:

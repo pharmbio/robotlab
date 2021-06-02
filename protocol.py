@@ -76,41 +76,51 @@ def sleek_movements(events: list[Event]) -> list[Event]:
             out[j] = replace(event_b, command=replace(event_b.command, program_name=b2))
     return out
 
-def cell_painting(plate_id: str, initial_wait_seconds: float, incu_loc: str, lid_loc: str, r_loc: str, out_loc: str, test_circuit: bool=False) -> list[Event]:
+@dataclass(frozen=True)
+class Plate:
+    id: str
+    seconds_offset: int
+    incu_loc: str
+    r_loc: str
+    lid_loc: str
+    out_loc: str
+    batch: int
+
+def cell_paint_one(plate: Plate, test_circuit: bool=False) -> list[Event]:
 
     incu_get = [
-        robots.wait_for_timer_cmd(plate_id),
+        robots.wait_for_timer_cmd(plate.id),
         par([
-            robots.incu_cmd('get', incu_loc, est=10),
+            robots.incu_cmd('get', plate.incu_loc, est=10),
             robots.robotarm_cmd('incu get prep'),
         ]),
         robots.wait_for_ready_cmd('incu'),
         robots.robotarm_cmd('incu get main'),
-        robots.robotarm_cmd(f'lid_{lid_loc} put'),
+        robots.robotarm_cmd(f'lid_{plate.lid_loc} put'),
     ]
 
     incu_put_main_part = [
         robots.robotarm_cmd('incu put main'),
-        robots.incu_cmd('put', incu_loc, est=0),
+        robots.incu_cmd('put', plate.incu_loc, est=0),
         robots.robotarm_cmd('incu put return'),
         robots.wait_for_ready_cmd('incu'),
     ]
 
     def incu_put(minutes: int):
         return [
-            robots.robotarm_cmd(f'lid_{lid_loc} get'),
+            robots.robotarm_cmd(f'lid_{plate.lid_loc} get'),
             *incu_put_main_part,
-            robots.timer_cmd(minutes, plate_id),
+            robots.timer_cmd(minutes, plate.id),
         ]
 
     def RT(minutes: int):
         return [
-            robots.robotarm_cmd(f'lid_{lid_loc} get'),
-            robots.robotarm_cmd(f'{r_loc} put'),
-            robots.timer_cmd(minutes, plate_id),
-            robots.wait_for_timer_cmd(plate_id),
-            robots.robotarm_cmd(f'{r_loc} get'),
-            robots.robotarm_cmd(f'lid_{lid_loc} put'),
+            robots.robotarm_cmd(f'lid_{plate.lid_loc} get'),
+            robots.robotarm_cmd(f'{plate.r_loc} put'),
+            robots.timer_cmd(minutes, plate.id),
+            robots.wait_for_timer_cmd(plate.id),
+            robots.robotarm_cmd(f'{plate.r_loc} get'),
+            robots.robotarm_cmd(f'lid_{plate.lid_loc} put'),
         ]
 
     def wash(wash_path: str):
@@ -157,13 +167,13 @@ def cell_painting(plate_id: str, initial_wait_seconds: float, incu_loc: str, lid
         ]
 
     to_out = [
-        robots.robotarm_cmd(f'lid_{lid_loc} get'),
-        robots.robotarm_cmd(f'{out_loc} put'),
+        robots.robotarm_cmd(f'lid_{plate.lid_loc} get'),
+        robots.robotarm_cmd(f'{plate.out_loc} put'),
     ]
 
     cmds: list[Command] = [
         # 2 Compound treatment
-        robots.timer_cmd(initial_wait_seconds / 60.0, plate_id),
+        robots.timer_cmd(plate.seconds_offset / 60.0, plate.id),
 
         # 3 Mitotracker staining
         *incu_get,
@@ -215,9 +225,9 @@ def cell_painting(plate_id: str, initial_wait_seconds: float, incu_loc: str, lid
     if test_circuit:
         cmds += [
             # Return to home
-            robots.timer_cmd(20, plate_id),
-            robots.wait_for_timer_cmd(plate_id),
-            robots.robotarm_cmd(f'{out_loc} get'),
+            robots.timer_cmd(20, plate.id),
+            robots.wait_for_timer_cmd(plate.id),
+            robots.robotarm_cmd(f'{plate.out_loc} get'),
             *incu_put_main_part,
         ]
 
@@ -235,7 +245,7 @@ def cell_painting(plate_id: str, initial_wait_seconds: float, incu_loc: str, lid
                 my_begin = t_begin
             event = Event(
                 command=sub_cmd,
-                plate_id=plate_id, # (f'{plate_id}') if cmd.is_prep() else plate_id,
+                plate_id=plate.id, # (f'{plate.id}') if cmd.is_prep() else plate.id,
                 begin=my_begin,
                 end=my_begin + sub_cmd.time_estimate(),
             )
@@ -245,45 +255,95 @@ def cell_painting(plate_id: str, initial_wait_seconds: float, incu_loc: str, lid
 
     return events
 
+def cell_paint_many(
+    plates: list[Plate],
+    test_circuit: bool,
+) -> list[Event]:
+    events = utils.flatten([cell_paint_one(plate) for plate in plates])
+    events = sorted(events, key=lambda e: e.end)
+    events = list(events)
+    calculate_overlap(events)
+    return events
+
+
 H = [21, 19, 17, 15, 13, 11, 9, 7, 5, 3, 1]
 I = [i+1 for i in range(22)]
-Out = list(reversed(H))
 
 h21 = 'h21'
 
 incu_locs: list[str] = [f'L{i}' for i in I] + [f'R{i}' for i in I]
 h_locs:    list[str] = [f'h{i}' for i in H]
 r_locs:    list[str] = [f'r{i}' for i in H]
-out_locs:  list[str] = [f'out{i}' for i in Out]
+out_locs:  list[str] = [f'out{i}' for i in reversed(H)] + list(reversed(r_locs))
 lid_locs:  list[str] = [h for h in h_locs if h != h21]
 
-def cell_paint_get_smallest_delay(plates: int, offset: int=60, test_circuit: bool=False) -> int:
-    for delay in range(400):
-        events = cell_paint_many(plates, delay, offset, test_circuit=test_circuit)
+def cell_paint_batches(
+    num_batches: int,
+    batch_size: int,
+    between_batch_delay: int,
+    within_batch_delay: int,
+    test_circuit: bool=False
+) -> list[Event]:
+
+    plates: list[Plate] = []
+
+    index = 0
+    for batch in range(num_batches):
+        for batch_index in range(batch_size):
+            plates += [Plate(
+                id=f'p{index+1:02d}',
+                seconds_offset=batch*between_batch_delay + batch_index*within_batch_delay,
+                incu_loc=incu_locs[index],
+                r_loc=r_locs[batch_index],
+                lid_loc=lid_locs[batch_index],
+                out_loc=out_locs[index],
+                batch=batch,
+            )]
+            index += 1
+
+    for i, p in enumerate(plates):
+        for j, q in enumerate(plates):
+            if i != j:
+                assert p.id != q.id
+                assert p.incu_loc != q.incu_loc
+                assert p.out_loc not in [q.out_loc, q.r_loc, q.lid_loc, q.incu_loc]
+                if p.batch == q.batch:
+                    assert p.r_loc != q.r_loc
+                    assert p.lid_loc != q.lid_loc
+
+    return cell_paint_many(plates, test_circuit=test_circuit)
+
+def cell_paint_batches_auto(
+    num_batches: int,
+    batch_size: int,
+    test_circuit: bool=False
+) -> tuple[list[Event], int, int]:
+    events: list[Event] = []
+
+    within_batch_delay: int | None = None
+    works: list[int] = []
+    for test in range(400):
+        events = cell_paint_batches(1, batch_size, 0, test, test_circuit=test_circuit)
         if not any(e.overlap.value for e in events):
-            return delay
-    return 400
+            works += [test]
 
-def cell_paint_many(num_plates: int, delay: int | Literal['auto'], offset: int=60, test_circuit: bool=False) -> list[Event]:
+    within_batch_delay = works[-1]
+    pr(works)
+    # break
 
-    if delay == 'auto':
-        delay = cell_paint_get_smallest_delay(num_plates, offset, test_circuit=test_circuit)
+    assert within_batch_delay is not None
 
-    events = utils.flatten([
-        cell_painting(
-            f'p{i}', offset + i * delay,
-            incu_locs[i], lid_locs[i], r_locs[i], out_locs[i],
-            test_circuit=test_circuit,
-        )
-        for i in range(num_plates)
-    ])
+    between_batch_delay: int | None = None
+    hh = 60 * 60
+    for test in range(hh, 3 * hh, 60):
+        events = cell_paint_batches(num_batches, batch_size, test, within_batch_delay, test_circuit=test_circuit)
+        if not any(e.overlap.value for e in events):
+            between_batch_delay = test
+            break
 
-    events = sorted(events, key=lambda e: e.end)
-    events = list(events)
+    assert between_batch_delay is not None
 
-    calculate_overlap(events)
-
-    return events
+    return events, within_batch_delay, between_batch_delay
 
 def execute(events: list[Event], config: Config) -> None:
     metadata = dict(
@@ -315,7 +375,10 @@ def execute(events: list[Event], config: Config) -> None:
         with open(log_name, 'w') as fp:
             json.dump(log, fp, indent=2)
 
-def main(num_plates: int, config: Config, test_circuit: bool=False) -> None:
-    events = protocol.cell_paint_many(num_plates, delay='auto', test_circuit=test_circuit)
+def main(num_batches: int, batch_size: int, config: Config, test_circuit: bool=False) -> None:
+    events, within_batch_delay, between_batch_delay = protocol.cell_paint_batches_auto(num_batches, batch_size, test_circuit=test_circuit)
+    print(f'{within_batch_delay=}')
+    print(f'{between_batch_delay=}')
     events = protocol.sleek_movements(events)
     execute(events, config)
+
