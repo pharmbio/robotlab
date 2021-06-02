@@ -460,10 +460,10 @@ def read_movelists() -> dict[str, MoveList]:
 
     for k, v in list(grand_out.items()):
 
-        if 'main' in k or 'transfer' in k:
-            assert v.has_gripper(), v.describe()
         if 'prep' in k or 'return' in k:
             assert not v.has_gripper(), v.describe()
+        else:
+            assert v.has_gripper(), v.describe()
 
         grand_out |= v.expand_hotels(k)
 
