@@ -19,6 +19,7 @@ def main():
         parser.add_argument('--' + k, dest="config", action="store_const", const=k, help='Run with config ' + k)
 
     parser.add_argument('--cell-paint', metavar='N', type=int, default=None, help='Cell paint N plates stored in L1, L2, ..')
+    parser.add_argument('--test-circuit', action='store_true', help='Test with a circuit protocol which returns plates back into the incubator')
 
     parser.add_argument('--wash', action='store_true', help='Run a (fixed) test program on the washer')
     parser.add_argument('--disp', action='store_true', help='Run a (fixed) test program on the dispenser')
@@ -44,7 +45,7 @@ def main():
     print(f'Using config =', show(config))
 
     if args.cell_paint:
-        protocol.main(num_plates=args.cell_paint, config=config)
+        protocol.main(num_plates=args.cell_paint, config=config, test_circuit=args.test_circuit)
 
     elif args.robotarm:
         robots.get_robotarm(config).set_speed(args.robotarm_speed).close()

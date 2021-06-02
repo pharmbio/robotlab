@@ -76,7 +76,7 @@ def sleek_movements(events: list[Event]) -> list[Event]:
             out[j] = replace(event_b, command=replace(event_b.command, program_name=b2))
     return out
 
-def cell_painting(plate_id: str, initial_wait_seconds: float, incu_loc: str, lid_loc: str, r_loc: str, out_loc: str) -> list[Event]:
+def cell_painting(plate_id: str, initial_wait_seconds: float, incu_loc: str, lid_loc: str, r_loc: str, out_loc: str, test_circuit: bool=False) -> list[Event]:
 
     incu_get = [
         robots.wait_for_timer_cmd(plate_id),
@@ -87,13 +87,17 @@ def cell_painting(plate_id: str, initial_wait_seconds: float, incu_loc: str, lid
         robots.robotarm_cmd(f'lid_{lid_loc} put'),
     ]
 
+    incu_put_main_part = [
+        robots.robotarm_cmd('incu put main'),
+        robots.incu_cmd('put', incu_loc, est=0),
+        robots.robotarm_cmd('incu put return'),
+        robots.wait_for_ready_cmd('incu'),
+    ]
+
     def incu_put(minutes: int):
         return [
             robots.robotarm_cmd(f'lid_{lid_loc} get'),
-            robots.robotarm_cmd('incu put main'),
-            robots.incu_cmd('put', incu_loc, est=0),
-            robots.robotarm_cmd('incu put return'),
-            robots.wait_for_ready_cmd('incu'),
+            *incu_put_main_part,
             robots.timer_cmd(minutes, plate_id),
         ]
 
@@ -190,6 +194,15 @@ def cell_painting(plate_id: str, initial_wait_seconds: float, incu_loc: str, lid
         *to_out,
     ]
 
+    if test_circuit:
+        cmds += [
+            # Return to home
+            robots.timer_cmd(20, plate_id),
+            robots.wait_for_timer_cmd(plate_id),
+            robots.robotarm_cmd(f'{out_loc} get'),
+            *incu_put_main_part,
+        ]
+
     t = 0.0
     events: list[Event] = []
     for cmd in cmds:
@@ -226,22 +239,23 @@ r_locs:    list[str] = [f'r{i}' for i in H]
 out_locs:  list[str] = [f'out{i}' for i in Out]
 lid_locs:  list[str] = [h for h in h_locs if h != h21]
 
-def cell_paint_get_smallest_delay(plates: int, offset: int=60) -> int:
+def cell_paint_get_smallest_delay(plates: int, offset: int=60, test_circuit: bool=False) -> int:
     for delay in range(400):
-        events = cell_paint_many(plates, delay, offset)
+        events = cell_paint_many(plates, delay, offset, test_circuit=test_circuit)
         if not any(e.overlap.value for e in events):
             return delay
     return 400
 
-def cell_paint_many(num_plates: int, delay: int | Literal['auto'], offset: int=60) -> list[Event]:
+def cell_paint_many(num_plates: int, delay: int | Literal['auto'], offset: int=60, test_circuit: bool=False) -> list[Event]:
 
     if delay == 'auto':
-        delay = cell_paint_get_smallest_delay(num_plates, offset)
+        delay = cell_paint_get_smallest_delay(num_plates, offset, test_circuit=test_circuit)
 
     events = utils.flatten([
         cell_painting(
             f'p{i}', offset + i * delay,
-            incu_locs[i], lid_locs[i], r_locs[i], out_locs[i]
+            incu_locs[i], lid_locs[i], r_locs[i], out_locs[i],
+            test_circuit=test_circuit,
         )
         for i in range(num_plates)
     ])
@@ -283,7 +297,7 @@ def execute(events: list[Event], config: Config) -> None:
         with open(log_name, 'w') as fp:
             json.dump(log, fp, indent=2)
 
-def main(num_plates: int, config: Config) -> None:
-    events = protocol.cell_paint_many(num_plates, delay='auto')
+def main(num_plates: int, config: Config, test_circuit: bool=False) -> None:
+    events = protocol.cell_paint_many(num_plates, delay='auto', test_circuit=test_circuit)
     events = protocol.sleek_movements(events)
     execute(events, config)
