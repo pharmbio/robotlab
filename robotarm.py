@@ -210,9 +210,11 @@ class Robotarm:
             raise RuntimeError
         while True:
             data = self.sock.recv(4096)
-            for m in re.findall(rb'[\x20-\x7e]*(?:log|program|assert|\w+exception|error|\w+_\w+:)[\x20-\x7e]*', data, re.IGNORECASE):
+            for m in re.findall(rb'[\x20-\x7e]*(?:log|program|assert|\w+exception|error|\w+_\w+:|panic)[\x20-\x7e]*', data, re.IGNORECASE):
                 m = m.decode()
                 self.quiet or print(f'{m = }')
+                if 'panic' in m:
+                    raise RuntimeError(m)
             yield data
 
     def recv_until(self, needle: str) -> None:

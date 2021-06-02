@@ -30,7 +30,7 @@ function send {
     python -c 'import textwrap, sys; print(textwrap.dedent(sys.argv[1]))' "$1" |
         timeout "$timeout" nc $ROBOT_IP $ROBOT_PORT |
         grep --text --only-matching --ignore-case --perl-regexp \
-            '(log|assert|program|\w*exception|\w+_\w+:)[\x20-\x7f]*'
+            '(log|assert|program|\w*exception|\w+_\w+:|panic)[\x20-\x7f]*'
 }
 
 note '

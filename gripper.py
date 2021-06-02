@@ -1430,6 +1430,32 @@ gripper_code = str('''
   rq_set_gripper_max_cur(0, "1")
   # end: URCap Installation Node
 
+  def gripper_doublecheck():
+    gripper_1_used = True
+    if (connectivity_checked[0] != 1):
+      gripper_id_ascii = rq_gripper_id_to_ascii("1")
+      gripper_id_list = rq_get_sid("1")
+      if not(rq_is_gripper_in_sid_list(gripper_id_ascii, gripper_id_list)):
+        popup("Gripper 1 must be connected to run this program.", "No connection", False, True, True)
+      end
+      connectivity_checked[0] = 1
+    end
+    if (status_checked[0] != 1):
+      if not(rq_is_gripper_activated("1")):
+        popup("Gripper 1 is not activated. Go to Installation tab > Gripper to activate it and run the program again.", "Not activated", False, True, True)
+      end
+      status_checked[0] = 1
+    end
+    pos = rq_current_pos()
+    if pos > 150:
+      textmsg("panic: gripper closed more than a plate is wide, pos=", pos)
+      popup("panic: gripper closed more than a plate is wide", "panic, False, True, True)
+      halt
+    end
+  end
+
+  gripper_doublecheck()
+
   def GripperMove(pos, soft=False):
     if pos > 255:
       pos = 255
@@ -1437,7 +1463,7 @@ gripper_code = str('''
       pos = 0
     end
     while not is_steady():
-        sync()
+      sync()
     end
     gripper_1_used = True
     if (connectivity_checked[0] != 1):
@@ -1455,9 +1481,9 @@ gripper_code = str('''
       status_checked[0] = 1
     end
     if soft:
-        force = 0
+      force = 0
     else:
-        force = 255
+      force = 255
     end
     rq_set_pos_spd_for(pos, 0, force, "1")
     rq_go_to("1")
@@ -1472,5 +1498,6 @@ gripper_code = str('''
     gripper_4_used = False
     pos = rq_current_pos()
     write_output_integer_register(0, pos)  # save position for pharmbio GUI
+    gripper_doublecheck()
   end
 ''')
