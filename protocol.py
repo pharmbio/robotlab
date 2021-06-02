@@ -80,8 +80,10 @@ def cell_painting(plate_id: str, initial_wait_seconds: float, incu_loc: str, lid
 
     incu_get = [
         robots.wait_for_timer_cmd(plate_id),
-        robots.incu_cmd('get', incu_loc, est=10),
-        robots.robotarm_cmd('incu get prep'),
+        par([
+            robots.incu_cmd('get', incu_loc, est=10),
+            robots.robotarm_cmd('incu get prep'),
+        ]),
         robots.wait_for_ready_cmd('incu'),
         robots.robotarm_cmd('incu get main'),
         robots.robotarm_cmd(f'lid_{lid_loc} put'),
@@ -114,10 +116,10 @@ def cell_painting(plate_id: str, initial_wait_seconds: float, incu_loc: str, lid
     def wash(wash_path: str):
         return [
             robots.robotarm_cmd('wash put main'),
-            par(
+            par([
                 robots.wash_cmd(wash_path, est=90),
                 robots.robotarm_cmd('wash put return'),
-            ),
+            ]),
 
             robots.robotarm_cmd('wash get prep', prep=True),
             # Yields:
@@ -126,20 +128,28 @@ def cell_painting(plate_id: str, initial_wait_seconds: float, incu_loc: str, lid
             robots.robotarm_cmd('wash get main'),
         ]
 
-    def wash_disp(wash_path: str, disp_path: str):
+    def wash_and_disp(
+        wash_path: str,
+        disp_pump: str,
+        disp_priming_path: str,
+        disp_path: str
+    ):
         return [
             robots.robotarm_cmd('wash put main'),
-            par(
+            par([
                 robots.wash_cmd(wash_path, est=90),
+                # ensure this disp pump is primed:
+                robots.disp_cmd(disp_priming_path, disp_pump=disp_pump, is_priming=True),
                 robots.robotarm_cmd('wash put return'),
-            ),
+            ]),
 
             robots.robotarm_cmd('wash_to_disp prep', prep=True),
             # Yields:
             robots.wait_for_ready_cmd('wash'),
 
             robots.robotarm_cmd('wash_to_disp transfer'),
-            robots.disp_cmd(disp_path, est=15),
+            robots.wait_for_ready_cmd('disp'),  # make sure dispenser priming is ready
+            robots.disp_cmd(disp_path, disp_pump=disp_pump, est=15),
             robots.robotarm_cmd('wash_to_disp return'),
             robots.wait_for_ready_cmd('disp'),
             robots.robotarm_cmd('disp get main'),
@@ -157,30 +167,38 @@ def cell_painting(plate_id: str, initial_wait_seconds: float, incu_loc: str, lid
 
         # 3 Mitotracker staining
         *incu_get,
-        *wash_disp(
+        *wash_and_disp(
             'automation/2_4_6_W-3X_FinalAspirate.LHC',
+            'P1',
+            'automation/1_D_P1_PRIME.LHC',
             'automation/1_D_P1_30ul_mito.LHC',
         ),
         *incu_put(30),
 
         # 4 Fixation
         *incu_get,
-        *wash_disp(
+        *wash_and_disp(
             'automation/2_4_6_W-3X_FinalAspirate.LHC',
+            'SA',
+            'automation/3_D_SA_PRIME.LHC',
             'automation/3_D_SA_384_50ul_PFA.LHC',
         ),
         *RT(20),
 
         # 5 Permeabilization
-        *wash_disp(
+        *wash_and_disp(
             'automation/2_4_6_W-3X_FinalAspirate.LHC',
+            'SB',
+            'automation/5_D_SB_PRIME.LHC',
             'automation/5_D_SB_384_50ul_TRITON.LHC',
         ),
         *RT(20),
 
         # 6 Post-fixation staining
-        *wash_disp(
+        *wash_and_disp(
             'automation/2_4_6_W-3X_FinalAspirate.LHC',
+            'P2',
+            'automation/7_D_P2_PRIME.LHC',
             'automation/7_D_P2_20ul_STAINS.LHC',
         ),
         *RT(20),
@@ -209,7 +227,7 @@ def cell_painting(plate_id: str, initial_wait_seconds: float, incu_loc: str, lid
         est = cmd.time_estimate()
         t_begin: float = t
         t_ends: list[float] = []
-        sub_cmds: list[Command] = cmd.sub_cmds() if isinstance(cmd, robots.par) else [cmd]
+        sub_cmds: tuple[Command, ...] = cmd.sub_cmds() if isinstance(cmd, robots.par) else (cmd,)
         for sub_cmd in sub_cmds:
             if sub_cmd.is_prep():
                 my_begin = t_begin - sub_cmd.time_estimate()

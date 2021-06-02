@@ -14,8 +14,7 @@ import time
 
 from moves import movelists
 from robotarm import Robotarm
-from utils import show
-
+import utils
 
 @dataclass(frozen=True)
 class Env:
@@ -154,7 +153,30 @@ class wash_cmd(Command):
 @dataclass(frozen=True)
 class disp_cmd(Command):
     protocol_path: str
+    disp_pump: str
+    is_priming: bool = False
     def execute(self, config: Config) -> None:
+
+        idle_time_priming_threshold = timedelta(minutes=20)
+        if config.time_mode == 'fast forward':
+            idle_time_priming_threshold /= 1000
+
+        last_use = config.timers.get(self.disp_pump)
+        needs_priming = (
+            last_use is None or
+            datetime.now() - last_use > idle_time_priming_threshold
+        )
+        assert not needs_priming or self.is_priming
+
+        if self.is_priming:
+            if needs_priming:
+                print('disp priming: will prime', self.disp_pump, 'last use:', last_use)
+            else:
+                print('disp priming: skipping', self.disp_pump, 'last use:', last_use)
+                return
+
+        config.timers[self.disp_pump] = datetime.now()
+
         if config.disp_and_wash_mode == 'noop':
             # print('dry run', self)
             return
@@ -165,7 +187,7 @@ class disp_cmd(Command):
         res = curl(url)
         assert res['status'] == 'OK', f'status not OK: {res = }'
 
-    est: float
+    est: float = 15
     def time_estimate(self) -> float:
         return self.est
 
@@ -224,11 +246,15 @@ class wait_for_ready_cmd(Command):
 
 @dataclass(frozen=True)
 class par(Command):
-    sub1: wash_cmd | disp_cmd | incu_cmd
-    sub2: robotarm_cmd
+    subs: list[wash_cmd | disp_cmd | incu_cmd | robotarm_cmd]
 
-    def sub_cmds(self) -> list[Command]:
-        return [self.sub1, self.sub2]
+    def __post_init__(self):
+        for _, cmd, next in utils.context(self.subs):
+            if isinstance(cmd, robotarm_cmd):
+                assert next is None, 'put the nonblocking commands first, then the robotarm last'
+
+    def sub_cmds(self) -> tuple[Command, ...]:
+        return tuple(self.subs)
 
     def time_estimate(self) -> float:
         return max(sub.time_estimate() for sub in self.sub_cmds())
