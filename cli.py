@@ -20,6 +20,8 @@ def main():
 
     parser.add_argument('--cell-paint', metavar='BS', type=int, default=None, help='Cell paint with a batch size of BS. Plates stored in L1, L2, ..')
     parser.add_argument('--num-batches', metavar='N', type=int, default=1, help='Number of batches to use when cell painting')
+    parser.add_argument('--between-batch-delay', metavar='T', type=str, default='auto', help='Delay between batches in seconds (or the default: "auto")')
+    parser.add_argument('--within-batch-delay',  metavar='T', type=str, default='auto', help='Delay within batches in seconds (or the default: "auto")')
     parser.add_argument('--test-circuit', action='store_true', help='Test with a circuit protocol which returns plates back into the incubator')
 
     parser.add_argument('--wash', action='store_true', help='Run a (fixed) test program on the washer')
@@ -49,6 +51,8 @@ def main():
         protocol.main(
             num_batches=args.num_batches,
             batch_size=args.cell_paint,
+            between_batch_delay_str=args.between_batch_delay,
+            within_batch_delay_str=args.within_batch_delay,
             config=config,
             test_circuit=args.test_circuit
         )
@@ -73,7 +77,7 @@ def main():
             print(name)
 
     elif args.inspect_robotarm_programs:
-        events, _, _ = protocol.cell_paint_batches_auto(1, 2, test_circuit=True)
+        events, _, _ = protocol.cell_paint_batches_auto_delay(1, 2, test_circuit=True)
         events = protocol.sleek_movements(events)
 
         for k, v in movelists.items():

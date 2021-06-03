@@ -313,7 +313,7 @@ def cell_paint_batches(
 
     return cell_paint_many(plates, test_circuit=test_circuit)
 
-def cell_paint_batches_auto(
+def cell_paint_batches_auto_delay(
     num_batches: int,
     batch_size: int,
     test_circuit: bool=False
@@ -341,6 +341,25 @@ def cell_paint_batches_auto(
     assert between_batch_delay is not None
 
     return events, between_batch_delay, within_batch_delay
+
+def cell_paint_batches_parse_delay(
+    num_batches: int,
+    batch_size: int,
+    between_batch_delay_str: str,
+    within_batch_delay_str: str,
+    test_circuit: bool=False
+) -> tuple[list[Event], int, int]:
+
+    if (
+        between_batch_delay_str == 'auto' or
+        within_batch_delay_str == 'auto'
+    ):
+        return protocol.cell_paint_batches_auto_delay(num_batches, batch_size)
+    else:
+        between_batch_delay: int = int(between_batch_delay_str)
+        within_batch_delay: int  = int(within_batch_delay_str)
+        events = protocol.cell_paint_batches(num_batches, batch_size, between_batch_delay, within_batch_delay)
+        return events, between_batch_delay, within_batch_delay
 
 def execute(events: list[Event], config: Config) -> None:
     metadata = dict(
@@ -372,8 +391,22 @@ def execute(events: list[Event], config: Config) -> None:
         with open(log_name, 'w') as fp:
             json.dump(log, fp, indent=2)
 
-def main(num_batches: int, batch_size: int, config: Config, test_circuit: bool=False) -> None:
-    events, between_batch_delay, within_batch_delay = protocol.cell_paint_batches_auto(num_batches, batch_size, test_circuit=test_circuit)
+def main(
+    config: Config,
+    *,
+    num_batches: int,
+    batch_size: int,
+    between_batch_delay_str: str = 'auto',
+    within_batch_delay_str: str = 'auto',
+    test_circuit: bool=False
+) -> None:
+    events, between_batch_delay, within_batch_delay = protocol.cell_paint_batches_parse_delay(
+        num_batches,
+        batch_size,
+        between_batch_delay_str,
+        within_batch_delay_str,
+        test_circuit=test_circuit
+    )
     print(f'{between_batch_delay=}')
     print(f'{within_batch_delay=}')
     events = protocol.sleek_movements(events)

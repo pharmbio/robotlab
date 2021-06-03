@@ -92,16 +92,12 @@ def index() -> Iterator[head | str]:
     batch_size = int(request.args.get('batch_size', '2'))
     between_batch_delay_str: str = request.args.get('between_batch_delay', 'auto')
     within_batch_delay_str: str = request.args.get('within_batch_delay', 'auto')
-    if (
-        between_batch_delay_str == 'auto' or
-        within_batch_delay_str == 'auto'
-    ):
-        events, between_batch_delay, within_batch_delay = protocol.cell_paint_batches_auto(num_batches, batch_size)
-    else:
-        between_batch_delay: int = int(between_batch_delay_str)
-        within_batch_delay: int  = int(within_batch_delay_str)
-        events = protocol.cell_paint_batches(num_batches, batch_size, between_batch_delay, within_batch_delay)
-
+    events, between_batch_delay, within_batch_delay = protocol.cell_paint_batches_parse_delay(
+        num_batches,
+        batch_size,
+        between_batch_delay_str,
+        within_batch_delay_str,
+    )
     sortby: str = request.args.get('sortby', 'plate')
 
     print(f'{between_batch_delay=}')
