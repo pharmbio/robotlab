@@ -33,7 +33,7 @@ def main():
     parser.add_argument('--inspect-robotarm-programs', action='store_true', help='Inspect steps of robotarm programs')
     parser.add_argument('--robotarm', action='store_true', help='Run robot arm')
     parser.add_argument('--robotarm-send', metavar='STR', type=str, help='Send a raw program to the robot arm')
-    parser.add_argument('--robotarm-speed', metavar='N', type=int, default=80, help='Robot arm speed [1-100]')
+    parser.add_argument('--robotarm-speed', metavar='N', type=int, default=100, help='Robot arm speed [1-100]')
     parser.add_argument('program_name', type=str, nargs='*', help='Robot arm program name to run')
 
     args = parser.parse_args()
@@ -48,6 +48,7 @@ def main():
     print(f'Using config =', show(config))
 
     if args.cell_paint:
+        robots.get_robotarm(config).set_speed(args.robotarm_speed).close()
         protocol.main(
             num_batches=args.num_batches,
             batch_size=args.cell_paint,
