@@ -101,8 +101,10 @@ def cell_paint_one(plate: Plate, test_circuit: bool=False) -> list[Event]:
 
     incu_put_main_part = [
         robots.robotarm_cmd('incu put main'),
-        robots.incu_cmd('put', plate.incu_loc, est=0),
-        robots.robotarm_cmd('incu put return'),
+        par([
+            robots.incu_cmd('put', plate.incu_loc, est=10),
+            robots.robotarm_cmd('incu put return'),
+        ]),
         robots.wait_for_ready_cmd('incu'),
     ]
 
