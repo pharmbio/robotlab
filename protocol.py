@@ -26,6 +26,7 @@ class Event:
     plate_id: str | None
     command: robots.Command
     overlap: Mutable[bool] = field(default_factory=lambda: Mutable(False))
+    initial_delay: bool = False
 
     def machine(self) -> str:
         return self.command.__class__.__name__.rstrip('cmd').strip('_')
@@ -175,7 +176,7 @@ def cell_paint_one(plate: Plate, test_circuit: bool=False) -> list[Event]:
 
     cmds: list[Command] = [
         # 2 Compound treatment
-        robots.timer_cmd(plate.seconds_offset / 60.0, plate.id),
+        robots.timer_cmd(plate.seconds_offset / 60.0, plate.id, initial_delay=True),
 
         # 3 Mitotracker staining
         *incu_get,
@@ -250,6 +251,7 @@ def cell_paint_one(plate: Plate, test_circuit: bool=False) -> list[Event]:
                 plate_id=plate.id, # (f'{plate.id}') if cmd.is_prep() else plate.id,
                 begin=my_begin,
                 end=my_begin + sub_cmd.time_estimate(),
+                initial_delay=utils.catch(lambda: getattr(sub_cmd, 'initial_delay'), False)
             )
             events += [event]
             t_ends += [event.end]
@@ -262,7 +264,7 @@ def cell_paint_many(
     test_circuit: bool,
 ) -> list[Event]:
     events = utils.flatten([cell_paint_one(plate) for plate in plates])
-    events = sorted(events, key=lambda e: e.end)
+    events = sorted(events, key=lambda e: (not e.initial_delay, e.end))
     events = list(events)
     calculate_overlap(events)
     return events
