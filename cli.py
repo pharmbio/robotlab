@@ -94,8 +94,16 @@ def main():
         robots.wait_for_ready_cmd('wash').execute(config)
 
     elif args.disp:
-        robots.disp_cmd('automation/1_D_P1_30ul_mito.LHC', disp_pump='P1', est=0).execute(config)
-        robots.wait_for_ready_cmd('disp').execute(config)
+        priming_paths = [
+            # 'automation/1_D_P1_PRIME.LHC',
+            'automation/3_D_SA_PRIME.LHC',
+            # 'automation/5_D_SB_PRIME.LHC',
+            # 'automation/7_D_P2_PRIME.LHC',
+        ]
+        # 'automation/1_D_P1_30ul_mito.LHC'
+        for path in priming_paths:
+            robots.disp_cmd(path, disp_pump=path, is_priming=True, est=0).execute(config)
+            robots.wait_for_ready_cmd('disp').execute(config)
 
     elif args.incu_put:
         robots.incu_cmd('put', args.incu_put, est=0).execute(config)
