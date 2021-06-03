@@ -262,7 +262,7 @@ def cell_paint_many(
     test_circuit: bool,
 ) -> list[Event]:
     events = utils.flatten([cell_paint_one(plate) for plate in plates])
-    events = sorted(events, key=lambda e: e.end)
+    events = sorted(events, key=lambda e: (e.begin if isinstance(e.command, robots.timer_cmd) else e.end))
     events = list(events)
     calculate_overlap(events)
     return events
