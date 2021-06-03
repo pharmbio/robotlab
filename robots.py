@@ -73,7 +73,6 @@ class Command(abc.ABC):
 class timer_cmd(Command):
     minutes: float
     timer_id: str # one timer per plate
-    initial_delay: bool = False
 
     def time_estimate(self) -> float:
         return self.minutes * 60.0
