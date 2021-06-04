@@ -235,15 +235,28 @@ note '
     Get a plate from the incubator
 '
 function incu-get {
-    python cli.py --config live-execute-all --incu-get "$1"
+    python cli.py --test-arm-incu --incu-get "$1"
 }
 
 note '
     Put a plate into the incubator
 '
 function incu-put {
-    python cli.py --config live-execute-all --incu-put "$1"
+    python cli.py --test-arm-incu --incu-put "$1"
 }
+
+note '
+    Example of moving four plates from r to incu L
+'
+function four-plates-from-r-to-incu() {
+    # python cli.py --test-arm-incu --robotarm 'r21 get' 'incu put'; incu-put L1
+    # python cli.py --test-arm-incu --robotarm 'r19 get' 'incu put'; incu-put L2
+    python cli.py --test-arm-incu --robotarm 'r17 get' 'incu put'; incu-put L3
+    python cli.py --test-arm-incu --robotarm 'r15 get' 'incu put'; incu-put L4
+    python cli.py --test-arm-incu --robotarm 'r13 get' 'incu put'; incu-put L5
+    python cli.py --test-arm-incu --robotarm 'r11 get' 'incu put'; incu-put L6
+}
+
 
 main () {
     if test "$#" -gt 0 && test "$(type -t -- "$1")" = 'function'; then
