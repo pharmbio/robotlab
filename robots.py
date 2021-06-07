@@ -195,7 +195,8 @@ class incu_cmd(Command):
         return self.est
 
 def curl(url: str) -> Any:
-    return json.loads(urlopen(url).read())
+    ten_minutes = 60 * 10
+    return json.loads(urlopen(url, timeout=ten_minutes).read())
 
 def is_ready(machine: Literal['disp', 'wash', 'incu'], config: Config) -> Any:
     res = curl(getattr(ENV, machine + '_url') + 'is_ready')

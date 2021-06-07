@@ -155,7 +155,7 @@ function send-goto-h21-rpy {
 note '
     With some socket gymnastics it is possible to make the UR robot make a HTTP request.
 '
-function curl {
+function curl-impl {
     addr=${1:-www.example.com}
     port=${2:-80}
     url=${3:-/}
@@ -248,7 +248,7 @@ function incu-put {
 note '
     Example of moving four plates from r to incu L
 '
-function four-plates-from-r-to-incu() {
+function four-plates-from-r-to-incu () {
     # python cli.py --test-arm-incu --robotarm 'r21 get' 'incu put'; incu-put L1
     # python cli.py --test-arm-incu --robotarm 'r19 get' 'incu put'; incu-put L2
     python cli.py --test-arm-incu --robotarm 'r17 get' 'incu put'; incu-put L3
@@ -257,6 +257,17 @@ function four-plates-from-r-to-incu() {
     python cli.py --test-arm-incu --robotarm 'r11 get' 'incu put'; incu-put L6
 }
 
+note '
+    Try to understand what the washer and dispenser are doing
+'
+function test-wash-disp () {
+    while true; do
+        curl -s "$1/wash/LHC_TestCommunications" | while read line; do printf 'wash %s\n' "$line"; done
+        # curl -s "$1/wash/LHC_GetProtocolStatus"  | while read line; do printf 'wash %s\n' "$line"; done
+        curl -s "$1/disp/LHC_TestCommunications" | while read line; do printf 'disp %s\n' "$line"; done
+        # curl -s "$1/disp/LHC_GetProtocolStatus"  | while read line; do printf 'disp %s\n' "$line"; done
+    done
+}
 
 main () {
     if test "$#" -gt 0 && test "$(type -t -- "$1")" = 'function'; then

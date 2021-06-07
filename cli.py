@@ -102,7 +102,7 @@ def main():
         ]
         # 'automation/1_D_P1_30ul_mito.LHC'
         for path in priming_paths:
-            robots.disp_cmd(path, disp_pump=path, is_priming=True, est=0).execute(config)
+            robots.disp_cmd(path, est=0).execute(config)
             robots.wait_for_ready_cmd('disp').execute(config)
 
     elif args.incu_put:
