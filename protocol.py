@@ -56,7 +56,7 @@ def sleek_movements(events: list[Event]) -> list[Event]:
         if isinstance(event.command, robots.robotarm_cmd)
     ]
 
-    for _, i, j in utils.context(arm_indicies):
+    for i, j in utils.iterate_with_next(arm_indicies):
         if j is None:
             continue
         event_a = out[i]
@@ -79,12 +79,10 @@ def sleek_movements(events: list[Event]) -> list[Event]:
 @dataclass(frozen=True)
 class Plate:
     id: str
-    seconds_offset: int
     incu_loc: str
     r_loc: str
     lid_loc: str
     out_loc: str
-    batch: int
 
 def cell_paint_one(plate: Plate, test_circuit: bool=False) -> list[Event]:
 
@@ -272,10 +270,11 @@ H = [21, 19, 17, 15, 13, 11, 9, 7, 5, 3, 1]
 I = [i+1 for i in range(22)]
 
 h21 = 'h21'
+r21 = 'r21'
 
 incu_locs: list[str] = [f'L{i}' for i in I] + [f'R{i}' for i in I]
 h_locs:    list[str] = [f'h{i}' for i in H]
-r_locs:    list[str] = [f'r{i}' for i in H]
+r_locs:    list[str] = [f'r{i}' for i in H][1:]
 out_locs:  list[str] = [f'out{i}' for i in reversed(H)] + list(reversed(r_locs))
 lid_locs:  list[str] = [h for h in h_locs if h != h21]
 
@@ -294,12 +293,10 @@ def cell_paint_batches(
         for batch_index in range(batch_size):
             plates += [Plate(
                 id=f'p{index+1:02d}',
-                seconds_offset=batch*between_batch_delay + batch_index*within_batch_delay,
                 incu_loc=incu_locs[index],
                 r_loc=r_locs[batch_index],
                 lid_loc=lid_locs[batch_index],
                 out_loc=out_locs[index],
-                batch=batch,
             )]
             index += 1
 
@@ -309,9 +306,11 @@ def cell_paint_batches(
                 assert p.id != q.id
                 assert p.incu_loc != q.incu_loc
                 assert p.out_loc not in [q.out_loc, q.r_loc, q.lid_loc, q.incu_loc]
-                if p.batch == q.batch:
-                    assert p.r_loc != q.r_loc
-                    assert p.lid_loc != q.lid_loc
+                assert p.r_loc != q.r_loc
+                assert p.lid_loc != q.lid_loc
+            else:
+                assert 'h21' not in [p.lid_loc, p.r_loc, p.out_loc]
+                assert 'r21' not in [p.lid_loc, p.r_loc, p.out_loc]
 
     return cell_paint_many(plates, test_circuit=test_circuit)
 
@@ -414,3 +413,235 @@ def main(
     events = protocol.sleek_movements(events)
     execute(events, config)
 
+def paint(batches: list[list[Plate]]):
+    for batch in batches:
+        paint_batch(batch) # TODO
+
+Desc = tuple[Plate, str, str]
+
+def paint_batch(batch: list[Plate]):
+
+    first_plate = batch[0]
+    last_plate = batch[-1]
+
+    chunks: dict[Desc, Iterable[Command]] = {}
+    for plate in batch:
+        lid_mount = [
+            robots.robotarm_cmd(f'lid_{plate.lid_loc} get'),
+        ]
+
+        lid_unmount = [
+            robots.robotarm_cmd(f'lid_{plate.lid_loc} put'),
+        ]
+
+        incu_get = [
+            par([
+                robots.incu_cmd('get', plate.incu_loc, est=10),
+                robots.robotarm_cmd('incu get prep'),
+            ]),
+            robots.wait_for_ready_cmd('incu'),
+            robots.robotarm_cmd('incu get main'),
+            *lid_unmount,
+        ]
+
+        incu_put = [
+            *lid_mount,
+            robots.robotarm_cmd('incu put main'),
+            par([
+                robots.incu_cmd('put', plate.incu_loc, est=10),
+                robots.robotarm_cmd('incu put return'),
+            ]),
+            robots.wait_for_ready_cmd('incu'),
+        ]
+
+        RT_get = [
+            robots.robotarm_cmd(f'{plate.r_loc} get'),
+            *lid_unmount,
+        ]
+
+        RT_put = [
+            *lid_mount,
+            robots.robotarm_cmd(f'{plate.r_loc} put'),
+        ]
+
+
+        def wash(wash_path: str, disp_prime_path: str | None= None):
+            if plate is first_plate and disp_prime_path is not None:
+                disp_prime = [robots.disp_cmd(disp_prime_path)]
+            else:
+                disp_prime = []
+            return [
+                robots.robotarm_cmd('wash put main'),
+                *disp_prime,
+                robots.wash_cmd(wash_path, est=90), # this should be delayed appropriately ??
+                robots.robotarm_cmd('wash put return'),
+            ]
+
+        def disp(disp_path: str):
+            return [
+                robots.robotarm_cmd('wash_to_disp prep'),
+                robots.wait_for_ready_cmd('wash'),
+                robots.robotarm_cmd('wash_to_disp transfer'),
+                robots.wait_for_ready_cmd('disp'),  # ensure dispenser priming is done
+                robots.disp_cmd(disp_path),
+                robots.robotarm_cmd('wash_to_disp return'),
+            ]
+
+        disp_to_incu = [
+            robots.robotarm_cmd('disp get prep'),
+            robots.wait_for_ready_cmd('disp'),
+            robots.robotarm_cmd('disp get main'),
+            *incu_put,
+        ]
+
+        disp_to_RT = [
+            robots.robotarm_cmd('disp get prep'),
+            robots.wait_for_ready_cmd('disp'),
+            robots.robotarm_cmd('disp get main'),
+            *RT_put,
+        ]
+
+        Mito_prime   = 'automation/1_D_P1_PRIME.LHC'
+        Mito_disp    = 'automation/1_D_P1_30ul_mito.LHC'
+        PFA_prime    = 'automation/3_D_SA_PRIME.LHC'
+        PFA_disp     = 'automation/3_D_SA_384_50ul_PFA.LHC'
+        Triton_prime = 'automation/5_D_SB_PRIME.LHC'
+        Triton_disp  = 'automation/5_D_SB_384_50ul_TRITON.LHC'
+        Stains_prime = 'automation/7_D_P2_PRIME.LHC'
+        Stains_disp  = 'automation/7_D_P2_20ul_STAINS.LHC'
+
+        wash_3X = 'automation/2_4_6_W-3X_FinalAspirate.LHC'
+        wash_4X = 'automation/8_W-4X_NoFinalAspirate.LHC'
+
+        p = plate
+
+        chunks[p, 'Mito', 'to h21']            = incu_get
+        chunks[p, 'Mito', 'to wash']           = wash(wash_3X, Mito_prime)
+        chunks[p, 'Mito', 'to disp']           = disp(Mito_disp)
+        chunks[p, 'Mito', 'to incu via h21']   = disp_to_incu
+
+        chunks[p, 'PFA', 'to h21']             = incu_get
+        chunks[p, 'PFA', 'to wash']            = wash(wash_3X, PFA_prime)
+        chunks[p, 'PFA', 'to disp']            = disp(PFA_disp)
+        chunks[p, 'PFA', 'to incu via h21']    = disp_to_RT
+
+        chunks[p, 'Triton', 'to h21']          = RT_get
+        chunks[p, 'Triton', 'to wash']         = wash(wash_3X, Triton_prime)
+        chunks[p, 'Triton', 'to disp']         = disp(Triton_disp)
+        chunks[p, 'Triton', 'to incu via h21'] = disp_to_RT
+
+        chunks[p, 'Stains', 'to h21']          = RT_get
+        chunks[p, 'Stains', 'to wash']         = wash(wash_3X, Stains_prime)
+        chunks[p, 'Stains', 'to disp']         = disp(Stains_disp)
+        chunks[p, 'Stains', 'to incu via h21'] = disp_to_RT
+
+        chunks[p, 'Final', 'to h21']           = RT_get
+        chunks[p, 'Final', 'to wash']          = wash(wash_4X)
+        chunks[p, 'Final', 'to r21 from wash'] = [
+            robots.robotarm_cmd('wash to r21 prep'),
+            robots.wait_for_ready_cmd('wash'),
+            robots.robotarm_cmd('wash to r21 main')
+        ]
+        chunks[p, 'Final', 'to out via r21 and h21']   = [
+            robots.robotarm_cmd('r21 get'),
+            *lid_mount,
+            robots.robotarm_cmd(f'{plate.out_loc} put'),
+        ]
+
+    from collections import defaultdict
+    adjacent: dict[Desc, set[Desc]] = defaultdict(set)
+
+    def seq(descs: list[Desc | None]):
+        filtered: list[Desc] = [ desc for desc in descs if desc ]
+        for now, next in utils.iterate_with_next(filtered):
+            if next:
+                adjacent[now] |= {next}
+
+    def desc(p: Plate | None, part: str, subpart: str) -> Desc | None:
+        if p is None:
+            return None
+        else:
+            return p, part, subpart
+
+    parts = ['Mito', 'PFA', 'Triton', 'Stains', 'Final']
+
+    for part, next_part in utils.iterate_with_next(parts):
+        if next_part:
+            seq([
+                desc(last_plate, part, 'to incu via h21'),
+                desc(first_plate, next_part, 'to h21'),
+            ])
+
+    for A, B, C in utils.iterate_with_context(batch):
+        for part in parts:
+            if part != 'Final':
+                # seq = back to back, not a < constraint
+                # seq(A, B) := t[A] + 1 = t[B]
+                # seq(A, B) := t[B] = t[A] - 1
+                seq([
+                    desc(A, part, 'to h21'),
+                    desc(A, part, 'to wash'),
+                    desc(B, part, 'to h21'),
+                    desc(A, part, 'to disp'),
+                    desc(B, part, 'to wash'),
+                    desc(A, part, 'to incu via h21'),
+                    desc(C, part, 'to h21'),
+                    desc(B, part, 'to disp'),
+                    desc(C, part, 'to wash'),
+                    desc(B, part, 'to incu via h21'),
+                ])
+            if part == 'Final':
+                seq([
+                    desc(A, part, 'to h21'),
+                    desc(A, part, 'to wash'),
+                    desc(B, part, 'to h21'),
+                    desc(A, part, 'to r21 from wash'),
+                    desc(B, part, 'to wash'),
+                    desc(A, part, 'to out via r21 and h21'),
+                    desc(C, part, 'to h21'),
+                    desc(B, part, 'to r21 from wash'),
+                    desc(C, part, 'to wash'),
+                    desc(B, part, 'to out via r21 and h21'),
+                ])
+
+    import graphlib
+
+    deps: dict[Desc, set[Desc]] = defaultdict(set)
+    for node, nexts in adjacent.items():
+        for next in nexts:
+            deps[next] |= {node}
+
+    linear = list(graphlib.TopologicalSorter(deps).static_order())
+
+    pr([
+        ' '.join((desc[1], desc[0].id, desc[2]))
+        for desc in linear
+    ])
+    return [chunks[desc] for desc in linear]
+
+
+def n_plates(n: int) -> list[Plate]:
+    plates: list[Plate] = []
+
+    for index in range(n):
+        plates += [Plate(
+            id=f'p{index+1:02d}',
+            incu_loc=incu_locs[index],
+            r_loc=r_locs[index],
+            lid_loc=lid_locs[index],
+            out_loc=out_locs[index],
+        )]
+
+    for i, p in enumerate(plates):
+        for j, q in enumerate(plates):
+            if i != j:
+                assert p.id != q.id
+                assert p.incu_loc != q.incu_loc
+                assert p.out_loc not in [q.out_loc, q.r_loc, q.lid_loc, q.incu_loc]
+                assert p.r_loc != q.r_loc
+                assert p.lid_loc != q.lid_loc
+
+    return plates
+
+lin = paint_batch(n_plates(6))
+# utils.pr(lin)

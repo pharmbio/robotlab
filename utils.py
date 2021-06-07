@@ -133,17 +133,33 @@ def flatten(xss: Iterable[list[A]]) -> list[A]:
 @dataclass(frozen=False)
 class Mutable(Generic[A]):
     value: A
+    @classmethod
+    def factory(cls, x: A):
+        return field(default_factory=lambda: cls(x))
+
 
 def skip(n: int, xs: Iterable[A]) -> Iterable[A]:
     for i, x in enumerate(xs):
         if i >= n:
             yield x
 
-def context(xs: Iterable[A]) -> list[tuple[A | None, A, A | None]]:
-    return list(zip(
-        [None, None] + xs,        # type: ignore
-        [None] + xs + [None],     # type: ignore
-        xs + [None, None]))[1:-1] # type: ignore
+def iterate_with_context(xs: list[A]) -> list[tuple[A | None, A, A | None]]:
+    return [
+        (xs[i-1] if i > 0 else None, x, xs[i+1] if i+1 < len(xs) else None)
+        for i, x in enumerate(xs)
+    ]
+
+def iterate_with_next(xs: list[A]) -> list[tuple[A, A | None]]:
+    return [
+        (x, next)
+        for _, x, next in iterate_with_context(xs)
+    ]
+
+def iterate_with_prev(xs: list[A]) -> list[tuple[A | None, A]]:
+    return [
+        (prev, x)
+        for prev, x, _ in iterate_with_context(xs)
+    ]
 
 def partition(cs: Iterable[A], by: Callable[[A], bool]) -> tuple[list[A], list[A]]:
     y: list[A]

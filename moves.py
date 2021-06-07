@@ -184,7 +184,7 @@ class MoveList(list[Move]):
 
     def normalize(self) -> MoveList:
         out = MoveList()
-        for prev, m, next in utils.context(self):
+        for m, next in utils.iterate_with_next(self):
             if isinstance(m, Section) and (isinstance(next, Section) or next is None):
                 pass
             else:
