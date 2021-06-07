@@ -155,7 +155,7 @@ function send-goto-h21-rpy {
 note '
     With some socket gymnastics it is possible to make the UR robot make a HTTP request.
 '
-function curl-impl {
+function cobot-curl {
     addr=${1:-www.example.com}
     port=${2:-80}
     url=${3:-/}
@@ -262,10 +262,8 @@ note '
 '
 function test-wash-disp () {
     while true; do
-        curl -s "$1/wash/LHC_TestCommunications" | while read line; do printf 'wash %s\n' "$line"; done
-        # curl -s "$1/wash/LHC_GetProtocolStatus"  | while read line; do printf 'wash %s\n' "$line"; done
-        curl -s "$1/disp/LHC_TestCommunications" | while read line; do printf 'disp %s\n' "$line"; done
-        # curl -s "$1/disp/LHC_GetProtocolStatus"  | while read line; do printf 'disp %s\n' "$line"; done
+        curl -s "$BIOTEK_URL/wash/LHC_TestCommunications" | while read line; do printf 'wash %s\n' "$line"; done
+        curl -s "$BIOTEK_URL/disp/LHC_TestCommunications" | while read line; do printf 'disp %s\n' "$line"; done
     done
 }
 

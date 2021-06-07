@@ -50,12 +50,8 @@ def main():
     if args.cell_paint:
         robots.get_robotarm(config).set_speed(args.robotarm_speed).close()
         protocol.main(
-            num_batches=args.num_batches,
-            batch_size=args.cell_paint,
-            between_batch_delay_str=args.between_batch_delay,
-            within_batch_delay_str=args.within_batch_delay,
             config=config,
-            test_circuit=args.test_circuit
+            num_plates=args.cell_paint,
         )
 
     elif args.robotarm:
@@ -78,7 +74,7 @@ def main():
             print(name)
 
     elif args.inspect_robotarm_programs:
-        events, _, _ = protocol.cell_paint_batches_auto_delay(1, 2, test_circuit=True)
+        events = protocol.paint_batch(protocol.define_plates(4))
         events = protocol.sleek_movements(events)
 
         for k, v in movelists.items():
@@ -90,8 +86,8 @@ def main():
                 print(k + ':\n' + textwrap.indent(v.describe(), '  '))
 
     elif args.wash:
-        robots.wash_cmd('automation/2_4_6_W-3X_FinalAspirate_test.LHC', est=0).execute(config)
-        robots.wait_for_ready_cmd('wash').execute(config)
+        robots.wash_cmd('automation/2_4_6_W-3X_FinalAspirate_test.LHC').execute(config)
+        robots.wait_for(robots.Ready('wash')).execute(config)
 
     elif args.disp:
         priming_paths = [
@@ -102,16 +98,16 @@ def main():
         ]
         # 'automation/1_D_P1_30ul_mito.LHC'
         for path in priming_paths:
-            robots.disp_cmd(path, est=0).execute(config)
-            robots.wait_for_ready_cmd('disp').execute(config)
+            robots.disp_cmd(path).execute(config)
+            robots.wait_for(robots.Ready('disp')).execute(config)
 
     elif args.incu_put:
-        robots.incu_cmd('put', args.incu_put, est=0).execute(config)
-        robots.wait_for_ready_cmd('incu').execute(config)
+        robots.incu_cmd('put', args.incu_put).execute(config)
+        robots.wait_for(robots.Ready('incu')).execute(config)
 
     elif args.incu_get:
-        robots.incu_cmd('get', args.incu_get, est=0).execute(config)
-        robots.wait_for_ready_cmd('incu').execute(config)
+        robots.incu_cmd('get', args.incu_get).execute(config)
+        robots.wait_for(robots.Ready('incu')).execute(config)
 
     else:
         parser.print_help()
