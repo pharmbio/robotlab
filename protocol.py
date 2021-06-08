@@ -184,8 +184,8 @@ def paint_batch(batch: list[Plate]):
 
         p = plate
 
-        guesstimate_time_wash_3X_minus_incu_pop = 60
-        guesstimate_time_wash_3X_minus_RT_pop   = 70
+        guesstimate_time_wash_3X_minus_incu_pop = 45
+        guesstimate_time_wash_3X_minus_RT_pop   = 60
         guesstimate_time_wash_4X_minus_RT_pop   = 80
         guesstimate_time_wash_4X_minus_wash_3X  = 20 # most critical of the guesstimates (!)
 
@@ -214,13 +214,13 @@ def paint_batch(batch: list[Plate]):
         chunks[p, 'Mito', 'to disp']           = disp(Mito_disp)
         chunks[p, 'Mito', 'to incu via h21']   = disp_to_incu
 
-        chunks[p, 'PFA', 'to h21']             = [*incu_wait_1, *incu_get]
+        chunks[p, 'PFA', 'to h21']             = [*incu_wait_2, *incu_get]
         chunks[p, 'PFA', 'to wash']            = wash(wash_wait_2, wash_3X, PFA_prime)
         chunks[p, 'PFA', 'to disp']            = disp(PFA_disp)
         chunks[p, 'PFA', 'to incu via h21']    = disp_to_RT
 
         chunks[p, 'Triton', 'to h21']          = [*incu_wait_3, *RT_get]
-        chunks[p, 'Triton', 'to wash']         = wash(wash_wait_5, wash_3X, Triton_prime)
+        chunks[p, 'Triton', 'to wash']         = wash(wash_wait_3, wash_3X, Triton_prime)
         chunks[p, 'Triton', 'to disp']         = disp(Triton_disp)
         chunks[p, 'Triton', 'to incu via h21'] = disp_to_RT
 
@@ -232,9 +232,9 @@ def paint_batch(batch: list[Plate]):
         chunks[p, 'Final', 'to h21']           = [*incu_wait_5, *RT_get]
         chunks[p, 'Final', 'to wash']          = wash(wash_wait_5, wash_4X)
         chunks[p, 'Final', 'to r21 from wash'] = [
-            robots.robotarm_cmd('wash to r21 prep'),
+            robots.robotarm_cmd('wash_to_r21 get prep'),
             robots.wait_for(Ready('wash')),
-            robots.robotarm_cmd('wash to r21 main')
+            robots.robotarm_cmd('wash_to_r21 get main')
         ]
         chunks[p, 'Final', 'to out via r21 and h21']   = [
             robots.robotarm_cmd('r21 get'),
@@ -258,6 +258,17 @@ def paint_batch(batch: list[Plate]):
             return p, part, subpart
 
     parts = ['Mito', 'PFA', 'Triton', 'Stains', 'Final']
+
+    short = 0
+    if short:
+        skip = ['Triton', 'Stains']
+        parts = [part for part in parts if part not in skip]
+        chunks = {
+            desc: cmd
+            for desc, cmd in chunks.items()
+            for _, part, _ in [desc]
+            if part not in skip
+        }
 
     for part, next_part in utils.iterate_with_next(parts):
         if next_part:
@@ -359,19 +370,22 @@ def execute(events: list[Event], config: Config) -> None:
     log: list[dict[str, Any]] = []
     for i, event in enumerate(events):
         print(f'=== event {i+1}/{len(events)} ===')
-        pr(event.command)
+        pr(astuple(event))
         start_time = Time.now(config)
         event.command.execute(config)
         stop_time = Time.now(config)
-        entry = dict(
+        entry: dict[str, str | int | float] = dict(
             start_time = str(start_time),
             stop_time = str(stop_time),
             duration=(stop_time - start_time).total_seconds(),
-            plate_id=event.plate_id,
             command=event.machine(),
             **asdict(event.command),
         )
-        pr(entry)
+        entry['plate_id'] = event.plate_id
+        if config.time_mode == 'fast forward':
+            entry['skipped_time'] = config.skipped_time.value
+        # pr(entry)
+        pr(('duration:', entry['duration'], 'skipped_time:', config.skipped_time.value))
         entry = {**entry, **metadata}
         log += [entry]
         with open(log_name, 'w') as fp:

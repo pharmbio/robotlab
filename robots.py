@@ -56,27 +56,40 @@ configs = {
     'dry-run':       Config('fast forward', 'noop',          'noop',    'noop'),
 }
 
+from threading import RLock
+
 class Time:
+    lock = RLock()
+
     @staticmethod
     def now(config: Config) -> datetime:
         if config.time_mode == 'wall':
             assert config.skipped_time.value == 0.0
-        return datetime.now() + timedelta(seconds=config.skipped_time.value)
+        with Time.lock:
+            return datetime.now() + timedelta(seconds=config.skipped_time.value)
 
     @staticmethod
-    def sleep(secs: float, config: Config):
+    def sleep(config: Config, secs: float):
+        def fmt(s: float) -> str:
+            m = int(s // 60)
+            return f'{secs}s ({m}min {s - 60 * m - 0.05:.1f}s)'
         if secs < 0:
-            print('Behind time:', -secs, 'seconds!')
+            print('Behind time:', fmt(-secs), '!')
             return
         if config.time_mode == 'wall':
-            print('Sleeping for', secs, 'seconds...')
+            print('Sleeping for', fmt(secs), '...')
             time.sleep(secs)
+        elif config.time_mode == 'fast forward':
+            if secs > 1:
+                print('Fast forwarding', fmt(secs))
+            with Time.lock:
+                config.skipped_time.value += secs
         else:
-            print('Fast-forwarding', secs, 'seconds...')
-            config.skipped_time.value += secs
+            raise ValueError(config.time_mode)
 
 def curl(url: str) -> Any:
-    print('curl', url)
+    if 'is_ready' not in url:
+        print('curl', url)
     ten_minutes = 60 * 10
     return json.loads(urlopen(url, timeout=ten_minutes).read())
 
@@ -105,7 +118,7 @@ class Biotek:
         t.start()
 
     def loop(self):
-        r'''
+        '''
         Repeatedly try to run the protocol until it succeeds or we get an unknown error.
 
         Success looks like this:
@@ -127,7 +140,16 @@ class Biotek:
             self.state = 'busy'
             while True:
                 self.last_started = Time.now(msg.config)
-                res = curl(ENV.biotek_url + '/' + self.name + '/LHC_RunProtocol/' + msg.path)
+                if msg.config.disp_and_wash_mode == 'noop':
+                    est = 15
+                    if '3X' in msg.path: est = 90
+                    if '4X' in msg.path: est = 110
+                    print(self.name, 'pretending to run for', est, 'seconds')
+                    while self.last_started + timedelta(seconds=est) > Time.now(msg.config):
+                        time.sleep(0.0001)
+                    res: Any = {"err":"","out":{"details":"1 - eOK","status":"1","value":""}}
+                else:
+                    res: Any = curl(ENV.biotek_url + '/' + self.name + '/LHC_RunProtocol/' + msg.path)
                 out = res['out']
                 status = out['status']
                 details = out['details']
@@ -141,6 +163,7 @@ class Biotek:
             self.last_finished = Time.now(msg.config)
             if msg.on_finished:
                 msg.on_finished()
+            print(self.name, 'ready')
             self.state = 'ready'
 
     def is_ready(self):
@@ -178,15 +201,30 @@ class Now(Waitable):
 class Ready(Waitable):
     name: Literal['incu', 'wash', 'disp']
     def wait(self, config: Config):
-        if self.name == 'wash':
+        if self.name == 'incu':
+            if config.incu_mode == 'execute':
+                while not is_incu_ready(config):
+                    time.sleep(0.01)
+            elif config.incu_mode == 'noop':
+                pass
+            else:
+                raise ValueError(config.incu_mode)
+        elif self.name == 'wash':
             while not wash.is_ready():
-                time.sleep(0.01)
+                if config.disp_and_wash_mode == 'noop':
+                    assert config.time_mode == 'fast forward'
+                    time.sleep(0.00001)
+                    Time.sleep(config, 1.00)
+                else:
+                    time.sleep(0.01)
         elif self.name == 'disp':
             while not disp.is_ready():
-                time.sleep(0.01)
-        elif self.name == 'incu':
-            while not is_incu_ready(config):
-                time.sleep(0.01)
+                if config.disp_and_wash_mode == 'noop':
+                    assert config.time_mode == 'fast forward'
+                    time.sleep(0.00001)
+                    Time.sleep(config, 1.00)
+                else:
+                    time.sleep(0.01)
         else:
             raise ValueError(self.name)
 
@@ -201,14 +239,17 @@ class wait_for(Command):
             assert self.plus_seconds == 0
         elif isinstance(self.base, WashStarted):
             assert wash.last_started is not None
-            d = datetime.now() - wash.last_started + timedelta(seconds=self.plus_seconds)
-            time.sleep(d.total_seconds())
+            past_point_in_time = wash.last_started
+            desired_point_in_time = past_point_in_time + timedelta(seconds=self.plus_seconds)
+            delay = desired_point_in_time - Time.now(config)
+            Time.sleep(config, delay.total_seconds())
         elif isinstance(self.base, DispFinished):
-            fin = config.timers[self.base.plate_id]
-            d = datetime.now() - fin + timedelta(seconds=self.plus_seconds)
-            time.sleep(d.total_seconds())
+            past_point_in_time = config.timers[self.base.plate_id]
+            desired_point_in_time = past_point_in_time + timedelta(seconds=self.plus_seconds)
+            delay = desired_point_in_time - Time.now(config)
+            Time.sleep(config, delay.total_seconds())
         elif isinstance(self.base, Now):
-            time.sleep(self.plus_seconds)
+            Time.sleep(config, self.plus_seconds)
         else:
             raise ValueError
 
@@ -236,31 +277,21 @@ class wash_cmd(Command):
     protocol_path: str
 
     def execute(self, config: Config) -> None:
-        if config.disp_and_wash_mode == 'noop':
-            return
-        elif config.disp_and_wash_mode == 'execute short':
+        if config.disp_and_wash_mode == 'execute short':
             wash.run('automation/2_4_6_W-3X_FinalAspirate_test.LHC', config)
-        elif config.disp_and_wash_mode == 'execute':
-            wash.run(self.protocol_path, config)
         else:
-            raise ValueError
+            wash.run(self.protocol_path, config)
 
 @dataclass(frozen=True)
 class disp_cmd(Command):
     protocol_path: str
     plate_id: str | None = None
     def execute(self, config: Config) -> None:
-        if config.disp_and_wash_mode == 'noop':
-            return
-        elif config.disp_and_wash_mode == 'execute' or config.disp_and_wash_mode == 'execute short':
-            if self.plate_id:
-                plate_id = self.plate_id
-                cb = lambda: config.timers.__setitem__(plate_id, datetime.now())
-            else:
-                cb = None
-            disp.run(self.protocol_path, config, cb)
-        else:
-            raise ValueError
+        plate_id = self.plate_id
+        def on_finished():
+            if plate_id:
+                config.timers[plate_id] = Time.now(config)
+        disp.run(self.protocol_path, config, on_finished)
 
 @dataclass(frozen=True)
 class incu_cmd(Command):
