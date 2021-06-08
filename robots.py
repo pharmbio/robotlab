@@ -100,15 +100,16 @@ def spawn(f: Callable[[], None]) -> None:
 from queue import SimpleQueue
 
 @dataclass(frozen=True)
-class Message:
-    path: str
+class MessageBiotek:
     config: Config
+    path: str
     on_finished: Callable[[], None] | None = None
+    delay: wait_for | None = None
 
 @dataclass
 class Biotek:
     name: str
-    queue: SimpleQueue[Message] = field(default_factory=SimpleQueue)
+    queue: SimpleQueue[MessageBiotek] = field(default_factory=SimpleQueue)
     state: Literal['ready', 'busy'] = 'ready'
     last_started: datetime | None = None
     last_finished: datetime | None = None
@@ -138,12 +139,15 @@ class Biotek:
         '''
         while msg := self.queue.get():
             self.state = 'busy'
+            if msg.delay:
+                print(self.name, 'executing', msg.delay, 'before running', msg.path)
+                msg.delay.execute(msg.config)
             while True:
                 self.last_started = Time.now(msg.config)
                 if msg.config.disp_and_wash_mode == 'noop':
                     est = 15
-                    if '3X' in msg.path: est = 90
-                    if '4X' in msg.path: est = 110
+                    if '3X' in msg.path: est = 60 + 42
+                    if '4X' in msg.path: est = 60 + 52
                     print(self.name, 'pretending to run for', est, 'seconds')
                     while self.last_started + timedelta(seconds=est) > Time.now(msg.config):
                         time.sleep(0.0001)
@@ -169,10 +173,11 @@ class Biotek:
     def is_ready(self):
         return self.state == 'ready'
 
-    def run(self, path: str, config: Config, on_finished: Callable[[], None] | None = None):
+    # path: str, config: Config, on_finished: Callable[[], None] | None = None, delay: int | None = None
+    def run(self, msg: MessageBiotek):
         assert self.is_ready()
         self.state = 'busy'
-        self.queue.put_nowait(Message(path, config, on_finished))
+        self.queue.put_nowait(msg)
 
 wash = Biotek('wash')
 disp = Biotek('disp')
@@ -275,23 +280,25 @@ class robotarm_cmd(Command):
 @dataclass(frozen=True)
 class wash_cmd(Command):
     protocol_path: str
+    delay: wait_for | None = None
 
     def execute(self, config: Config) -> None:
         if config.disp_and_wash_mode == 'execute short':
-            wash.run('automation/2_4_6_W-3X_FinalAspirate_test.LHC', config)
+            wash.run(MessageBiotek(config, 'automation/2_4_6_W-3X_FinalAspirate_test.LHC', delay=self.delay))
         else:
-            wash.run(self.protocol_path, config)
+            wash.run(MessageBiotek(config, self.protocol_path, delay=self.delay))
 
 @dataclass(frozen=True)
 class disp_cmd(Command):
     protocol_path: str
     plate_id: str | None = None
+    delay: wait_for | None = None
     def execute(self, config: Config) -> None:
         plate_id = self.plate_id
         def on_finished():
             if plate_id:
                 config.timers[plate_id] = Time.now(config)
-        disp.run(self.protocol_path, config, on_finished)
+        disp.run(MessageBiotek(config, self.protocol_path, on_finished, delay=self.delay))
 
 @dataclass(frozen=True)
 class incu_cmd(Command):

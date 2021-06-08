@@ -87,7 +87,7 @@ lid_locs:  list[str] = [h for h in h_locs if h != h21]
 
 Desc = tuple[Plate, str, str]
 
-def paint_batch(batch: list[Plate]):
+def paint_batch(batch: list[Plate], short: bool=True):
 
     first_plate = batch[0]
     last_plate = batch[-1]
@@ -132,18 +132,23 @@ def paint_batch(batch: list[Plate]):
             robots.robotarm_cmd(f'{plate.r_loc} put'),
         ]
 
-
-        def wash(wait_in_wash: list[robots.wait_for], wash_path: str, disp_prime_path: str | None=None):
+        def wash(wash_wait: robots.wait_for | None, wash_path: str, disp_prime_path: str | None=None):
             if plate is first_plate and disp_prime_path is not None:
-                disp_prime = [robots.disp_cmd(disp_prime_path)]
+                disp_prime = [robots.disp_cmd(disp_prime_path, delay=robots.wait_for(Now()) + 5)]
             else:
                 disp_prime = []
             return [
                 robots.robotarm_cmd('wash put main'),
-                *wait_in_wash,
+                robots.wash_cmd(wash_path, delay=wash_wait),
                 *disp_prime,
-                robots.wash_cmd(wash_path),
-                robots.robotarm_cmd('wash put return'),
+                robots.robotarm_cmd('wash put return'), # fixed the order here
+
+                # this should be something like:
+                # async([
+                #   *wait_in_wash,
+                #   robots.wash_cmd(wash_path),
+                #   *disp_prime,
+                # ])
             ]
 
         def disp(disp_path: str):
@@ -187,27 +192,35 @@ def paint_batch(batch: list[Plate]):
         guesstimate_time_wash_3X_minus_incu_pop = 45
         guesstimate_time_wash_3X_minus_RT_pop   = 60
         guesstimate_time_wash_4X_minus_RT_pop   = 80
-        guesstimate_time_wash_4X_minus_wash_3X  = 20 # most critical of the guesstimates (!)
+        guesstimate_time_wash_4X_minus_wash_3X  = 12 # most critical of the guesstimates (!)
+
+        incu_30: int = 30
+        incu_20: int = 20
+
+        if short:
+            incu_30 = 15
+            incu_20 = 14
+            print(f'INCUBATING ONLY FOR {incu_30} and {incu_20} MINUTES')
 
         if p is first_plate:
             incu_wait_1 = []
-            wash_wait_1 = []
-            incu_wait_2 = [robots.wait_for(DispFinished(p.id)) + 29 * 60]
-            incu_wait_3 = [robots.wait_for(DispFinished(p.id)) + 19 * 60]
-            incu_wait_4 = [robots.wait_for(DispFinished(p.id)) + 19 * 60]
-            incu_wait_5 = [robots.wait_for(DispFinished(p.id)) + 19 * 60]
+            wash_wait_1 = None
+            incu_wait_2 = [robots.wait_for(DispFinished(p.id)) + (incu_30 - 1) * 60]
+            incu_wait_3 = [robots.wait_for(DispFinished(p.id)) + (incu_20 - 1) * 60]
+            incu_wait_4 = [robots.wait_for(DispFinished(p.id)) + (incu_20 - 1) * 60]
+            incu_wait_5 = [robots.wait_for(DispFinished(p.id)) + (incu_20 - 1) * 60]
         else:
             incu_wait_1 = [robots.wait_for(WashStarted()) + guesstimate_time_wash_3X_minus_incu_pop]
-            wash_wait_1 = [robots.wait_for(Now())         + guesstimate_time_wash_4X_minus_wash_3X]
+            wash_wait_1 =  robots.wait_for(Now())         + guesstimate_time_wash_4X_minus_wash_3X
             incu_wait_2 = [robots.wait_for(WashStarted()) + guesstimate_time_wash_3X_minus_incu_pop]
             incu_wait_3 = [robots.wait_for(WashStarted()) + guesstimate_time_wash_3X_minus_incu_pop]
             incu_wait_4 = [robots.wait_for(WashStarted()) + guesstimate_time_wash_3X_minus_incu_pop]
             incu_wait_5 = [robots.wait_for(WashStarted()) + guesstimate_time_wash_3X_minus_incu_pop]
 
-        wash_wait_2 = [robots.wait_for(DispFinished(p.id)) + 30 * 60]
-        wash_wait_3 = [robots.wait_for(DispFinished(p.id)) + 20 * 60]
-        wash_wait_4 = [robots.wait_for(DispFinished(p.id)) + 20 * 60]
-        wash_wait_5 = [robots.wait_for(DispFinished(p.id)) + 20 * 60]
+        wash_wait_2 = robots.wait_for(DispFinished(p.id)) + incu_30 * 60
+        wash_wait_3 = robots.wait_for(DispFinished(p.id)) + incu_20 * 60
+        wash_wait_4 = robots.wait_for(DispFinished(p.id)) + incu_20 * 60
+        wash_wait_5 = robots.wait_for(DispFinished(p.id)) + incu_20 * 60
 
         chunks[p, 'Mito', 'to h21']            = [*incu_wait_1, *incu_get]
         chunks[p, 'Mito', 'to wash']           = wash(wash_wait_1, wash_3X, Mito_prime)
@@ -259,9 +272,9 @@ def paint_batch(batch: list[Plate]):
 
     parts = ['Mito', 'PFA', 'Triton', 'Stains', 'Final']
 
-    short = 0
     if short:
         skip = ['Triton', 'Stains']
+        print(f'SKIPPING {skip!r}')
         parts = [part for part in parts if part not in skip]
         chunks = {
             desc: cmd
@@ -320,6 +333,11 @@ def paint_batch(batch: list[Plate]):
         ' '.join((desc[1], desc[0].id, desc[2]))
         for desc in linear
     ])
+
+    print('*' * 80)
+    print('SHORT MODE, NOT REAL CELL PAINTING')
+    print('*' * 80)
+
     return [
         Event(
             plate_id=plate.id,
@@ -358,6 +376,15 @@ def define_plates(n: int) -> list[Plate]:
 
 # lin = paint_batch(define_plates(4))
 
+def splat(d: dict[str, Any], k0: str='') -> dict[str, Any]:
+    out: dict[str, Any] = {}
+    for k, v in d.items():
+        if isinstance(v, dict):
+            out |= splat(cast(Any, v), k0 + k + '_')
+        else:
+            out[k0 + k] = v
+    return out
+
 def execute(events: list[Event], config: Config) -> None:
     metadata = dict(
         experiment_time = str(datetime.now()).split('.')[0],
@@ -379,13 +406,14 @@ def execute(events: list[Event], config: Config) -> None:
             stop_time = str(stop_time),
             duration=(stop_time - start_time).total_seconds(),
             command=event.machine(),
-            **asdict(event.command),
+            **splat(asdict(event), 'event_'),
+            # **splat(asdict(event.command), 'command'),
         )
-        entry['plate_id'] = event.plate_id
         if config.time_mode == 'fast forward':
             entry['skipped_time'] = config.skipped_time.value
-        # pr(entry)
-        pr(('duration:', entry['duration'], 'skipped_time:', config.skipped_time.value))
+            pr(('duration:', entry['duration'], 'skipped_time:', config.skipped_time.value))
+        else:
+            pr(entry)
         entry = {**entry, **metadata}
         log += [entry]
         with open(log_name, 'w') as fp:
