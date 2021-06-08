@@ -389,7 +389,7 @@ def execute(events: list[Event], config: Config) -> None:
     log: list[dict[str, Any]] = []
     for i, event in enumerate(events):
         print(f'=== event {i+1}/{len(events)} ===')
-        pr(astuple(event))
+        pr(event)
         start_time = Time.now(config)
         event.command.execute(config)
         stop_time = Time.now(config)
@@ -399,13 +399,11 @@ def execute(events: list[Event], config: Config) -> None:
             duration=(stop_time - start_time).total_seconds(),
             command=event.machine(),
             **splat(asdict(event), 'event_'),
-            # **splat(asdict(event.command), 'command'),
+            str_event=str(event),
         )
         if config.time_mode == 'fast forward':
             entry['skipped_time'] = config.skipped_time.value
-            pr(('duration:', entry['duration'], 'skipped_time:', config.skipped_time.value))
-        else:
-            pr(entry)
+        pr(entry)
         entry = {**entry, **metadata}
         log += [entry]
         with open(log_name, 'w') as fp:
