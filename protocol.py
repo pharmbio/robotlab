@@ -7,8 +7,10 @@ from moves import movelists
 from robots import Config, configs, Command, Time
 from robots import DispFinished, WashStarted, Now, Ready
 
-from utils import pr, show
-from utils import Mutable
+from collections import defaultdict
+import graphlib
+
+from utils import pr, show, Mutable
 
 import json
 import os
@@ -72,6 +74,7 @@ class Plate:
     r_loc: str
     lid_loc: str
     out_loc: str
+    batch_index: int
 
 H = [21, 19, 17, 15, 13, 11, 9, 7, 5, 3, 1]
 I = [i+1 for i in range(22)]
@@ -87,7 +90,7 @@ lid_locs:  list[str] = [h for h in h_locs if h != h21]
 
 Desc = tuple[Plate, str, str]
 
-def paint_batch(batch: list[Plate], short: bool=True):
+def paint_batch(batch: list[Plate], short: bool=False):
 
     first_plate = batch[0]
     last_plate = batch[-1]
@@ -186,8 +189,8 @@ def paint_batch(batch: list[Plate], short: bool=True):
         incu_20: int = 20
 
         if short:
-            incu_30 = 15
-            incu_20 = 14
+            incu_30 = 3 + 2 * len(batch)
+            incu_20 = 2 + 2 * len(batch)
             print(f'INCUBATING ONLY FOR {incu_30} and {incu_20} MINUTES')
 
         if p is first_plate:
@@ -308,8 +311,6 @@ def paint_batch(batch: list[Plate], short: bool=True):
                     desc(B, part, 'to out via r21 and h21'),
                 ])
 
-    import graphlib
-
     deps: dict[Desc, set[Desc]] = defaultdict(set)
     for node, nexts in adjacent.items():
         for next in nexts:
@@ -339,30 +340,33 @@ def paint_batch(batch: list[Plate], short: bool=True):
     ]
 
 
-def define_plates(n: int) -> list[Plate]:
+def define_plates(batch_sizes: list[int]) -> list[Plate]:
     plates: list[Plate] = []
 
-    for index in range(n):
-        plates += [Plate(
-            id=f'p{index+1:02d}',
-            incu_loc=incu_locs[index],
-            r_loc=r_locs[index],
-            lid_loc=lid_locs[index],
-            out_loc=out_locs[index],
-        )]
+    index = 0
+    for batch_index, batch_size in enumerate(batch_sizes):
+        for index_in_batch in range(batch_size):
+            plates += [Plate(
+                id=f'p{index+1:02d}',
+                incu_loc=incu_locs[index],
+                r_loc=r_locs[index_in_batch],
+                lid_loc=lid_locs[index_in_batch],
+                out_loc=out_locs[index],
+                batch_index=batch_index,
+            )]
+            index += 1
 
     for i, p in enumerate(plates):
         for j, q in enumerate(plates):
             if i != j:
-                assert p.id != q.id
-                assert p.incu_loc != q.incu_loc
-                assert p.out_loc not in [q.out_loc, q.r_loc, q.lid_loc, q.incu_loc]
-                assert p.r_loc != q.r_loc
-                assert p.lid_loc != q.lid_loc
+                assert p.id != q.id, (p, q)
+                assert p.incu_loc != q.incu_loc, (p, q)
+                assert p.out_loc not in [q.out_loc, q.r_loc, q.lid_loc, q.incu_loc], (p, q)
+                if p.batch_index == q.batch_index:
+                    assert p.r_loc != q.r_loc, (p, q)
+                    assert p.lid_loc != q.lid_loc, (p, q)
 
     return plates
-
-# lin = paint_batch(define_plates(4))
 
 def splat(d: dict[str, Any], k0: str='') -> dict[str, Any]:
     out: dict[str, Any] = {}
@@ -407,20 +411,22 @@ def execute(events: list[Event], config: Config) -> None:
         with open(log_name, 'w') as fp:
             json.dump(log, fp, indent=2)
 
+def group_by_batch(plates: list[Plate]) -> list[list[Plate]]:
+    d: dict[int, list[Plate]] = defaultdict(list)
+    for plate in plates:
+        d[plate.batch_index] += [plate]
+    return sorted(d.values(), key=lambda plates: plates[0].batch_index)
+
 def main(
     config: Config,
     *,
-    # num_batches: int,
-    # batch_size: int,
-    # test_circuit: bool=False
-    num_plates: int,
+    batch_sizes: list[int],
+    short: bool = False
 ) -> None:
-    events = paint_batch(define_plates(num_plates))
-    events = sleek_movements(events)
-    execute(events, config)
-
-def paint_batches(batches: list[list[Plate]]):
-    assert not 'TODO'
-    for batch in batches:
-        paint_batch(batch)
+    all_events: list[Event] = []
+    for batch in group_by_batch(define_plates(batch_sizes)):
+        events = paint_batch(batch, short=short)
+        events = sleek_movements(events)
+        all_events += events
+    execute(all_events, config)
 

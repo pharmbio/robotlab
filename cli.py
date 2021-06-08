@@ -18,11 +18,8 @@ def main():
     for k, v in configs.items():
         parser.add_argument('--' + k, dest="config", action="store_const", const=k, help='Run with config ' + k)
 
-    parser.add_argument('--cell-paint', metavar='BS', type=int, default=None, help='Cell paint with a batch size of BS. Plates stored in L1, L2, ..')
-    parser.add_argument('--num-batches', metavar='N', type=int, default=1, help='Number of batches to use when cell painting')
-    parser.add_argument('--between-batch-delay', metavar='T', type=str, default='auto', help='Delay between batches in seconds (or the default: "auto")')
-    parser.add_argument('--within-batch-delay',  metavar='T', type=str, default='auto', help='Delay within batches in seconds (or the default: "auto")')
-    parser.add_argument('--test-circuit', action='store_true', help='Test with a circuit protocol which returns plates back into the incubator')
+    parser.add_argument('--cell-paint', metavar='BS', type=str, default=None, help='Cell paint with batch sizes of BS, separated by comma (such as 6,6 for 2x6). Plates start stored in incubator L1, L2, ..')
+    parser.add_argument('--short-test-paint', action='store_true', help='Run a shorter test version of the cell painting protocol')
 
     parser.add_argument('--wash', action='store_true', help='Run a (fixed) test program on the washer')
     parser.add_argument('--disp', action='store_true', help='Run a (fixed) test program on the dispenser')
@@ -51,7 +48,8 @@ def main():
         robots.get_robotarm(config).set_speed(args.robotarm_speed).close()
         protocol.main(
             config=config,
-            num_plates=args.cell_paint,
+            batch_sizes=[int(bs.strip()) for bs in args.cell_paint.split(',')],
+            short=args.short_test_paint,
         )
 
     elif args.robotarm:
