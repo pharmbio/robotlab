@@ -191,7 +191,7 @@ def paint_batch(batch: list[Plate], short: bool=False):
         if short:
             incu_30 = 3 + 2 * len(batch)
             incu_20 = 2 + 2 * len(batch)
-            print(f'INCUBATING ONLY FOR {incu_30} and {incu_20} MINUTES')
+            print(f'SHORT MODE: INCUBATING FOR ONLY {incu_30} AND {incu_20} MINUTES')
 
         if p is first_plate:
             incu_wait_1 = []
@@ -265,7 +265,7 @@ def paint_batch(batch: list[Plate], short: bool=False):
 
     if short:
         skip = ['Triton', 'Stains']
-        print(f'SKIPPING {skip!r}')
+        print(f'SHORT MODE: SKIPPING {skip!r}')
         parts = [part for part in parts if part not in skip]
         chunks = {
             desc: cmd
@@ -323,9 +323,10 @@ def paint_batch(batch: list[Plate], short: bool=False):
         for desc in linear
     ])
 
-    print('*' * 80)
-    print('SHORT MODE, NOT REAL CELL PAINTING')
-    print('*' * 80)
+    if short:
+        print('*' * 80)
+        print('SHORT MODE, NOT REAL CELL PAINTING')
+        print('*' * 80)
 
     return [
         Event(
@@ -378,36 +379,27 @@ def splat(d: dict[str, Any], k0: str='') -> dict[str, Any]:
     return out
 
 def execute(events: list[Event], config: Config) -> None:
-    metadata = dict(
+    experiment_metadata = dict(
         experiment_time = str(datetime.now()).split('.')[0],
-        host = platform.node(),
-        config_name = config.name(),
+        experiment_host = platform.node(),
+        experiment_config_name = config.name(),
     )
-    log_name = ' '.join(['event log', *metadata.values()])
-    log_name = 'logs/' + log_name.replace(' ', '_') + '.json'
+    log_filename = ' '.join(['event log', *experiment_metadata.values()])
+    log_filename = 'logs/' + log_filename.replace(' ', '_') + '.jsonl'
     os.makedirs('logs/', exist_ok=True)
-    log: list[dict[str, Any]] = []
+    config.log_filename.value = log_filename
     for i, event in enumerate(events):
         print(f'=== event {i+1}/{len(events)} ===')
         pr(event)
-        start_time = Time.now(config)
-        event.command.execute(config)
-        stop_time = Time.now(config)
-        entry: dict[str, str | int | float] = dict(
-            start_time = str(start_time),
-            stop_time = str(stop_time),
-            duration=(stop_time - start_time).total_seconds(),
-            command=event.machine(),
-            **splat(asdict(event), 'event_'),
-            str_event=str(event),
+        event_as_dict = {'event_'+k: v for k, v in asdict(event).items() if k != 'command'}
+        metadata: dict[str, str | int | float] = dict(
+            event_id=i,
+            **event_as_dict,
+            **experiment_metadata,
         )
         if config.time_mode == 'fast forward':
-            entry['skipped_time'] = config.skipped_time.value
-        pr(entry)
-        entry = {**entry, **metadata}
-        log += [entry]
-        with open(log_name, 'w') as fp:
-            json.dump(log, fp, indent=2)
+            metadata['skipped_time'] = config.skipped_time.value
+        event.command.execute(config, **metadata)
 
 def group_by_batch(plates: list[Plate]) -> list[list[Plate]]:
     d: dict[int, list[Plate]] = defaultdict(list)

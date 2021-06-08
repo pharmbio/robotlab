@@ -33,6 +33,9 @@ ENV = Env(
     biotek_url = os.environ.get('BIOTEK_URL', '?'),
 )
 
+from contextlib import contextmanager
+from threading import RLock
+
 @dataclass(frozen=True)
 class Config:
     time_mode:          Literal['wall', 'fast forward',                  ]
@@ -47,6 +50,33 @@ class Config:
                 return k
         raise ValueError(f'unknown config {self}')
 
+    log_lock: RLock = field(default_factory=RLock)
+    log_filename: Mutable[str | None] = Mutable.factory(cast(Optional[str], None))
+    def log(self, kind: Literal['start', 'stop', 'info', 'error', 'duration'], source: str, arg: str | int, **metadata: Any) -> datetime:
+        log_time = Time.now(self)
+        entry = {
+            'log_time': str(log_time),
+            'kind': kind,
+            'source': source,
+            'arg': arg,
+            **metadata
+        }
+        if kind != 'stop' and kind != 'start':
+            utils.pr({k: v for k, v in entry.items() if not k.startswith('experiment')})
+        if self.log_filename.value:
+            with self.log_lock:
+                with open(self.log_filename.value, 'a') as fp:
+                    json.dump(entry, fp)
+                    fp.write('\n')
+        return log_time
+
+    @contextmanager
+    def timeit(self, source: str, arg: str | int, **metadata: Any):
+        start = self.log('start', source, arg, **metadata)
+        yield
+        stop = self.log('stop', source, arg, **metadata)
+        self.log('duration', source, arg, duration=(stop-start).total_seconds(), **metadata)
+
 configs: dict[str, Config]
 configs = {
     'live':          Config('wall',         'execute',       'execute', 'execute'),
@@ -55,8 +85,6 @@ configs = {
     'simulator':     Config('fast forward', 'noop',          'noop',    'execute no gripper'),
     'dry-run':       Config('fast forward', 'noop',          'noop',    'noop'),
 }
-
-from threading import RLock
 
 class Time:
     lock = RLock()
@@ -105,6 +133,7 @@ class MessageBiotek:
     path: str
     on_finished: Callable[[], None] | None = None
     delay: wait_for | None = None
+    metadata: Any = None
 
 @dataclass
 class Biotek:
@@ -140,30 +169,31 @@ class Biotek:
         while msg := self.queue.get():
             self.state = 'busy'
             if msg.delay:
-                print(self.name, 'executing', msg.delay, 'before running', msg.path)
-                msg.delay.execute(msg.config)
-            while True:
-                self.last_started = Time.now(msg.config)
-                if msg.config.disp_and_wash_mode == 'noop':
-                    est = 15
-                    if '3X' in msg.path: est = 60 + 42
-                    if '4X' in msg.path: est = 60 + 52
-                    print(self.name, 'pretending to run for', est, 'seconds')
-                    while self.last_started + timedelta(seconds=est) > Time.now(msg.config):
-                        time.sleep(0.0001)
-                    res: Any = {"err":"","out":{"details":"1 - eOK","status":"1","value":""}}
-                else:
-                    res: Any = curl(ENV.biotek_url + '/' + self.name + '/LHC_RunProtocol/' + msg.path)
-                out = res['out']
-                status = out['status']
-                details = out['details']
-                if status == '99' and 'Error code: 6061' in details and 'Port is no longer available' in details:
-                    print(self.name, 'got error code 6061, retrying...')
-                    continue
-                elif status == '1' and ('eOK' in details or 'eReady' in details):
-                    break
-                else:
-                    raise ValueError(res)
+                with msg.config.timeit(self.name + '_delay', msg.path, **msg.metadata):
+                    msg.delay.execute(msg.config, **msg.metadata, origin_source=self.name, origin_arg=msg.path)
+            with msg.config.timeit(self.name, msg.path, **msg.metadata):
+                while True:
+                    self.last_started = Time.now(msg.config)
+                    if msg.config.disp_and_wash_mode == 'noop':
+                        est = 15
+                        if '3X' in msg.path: est = 60 + 42
+                        if '4X' in msg.path: est = 60 + 52
+                        msg.config.log('info', self.name, f'pretending to run for {est}s')
+                        while self.last_started + timedelta(seconds=est) > Time.now(msg.config):
+                            time.sleep(0.0001)
+                        res: Any = {"err":"","out":{"details":"1 - eOK","status":"1","value":""}}
+                    else:
+                        res: Any = curl(ENV.biotek_url + '/' + self.name + '/LHC_RunProtocol/' + msg.path)
+                    out = res['out']
+                    status = out['status']
+                    details = out['details']
+                    if status == '99' and 'Error code: 6061' in details and 'Port is no longer available' in details:
+                        msg.config.log('error', self.name, 'got error code 6061, retrying...', **res)
+                        continue
+                    elif status == '1' and ('eOK' in details or 'eReady' in details):
+                        break
+                    else:
+                        raise ValueError(res)
             self.last_finished = Time.now(msg.config)
             if msg.on_finished:
                 msg.on_finished()
@@ -184,7 +214,7 @@ disp = Biotek('disp')
 
 class Command(abc.ABC):
     @abc.abstractmethod
-    def execute(self, config: Config) -> None:
+    def execute(self, config: Config, **metadata: Any) -> None:
         pass
 
 class Waitable(abc.ABC):
@@ -238,25 +268,26 @@ class wait_for(Command):
     base: Waitable
     plus_seconds: int = 0
 
-    def execute(self, config: Config) -> None:
-        if isinstance(self.base, Ready):
-            self.base.wait(config)
-            assert self.plus_seconds == 0
-        elif isinstance(self.base, WashStarted):
-            assert wash.last_started is not None
-            past_point_in_time = wash.last_started
-            desired_point_in_time = past_point_in_time + timedelta(seconds=self.plus_seconds)
-            delay = desired_point_in_time - Time.now(config)
-            Time.sleep(config, delay.total_seconds())
-        elif isinstance(self.base, DispFinished):
-            past_point_in_time = config.timers[self.base.plate_id]
-            desired_point_in_time = past_point_in_time + timedelta(seconds=self.plus_seconds)
-            delay = desired_point_in_time - Time.now(config)
-            Time.sleep(config, delay.total_seconds())
-        elif isinstance(self.base, Now):
-            Time.sleep(config, self.plus_seconds)
-        else:
-            raise ValueError
+    def execute(self, config: Config, **metadata: Any) -> None:
+        with config.timeit('wait', str(self), **metadata):
+            if isinstance(self.base, Ready):
+                self.base.wait(config)
+                assert self.plus_seconds == 0
+            elif isinstance(self.base, WashStarted):
+                assert wash.last_started is not None
+                past_point_in_time = wash.last_started
+                desired_point_in_time = past_point_in_time + timedelta(seconds=self.plus_seconds)
+                delay = desired_point_in_time - Time.now(config)
+                Time.sleep(config, delay.total_seconds())
+            elif isinstance(self.base, DispFinished):
+                past_point_in_time = config.timers[self.base.plate_id]
+                desired_point_in_time = past_point_in_time + timedelta(seconds=self.plus_seconds)
+                delay = desired_point_in_time - Time.now(config)
+                Time.sleep(config, delay.total_seconds())
+            elif isinstance(self.base, Now):
+                Time.sleep(config, self.plus_seconds)
+            else:
+                raise ValueError
 
     def __add__(self, other: int) -> wait_for:
         return wait_for(self.base, self.plus_seconds + other)
@@ -272,40 +303,43 @@ def get_robotarm(config: Config, quiet: bool = False) -> Robotarm:
 class robotarm_cmd(Command):
     program_name: str
 
-    def execute(self, config: Config) -> None:
-        arm = get_robotarm(config)
-        arm.execute_moves(movelists[self.program_name], name=self.program_name)
-        arm.close()
+    def execute(self, config: Config, **metadata: Any) -> None:
+        with config.timeit('robotarm', self.program_name, **metadata):
+            arm = get_robotarm(config)
+            arm.execute_moves(movelists[self.program_name], name=self.program_name)
+            arm.close()
 
 @dataclass(frozen=True)
 class wash_cmd(Command):
     protocol_path: str
     delay: wait_for | None = None
 
-    def execute(self, config: Config) -> None:
+    def execute(self, config: Config, **metadata: Any) -> None:
         if config.disp_and_wash_mode == 'execute short':
-            wash.run(MessageBiotek(config, 'automation/2_4_6_W-3X_FinalAspirate_test.LHC', delay=self.delay))
+            wash.run(MessageBiotek(config, 'automation/2_4_6_W-3X_FinalAspirate_test.LHC', delay=self.delay, metadata=metadata))
         else:
-            wash.run(MessageBiotek(config, self.protocol_path, delay=self.delay))
+            wash.run(MessageBiotek(config, self.protocol_path, delay=self.delay, metadata=metadata))
 
 @dataclass(frozen=True)
 class disp_cmd(Command):
     protocol_path: str
     plate_id: str | None = None
     delay: wait_for | None = None
-    def execute(self, config: Config) -> None:
+    def execute(self, config: Config, **metadata: Any) -> None:
         plate_id = self.plate_id
         def on_finished():
             if plate_id:
                 config.timers[plate_id] = Time.now(config)
-        disp.run(MessageBiotek(config, self.protocol_path, on_finished, delay=self.delay))
+        disp.run(MessageBiotek(config, self.protocol_path, on_finished, delay=self.delay, metadata=metadata))
 
 @dataclass(frozen=True)
 class incu_cmd(Command):
     action: Literal['put', 'get']
     incu_loc: str
-    def execute(self, config: Config) -> None:
+    def execute(self, config: Config, **metadata: Any) -> None:
         assert self.action in 'put get'.split()
+        config.log('info', 'incu', str(self), **metadata)
+        # no easy way to get incu finish
         if config.incu_mode == 'noop':
             # print('dry run', self)
             return
