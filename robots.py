@@ -326,19 +326,3 @@ def is_incu_ready(config: Config) -> bool:
     res = curl(ENV.incu_url + '/is_ready')
     assert res['status'] == 'OK', f'status not OK: {res = }'
     return res['value'] is True
-
-@dataclass(frozen=True)
-class par(Command):
-    subs: list[wash_cmd | disp_cmd | incu_cmd | robotarm_cmd]
-
-    def __post_init__(self):
-        for cmd, next in utils.iterate_with_next(self.subs):
-            if isinstance(cmd, robotarm_cmd):
-                assert next is None, 'put the nonblocking commands first, then the robotarm last'
-
-    def sub_cmds(self) -> tuple[Command, ...]:
-        return tuple(self.subs)
-
-    def execute(self, config: Config) -> None:
-        for sub in self.sub_cmds():
-            sub.execute(config)

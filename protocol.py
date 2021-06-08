@@ -4,7 +4,7 @@ from dataclasses import *
 
 from datetime import datetime, timedelta
 from moves import movelists
-from robots import Config, configs, Command, par, Time
+from robots import Config, configs, Command, Time
 from robots import DispFinished, WashStarted, Now, Ready
 
 from utils import pr, show
@@ -103,10 +103,8 @@ def paint_batch(batch: list[Plate], short: bool=True):
         ]
 
         incu_get = [
-            par([
-                robots.incu_cmd('get', plate.incu_loc),
-                robots.robotarm_cmd('incu get prep'),
-            ]),
+            robots.incu_cmd('get', plate.incu_loc),
+            robots.robotarm_cmd('incu get prep'),
             robots.wait_for(Ready('incu')),
             robots.robotarm_cmd('incu get main'),
             *lid_unmount,
@@ -115,10 +113,8 @@ def paint_batch(batch: list[Plate], short: bool=True):
         incu_put = [
             *lid_mount,
             robots.robotarm_cmd('incu put main'),
-            par([
-                robots.incu_cmd('put', plate.incu_loc),
-                robots.robotarm_cmd('incu put return'),
-            ]),
+            robots.incu_cmd('put', plate.incu_loc),
+            robots.robotarm_cmd('incu put return'),
             robots.wait_for(Ready('incu')),
         ]
 
@@ -141,14 +137,7 @@ def paint_batch(batch: list[Plate], short: bool=True):
                 robots.robotarm_cmd('wash put main'),
                 robots.wash_cmd(wash_path, delay=wash_wait),
                 *disp_prime,
-                robots.robotarm_cmd('wash put return'), # fixed the order here
-
-                # this should be something like:
-                # async([
-                #   *wait_in_wash,
-                #   robots.wash_cmd(wash_path),
-                #   *disp_prime,
-                # ])
+                robots.robotarm_cmd('wash put return'),
             ]
 
         def disp(disp_path: str):
@@ -191,7 +180,6 @@ def paint_batch(batch: list[Plate], short: bool=True):
 
         guesstimate_time_wash_3X_minus_incu_pop = 45
         guesstimate_time_wash_3X_minus_RT_pop   = 60
-        guesstimate_time_wash_4X_minus_RT_pop   = 80
         guesstimate_time_wash_4X_minus_wash_3X  = 12 # most critical of the guesstimates (!)
 
         incu_30: int = 30
@@ -213,9 +201,9 @@ def paint_batch(batch: list[Plate], short: bool=True):
             incu_wait_1 = [robots.wait_for(WashStarted()) + guesstimate_time_wash_3X_minus_incu_pop]
             wash_wait_1 =  robots.wait_for(Now())         + guesstimate_time_wash_4X_minus_wash_3X
             incu_wait_2 = [robots.wait_for(WashStarted()) + guesstimate_time_wash_3X_minus_incu_pop]
-            incu_wait_3 = [robots.wait_for(WashStarted()) + guesstimate_time_wash_3X_minus_incu_pop]
-            incu_wait_4 = [robots.wait_for(WashStarted()) + guesstimate_time_wash_3X_minus_incu_pop]
-            incu_wait_5 = [robots.wait_for(WashStarted()) + guesstimate_time_wash_3X_minus_incu_pop]
+            incu_wait_3 = [robots.wait_for(WashStarted()) + guesstimate_time_wash_3X_minus_RT_pop]
+            incu_wait_4 = [robots.wait_for(WashStarted()) + guesstimate_time_wash_3X_minus_RT_pop]
+            incu_wait_5 = [robots.wait_for(WashStarted()) + guesstimate_time_wash_3X_minus_RT_pop]
 
         wash_wait_2 = robots.wait_for(DispFinished(p.id)) + incu_30 * 60
         wash_wait_3 = robots.wait_for(DispFinished(p.id)) + incu_20 * 60
