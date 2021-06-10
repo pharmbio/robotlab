@@ -22,7 +22,7 @@ dry-run       | instant noop | instant noop  | instant noop | instant noop
 | gui.py              | teach the robotarm moves
 |                     | _notes_
 | notes.md            | things I have learned working on this
-| robocom.sh          | notes that can be run
+| run.sh              | notes that can be run
 |                     | _nice robotarm move representations_
 | moves.py            | robotarm positions in mm XYZ and degrees RPY
 | robotarm.py         | send moves to the robotarm and its gripper
