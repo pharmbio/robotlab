@@ -4,7 +4,7 @@ from dataclasses import *
 
 from datetime import datetime, timedelta
 from moves import movelists
-from robots import Config, configs, Command, Time
+from robots import Config, configs, Command
 from robots import DispFinished, WashStarted, Now, Ready
 
 from collections import defaultdict
@@ -31,6 +31,14 @@ class Event:
 
     def machine(self) -> str:
         return self.command.__class__.__name__.rstrip('cmd').strip('_')
+
+    def desc(self):
+        return {
+            'event_plate_id': self.plate_id,
+            'event_part': self.part,
+            'event_subpart': self.subpart,
+            'event_machine': self.machine(),
+        }
 
 def sleek_movements(events: list[Event]) -> list[Event]:
     '''
@@ -90,7 +98,7 @@ lid_locs:  list[str] = [h for h in h_locs if h != h21]
 
 Desc = tuple[Plate, str, str]
 
-def paint_batch(batch: list[Plate], short: bool=False):
+def paint_batch(batch: list[Plate], short_protocol: bool=False, short_wash: bool=False):
 
     first_plate = batch[0]
     last_plate = batch[-1]
@@ -188,10 +196,15 @@ def paint_batch(batch: list[Plate], short: bool=False):
         incu_30: int = 30
         incu_20: int = 20
 
-        if short:
+        if short_protocol:
             incu_30 = 3 + 2 * len(batch)
             incu_20 = 2 + 2 * len(batch)
-            print(f'SHORT MODE: INCUBATING FOR ONLY {incu_30} AND {incu_20} MINUTES')
+            print(f'SHORT MODE: INCUBATING FOR ONLY {incu_30=} AND {incu_20=} MINUTES')
+
+        if short_wash:
+            wash_3X = 'automation/2_4_6_W-3X_FinalAspirate_test.LHC'
+            wash_4X = 'automation/2_4_6_W-3X_FinalAspirate_test.LHC'
+            print(f'SHORT WASH MODE: USING {wash_3X=} and {wash_4X=}')
 
         if p is first_plate:
             incu_wait_1 = []
@@ -263,7 +276,7 @@ def paint_batch(batch: list[Plate], short: bool=False):
 
     parts = ['Mito', 'PFA', 'Triton', 'Stains', 'Final']
 
-    if short:
+    if short_protocol:
         skip = ['Triton', 'Stains']
         print(f'SHORT MODE: SKIPPING {skip!r}')
         parts = [part for part in parts if part not in skip]
@@ -323,9 +336,11 @@ def paint_batch(batch: list[Plate], short: bool=False):
         for desc in linear
     ])
 
-    if short:
+    if short_protocol or short_wash:
         print('*' * 80)
         print('SHORT MODE, NOT REAL CELL PAINTING')
+        print(f'{short_protocol = }')
+        print(f'{short_wash = }')
         print('*' * 80)
 
     return [
@@ -369,17 +384,14 @@ def define_plates(batch_sizes: list[int]) -> list[Plate]:
 
     return plates
 
-def splat(d: dict[str, Any], k0: str='') -> dict[str, Any]:
-    out: dict[str, Any] = {}
-    for k, v in d.items():
-        if isinstance(v, dict):
-            out |= splat(cast(Any, v), k0 + k + '_')
-        else:
-            out[k0 + k] = v
-    return out
+def group_by_batch(plates: list[Plate]) -> list[list[Plate]]:
+    d: dict[int, list[Plate]] = defaultdict(list)
+    for plate in plates:
+        d[plate.batch_index] += [plate]
+    return sorted(d.values(), key=lambda plates: plates[0].batch_index)
 
 def execute(events: list[Event], config: Config) -> None:
-    experiment_metadata = dict(
+    experiment_metadata: dict[str, str] = dict(
         experiment_time = str(datetime.now()).split('.')[0],
         experiment_host = platform.node(),
         experiment_config_name = config.name(),
@@ -387,35 +399,23 @@ def execute(events: list[Event], config: Config) -> None:
     log_filename = ' '.join(['event log', *experiment_metadata.values()])
     log_filename = 'logs/' + log_filename.replace(' ', '_') + '.jsonl'
     os.makedirs('logs/', exist_ok=True)
-    config.log_filename.value = log_filename
-    for i, event in enumerate(events):
-        print(f'=== event {i+1}/{len(events)} ===')
-        pr(event)
-        event_as_dict = {'event_'+k: v for k, v in asdict(event).items() if k != 'command'}
-        metadata: dict[str, str | int | float] = dict(
-            event_id=i,
-            **event_as_dict,
-            **experiment_metadata,
-        )
-        if config.time_mode == 'fast forward':
-            metadata['skipped_time'] = config.skipped_time.value
-        event.command.execute(config, **metadata)
-
-def group_by_batch(plates: list[Plate]) -> list[list[Plate]]:
-    d: dict[int, list[Plate]] = defaultdict(list)
-    for plate in plates:
-        d[plate.batch_index] += [plate]
-    return sorted(d.values(), key=lambda plates: plates[0].batch_index)
-
-def main(
-    config: Config,
-    *,
-    batch_sizes: list[int],
-    short: bool = False
-) -> None:
+    runtime = robots.Runtime(config=config, log_filename=log_filename)
+    with runtime.timeit('experiment', metadata=experiment_metadata):
+        for i, event in enumerate(events, start=1):
+            print(f'=== event {i}/{len(events)} | {" | ".join(event.desc().values())} ===')
+            metadata: dict[str, str | int] = {
+                'event_id': i,
+                **event.desc(),
+            }
+            event.command.execute(runtime, metadata)
+def main(config: Config, *, batch_sizes: list[int], short: bool = False) -> None:
     all_events: list[Event] = []
     for batch in group_by_batch(define_plates(batch_sizes)):
-        events = paint_batch(batch, short=short)
+        events = paint_batch(
+            batch,
+            short_protocol=short,
+            short_wash=config.disp_and_wash_mode=='execute short'
+        )
         events = sleek_movements(events)
         all_events += events
     execute(all_events, config)

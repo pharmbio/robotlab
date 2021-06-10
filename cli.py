@@ -53,10 +53,11 @@ def main():
         )
 
     elif args.robotarm:
+        runtime = robots.Runtime(config)
         robots.get_robotarm(config).set_speed(args.robotarm_speed).close()
         for name in args.program_name:
             if name in movelists:
-                robots.robotarm_cmd(name).execute(config)
+                robots.robotarm_cmd(name).execute(runtime, {})
             else:
                 print('Unknown program:', name)
 
@@ -67,12 +68,11 @@ def main():
         arm.close()
 
     elif args.list_robotarm_programs:
-
         for name in movelists.keys():
             print(name)
 
     elif args.inspect_robotarm_programs:
-        events = protocol.paint_batch(protocol.define_plates(4))
+        events = protocol.paint_batch(protocol.define_plates([6, 6]))
         events = protocol.sleek_movements(events)
 
         for k, v in movelists.items():
@@ -84,28 +84,32 @@ def main():
                 print(k + ':\n' + textwrap.indent(v.describe(), '  '))
 
     elif args.wash:
-        robots.wash_cmd('automation/2_4_6_W-3X_FinalAspirate_test.LHC').execute(config)
-        robots.wait_for(robots.Ready('wash')).execute(config)
+        runtime = robots.Runtime(config)
+        robots.wash_cmd('automation/2_4_6_W-3X_FinalAspirate_test.LHC').execute(runtime, {})
+        robots.wait_for(robots.Ready('wash')).execute(runtime, {})
 
     elif args.disp:
-        priming_paths = [
+        runtime = robots.Runtime(config)
+        paths = [
+            # 'automation/1_D_P1_30ul_mito.LHC'
             # 'automation/1_D_P1_PRIME.LHC',
             'automation/3_D_SA_PRIME.LHC',
             # 'automation/5_D_SB_PRIME.LHC',
             # 'automation/7_D_P2_PRIME.LHC',
         ]
-        # 'automation/1_D_P1_30ul_mito.LHC'
-        for path in priming_paths:
-            robots.disp_cmd(path).execute(config)
-            robots.wait_for(robots.Ready('disp')).execute(config)
+        for path in paths:
+            robots.disp_cmd(path).execute(runtime, {})
+            robots.wait_for(robots.Ready('disp')).execute(runtime, {})
 
     elif args.incu_put:
-        robots.incu_cmd('put', args.incu_put).execute(config)
-        robots.wait_for(robots.Ready('incu')).execute(config)
+        runtime = robots.Runtime(config)
+        robots.incu_cmd('put', args.incu_put).execute(runtime, {})
+        robots.wait_for(robots.Ready('incu')).execute(runtime, {})
 
     elif args.incu_get:
-        robots.incu_cmd('get', args.incu_get).execute(config)
-        robots.wait_for(robots.Ready('incu')).execute(config)
+        runtime = robots.Runtime(config)
+        robots.incu_cmd('get', args.incu_get).execute(runtime, {})
+        robots.wait_for(robots.Ready('incu')).execute(runtime, {})
 
     else:
         parser.print_help()
