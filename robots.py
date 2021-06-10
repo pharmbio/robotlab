@@ -159,6 +159,7 @@ class Runtime:
     log_lock: RLock  = field(default_factory=RLock)
     time_lock: RLock = field(default_factory=RLock)
     skipped_time: Mutable[float] = Mutable.factory(0.0)
+    start_time: float            = field(default_factory=time.monotonic)
 
     def log(self,
         kind: Literal['begin', 'end', 'info', 'warn'],
@@ -215,7 +216,7 @@ class Runtime:
         if self.config.time_mode == 'wall':
             assert self.skipped_time.value == 0.0
         with self.time_lock:
-            return time.monotonic() + self.skipped_time.value
+            return time.monotonic() - self.start_time + self.skipped_time.value
 
     def sleep(self, secs: float):
         def fmt(s: float) -> str:
