@@ -49,7 +49,7 @@ def main():
         protocol.main(
             config=config,
             batch_sizes=[int(bs.strip()) for bs in args.cell_paint.split(',')],
-            short=args.short_test_paint,
+            short_test_paint=args.short_test_paint,
         )
 
     elif args.robotarm:

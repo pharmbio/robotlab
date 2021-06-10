@@ -4,7 +4,7 @@ from dataclasses import *
 
 from datetime import datetime, timedelta
 from moves import movelists
-from robots import Config, configs, Command
+from robots import Config, Command, Runtime
 from robots import DispFinished, WashStarted, Now, Ready
 
 from collections import defaultdict
@@ -39,6 +39,15 @@ class Event:
             'event_subpart': self.subpart,
             'event_machine': self.machine(),
         }
+
+def execute_events(runtime: Runtime, events: list[Event]) -> None:
+    for i, event in enumerate(events, start=1):
+        print(f'=== event {i}/{len(events)} | {" | ".join(event.desc().values())} ===')
+        metadata: dict[str, str | int] = {
+            'event_id': i,
+            **event.desc(),
+        }
+        event.command.execute(runtime, metadata)
 
 def sleek_movements(events: list[Event]) -> list[Event]:
     '''
@@ -98,7 +107,7 @@ lid_locs:  list[str] = [h for h in h_locs if h != h21]
 
 Desc = tuple[Plate, str, str]
 
-def paint_batch(batch: list[Plate], short_protocol: bool=False, short_wash: bool=False):
+def paint_batch(batch: list[Plate], short_test_paint: bool=False, short_wash: bool=False):
 
     first_plate = batch[0]
     last_plate = batch[-1]
@@ -196,7 +205,7 @@ def paint_batch(batch: list[Plate], short_protocol: bool=False, short_wash: bool
         incu_30: int = 30
         incu_20: int = 20
 
-        if short_protocol:
+        if short_test_paint:
             incu_30 = 3 + 2 * len(batch)
             incu_20 = 2 + 2 * len(batch)
             print(f'SHORT MODE: INCUBATING FOR ONLY {incu_30=} AND {incu_20=} MINUTES')
@@ -276,7 +285,7 @@ def paint_batch(batch: list[Plate], short_protocol: bool=False, short_wash: bool
 
     parts = ['Mito', 'PFA', 'Triton', 'Stains', 'Final']
 
-    if short_protocol:
+    if short_test_paint:
         skip = ['Triton', 'Stains']
         print(f'SHORT MODE: SKIPPING {skip!r}')
         parts = [part for part in parts if part not in skip]
@@ -336,10 +345,10 @@ def paint_batch(batch: list[Plate], short_protocol: bool=False, short_wash: bool
         for desc in linear
     ])
 
-    if short_protocol or short_wash:
+    if short_test_paint or short_wash:
         print('*' * 80)
         print('SHORT MODE, NOT REAL CELL PAINTING')
-        print(f'{short_protocol = }')
+        print(f'{short_test_paint = }')
         print(f'{short_wash = }')
         print('*' * 80)
 
@@ -390,33 +399,38 @@ def group_by_batch(plates: list[Plate]) -> list[list[Plate]]:
         d[plate.batch_index] += [plate]
     return sorted(d.values(), key=lambda plates: plates[0].batch_index)
 
-def execute(events: list[Event], config: Config) -> None:
-    experiment_metadata: dict[str, str] = dict(
-        experiment_time = str(datetime.now()).split('.')[0],
-        experiment_host = platform.node(),
-        experiment_config_name = config.name(),
-    )
-    log_filename = ' '.join(['event log', *experiment_metadata.values()])
-    log_filename = 'logs/' + log_filename.replace(' ', '_') + '.jsonl'
-    os.makedirs('logs/', exist_ok=True)
-    runtime = robots.Runtime(config=config, log_filename=log_filename)
-    with runtime.timeit('experiment', metadata=experiment_metadata):
-        for i, event in enumerate(events, start=1):
-            print(f'=== event {i}/{len(events)} | {" | ".join(event.desc().values())} ===')
-            metadata: dict[str, str | int] = {
-                'event_id': i,
-                **event.desc(),
-            }
-            event.command.execute(runtime, metadata)
-def main(config: Config, *, batch_sizes: list[int], short: bool = False) -> None:
+def git_HEAD() -> str | None:
+    from subprocess import run
+    try:
+        proc = run(['git', 'rev-parse', 'HEAD'], capture_output=True)
+        return proc.stdout.decode().strip()[:8]
+    except:
+        return None
+
+def main(config: Config, *, batch_sizes: list[int], short_test_paint: bool = False) -> None:
     all_events: list[Event] = []
     for batch in group_by_batch(define_plates(batch_sizes)):
         events = paint_batch(
             batch,
-            short_protocol=short,
+            short_test_paint=short_test_paint,
             short_wash=config.disp_and_wash_mode=='execute short'
         )
         events = sleek_movements(events)
         all_events += events
-    execute(all_events, config)
+
+    metadata: dict[str, str] = {
+        'start_time':   str(datetime.now()).split('.')[0],
+        'batch_sizes':  ','.join(str(bs) for bs in batch_sizes),
+        'config_name':  config.name(),
+    }
+    log_filename = ' '.join(['event log', *metadata.values()])
+    log_filename = 'logs/' + log_filename.replace(' ', '_') + '.jsonl'
+    os.makedirs('logs/', exist_ok=True)
+
+    runtime = robots.Runtime(config=config, log_filename=log_filename)
+
+    metadata['git_HEAD'] = cast(Any, git_HEAD())
+    metadata['host']     = platform.node()
+    with runtime.timeit('experiment', metadata['batch_sizes'], metadata=metadata):
+        execute_events(runtime, all_events)
 
