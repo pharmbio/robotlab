@@ -1,0 +1,68 @@
+
+[ ] prio 3. robots: check that they all are is_ready before starting the program (this will check that ENV vars are set correctly)
+[ ] prio 3. robotarm: check that it is close to h neu when starting
+[ ] prio 3. robustness: raise gripper if close more than expected
+[ ] prio 3. robustness: don't start program if gripper is more closed than expected
+
+[ ] prio 2. washer wrapper: doesn't throw an error properly when out of liquid (but you can notice something is wrong because duration is only 22s, not >100s)
+[ ] prio 1. post mortem: put/get names not transparent enough ... ? lid_put lid_get
+[ ] prio 1. system: write runtime errors to log file
+[ ] prio 2. moves: wash put move has this really annoying start
+[ ] prio 2. repo: document how to start everything, like when to run secrets.sh etc
+[ ] prio 2. still some moves with 0.8° roll such as r21. make them level
+[ ] prio 1. gui: speed setting buttons
+[ ] prio 1. gui: soft stop by setting speed to 0.01. can we get the current speed to reset it afterwards?
+[ ] prio 1. gui: make it easier to see where you are, use colours or add a 3d graph
+[ ] prio 1. gui: level RPY
+[ ] prio 1. gui: keyboard reference rotation
+[ ] prio 1. gui: grip test: make an intense version shake far above the plate
+[ ] prio 1. gui: add links to first subsections so you can go directly to ie wash_put and wash_get
+[ ] prio 1. gui: make poll request return via http for faster refresh
+[ ] prio 1. gui: make it possible to run incu wash disp and any robotarm program
+[ ] prio 1. network: move robotlab NUCs and cobot to local 10.10.0.* network
+[ ] prio 1. repo: move LHC_Caller, labrobots-restserver-* to the same repo
+[ ] prio 1. repo: run black prettyprinter
+[ ] prio 1. system, incu: make a blocking wrapper around incubator so that it can be timed properly
+[ ] prio 1. system: incorporate real robotarm timings into dry run
+
+[x] prio 3. timings: extract the important parts of the protocol
+[x] prio 3. cli: more information while running: current state (what cycle and plate etc)
+[x] prio 3. system: improve logging. now using jsonl and measuring non-blocking events properly!
+[x] prio 3. protocol: manual delay from command line. right now only auto
+[x] prio 3. protocol: make a stress test circuit (put them back in incu again)
+[x] prio 3. protocol: prime dispenser pumps
+[x] prio 3. protocol: add batching (make it possible to handle 12 plates)
+[x] prio 3. robustness: make sure cobot programs exit cleanly (use the log again)
+[x] prio 3. moves: glue them together properly for protocol
+[x] prio 3. moves: use no force on lids
+[x] prio 3. gripper: there is a rq_close but it just calls rq_set_pos
+[x] prio 3. protocol: make plates go to output hotel
+[x] prio 3. protocol/moves: Start washer just after dropoff
+[x] prio 3. post mortem: config names are too confusing. try to reduce them
+
+[x] prio 1. gui: grip test: remove grip test button, only have one copy
+[x] prio 1. gui: remove to_rel to_abs
+[x] prio 1. repo: remove scriptparser, scriptgenerator, copyscripts and scipy dependency
+[x] prio 1. repo: rename robocom.sh -> run.sh
+
+[x] prio 2. system ui: how to start ? anders wants a config file but just start with python cli.py --cell-paint 6,6 --live
+[x] prio 2. post mortem: why did the six-plates-from-r-to-incu put the plates back the wrong way around?
+            someone must have put them the wrong way around in the hotel
+
+- Dealing with runtime failures (machines acting up, gripper failures: plates slipping, lids not correctly on or off)
+    - [ ] Make a list of all interactions that can error
+    - [ ] waiting: Jonne is compiling a list for the washer and dispenser
+    - Sacrifice the least amount of plates
+          Remove the failing plate from experiment and manually tell robot
+          to proceed but ignore this plate in the rest of the schedule
+    - Alert errors somewhere (slack?)
+
+- [ ] Use Rikard's camera to view video after failure
+
+- [x] Fix move washer to dispenser and double-check all moves together with Anders
+- [x] Run with water
+- [x] Anders: Synchronize all server clocks
+
+- Meeting Fri June 11 at 11:00
+
+- Future: Change falcon flask not by gripping and moving the tubes. Move the flask instead.
