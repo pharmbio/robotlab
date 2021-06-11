@@ -44,6 +44,7 @@ def migrate(logfile: str, outfile: str):
 
 def main(logfile: str):
     db, df = load(logfile)
+    df.to_csv(logfile.removesuffix('.jsonl') + '.csv', index=False)
 
     df = cast(Any, df)
     df = df[df.kind == 'end']
@@ -126,15 +127,23 @@ def main(logfile: str):
     df = df.append(derived)
     df = df[(df.include == True) | (df.title == 'wash') | (df.title == 'disp')]
     df = df.sort_values('t0')
-    df = df.drop(columns=['arg', 'event_subpart', 'include', 't', 't0'])
+    # df = df.drop(columns=['arg', 'event_subpart', 'include', 't', 't0'])
     df = df.reset_index(drop=True)
     df.duration = round(df.duration, 1)
-    df.plate = df.plate.str[1:].str.lstrip('0')
+    df.plate = df.plate.str[1:].str.lstrip('0').astype(int)
+    df['batch'] = (df.plate > 6).astype(int) + 1
+    df['plate_in_batch'] = 1 + (df.plate - 1) % 6
+    parts = ['Mito', 'PFA', 'Triton', 'Stains', 'Final']
+    df['part_index'] = df.event_part.map(lambda r: parts.index(r))
+    df = df.sort_values(['title', 'part_index', 'plate_in_batch'])
 
     for title in df.title.unique():
         p = df[df.title == title]
         p = p.reset_index(drop=True)
-        pr(p[['event_part', 'plate', 'duration', 'title']])
+        pr(p[['event_part', 'batch', 'plate_in_batch', 'duration', 'title']])
+
+    fin_df = df[['t', 't0', 'event_part', 'batch', 'plate_in_batch', 'duration', 'title']].reset_index(drop=True)
+    fin_df.to_csv(logfile.removesuffix('.jsonl') + '.tsv', '\t', index=False)
 
 0 and migrate(
     './logs/event_log_2021-06-09_09:25:03_NUC-robotlab_live.jsonl',
@@ -144,4 +153,3 @@ def main(logfile: str):
 if __name__ == '__main__':
     logfile = sys.argv[1]
     main(logfile)
-
