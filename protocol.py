@@ -22,6 +22,30 @@ import sys
 import textwrap
 import utils
 
+Mito_prime   = 'automation/1_D_P1_PRIME.LHC'
+Mito_disp    = 'automation/1_D_P1_30ul_mito.LHC'
+PFA_prime    = 'automation/3_D_SA_PRIME.LHC'
+PFA_disp     = 'automation/3_D_SA_384_50ul_PFA.LHC'
+Triton_prime = 'automation/5_D_SB_PRIME.LHC'
+Triton_disp  = 'automation/5_D_SB_384_50ul_TRITON.LHC'
+Stains_prime = 'automation/7_D_P2_PRIME.LHC'
+Stains_disp  = 'automation/7_D_P2_20ul_STAINS.LHC'
+
+disp_protocols = {
+    k: str(v)
+    for k, v in globals().items()
+    if 'prime' in k or 'disp' in k
+}
+
+wash_protocols = {
+   '1': 'automation/2_4_6_W-3X_z40.LHC',
+   '2': 'automation/2_4_6_W-3X_z40.LHC',
+   '3': 'automation/2_4_6_W-3X_FinalAspirate.LHC',
+   '4': 'automation/2_4_6_W-3X_FinalAspirate.LHC',
+   '5': 'automation/8_W-4X_NoFinalAspirate.LHC',
+   'test': 'automation/2_4_6_W-3X_FinalAspirate_test.LHC'
+}
+
 @dataclass(frozen=True)
 class Event:
     plate_id: str
@@ -107,7 +131,7 @@ lid_locs:  list[str] = [h for h in h_locs if h != h21]
 
 Desc = tuple[Plate, str, str]
 
-def paint_batch(batch: list[Plate], short_test_paint: bool=False, short_wash: bool=False):
+def paint_batch(batch: list[Plate], short_test_paint: bool=False):
 
     first_plate = batch[0]
     last_plate = batch[-1]
@@ -184,23 +208,11 @@ def paint_batch(batch: list[Plate], short_test_paint: bool=False, short_wash: bo
             *RT_put,
         ]
 
-        Mito_prime   = 'automation/1_D_P1_PRIME.LHC'
-        Mito_disp    = 'automation/1_D_P1_30ul_mito.LHC'
-        PFA_prime    = 'automation/3_D_SA_PRIME.LHC'
-        PFA_disp     = 'automation/3_D_SA_384_50ul_PFA.LHC'
-        Triton_prime = 'automation/5_D_SB_PRIME.LHC'
-        Triton_disp  = 'automation/5_D_SB_384_50ul_TRITON.LHC'
-        Stains_prime = 'automation/7_D_P2_PRIME.LHC'
-        Stains_disp  = 'automation/7_D_P2_20ul_STAINS.LHC'
-
-        wash_3X = 'automation/2_4_6_W-3X_FinalAspirate.LHC'
-        wash_4X = 'automation/8_W-4X_NoFinalAspirate.LHC'
-
         p = plate
 
-        guesstimate_time_wash_3X_minus_incu_pop = 45
-        guesstimate_time_wash_3X_minus_RT_pop   = 60
-        guesstimate_time_wash_4X_minus_wash_3X  = 12 # most critical of the guesstimates (!)
+        guesstimate_time_wash_3X_minus_incu_pop = 45 # can probably be increased
+        guesstimate_time_wash_3X_minus_RT_pop   = 60 # can probably be increased
+        guesstimate_time_wash_4X_minus_wash_3X  = 17 # most critical of the guesstimates (!)
 
         incu_30: int = 30
         incu_20: int = 20
@@ -209,11 +221,6 @@ def paint_batch(batch: list[Plate], short_test_paint: bool=False, short_wash: bo
             incu_30 = 3 + 2 * len(batch)
             incu_20 = 2 + 2 * len(batch)
             print(f'SHORT MODE: INCUBATING FOR ONLY {incu_30=} AND {incu_20=} MINUTES')
-
-        if short_wash:
-            wash_3X = 'automation/2_4_6_W-3X_FinalAspirate_test.LHC'
-            wash_4X = 'automation/2_4_6_W-3X_FinalAspirate_test.LHC'
-            print(f'SHORT WASH MODE: USING {wash_3X=} and {wash_4X=}')
 
         if p is first_plate:
             incu_wait_1 = []
@@ -236,27 +243,27 @@ def paint_batch(batch: list[Plate], short_test_paint: bool=False, short_wash: bo
         wash_wait_5 = robots.wait_for(DispFinished(p.id)) + incu_20 * 60
 
         chunks[p, 'Mito', 'to h21']            = [*incu_wait_1, *incu_get]
-        chunks[p, 'Mito', 'to wash']           = wash(wash_wait_1, wash_3X, Mito_prime)
+        chunks[p, 'Mito', 'to wash']           = wash(wash_wait_1, wash_protocols['1'], Mito_prime)
         chunks[p, 'Mito', 'to disp']           = disp(Mito_disp)
         chunks[p, 'Mito', 'to incu via h21']   = disp_to_incu
 
         chunks[p, 'PFA', 'to h21']             = [*incu_wait_2, *incu_get]
-        chunks[p, 'PFA', 'to wash']            = wash(wash_wait_2, wash_3X, PFA_prime)
+        chunks[p, 'PFA', 'to wash']            = wash(wash_wait_2, wash_protocols['2'], PFA_prime)
         chunks[p, 'PFA', 'to disp']            = disp(PFA_disp)
         chunks[p, 'PFA', 'to incu via h21']    = disp_to_RT
 
         chunks[p, 'Triton', 'to h21']          = [*incu_wait_3, *RT_get]
-        chunks[p, 'Triton', 'to wash']         = wash(wash_wait_3, wash_3X, Triton_prime)
+        chunks[p, 'Triton', 'to wash']         = wash(wash_wait_3, wash_protocols['3'], Triton_prime)
         chunks[p, 'Triton', 'to disp']         = disp(Triton_disp)
         chunks[p, 'Triton', 'to incu via h21'] = disp_to_RT
 
         chunks[p, 'Stains', 'to h21']          = [*incu_wait_4, *RT_get]
-        chunks[p, 'Stains', 'to wash']         = wash(wash_wait_4, wash_3X, Stains_prime)
+        chunks[p, 'Stains', 'to wash']         = wash(wash_wait_4, wash_protocols['4'], Stains_prime)
         chunks[p, 'Stains', 'to disp']         = disp(Stains_disp)
         chunks[p, 'Stains', 'to incu via h21'] = disp_to_RT
 
         chunks[p, 'Final', 'to h21']           = [*incu_wait_5, *RT_get]
-        chunks[p, 'Final', 'to wash']          = wash(wash_wait_5, wash_4X)
+        chunks[p, 'Final', 'to wash']          = wash(wash_wait_5, wash_protocols['5'])
         chunks[p, 'Final', 'to r21 from wash'] = [
             robots.robotarm_cmd('wash_to_r21 get prep'),
             robots.wait_for(Ready('wash')),
@@ -345,11 +352,9 @@ def paint_batch(batch: list[Plate], short_test_paint: bool=False, short_wash: bo
         for desc in linear
     ])
 
-    if short_test_paint or short_wash:
+    if short_test_paint:
         print('*' * 80)
         print('SHORT MODE, NOT REAL CELL PAINTING')
-        print(f'{short_test_paint = }')
-        print(f'{short_wash = }')
         print('*' * 80)
 
     return [
@@ -413,7 +418,6 @@ def main(config: Config, *, batch_sizes: list[int], short_test_paint: bool = Fal
         events = paint_batch(
             batch,
             short_test_paint=short_test_paint,
-            short_wash=config.disp_and_wash_mode=='execute short'
         )
         events = sleek_movements(events)
         all_events += events

@@ -10,6 +10,8 @@ import robots
 import moves
 from moves import movelists
 
+import utils
+
 import protocol
 
 def main():
@@ -21,8 +23,8 @@ def main():
     parser.add_argument('--cell-paint', metavar='BS', type=str, default=None, help='Cell paint with batch sizes of BS, separated by comma (such as 6,6 for 2x6). Plates start stored in incubator L1, L2, ..')
     parser.add_argument('--short-test-paint', action='store_true', help='Run a shorter test version of the cell painting protocol')
 
-    parser.add_argument('--wash', action='store_true', help='Run a (fixed) test program on the washer')
-    parser.add_argument('--disp', action='store_true', help='Run a (fixed) test program on the dispenser')
+    parser.add_argument('--wash', type=str, help='Run a program on the washer')
+    parser.add_argument('--disp', type=str, help='Run a program on the dispenser')
     parser.add_argument('--incu-put', metavar='POS', type=str, default=None, help='Put the plate in the transfer station to the argument position POS (L1, .., R1, ..).')
     parser.add_argument('--incu-get', metavar='POS', type=str, default=None, help='Get the plate in the argument position POS. It ends up in the transfer station.')
 
@@ -85,21 +87,17 @@ def main():
 
     elif args.wash:
         runtime = robots.Runtime(config)
-        robots.wash_cmd('automation/2_4_6_W-3X_FinalAspirate_test.LHC').execute(runtime, {})
+        path = protocol.wash_protocols.get(args.wash)
+        assert path, utils.pr(protocol.wash_protocols)
+        robots.wash_cmd(path).execute(runtime, {})
         robots.wait_for(robots.Ready('wash')).execute(runtime, {})
 
     elif args.disp:
         runtime = robots.Runtime(config)
-        paths = [
-            # 'automation/1_D_P1_30ul_mito.LHC'
-            # 'automation/1_D_P1_PRIME.LHC',
-            'automation/3_D_SA_PRIME.LHC',
-            # 'automation/5_D_SB_PRIME.LHC',
-            # 'automation/7_D_P2_PRIME.LHC',
-        ]
-        for path in paths:
-            robots.disp_cmd(path).execute(runtime, {})
-            robots.wait_for(robots.Ready('disp')).execute(runtime, {})
+        path = protocol.disp_protocols.get(args.disp)
+        assert path, utils.pr(protocol.disp_protocols)
+        robots.disp_cmd(path).execute(runtime, {})
+        robots.wait_for(robots.Ready('disp')).execute(runtime, {})
 
     elif args.incu_put:
         runtime = robots.Runtime(config)
