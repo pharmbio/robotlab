@@ -21,8 +21,10 @@ Make sure you have virtualenv installed run `python -m venv`.
 
 ## Installation
 
+Use Windows PowerShell. Clone the git repo to the directory `C:\pharmbio\robotlab-labrobots`.
+
 ```
-cd biotek-server
+cd C:\pharmbio\robotlab-labrobots\biotek-server
 
 python -m venv venv
 
@@ -33,6 +35,9 @@ pip install -r requirements.txt
 ```
 
 ## Development test
+
+You can now test the installation by starting the web server "manually".
+Further down in the documentation are instructions how to setup autostart of the server.
 
 ```
 # make sure virtualenv is activated
@@ -71,7 +76,19 @@ REN [drive:][path]filename1 filename2.
 Note that you cannot specify a new drive or path for your destination file.
 ```
 
-## Configuring user for autostarting
+## Configure BioTek software
+
+Make sure that this option is checked in each protocol:
+
+<img src=images/lhc-ports.jpg>
+
+This can be found by going to Tools > Preferences in LHC. If the other option
+is checked, the program may have difficulty switching between instruments.
+The error message you would get is:
+
+> Test Communications error. Error code: 6061 Port is no longer available.
+
+## Configure user for autostarting
 
 Because of dialog boxes in BioTek `BTILHCRunner.dll` that are used by the
 `LHC_CallerCLI.exe` the Washer and Dispenser Rest-servers can not run as
@@ -84,40 +101,46 @@ The error is:
 > running in UserInteractive mode is not a valid operation
 
 We workaround this by running the REST-servers as programs on a logged in user.
-- The user (robot-services) is auto logged in on Windows reboot via sysinternals "autologin" app
-- Set never expire on windows password
-- The desktop for this user is automatically locked via a ScheduledTask being run ONLOGON
-- The REST-servers are started via a Powershell script as a ScheduledTask ONLOGON for this user
-- To allow more than one user on remote desktop at same time on windows 10 we are using this mod: https://github.com/stascorp/rdpwrap
 
-```
-# Create user  robot-services
-net user robot-services <password-here> /add
-net localgroup administrators robot-services /add
+- To allow more than one user on remote desktop at same time on Windows 10
+  we are using this mod: https://github.com/stascorp/rdpwrap
 
-# Log in with user and click all Windows welcome-setup-dialogs and Download and run Sysinternals program 'autologin'
+- Use the _autologon_ app to enable logging in on Windows:
 
-# Create SceduledTask for auto lock-screen when user robot-services ONLOGON
-SchTasks /CREATE /TN autolock-on-login /RU robot-services /SC ONLOGON /TR "rundll32 user32.dll, LockWorkStation"
+  <img src=images/autologon.png>
 
-# Create dispenser REST-server SceduledTask autostart when robot-services user ONLOGON
-SchTasks /CREATE /TN restserver-dispenser-autostart-on-login /RU robot-services /SC ONLOGON /TR "Powershell.exe -ExecutionPolicy Bypass C:\pharmbio\labrobots-restserver-washer-dispenser\start-server-dispenser.ps1 -RunType $true -Path C:\pharmbio\labrobots-restserver-washer-dispenser"
+- Set never expire on windows password. Start _Computer Management_, under System Tools > Local Users and Groups > Users, check "Password never expires" under the user's properties:
 
-# Create washer REST-server SceduledTask autostart when robot-services user ONLOGON
-SchTasks /CREATE /TN restserver-washer-autostart-on-login /RU robot-services /SC ONLOGON /TR "Powershell.exe -ExecutionPolicy Bypass C:\pharmbio\labrobots-restserver-washer-dispenser\start-server-washer.ps1 -RunType $true -Path C:\pharmbio\labrobots-restserver-washer-dispenser"
+  <img src="images/password-noexpire.png">
 
-# The tasks above are now started when "ANY" user logs on, to change this to robot-services user only: Start TaskScheduler and edit these 2 tasks manually Task->Triggers>Edit->SpecifficUser->robot-services
+- Configure Windows Defender Firewall to allow incoming traffic to python on either all ports or 5050.
 
-# SchTasks /DELETE /TN autolock-on-login
-# SchTasks /DELETE /TN restserver-dispenser-autostart-on-login
-# SchTasks /DELETE /TN restserver-washer-autostart-on-login
+  <img src=images/firewall.png>
 
-```
+- Add ScheduledTasks:
+    - The desktop for this user is automatically locked via a ScheduledTask being run ONLOGON
+    - The REST-servers are started via a Powershell script as a ScheduledTask ONLOGON for this user
 
-### Configure windows firewall
+    ```
+    # Create user robot-services
+    net user robot-services <password-here> /add
+    net localgroup administrators robot-services /add
 
-In windows firewall configure:
-- Allow incoming traffic to Python.exe
-- Allow incoming traffic to port 5000-5001
+    # Log in with user and click all Windows welcome-setup-dialogs and Download and run Sysinternals program 'autologin'
 
+    # Create SceduledTask for auto lock-screen when user robot-services ONLOGON
+    SchTasks /CREATE /TN autolock-on-login /RU robot-services /SC ONLOGON /TR "rundll32 user32.dll, LockWorkStation"
+
+    # Create dispenser REST-server SceduledTask autostart when robot-services user ONLOGON
+    SchTasks /CREATE /TN restserver-dispenser-autostart-on-login /RU robot-services /SC ONLOGON /TR "Powershell.exe -ExecutionPolicy Bypass C:\pharmbio\labrobots-restserver-washer-dispenser\start-server-dispenser.ps1 -RunType $true -Path C:\pharmbio\labrobots-restserver-washer-dispenser"
+
+    # Create washer REST-server SceduledTask autostart when robot-services user ONLOGON
+    SchTasks /CREATE /TN restserver-washer-autostart-on-login /RU robot-services /SC ONLOGON /TR "Powershell.exe -ExecutionPolicy Bypass C:\pharmbio\labrobots-restserver-washer-dispenser\start-server-washer.ps1 -RunType $true -Path C:\pharmbio\labrobots-restserver-washer-dispenser"
+
+    # The tasks above are now started when "ANY" user logs on, to change this to robot-services user only: Start TaskScheduler and edit these 2 tasks manually Task->Triggers>Edit->SpecifficUser->robot-services
+
+    # SchTasks /DELETE /TN autolock-on-login
+    # SchTasks /DELETE /TN restserver-dispenser-autostart-on-login
+    # SchTasks /DELETE /TN restserver-washer-autostart-on-login
+    ```
 
