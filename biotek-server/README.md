@@ -49,7 +49,7 @@ $env:PORT = '13337'; python cliwrapper.py
 In another terminal you can now curl to it.
 
 ```
-# try the dummy help endpoint
+# try the test endpoint `help`, which writes windows help pages to you
 curl.exe 'http://10.10.0.56:5050/help/ren'
 
 # execute test program on washer
