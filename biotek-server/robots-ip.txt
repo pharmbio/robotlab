@@ -1,4 +1,0 @@
-cobot.lab.pharmb.io     130.238.44.59
-dispenser.lab.pharmb.io 130.238.44.60
-washer.lab.pharmb.io    130.238.44.60
-cobot.lab.pharmb.io     130.238.44.57
