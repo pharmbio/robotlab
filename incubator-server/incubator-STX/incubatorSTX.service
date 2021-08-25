@@ -1,0 +1,8 @@
+[Unit]
+Description=incubatorSTX robot server
+
+[Service]
+ExecStart=/pharmbio/labrobots-restserver/incubator-STX/start-server-incubatorSTX.sh
+
+[Install]
+WantedBy=multi-user.target
