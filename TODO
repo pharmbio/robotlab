@@ -3,6 +3,7 @@
 [ ] prio 3. robotarm: check that it is close to h neu when starting
 [ ] prio 3. robustness: raise gripper if close more than expected
 [ ] prio 3. robustness: don't start program if gripper is more closed than expected
+[ ] prio 3. safety, gui: reset LinRel every time last move wasn't LinRel. Right now you can go into freedrive, move the robot arm, then do LinRel moves which moves the robot directly relative to a position _before_ the freedrive. This is dangerous!!
 
 [ ] prio 2. washer wrapper: doesn't throw an error properly when out of liquid (but you can notice something is wrong because duration is only 22s, not >100s)
 [ ] prio 1. post mortem: put/get names not transparent enough ... ? lid_put lid_get

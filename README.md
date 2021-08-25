@@ -4,6 +4,12 @@ dependencies: python 3.9, flask (for gui), pandas (for analyzing log)
 
 optional dev dependencies: pyright, entr
 
+machine        | ip
+---            | ---
+Ubuntu NUC     | 10.0.0.55
+Windows NUC    | 10.0.0.56
+UR control box | 10.0.0.112
+
 The command line interface, `cli.py`, accepts the following configurations:
 
 config name   | timers       | disp & wash   | incu         | robotarm
