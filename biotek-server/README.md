@@ -28,6 +28,7 @@ python -m venv venv
 
 .\venv\Scripts\Activate.ps1
 
+# install flask
 pip install -r requirements.txt
 ```
 
@@ -39,25 +40,52 @@ pip install -r requirements.txt
 
 # start server
 python cliwrapper.py
+
+# by default it runs on 10.10.0.56:5050, but this can be overriden:
+$env:HOST = '0.0.0.0'; python cliwrapper.py
+$env:PORT = '13337'; python cliwrapper.py
 ```
 
-In another terminal you can now run
+In another terminal you can now curl to it.
 
 ```
 # try the dummy help endpoint
-curl.exe 'http://localhost:5050/help/ren'
+curl.exe 'http://10.10.0.56:5050/help/ren'
 
-# example execute program with name <name> on washer
-curl 'http://localhost:5000/wash/LHC_RunProtocol/automation/8_W-4X_NoFinalAspirate.LHC'
+# execute test program on washer
+# make sure you have a plate in washer and D bottle with something like destilled water or PBS
+curl 'http://10.10.0.56:5000/wash/LHC_RunProtocol/automation/2_4_6_W-3X_FinalAspirate_test.LHC
 ```
 
-Because of dialog boxes in BioTek "BTILHCRunner.dll" that are used by the "LHC_CallerCLI.exe" the Washer and Dispenser Rest-servers can not run as "Services" in Windows, they will render error if not running as Desktop app on a logged in user.
+Note that you cannot curl to `localhost` unless you change the HOST env var to `127.0.0.1` or `0.0.0.0`.
+
+Example output from the `help` test endpoint, using devserver as jumphost:
+
+```
+$ ssh devserver curl 10.10.0.56:5050/help/ren 2>/dev/null | jq --raw-output .out
+Renames a file or files.
+
+RENAME [drive:][path]filename1 filename2.
+REN [drive:][path]filename1 filename2.
+
+Note that you cannot specify a new drive or path for your destination file.
+```
+
+## Configuring user for autostarting
+
+Because of dialog boxes in BioTek `BTILHCRunner.dll` that are used by the
+`LHC_CallerCLI.exe` the Washer and Dispenser Rest-servers can not run as
+"Services" in Windows, they will render error if not running as Desktop app
+on a logged in user.
+
 The error is:
-"Message - Showing a modal dialog box or form when the application is not running in UserInteractive mode is not a valid operation"
+
+> Message - Showing a modal dialog box or form when the application is not
+> running in UserInteractive mode is not a valid operation
 
 We workaround this by running the REST-servers as programs on a logged in user.
 - The user (robot-services) is auto logged in on Windows reboot via sysinternals "autologin" app
-- OBS set never expire on windows password
+- Set never expire on windows password
 - The desktop for this user is automatically locked via a ScheduledTask being run ONLOGON
 - The REST-servers are started via a Powershell script as a ScheduledTask ONLOGON for this user
 - To allow more than one user on remote desktop at same time on windows 10 we are using this mod: https://github.com/stascorp/rdpwrap
@@ -85,7 +113,9 @@ SchTasks /CREATE /TN restserver-washer-autostart-on-login /RU robot-services /SC
 # SchTasks /DELETE /TN restserver-washer-autostart-on-login
 
 ```
-Windows firewall
+
+### Configure windows firewall
+
 In windows firewall configure:
 - Allow incoming traffic to Python.exe
 - Allow incoming traffic to port 5000-5001
