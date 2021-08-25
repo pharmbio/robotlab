@@ -14,10 +14,23 @@ Install Python >= 3.7 on Windows. Don't use the App-Store Python, use the instal
 Tick "Add Env variables" for all users in the setup program. This makes sure running as Service will work.
 
 The instructions assume you use PowerShell. In PowerShell check what python you are using with `Get-Command python`.
-Make sure you have virtualenv installed run `python -m venv`.
+Make sure you have virtualenv installed run `python -m venv`. The output should resemble this:
 
-<img src=images/get-command.png>
+```
+PS C:\pharmbio\robotlab-labrobots> Get-Command python
 
+CommandType     Name           Version        Source
+-----------     ----           -------        ------
+Application     python.exe     3.7.515...     C:\Program Files\Python37\python.exe
+
+
+PS C:\pharmbio\robotlab-labrobots> python -m venv --help
+usage: venv [-h] [--system-site-packages] [--symlinks | --copies] [--clear]
+            [--upgrade] [--without-pip] [--prompt PROMPT]
+            ENV_DIR [ENV_DIR ...]
+
+Creates virtual Python environments in one or more target directories.
+```
 
 ## Installation
 
@@ -117,30 +130,58 @@ We workaround this by running the REST-servers as programs on a logged in user.
 
   <img src=images/firewall.png>
 
-- Add ScheduledTasks:
-    - The desktop for this user is automatically locked via a ScheduledTask being run ONLOGON
-    - The REST-servers are started via a Powershell script as a ScheduledTask ONLOGON for this user
-
+- Add ScheduledTasks. Important: start PowerShell as Administrator, otherwise you will get `ERROR: Access is denied.`
+-
     ```
     # Create user robot-services
     net user robot-services <password-here> /add
     net localgroup administrators robot-services /add
+    ```
 
-    # Log in with user and click all Windows welcome-setup-dialogs and Download and run Sysinternals program 'autologin'
+    The output of `net user robot-services` should now resemble this:
 
-    # Create SceduledTask for auto lock-screen when user robot-services ONLOGON
+    ```
+    PS C:\pharmbio\robotlab-labrobots> net user robot-services
+    User name robot-services
+    Full Name
+    Comment
+    User’s comment
+    Country/region code 000 (System Default)
+    Account active Yes
+    Account expires Never
+
+    Password last set 2021-08-25 13:27:15
+    Password expires Never
+    Password changeable 2021-08-25 13:27:15
+    Password required Yes
+    User may change password Yes
+
+    Workstations allowed All
+    Logon script
+    User profile
+    Home directory
+    Last logon 2021-08-25 15:44:45
+
+    Logon hours allowed All
+
+    Local Group Memberships *Administrators *Users
+    Global Group memberships *None
+    The command completed successfully.
+    ```
+
+    - The desktop for this user is automatically locked via a ScheduledTask being run ONLOGON
+    - The REST-servers are started via a Powershell script as a ScheduledTask ONLOGON for this user
+
+    ```
+    # Auto lock-screen ONLOGON robot-services
     SchTasks /CREATE /TN autolock-on-login /RU robot-services /SC ONLOGON /TR "rundll32 user32.dll, LockWorkStation"
 
-    # Create dispenser REST-server SceduledTask autostart when robot-services user ONLOGON
-    SchTasks /CREATE /TN restserver-dispenser-autostart-on-login /RU robot-services /SC ONLOGON /TR "Powershell.exe -ExecutionPolicy Bypass C:\pharmbio\labrobots-restserver-washer-dispenser\start-server-dispenser.ps1 -RunType $true -Path C:\pharmbio\labrobots-restserver-washer-dispenser"
-
-    # Create washer REST-server SceduledTask autostart when robot-services user ONLOGON
-    SchTasks /CREATE /TN restserver-washer-autostart-on-login /RU robot-services /SC ONLOGON /TR "Powershell.exe -ExecutionPolicy Bypass C:\pharmbio\labrobots-restserver-washer-dispenser\start-server-washer.ps1 -RunType $true -Path C:\pharmbio\labrobots-restserver-washer-dispenser"
-
-    # The tasks above are now started when "ANY" user logs on, to change this to robot-services user only: Start TaskScheduler and edit these 2 tasks manually Task->Triggers>Edit->SpecifficUser->robot-services
-
-    # SchTasks /DELETE /TN autolock-on-login
-    # SchTasks /DELETE /TN restserver-dispenser-autostart-on-login
-    # SchTasks /DELETE /TN restserver-washer-autostart-on-login
+    # Start wrapper server ONLOGON robot-services
+    SchTasks /Create /TN biotek-server-autostart /RU robot-services /SC ONLOGON                 /TR "Powershell.exe -ExecutionPolicy Bypass C:\pharmbio\robotlab-labrobots\biotek-server\start-cliwrapper.ps1 -RunType $true"
     ```
+
+    The tasks are now started when "ANY" user logs on, to change this to robot-services user only:
+    Start TaskScheduler and edit the tasks manually Task->Triggers>Edit->SpecifcUser->robot-services:
+
+    <img src=images/task-scheduler.png>
 
