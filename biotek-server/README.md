@@ -1,43 +1,55 @@
-# Robot REST-api outline
-The goal of this project is to provide a unified REST-api to all robots in the AROS system. The REST Api will wrap around various existing or non-existing vendor-specific api:s for communication.
+# biotek-server
 
-## Robots
+Installation instructions for the BioTek server for controlling the washer and dispenser.
+The server is a python flask server which calls the biotek cli executable
+as a subprocess, which in turn communicates with the BioTek instruments.
+
 <img width=250 src=images/biotek-405-washer.jpg></img>
 <br><br>
 <img width=250 src=images/biotek-dispenser.jpg></img>
 
 ## Requirements
-- Python version >= 3.6 (On Windows don´t use App-Store Python, use installer, OBS For all Usera and Tich "Add Env variables"-To make sure running as Service will work)
-- venv (should be included in Python > 3.3 (if not... `sudo apt install python3.6-venv`)
 
-## Installation and test
+Install Python >= 3.7 on Windows. Don't use the App-Store Python, use the installer.
+Tick "Add Env variables" for all users in the setup program. This makes sure running as Service will work.
+
+The instructions assume you use PowerShell. In PowerShell check what python you are using with `Get-Command python`.
+Make sure you have virtualenv installed run `python -m venv`.
+
+<img src=images/get-command.png>
+
+
+## Installation
+
 ```
-# Clone
-git clone git@github.com:pharmbio/labrobots-restserver-washer-dispenser.git
+cd biotek-server
 
-cd labrobots-restserver-washer-dispenser
+python -m venv venv
 
-# Create a virtualenv for your project
-python3 -m venv venv # on wondows python.exe -m venv .\venv
-source venv/bin/activate # Or in Windows something like: .\venv\Scripts\Activate.ps
+.\venv\Scripts\Activate.ps1
 
-# Install python requirements
-pip3 install -r requirements.txt # on windows pip3.7.exe install -r .\requirements.txt
+pip install -r requirements.txt
+```
+
+## Development test
+
+```
+# make sure virtualenv is activated
+.\venv\Scripts\Activate.ps1
 
 # start server
-python3 server-washer.py # Or in Windows something like: python.exe server-washer.py # The one on venv
-
-#
-# OBS in windows it is very important that correct pip3.7.exe and python.exe is called so venv is working...
-#
-
-# look at api in swagger ui
-http://localhost:5000/ui/
-
-# example execute program with name <name> on robot
-curl -X GET --header 'Accept: application/json' 'http://localhost:5000/execute_protocol/<name>'
+python cliwrapper.py
 ```
 
+In another terminal you can now run
+
+```
+# try the dummy help endpoint
+curl.exe 'http://localhost:5050/help/ren'
+
+# example execute program with name <name> on washer
+curl 'http://localhost:5000/wash/LHC_RunProtocol/automation/8_W-4X_NoFinalAspirate.LHC'
+```
 
 Because of dialog boxes in BioTek "BTILHCRunner.dll" that are used by the "LHC_CallerCLI.exe" the Washer and Dispenser Rest-servers can not run as "Services" in Windows, they will render error if not running as Desktop app on a logged in user.
 The error is:
@@ -77,18 +89,5 @@ Windows firewall
 In windows firewall configure:
 - Allow incoming traffic to Python.exe
 - Allow incoming traffic to port 5000-5001
-
-
-Robot URL:s
-```
-## Washer
-http://washer.lab.pharmb.io:5000/is_ready
-http://washer.lab.pharmb.io:5000/status
-http://washer.lab.pharmb.io:5000/execute_protocol/test-protocols\washer_prime_buffers_A_B_C_D_25ml.LHC
-
-## Dispenser
-http://dispenser.lab.pharmb.io:5001/is_ready
-http://dispenser.lab.pharmb.io:5001/status
-http://dispenser.lab.pharmb.io:5001/execute_protocol/test-protocols/dispenser_prime_all_buffers.LHC
 
 

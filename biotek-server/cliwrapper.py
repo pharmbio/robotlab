@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 import sys
 import os.path
+import os
 import json
 from flask import Flask, jsonify
 from subprocess import Popen, PIPE
 
 LHC_CALLER_CLI_PATH = "C:\\Program Files (x86)\\BioTek\\Liquid Handling Control 2.22\\LHC_CallerCLI.exe"
 PROTOCOLS_ROOT = "C:\\ProgramData\\BioTek\\Liquid Handling Control 2.22\\Protocols"
-PORT = 5050
+PORT = int(os.environ.get('PORT', 5050))
+HOST = os.environ.get('HOST', '10.10.0.56')
 
 def try_json(s):
     try:
@@ -31,6 +33,8 @@ def main():
             ARGS = [LHC_CALLER_CLI_PATH, BIOTEK_PRODUCT, COM_PORT]
         elif machine == 'echo':
             ARGS = ['echo']
+        elif machine == 'help':
+            ARGS = ['help.exe']
         else:
             raise ValueError(machine)
         args = [*ARGS, sub_cmd]
@@ -46,7 +50,7 @@ def main():
         err = try_json(err.decode(errors='replace'))
         return dict(out=out, err=err)
 
-    app.run(host='0.0.0.0', port=PORT)
+    app.run(host=HOST, port=PORT)
 
 if __name__ == '__main__':
     main()
