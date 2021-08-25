@@ -9,7 +9,7 @@ The http api wraps around vendor-specific api:s for communication.
 <table>
 <tr>
 <td>LiCONiC incubator</td>
-<td><img width=250 src=images/incubator.JPG></td>
+<td><img height=400 src=images/STX_44_BT_Flush_Front_new-tm.jpg></td>
 </tr>
 <tr>
 <td>BioTek washer</td>
