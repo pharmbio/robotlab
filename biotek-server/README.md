@@ -36,6 +36,7 @@ http://localhost:5000/ui/
 
 # example execute program with name <name> on robot
 curl -X GET --header 'Accept: application/json' 'http://localhost:5000/execute_protocol/<name>'
+```
 
 
 Because of dialog boxes in BioTek "BTILHCRunner.dll" that are used by the "LHC_CallerCLI.exe" the Washer and Dispenser Rest-servers can not run as "Services" in Windows, they will render error if not running as Desktop app on a logged in user.
@@ -49,6 +50,7 @@ We workaround this by running the REST-servers as programs on a logged in user.
 - The REST-servers are started via a Powershell script as a ScheduledTask ONLOGON for this user
 - To allow more than one user on remote desktop at same time on windows 10 we are using this mod: https://github.com/stascorp/rdpwrap
 
+```
 # Create user  robot-services
 net user robot-services <password-here> /add
 net localgroup administrators robot-services /add
