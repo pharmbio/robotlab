@@ -173,7 +173,7 @@ We workaround this by running the REST-servers as programs on a logged in user.
     - The REST-servers are started via a Powershell script as a ScheduledTask ONLOGON for this user
 
     ```
-    # Auto lock-screen ONLOGON robot-services
+    # Auto lock screen ONLOGON robot-services
     SchTasks /CREATE /TN autolock-on-login /RU robot-services /SC ONLOGON /TR "rundll32 user32.dll, LockWorkStation"
 
     # Start wrapper server ONLOGON robot-services
@@ -185,3 +185,4 @@ We workaround this by running the REST-servers as programs on a logged in user.
 
     <img src=images/task-scheduler.png>
 
+    Note: the auto lock screen is flaky!
