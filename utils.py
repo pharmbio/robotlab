@@ -143,10 +143,16 @@ def skip(n: int, xs: Iterable[A]) -> Iterable[A]:
         if i >= n:
             yield x
 
+def iterate_with_full_context(xs: list[A]) -> list[tuple[list[A], A, list[A]]]:
+    return [
+        (xs[:i], x, xs[i+1:])
+        for i, x in enumerate(xs)
+    ]
+
 def iterate_with_context(xs: list[A]) -> list[tuple[A | None, A, A | None]]:
     return [
-        (xs[i-1] if i > 0 else None, x, xs[i+1] if i+1 < len(xs) else None)
-        for i, x in enumerate(xs)
+        (prev[-1] if prev else None, x, next[0] if next else None)
+        for prev, x, next in iterate_with_full_context(xs)
     ]
 
 def iterate_with_next(xs: list[A]) -> list[tuple[A, A | None]]:

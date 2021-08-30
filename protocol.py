@@ -360,7 +360,7 @@ def paint_batch(batch: list[Plate], short_test_paint: bool=False):
     return [
         Event(
             plate_id=plate.id,
-            part =part,
+            part=part,
             subpart=subpart,
             command=command,
         )
@@ -412,16 +412,54 @@ def git_HEAD() -> str | None:
     except:
         return None
 
-def main(config: Config, *, batch_sizes: list[int], short_test_paint: bool = False) -> None:
+def eventlist(batch_sizes: list[int], short_test_paint: bool = False, sleek: bool = True) -> list[Event]:
     all_events: list[Event] = []
     for batch in group_by_batch(define_plates(batch_sizes)):
         events = paint_batch(
             batch,
             short_test_paint=short_test_paint,
         )
-        events = sleek_movements(events)
+        if sleek:
+            events = sleek_movements(events)
         all_events += events
+    return all_events
 
+xs = [
+    e.command.program_name
+    for e in eventlist([1], sleek=False)
+    if isinstance(e.command, robots.robotarm_cmd)
+]
+
+d: dict[str, set[str]] = defaultdict(set)
+
+for x, after in zip(xs, xs[1:]):
+    d[x].add(after)
+
+pr(xs)
+pr(d)
+q: Deque[list[str]] = Deque()
+
+def paths():
+    full = set(xs)
+    q.append([xs[0]])
+    while q:
+        path = q.popleft()
+        if set(path) == full:
+            return path
+        for next in d[path[-1]]:
+            q.append([*path, next])
+
+pr(paths())
+
+# then we can do
+#   out1 get
+#   lid h17 put get
+#   r19 put get
+#   out3 put
+# and so on for the other positions
+
+def main(config: Config, *, batch_sizes: list[int], short_test_paint: bool = False) -> None:
+    all_events = eventlist(batch_sizes, short_test_paint=short_test_paint)
     metadata: dict[str, str] = {
         'start_time':   str(datetime.now()).split('.')[0],
         'batch_sizes':  ','.join(str(bs) for bs in batch_sizes),
