@@ -7,12 +7,13 @@ from urllib.request import urlopen
 
 import abc
 import json
-import os
 import re
 import socket
 import time
 import threading
 from queue import SimpleQueue
+from contextlib import contextmanager
+from threading import RLock
 
 from moves import movelists
 from robotarm import Robotarm
@@ -21,22 +22,27 @@ from utils import Mutable
 
 @dataclass(frozen=True)
 class Env:
-    robotarm_host: str
-    robotarm_port: int
+    robotarm_host: str = 'http://[100::]' # RFC 6666: A Discard Prefix for IPv6
+    robotarm_port: int = 30001
+    incu_url: str      = 'http://httpbin.org/anything'
+    biotek_url: str    = 'http://httpbin.org/anything'
 
-    incu_url: str
-    biotek_url: str
-
-ENV = Env(
-    # Use start-proxies.sh to forward robot to localhost
-    robotarm_host = os.environ.get('ROBOT_IP', 'localhost'),
-    robotarm_port = 30001,
-    incu_url = os.environ.get('INCU_URL', '?'),
-    biotek_url = os.environ.get('BIOTEK_URL', '?'),
+live_env = Env(
+    robotarm_host = '10.10.0.112',
+    incu_url      = '10.10.0.56:5003',
+    biotek_url    = '10.10.0.56:5050',
 )
 
-from contextlib import contextmanager
-from threading import RLock
+live_arm_incu = Env(
+    robotarm_host = live_env.robotarm_host,
+    incu_url      = live_env.incu_url,
+)
+
+simulator_env = Env(
+    robotarm_host = 'localhost',
+)
+
+dry_env = Env()
 
 @dataclass(frozen=True)
 class Config:
@@ -44,6 +50,8 @@ class Config:
     disp_and_wash_mode: Literal['noop', 'execute', 'execute short',      ]
     incu_mode:          Literal['noop', 'execute',                       ]
     robotarm_mode:      Literal['noop', 'execute', 'execute no gripper', ]
+
+    env: Env
 
     def name(self) -> str:
         for k, v in configs.items():
@@ -53,11 +61,11 @@ class Config:
 
 configs: dict[str, Config]
 configs = {
-    'live':          Config('wall',         'execute',       'execute', 'execute'),
-    'test-all':      Config('fast forward', 'execute short', 'execute', 'execute'),
-    'test-arm-incu': Config('fast forward', 'noop',          'execute', 'execute'),
-    'simulator':     Config('fast forward', 'noop',          'noop',    'execute no gripper'),
-    'dry-run':       Config('fast forward', 'noop',          'noop',    'noop'),
+    'live':          Config('wall',         'execute',       'execute', 'execute',            live_env),
+    'test-all':      Config('fast forward', 'execute short', 'execute', 'execute',            live_env),
+    'test-arm-incu': Config('fast forward', 'noop',          'execute', 'execute',            live_arm_incu),
+    'simulator':     Config('fast forward', 'noop',          'noop',    'execute no gripper', simulator_env),
+    'dry-run':       Config('fast forward', 'noop',          'noop',    'noop',               dry_env),
 }
 
 def curl(url: str) -> Any:
@@ -74,7 +82,7 @@ class BiotekMessage:
 
 @dataclass
 class Biotek:
-    name: str
+    name: Literal['wash', 'disp']
     queue: SimpleQueue[BiotekMessage] = field(default_factory=SimpleQueue)
     state: Literal['ready', 'busy'] = 'ready'
     last_started: float | None = None
@@ -125,7 +133,7 @@ class Biotek:
                             time.sleep(0.0001)
                         res: Any = {"err":"","out":{"details":"1 - eOK","status":"1","value":""}}
                     else:
-                        res: Any = curl(ENV.biotek_url + '/' + self.name + '/LHC_RunProtocol/' + command.protocol_path)
+                        res: Any = curl(runtime.env.biotek_url + '/' + self.name + '/LHC_RunProtocol/' + command.protocol_path)
                     out = res['out']
                     status = out['status']
                     details = out['details']
@@ -160,6 +168,13 @@ class Runtime:
     time_lock: RLock = field(default_factory=RLock)
     skipped_time: Mutable[float] = Mutable.factory(0.0)
     start_time: float            = field(default_factory=time.monotonic)
+
+    @property
+    def env(self):
+        '''
+        The runtime environment, forwarded from the config
+        '''
+        return self.config.env
 
     def log(self,
         kind: Literal['begin', 'end', 'info', 'warn'],
@@ -262,7 +277,7 @@ class Ready(Waitable):
     def wait(self, runtime: Runtime):
         if self.name == 'incu':
             if runtime.config.incu_mode == 'execute':
-                while not is_incu_ready():
+                while not is_incu_ready(runtime):
                     time.sleep(0.01)
             elif runtime.config.incu_mode == 'noop':
                 pass
@@ -321,7 +336,7 @@ def get_robotarm(config: Config, quiet: bool = False) -> Robotarm:
         return Robotarm.init_simulate(with_gripper=True, quiet=quiet)
     assert config.robotarm_mode == 'execute' or config.robotarm_mode == 'execute no gripper'
     with_gripper = config.robotarm_mode == 'execute'
-    return Robotarm.init(ENV.robotarm_host, ENV.robotarm_port, with_gripper, quiet=quiet)
+    return Robotarm.init(config.env.robotarm_host, config.env.robotarm_port, with_gripper, quiet=quiet)
 
 @dataclass(frozen=True)
 class robotarm_cmd(Command):
@@ -366,13 +381,13 @@ class incu_cmd(Command):
                 action_path = 'output_plate'
             else:
                 raise ValueError
-            url = ENV.incu_url + '/' + action_path + '/' + self.incu_loc
+            url = runtime.env.incu_url + '/' + action_path + '/' + self.incu_loc
             res = curl(url)
             assert res['status'] == 'OK', f'status not OK: {res = }'
         else:
             raise ValueError
 
-def is_incu_ready() -> bool:
-    res = curl(ENV.incu_url + '/is_ready')
+def is_incu_ready(runtime: Runtime) -> bool:
+    res = curl(runtime.env.incu_url + '/is_ready')
     assert res['status'] == 'OK', f'status not OK: {res = }'
     return res['value'] is True

@@ -36,8 +36,6 @@ dry-run       | instant noop | instant noop  | instant noop | instant noop
 | robots.py           | uniform control over the washer, dispenser, incubator and the robotarm
 | protocol.py         | cell painting protocol
 | analyze_log.py      | timings statistics for a cell painting log
-|                     | _communication with the robotlab network_
-| secrets-template.sh | fill this in with the missing pieces and then source its env vars
 |                     | _utils_
 | utils.py            | pretty printing and other small utils
 | viable.py           | a viable alternative to front-end programming

@@ -1,11 +1,4 @@
 
-[/] prio 1. network: move robotlab NUCs and cobot to local 10.10.0.* network.
-    [x] IPs are changed
-    [x] update readme
-    [ ] update the code with the IPs
-    [ ] remove source secrets scripts
-    [ ] check consistency of run.sh
-
 [ ] prio 3. robots: check that they all are is_ready before starting the program (this will check that ENV vars are set correctly)
 [ ] prio 3. robotarm: check that it is close to h neu when starting
 [ ] prio 3. robustness: raise gripper if close more than expected
@@ -27,7 +20,7 @@
 [ ] prio 1. gui: add links to first subsections so you can go directly to ie wash_put and wash_get
 [ ] prio 1. gui: make poll request return via http for faster refresh
 [ ] prio 1. gui: make it possible to run incu wash disp and any robotarm program
-[ ] prio 1. repo: move LHC_Caller, labrobots-restserver-* to the same repo
+[ ] prio 1. gui: update to newest viable
 [ ] prio 1. repo: run black prettyprinter
 [ ] prio 1. system, incu: make a blocking wrapper around incubator so that it can be timed properly
 [ ] prio 1. system: incorporate real robotarm timings into dry run
@@ -51,6 +44,13 @@
 [x] prio 1. gui: remove to_rel to_abs
 [x] prio 1. repo: remove scriptparser, scriptgenerator, copyscripts and scipy dependency
 [x] prio 1. repo: rename robocom.sh -> run.sh
+[x] prio 1. repo: move LHC_Caller, labrobots-restserver-* to the same repo. This is now robotlab-labrobots
+[x] prio 1. network: move robotlab NUCs and cobot to local 10.10.0.* network.
+    [x] IPs are changed
+    [x] update readme
+    [x] update the code with the IPs
+    [x] remove source secrets scripts
+    [x] check consistency of run.sh
 
 [x] prio 2. system ui: how to start ? anders wants a config file but just start with python cli.py --cell-paint 6,6 --live
 [x] prio 2. post mortem: why did the six-plates-from-r-to-incu put the plates back the wrong way around?

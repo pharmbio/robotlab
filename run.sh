@@ -20,6 +20,38 @@ function show-env {
 }
 
 note '
+    Run eval "$(./run.sh setup-env)" to set up the robot ip to the robotlab robotarm.
+
+    Add the robot 10.10.0.112 to .ssh/config as robotlab-ur
+'
+function setup-env {
+    printf '%s\n' "export ROBOT_IP=robotlab-ur"
+    printf '%s\n' "export ROBOT_PORT=30001"
+}
+
+note '
+    Forward the remote robot to localhost via the jumphost
+
+    Set $ROBOT_IP with eval "$(./run.sh setup-env)"
+'
+function forward-robot-to-localhost {
+    set -x
+    trap 'kill $(jobs -p)' EXIT
+    ssh -N -L "30001:localhost:30001" -l root "$ROBOT_IP"
+}
+
+note '
+    Copy localhost files to robotlab and vice versa
+
+    Add the ubuntu robotlab computer to .ssh/config as robotlab-ubuntu
+'
+function sync-files {
+    set -x
+    rsync -rtuv ./* robotlab-ubuntu:robot-remote-control
+    rsync -rtuv robotlab-ubuntu:robot-remote-control/logs/ logs/
+}
+
+note '
     Send to the primary protocol on port 30001.
 
     This protocol accepts urscript programs and continuously dumps a lot
@@ -191,33 +223,6 @@ function cobot-curl {
 }
 
 note '
-    Forward the remote robot to localhost via the jumphost
-'
-function start-proxies {
-    set -x
-    trap 'kill $(jobs -p)' EXIT
-    ssh -N -L "30001:$ROBOT_IP:30001" -l "$JUMPHOST_USER" "$JUMPHOST" -p "$JUMPHOST_PORT"
-}
-
-note '
-    Copy localhost files to robotlab and vice versa
-'
-function sync-files {
-    set -x
-    rsync -e 'ssh -p 32222' -rtuv ./* robotlab:robot-remote-control
-    rsync -e 'ssh -p 32222' -rtuv robotlab:robot-remote-control/logs/ logs/
-}
-
-note '
-    Copy URP scripts from the robot via $JUMPHOST
-'
-function copy-urp-scripts {
-    set -x
-    mkdir -p scripts
-    scp -p -o "ProxyJump=$JUMPHOST_USER@$JUMPHOST:$JUMPHOST_PORT" "root@$ROBOT_IP:/data/programs/dan_*" scripts/
-}
-
-note '
     Start the gui with entr live-reloading
 '
 function entr-gui {
@@ -266,6 +271,18 @@ function test-wash-disp () {
         curl -s "$BIOTEK_URL/disp/LHC_TestCommunications" | while read line; do printf 'disp %s\n' "$line"; done
     done
 }
+
+note '
+    Copy URP scripts from the robot
+
+    Set $ROBOT_IP with eval "$(./run.sh setup-env)"
+'
+function copy-urp-scripts {
+    set -x
+    mkdir -p scripts
+    scp "root@$ROBOT_IP:/data/programs/dan_*" scripts/
+}
+
 
 main () {
     if test "$#" -gt 0 && test "$(type -t -- "$1")" = 'function'; then
