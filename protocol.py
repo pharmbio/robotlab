@@ -3,24 +3,37 @@ from typing import *
 from dataclasses import *
 
 from datetime import datetime, timedelta
-from moves import movelists
-from robots import Config, Command, Runtime
-from robots import DispFinished, WashStarted, Now, Ready
-
 from collections import defaultdict
+
 import graphlib
-
-from utils import pr, show, Mutable
-
 import json
 import os
 import platform
 import protocol
 import re
-import robots
-import sys
 import textwrap
+import sys
+
+from moves import movelists
+from robots import Config, Command, Runtime
+from robots import DispFinished, WashStarted, Now, Ready
+from utils import pr, show, Mutable
+import robots
 import utils
+
+def ATTENTION(s: str, *, require_confirmation: bool):
+    color = utils.Color()
+    print(color.red('*' * 80))
+    print()
+    print(textwrap.indent(textwrap.dedent(s.strip('\n')), '    '))
+    print()
+    print(color.red('*' * 80))
+    if require_confirmation:
+        v = input('Continue? [y/n] ')
+        if v.strip() != 'y':
+            raise ValueError('Program aborted by user')
+        else:
+            print('continuing...')
 
 Mito_prime   = 'automation/1_D_P1_PRIME.LHC'
 Mito_disp    = 'automation/1_D_P1_30ul_mito.LHC'
@@ -117,6 +130,30 @@ class Plate:
     out_loc: str
     batch_index: int
 
+    @property
+    def lid_put(self):
+        return f'lid_{self.lid_loc} put'
+
+    @property
+    def lid_get(self):
+        return f'lid_{self.lid_loc} get'
+
+    @property
+    def r_put(self):
+        return f'{self.r_loc} put'
+
+    @property
+    def r_get(self):
+        return f'{self.r_loc} get'
+
+    @property
+    def out_put(self):
+        return f'{self.out_loc} put'
+
+    @property
+    def out_get(self):
+        return f'{self.out_loc} get'
+
 H = [21, 19, 17, 15, 13, 11, 9, 7, 5, 3, 1]
 I = [i+1 for i in range(22)]
 
@@ -139,11 +176,11 @@ def paint_batch(batch: list[Plate], short_test_paint: bool=False):
     chunks: dict[Desc, Iterable[Command]] = {}
     for plate in batch:
         lid_mount = [
-            robots.robotarm_cmd(f'lid_{plate.lid_loc} get'),
+            robots.robotarm_cmd(plate.lid_get),
         ]
 
         lid_unmount = [
-            robots.robotarm_cmd(f'lid_{plate.lid_loc} put'),
+            robots.robotarm_cmd(plate.lid_put),
         ]
 
         incu_get = [
@@ -163,13 +200,13 @@ def paint_batch(batch: list[Plate], short_test_paint: bool=False):
         ]
 
         RT_get = [
-            robots.robotarm_cmd(f'{plate.r_loc} get'),
+            robots.robotarm_cmd(plate.r_get),
             *lid_unmount,
         ]
 
         RT_put = [
             *lid_mount,
-            robots.robotarm_cmd(f'{plate.r_loc} put'),
+            robots.robotarm_cmd(plate.r_put),
         ]
 
         def wash(wash_wait: robots.wait_for | None, wash_path: str, disp_prime_path: str | None=None):
@@ -220,7 +257,10 @@ def paint_batch(batch: list[Plate], short_test_paint: bool=False):
         if short_test_paint:
             incu_30 = 3 + 2 * len(batch)
             incu_20 = 2 + 2 * len(batch)
-            print(f'SHORT MODE: INCUBATING FOR ONLY {incu_30=} AND {incu_20=} MINUTES')
+            ATTENTION(
+                f'Short test paint mode: incubating for only {incu_30=} and {incu_20=} minutes',
+                require_confirmation=False,
+            )
 
         if p is first_plate:
             incu_wait_1 = []
@@ -272,7 +312,7 @@ def paint_batch(batch: list[Plate], short_test_paint: bool=False):
         chunks[p, 'Final', 'to out via r21 and h21']   = [
             robots.robotarm_cmd('r21 get'),
             *lid_mount,
-            robots.robotarm_cmd(f'{plate.out_loc} put'),
+            robots.robotarm_cmd(plate.out_put),
         ]
 
     from collections import defaultdict
@@ -294,7 +334,10 @@ def paint_batch(batch: list[Plate], short_test_paint: bool=False):
 
     if short_test_paint:
         skip = ['Triton', 'Stains']
-        print(f'SHORT MODE: SKIPPING {skip!r}')
+        ATTENTION(
+            f'Short test paint mode: skipping {skip!r}',
+            require_confirmation=False,
+        )
         parts = [part for part in parts if part not in skip]
         chunks = {
             desc: cmd
@@ -347,15 +390,17 @@ def paint_batch(batch: list[Plate], short_test_paint: bool=False):
 
     linear = list(graphlib.TopologicalSorter(deps).static_order())
 
-    pr([
-        ' '.join((desc[1], desc[0].id, desc[2]))
-        for desc in linear
-    ])
+    if 0:
+        pr([
+            ' '.join((desc[1], desc[0].id, desc[2]))
+            for desc in linear
+        ])
 
     if short_test_paint:
-        print('*' * 80)
-        print('SHORT MODE, NOT REAL CELL PAINTING')
-        print('*' * 80)
+        ATTENTION(
+            'Short test paint mode, NOT real cell painting',
+            require_confirmation=True
+        )
 
     return [
         Event(
@@ -404,14 +449,6 @@ def group_by_batch(plates: list[Plate]) -> list[list[Plate]]:
         d[plate.batch_index] += [plate]
     return sorted(d.values(), key=lambda plates: plates[0].batch_index)
 
-def git_HEAD() -> str | None:
-    from subprocess import run
-    try:
-        proc = run(['git', 'rev-parse', 'HEAD'], capture_output=True)
-        return proc.stdout.decode().strip()[:8]
-    except:
-        return None
-
 def eventlist(batch_sizes: list[int], short_test_paint: bool = False, sleek: bool = True) -> list[Event]:
     all_events: list[Event] = []
     for batch in group_by_batch(define_plates(batch_sizes)):
@@ -424,55 +461,120 @@ def eventlist(batch_sizes: list[int], short_test_paint: bool = False, sleek: boo
         all_events += events
     return all_events
 
-xs = [
-    e.command.program_name
-    for e in eventlist([1], sleek=False)
-    if isinstance(e.command, robots.robotarm_cmd)
-]
+def make_test_circuit(batch_sizes: list[int]):
+    xs: list[str] = [
+        e.command.program_name
+        for e in eventlist([1], sleek=False)
+        if isinstance(e.command, robots.robotarm_cmd)
+    ]
 
-d: dict[str, set[str]] = defaultdict(set)
+    d: dict[str, set[str]] = defaultdict(set)
 
-for x, after in zip(xs, xs[1:]):
-    d[x].add(after)
+    for x, after in zip(xs, xs[1:]):
+        d[x].add(after)
 
-pr(xs)
-pr(d)
-q: Deque[list[str]] = Deque()
+    q: Deque[list[str]] = Deque()
 
-def paths():
-    full = set(xs)
-    q.append([xs[0]])
-    while q:
-        path = q.popleft()
-        if set(path) == full:
-            return path
-        for next in d[path[-1]]:
-            q.append([*path, next])
+    def make_path():
+        full = set(xs)
+        q.append([xs[0]])
+        while True:
+            path = q.popleft()
+            if set(path) == full:
+                return path
+            for next in d[path[-1]]:
+                q.append([*path, next])
 
-pr(paths())
+    path = make_path()
 
-# then we can do
-#   out1 get
-#   lid h17 put get
-#   r19 put get
-#   out3 put
-# and so on for the other positions
+    plates = define_plates(batch_sizes)
+
+    assert path[0] == 'incu get prep'
+    assert path[-1] == plates[0].out_put
+
+    path += [plates[0].out_get]
+
+    for plate in plates[1:]:
+        path += [
+            plate.lid_put,
+            plate.lid_get,
+        ]
+
+    for plate in plates[1:]:
+        path += [
+            plate.r_put,
+            plate.r_get,
+        ]
+
+    for plate in plates[1:]:
+        path += [
+            plate.out_put,
+            plate.out_get,
+        ]
+
+    path += ['incu put']
+
+    return pr(path)
+
+def test_circuit(config: Config, *, batch_sizes: list[int]) -> None:
+    path = make_test_circuit(batch_sizes)
+    events: list[Event] = [
+        Event(
+            plate_id = '1',
+            part     = 'test circuit',
+            subpart  = name,
+            command  = robots.robotarm_cmd(name)
+        )
+        for name in path
+    ]
+    metadata: dict[str, str] = {
+        'options': 'test_circuit',
+        'batch_sizes': ','.join(str(bs) for bs in batch_sizes),
+    }
+    ATTENTION(
+        '''
+            Test circuit using one plate.
+
+            Required lab prerequisites:
+                1. hotel one:               empty!
+                2. hotel two:               empty!
+                3. hotel three:             empty!
+                4. biotek washer:           empty!
+                5. biotek dispenser:        empty!
+                6. incubator transfer door: one plate with lid
+        ''',
+        require_confirmation=config.robotarm_mode != 'noop'
+    )
+    execute_events_with_logging(config, events, metadata)
 
 def main(config: Config, *, batch_sizes: list[int], short_test_paint: bool = False) -> None:
-    all_events = eventlist(batch_sizes, short_test_paint=short_test_paint)
+    events = eventlist(batch_sizes, short_test_paint=short_test_paint)
     metadata: dict[str, str] = {
-        'start_time':   str(datetime.now()).split('.')[0],
-        'batch_sizes':  ','.join(str(bs) for bs in batch_sizes),
-        'config_name':  config.name(),
+        'batch_sizes': ','.join(str(bs) for bs in batch_sizes),
+    }
+    if short_test_paint:
+        metadata = {
+            **metadata,
+            'options': 'short_test_paint'
+        }
+    execute_events_with_logging(config, events, metadata)
+
+def execute_events_with_logging(config: Config, events: list[Event], metadata: dict[str, str]) -> None:
+    metadata = {
+        'start_time': str(datetime.now()).split('.')[0],
+        **metadata,
+        'config_name': config.name(),
     }
     log_filename = ' '.join(['event log', *metadata.values()])
     log_filename = 'logs/' + log_filename.replace(' ', '_') + '.jsonl'
     os.makedirs('logs/', exist_ok=True)
 
+    print(f'{log_filename=}')
+
     runtime = robots.Runtime(config=config, log_filename=log_filename)
 
-    metadata['git_HEAD'] = cast(Any, git_HEAD())
+    metadata['git_HEAD'] = utils.git_HEAD() or ''
     metadata['host']     = platform.node()
-    with runtime.timeit('experiment', metadata['batch_sizes'], metadata=metadata):
-        execute_events(runtime, all_events)
+    with runtime.timeit('experiment', metadata=metadata):
+        execute_events(runtime, events)
 

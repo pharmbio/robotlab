@@ -22,6 +22,7 @@ def main():
 
     parser.add_argument('--cell-paint', metavar='BS', type=str, default=None, help='Cell paint with batch sizes of BS, separated by comma (such as 6,6 for 2x6). Plates start stored in incubator L1, L2, ..')
     parser.add_argument('--short-test-paint', action='store_true', help='Run a shorter test version of the cell painting protocol')
+    parser.add_argument('--test-circuit', metavar='BS', type=str, default=None, help='Test circuit based on with comma separeted batch sizes BS. Start with one plate with lid on incubator transfer door, and all other positions empty!')
 
     parser.add_argument('--wash', type=str, help='Run a program on the washer')
     parser.add_argument('--disp', type=str, help='Run a program on the dispenser')
@@ -36,7 +37,8 @@ def main():
     parser.add_argument('program_name', type=str, nargs='*', help='Robot arm program name to run')
 
     args = parser.parse_args()
-    print(f'args =', show(args.__dict__))
+    if 0:
+        print(f'args =', show(args.__dict__))
 
     config_name = args.config
     try:
@@ -44,7 +46,7 @@ def main():
     except KeyError:
         raise ValueError(f'Unknown {config_name = }. Available: {show(configs.keys())}')
 
-    print(f'Using config =', show(config))
+    print(f'Using', config.name(), 'config =', show(config))
 
     if args.cell_paint:
         robots.get_robotarm(config).set_speed(args.robotarm_speed).close()
@@ -52,6 +54,13 @@ def main():
             config=config,
             batch_sizes=[int(bs.strip()) for bs in args.cell_paint.split(',')],
             short_test_paint=args.short_test_paint,
+        )
+
+    elif args.test_circuit:
+        robots.get_robotarm(config).set_speed(args.robotarm_speed).close()
+        protocol.test_circuit(
+            config=config,
+            batch_sizes=[int(bs.strip()) for bs in args.test_circuit.split(',')],
         )
 
     elif args.robotarm:
