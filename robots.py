@@ -198,13 +198,8 @@ class Incubator:
                         raise ValueError
                     url = runtime.env.incu_url + '/' + action_path + '/' + command.incu_loc
                     res = curl(url)
-                    assert res['status'] == 'OK', f'status not OK: {res = }'
-                    while True:
-                        res = curl(runtime.env.incu_url + '/is_ready')
-                        assert res['status'] == 'OK', f'status not OK: {res = }'
-                        ready = res['value'] is True
-                        if ready:
-                            break
+                    assert res['status'] == 'OK', res
+                    while not self.is_endpoint_ready(runtime):
                         time.sleep(0.05)
                 else:
                     raise ValueError
@@ -218,6 +213,12 @@ class Incubator:
         assert self.is_ready()
         self.state = 'busy'
         self.queue.put_nowait(msg)
+
+    @staticmethod
+    def is_endpoint_ready(runtime: Runtime):
+        res = curl(runtime.env.incu_url + '/is_ready')
+        assert res['status'] == 'OK', res
+        return res['value'] is True
 
 @dataclass(frozen=True)
 class Runtime:
