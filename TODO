@@ -1,16 +1,22 @@
 
 [ ] prio 3. robots: check that they all are is_ready before starting the program (this will check that ENV vars are set correctly)
+                    cliwrapper.py can not tell this information currently but could be improved to support this
 [ ] prio 3. robotarm: check that it is close to h neu when starting
 [ ] prio 3. robustness: raise gripper if close more than expected
 [ ] prio 3. robustness: don't start program if gripper is more closed than expected
-[ ] prio 3. safety, gui: reset LinRel every time last move wasn't LinRel. Right now you can go into freedrive, move the robot arm, then do LinRel moves which moves the robot directly relative to a position _before_ the freedrive. This is dangerous!!
 
 [ ] prio 2. washer wrapper: doesn't throw an error properly when out of liquid (but you can notice something is wrong because duration is only 22s, not >100s)
-[ ] prio 1. post mortem: put/get names not transparent enough ... ? lid_put lid_get
-[ ] prio 1. system: write runtime errors to log file
 [ ] prio 2. moves: wash put move has this really annoying start
-[ ] prio 2. repo: document how to start everything, like when to run secrets.sh etc
 [ ] prio 2. still some moves with 0.8° roll such as r21. make them level
+[ ] prio 2. repo: document how to start everything
+
+[ ] prio 1. system, incu: make a blocking wrapper around incubator so that it can be timed properly
+[ ] prio 1. system: incorporate real robotarm timings into dry run
+[ ] prio 1. system: write runtime errors to log file
+
+[ ] prio 1. post mortem: put/get names not transparent enough ... ? lid_put lid_get
+
+[ ] prio 3. safety, gui: reset LinRel every time last move wasn't LinRel. Right now you can go into freedrive, move the robot arm, then do LinRel moves which moves the robot directly relative to a position _before_ the freedrive. This is dangerous!!
 [ ] prio 1. gui: speed setting buttons
 [ ] prio 1. gui: soft stop by setting speed to 0.01. can we get the current speed to reset it afterwards?
 [ ] prio 1. gui: make it easier to see where you are, use colours or add a 3d graph
@@ -21,9 +27,8 @@
 [ ] prio 1. gui: make poll request return via http for faster refresh
 [ ] prio 1. gui: make it possible to run incu wash disp and any robotarm program
 [ ] prio 1. gui: update to newest viable
+
 [ ] prio 1. repo: run black prettyprinter
-[ ] prio 1. system, incu: make a blocking wrapper around incubator so that it can be timed properly
-[ ] prio 1. system: incorporate real robotarm timings into dry run
 
 [x] prio 3. timings: extract the important parts of the protocol
 [x] prio 3. cli: more information while running: current state (what cycle and plate etc)
