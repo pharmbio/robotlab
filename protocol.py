@@ -258,10 +258,6 @@ def paint_batch(batch: list[Plate], short_test_paint: bool=False):
         if short_test_paint:
             incu_30 = 3 + 2 * len(batch)
             incu_20 = 2 + 2 * len(batch)
-            ATTENTION(
-                f'Short test paint mode: incubating for only {incu_30=} and {incu_20=} minutes',
-                require_confirmation=False,
-            )
 
         if p is first_plate:
             incu_wait_1 = []
@@ -335,10 +331,6 @@ def paint_batch(batch: list[Plate], short_test_paint: bool=False):
 
     if short_test_paint:
         skip = ['Triton', 'Stains']
-        ATTENTION(
-            f'Short test paint mode: skipping {skip!r}',
-            require_confirmation=False,
-        )
         parts = [part for part in parts if part not in skip]
         chunks = {
             desc: cmd
@@ -397,12 +389,6 @@ def paint_batch(batch: list[Plate], short_test_paint: bool=False):
             for desc in linear
         ])
 
-    if short_test_paint:
-        ATTENTION(
-            'Short test paint mode, NOT real cell painting',
-            require_confirmation=True
-        )
-
     return [
         Event(
             plate_id=plate.id,
@@ -450,6 +436,14 @@ def group_by_batch(plates: list[Plate]) -> list[list[Plate]]:
         d[plate.batch_index] += [plate]
     return sorted(d.values(), key=lambda plates: plates[0].batch_index)
 
+A = TypeVar('A')
+B = TypeVar('B')
+def group_by(xs: list[A], key: Callable[[A], B]) -> dict[B, list[A]]:
+    d: dict[B, list[A]] = defaultdict(list)
+    for x in xs:
+        d[key(x)] += [x]
+    return d
+
 def eventlist(batch_sizes: list[int], short_test_paint: bool = False, sleek: bool = True) -> list[Event]:
     all_events: list[Event] = []
     for batch in group_by_batch(define_plates(batch_sizes)):
@@ -462,75 +456,23 @@ def eventlist(batch_sizes: list[int], short_test_paint: bool = False, sleek: boo
         all_events += events
     return all_events
 
-def make_test_circuit(batch_sizes: list[int]):
-    xs: list[str] = [
-        e.command.program_name
-        for e in eventlist([1], sleek=False)
-        if isinstance(e.command, robots.robotarm_cmd)
-    ]
-
-    d: dict[str, set[str]] = defaultdict(set)
-
-    for x, after in zip(xs, xs[1:]):
-        d[x].add(after)
-
-    q: Deque[list[str]] = Deque()
-
-    def make_path():
-        full = set(xs)
-        q.append([xs[0]])
-        while True:
-            path = q.popleft()
-            if set(path) == full:
-                return path
-            for next in d[path[-1]]:
-                q.append([*path, next])
-
-    path = make_path()
-
-    plates = define_plates(batch_sizes)
-
-    assert path[0] == 'incu get prep'
-    assert path[-1] == plates[0].out_put
-
-    path += [plates[0].out_get]
-
-    for plate in plates[1:]:
-        path += [
-            plate.lid_put,
-            plate.lid_get,
-        ]
-
-    for plate in plates[1:]:
-        path += [
-            plate.r_put,
-            plate.r_get,
-        ]
-
-    for plate in plates[1:]:
-        path += [
-            plate.out_put,
+def test_circuit(config: Config) -> None:
+    plate, = define_plates([1])
+    events = eventlist([1], short_test_paint=True)
+    events = [
+        event
+        for event in events
+        if isinstance(event.command, robots.robotarm_cmd)
+    ] + [
+        Event(plate.id, 'return', name, robots.robotarm_cmd(name))
+        for name in [
             plate.out_get,
+            'incu put'
         ]
 
-    path += ['incu put']
-
-    return pr(path)
-
-def test_circuit(config: Config, *, batch_sizes: list[int]) -> None:
-    path = make_test_circuit(batch_sizes)
-    events: list[Event] = [
-        Event(
-            plate_id = '1',
-            part     = 'test circuit',
-            subpart  = name,
-            command  = robots.robotarm_cmd(name)
-        )
-        for name in path
     ]
     metadata: dict[str, str] = {
         'options': 'test_circuit',
-        'batch_sizes': ','.join(str(bs) for bs in batch_sizes),
     }
     ATTENTION(
         '''
@@ -544,6 +486,7 @@ def test_circuit(config: Config, *, batch_sizes: list[int]) -> None:
                 5. biotek dispenser:        empty!
                 6. incubator transfer door: one plate with lid
                 7. robotarm:                in neutral position by lid hotel
+                8. gripper:                 sufficiently open to grab a plate
         ''',
         require_confirmation=config.robotarm_mode != 'noop'
     )
@@ -559,6 +502,11 @@ def main(config: Config, *, batch_sizes: list[int], short_test_paint: bool = Fal
             **metadata,
             'options': 'short_test_paint'
         }
+        ATTENTION(
+            'Short test paint mode, NOT real cell painting',
+            require_confirmation=True
+        )
+
     execute_events_with_logging(config, events, metadata)
 
 def execute_events_with_logging(config: Config, events: list[Event], metadata: dict[str, str]) -> None:
@@ -583,3 +531,4 @@ def execute_events_with_logging(config: Config, events: list[Event], metadata: d
     except BaseException as e:
         runtime.log('error', 'exception', traceback.format_exc())
         traceback.print_exc()
+
