@@ -16,7 +16,6 @@
 [ ] prio 2. repo: document how to start everything, in particular how to start the GUI (forwarding robot is an option... forwarding gui is another option)
 
 [ ] prio 1. system: incorporate real robotarm timings into dry run
-[ ] prio 1. system: write runtime errors to log file
 
 [ ] prio 1. post mortem: put/get names not transparent enough ... ? lid_put lid_get
 
@@ -62,6 +61,7 @@
     [x] remove source secrets scripts
     [x] check consistency of run.sh
 [x] prio 1. system, incu: make a blocking wrapper around incubator so that it can be timed properly
+[x] prio 1. system: write runtime errors to log file
 
 [x] prio 2. system ui: how to start ? anders wants a config file but just start with python cli.py --cell-paint 6,6 --live
 [x] prio 2. post mortem: why did the six-plates-from-r-to-incu put the plates back the wrong way around?

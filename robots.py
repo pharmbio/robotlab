@@ -240,7 +240,7 @@ class Runtime:
         return self.config.env
 
     def log(self,
-        kind: Literal['begin', 'end', 'info', 'warn'],
+        kind: Literal['begin', 'end', 'info', 'warn', 'error'],
         source: str,
         arg: str | int | None = None,
         metadata: dict[str, Any] = {},

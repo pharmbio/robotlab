@@ -13,6 +13,7 @@ import protocol
 import re
 import textwrap
 import sys
+import traceback
 
 from moves import movelists
 from robots import Config, Command, Runtime
@@ -576,6 +577,9 @@ def execute_events_with_logging(config: Config, events: list[Event], metadata: d
 
     metadata['git_HEAD'] = utils.git_HEAD() or ''
     metadata['host']     = platform.node()
-    with runtime.timeit('experiment', metadata=metadata):
-        execute_events(runtime, events)
-
+    try:
+        with runtime.timeit('experiment', metadata=metadata):
+            execute_events(runtime, events)
+    except BaseException as e:
+        runtime.log('error', 'exception', traceback.format_exc())
+        traceback.print_exc()
