@@ -159,11 +159,68 @@ class Biotek:
         self.queue.put_nowait(msg)
 
 @dataclass(frozen=True)
+class IncubatorMessage:
+    runtime: Runtime
+    command: incu_cmd
+    metadata: dict[str, Any]
+
+@dataclass
+class Incubator:
+    queue: SimpleQueue[IncubatorMessage] = field(default_factory=SimpleQueue)
+    state: Literal['ready', 'busy'] = 'ready'
+
+    def __post_init__(self):
+        t = threading.Thread(target=self.loop, daemon=True)
+        t.start()
+
+    def loop(self):
+        while msg := self.queue.get():
+            self.state = 'busy'
+            runtime = msg.runtime
+            command = msg.command
+            metadata = msg.metadata
+            del msg
+            with runtime.timeit('incu', command.action, {**metadata, 'loc': command.incu_loc}):
+                assert command.action in {'put', 'get'}
+                if runtime.config.incu_mode == 'noop':
+                    pass
+                elif runtime.config.incu_mode == 'execute':
+                    if command.action == 'put':
+                        action_path = 'input_plate'
+                    elif command.action == 'get':
+                        action_path = 'output_plate'
+                    else:
+                        raise ValueError
+                    url = runtime.env.incu_url + '/' + action_path + '/' + command.incu_loc
+                    res = curl(url)
+                    assert res['status'] == 'OK', f'status not OK: {res = }'
+                    while True:
+                        res = curl(runtime.env.incu_url + '/is_ready')
+                        assert res['status'] == 'OK', f'status not OK: {res = }'
+                        ready = res['value'] is True
+                        if ready:
+                            break
+                        time.sleep(0.05)
+                else:
+                    raise ValueError
+            print('incu', 'ready')
+            self.state = 'ready'
+
+    def is_ready(self):
+        return self.state == 'ready'
+
+    def run(self, msg: IncubatorMessage):
+        assert self.is_ready()
+        self.state = 'busy'
+        self.queue.put_nowait(msg)
+
+@dataclass(frozen=True)
 class Runtime:
     config: Config
     log_filename: str | None = None
     wash: Biotek     = field(default_factory=lambda: Biotek('wash'))
     disp: Biotek     = field(default_factory=lambda: Biotek('disp'))
+    incu: Incubator  = field(default_factory=lambda: Incubator())
     log_lock: RLock  = field(default_factory=RLock)
     time_lock: RLock = field(default_factory=RLock)
     skipped_time: Mutable[float] = Mutable.factory(0.0)
@@ -277,7 +334,7 @@ class Ready(Waitable):
     def wait(self, runtime: Runtime):
         if self.name == 'incu':
             if runtime.config.incu_mode == 'execute':
-                while not is_incu_ready(runtime):
+                while not runtime.incu.is_ready():
                     time.sleep(0.01)
             elif runtime.config.incu_mode == 'noop':
                 pass
@@ -310,8 +367,8 @@ class wait_for(Command):
     def execute(self, runtime: Runtime, metadata: dict[str, Any]) -> None:
         with runtime.timeit('wait', str(self), metadata):
             if isinstance(self.base, Ready):
-                self.base.wait(runtime)
                 assert self.plus_seconds == 0
+                self.base.wait(runtime)
             elif isinstance(self.base, WashStarted):
                 assert runtime.wash.last_started is not None
                 past_point_in_time = runtime.wash.last_started
@@ -368,26 +425,5 @@ class incu_cmd(Command):
     action: Literal['put', 'get']
     incu_loc: str
     def execute(self, runtime: Runtime, metadata: dict[str, Any]) -> None:
-        assert self.action in 'put get'.split()
-        runtime.log('info', 'incu', str(self), metadata)
-        # no easy way to get incu finish
-        if runtime.config.incu_mode == 'noop':
-            # print('dry run', self)
-            return
-        elif runtime.config.incu_mode == 'execute':
-            if self.action == 'put':
-                action_path = 'input_plate'
-            elif self.action == 'get':
-                action_path = 'output_plate'
-            else:
-                raise ValueError
-            url = runtime.env.incu_url + '/' + action_path + '/' + self.incu_loc
-            res = curl(url)
-            assert res['status'] == 'OK', f'status not OK: {res = }'
-        else:
-            raise ValueError
+        runtime.incu.run(IncubatorMessage(runtime, self, metadata))
 
-def is_incu_ready(runtime: Runtime) -> bool:
-    res = curl(runtime.env.incu_url + '/is_ready')
-    assert res['status'] == 'OK', f'status not OK: {res = }'
-    return res['value'] is True
