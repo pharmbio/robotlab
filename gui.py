@@ -33,6 +33,8 @@ import sys
 config: Config = configs['live']
 if '--no-gripper' in sys.argv:
     config = configs['simulator']
+elif '--forward' in sys.argv:
+    config = configs['forward']
 
 utils.pr(config)
 

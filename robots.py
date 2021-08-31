@@ -42,6 +42,10 @@ simulator_env = Env(
     robotarm_host = 'localhost',
 )
 
+forward_env = Env(
+    robotarm_host = 'localhost',
+)
+
 dry_env = Env()
 
 @dataclass(frozen=True)
@@ -65,6 +69,7 @@ configs = {
     'test-all':      Config('fast forward', 'execute short', 'execute', 'execute',            live_env),
     'test-arm-incu': Config('fast forward', 'noop',          'execute', 'execute',            live_arm_incu),
     'simulator':     Config('fast forward', 'noop',          'noop',    'execute no gripper', simulator_env),
+    'forward':       Config('fast forward', 'noop',          'noop',    'execute',            forward_env),
     'dry-run':       Config('fast forward', 'noop',          'noop',    'noop',               dry_env),
 }
 
