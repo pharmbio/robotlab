@@ -1,4 +1,9 @@
 
+[ ] prio 4. moves: dispenser get move slipped a little !! does the gripper get sufficient power?
+
+[ ] prio 2. system: the test circuit program does things in quite a confusing order... would be better if it did things more like the CP protocol
+[ ] prio 2. system: what about setting robotarm speed ...
+
 [ ] prio 3. robots: check that they all are is_ready before starting the program (this will check that ENV vars are set correctly)
                     cliwrapper.py can not tell this information currently but could be improved to support this
 [ ] prio 3. robotarm: check that it is close to h neu when starting
@@ -43,6 +48,7 @@
 [x] prio 3. protocol: make plates go to output hotel
 [x] prio 3. protocol/moves: Start washer just after dropoff
 [x] prio 3. post mortem: config names are too confusing. try to reduce them
+[x] prio 3. lab setup: tell the rest of the group that the incubator position is not fixed !! (of course)
 
 [x] prio 1. gui: grip test: remove grip test button, only have one copy
 [x] prio 1. gui: remove to_rel to_abs
