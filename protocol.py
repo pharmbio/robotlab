@@ -542,6 +542,7 @@ def test_circuit(config: Config, *, batch_sizes: list[int]) -> None:
                 4. biotek washer:           empty!
                 5. biotek dispenser:        empty!
                 6. incubator transfer door: one plate with lid
+                7. robotarm:                in neutral position by lid hotel
         ''',
         require_confirmation=config.robotarm_mode != 'noop'
     )
