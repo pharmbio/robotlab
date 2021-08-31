@@ -127,9 +127,6 @@ def pr(x: A) -> A:
     print(show(x))
     return x
 
-def flatten(xss: Iterable[list[A]]) -> list[A]:
-    return sum(xss, cast(list[A], []))
-
 @dataclass(frozen=False)
 class Mutable(Generic[A]):
     value: A
@@ -137,6 +134,47 @@ class Mutable(Generic[A]):
     def factory(cls, x: A):
         return field(default_factory=lambda: cls(x))
 
+@dataclass
+class Color:
+    enabled: bool = True
+
+    def do(self, code: str, s: str) -> str:
+        if self.enabled:
+            reset: str = '\033[0m'
+            return code + s + reset
+        else:
+            return s
+
+    def none       (self, s: str) -> str: return s
+    def black      (self, s: str) -> str: return self.do('\033[30m', s)
+    def red        (self, s: str) -> str: return self.do('\033[31m', s)
+    def green      (self, s: str) -> str: return self.do('\033[32m', s)
+    def orange     (self, s: str) -> str: return self.do('\033[33m', s)
+    def blue       (self, s: str) -> str: return self.do('\033[34m', s)
+    def purple     (self, s: str) -> str: return self.do('\033[35m', s)
+    def cyan       (self, s: str) -> str: return self.do('\033[36m', s)
+    def lightgrey  (self, s: str) -> str: return self.do('\033[37m', s)
+    def darkgrey   (self, s: str) -> str: return self.do('\033[90m', s)
+    def lightred   (self, s: str) -> str: return self.do('\033[91m', s)
+    def lightgreen (self, s: str) -> str: return self.do('\033[92m', s)
+    def yellow     (self, s: str) -> str: return self.do('\033[93m', s)
+    def lightblue  (self, s: str) -> str: return self.do('\033[94m', s)
+    def pink       (self, s: str) -> str: return self.do('\033[95m', s)
+    def lightcyan  (self, s: str) -> str: return self.do('\033[96m', s)
+
+@dataclass(frozen=True)
+class test(Generic[A]):
+    lhs: A
+    def __eq__(self, rhs: A) -> bool:
+        if self.lhs == rhs:
+            return True
+        else:
+            print(show(self.lhs))
+            print('!=', show(rhs))
+            return False
+
+def flatten(xss: Iterable[list[A]]) -> list[A]:
+    return sum(xss, cast(list[A], []))
 
 def skip(n: int, xs: Iterable[A]) -> Iterable[A]:
     for i, x in enumerate(xs):
@@ -144,16 +182,33 @@ def skip(n: int, xs: Iterable[A]) -> Iterable[A]:
             yield x
 
 def iterate_with_full_context(xs: list[A]) -> list[tuple[list[A], A, list[A]]]:
+    '''
+    >>>
+    '''
     return [
         (xs[:i], x, xs[i+1:])
         for i, x in enumerate(xs)
     ]
+
+assert test(iterate_with_full_context([1,2,3,4])) == [
+  ([], 1, [2, 3, 4]),
+  ([1], 2, [3, 4]),
+  ([1, 2], 3, [4]),
+  ([1, 2, 3], 4, []),
+]
 
 def iterate_with_context(xs: list[A]) -> list[tuple[A | None, A, A | None]]:
     return [
         (prev[-1] if prev else None, x, next[0] if next else None)
         for prev, x, next in iterate_with_full_context(xs)
     ]
+
+assert test(iterate_with_context([1,2,3,4])) == [
+    (None, 1, 2),
+    (1, 2, 3),
+    (2, 3, 4),
+    (3, 4, None)
+]
 
 def iterate_with_next(xs: list[A]) -> list[tuple[A, A | None]]:
     return [
@@ -203,31 +258,11 @@ def catch(m: Callable[[], A], default: B=None) -> A | B:
     except:
         return default
 
-@dataclass
-class Color:
-    enabled: bool = True
-
-    def do(self, code: str, s: str) -> str:
-        if self.enabled:
-            reset: str = '\033[0m'
-            return code + s + reset
-        else:
-            return s
-
-    def none       (self, s: str) -> str: return s
-    def black      (self, s: str) -> str: return self.do('\033[30m', s)
-    def red        (self, s: str) -> str: return self.do('\033[31m', s)
-    def green      (self, s: str) -> str: return self.do('\033[32m', s)
-    def orange     (self, s: str) -> str: return self.do('\033[33m', s)
-    def blue       (self, s: str) -> str: return self.do('\033[34m', s)
-    def purple     (self, s: str) -> str: return self.do('\033[35m', s)
-    def cyan       (self, s: str) -> str: return self.do('\033[36m', s)
-    def lightgrey  (self, s: str) -> str: return self.do('\033[37m', s)
-    def darkgrey   (self, s: str) -> str: return self.do('\033[90m', s)
-    def lightred   (self, s: str) -> str: return self.do('\033[91m', s)
-    def lightgreen (self, s: str) -> str: return self.do('\033[92m', s)
-    def yellow     (self, s: str) -> str: return self.do('\033[93m', s)
-    def lightblue  (self, s: str) -> str: return self.do('\033[94m', s)
-    def pink       (self, s: str) -> str: return self.do('\033[95m', s)
-    def lightcyan  (self, s: str) -> str: return self.do('\033[96m', s)
+def git_HEAD() -> str | None:
+    from subprocess import run
+    try:
+        proc = run(['git', 'rev-parse', 'HEAD'], capture_output=True)
+        return proc.stdout.decode().strip()[:8]
+    except:
+        return None
 
