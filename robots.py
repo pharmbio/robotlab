@@ -149,6 +149,7 @@ class Biotek:
                             '/' + command.sub_cmd +
                             '/' + (command.protocol_path or '')
                         )
+                        url = url.rstrip('/')
                         res: Any = curl(url)
                     out = res['out']
                     status = out['status']
@@ -199,20 +200,22 @@ class Incubator:
             if command.incu_loc is not None:
                 metadata = {**metadata, 'loc': command.incu_loc}
             with runtime.timeit('incu', command.action, metadata):
-                assert command.action in {'put', 'get', 'is_ready'}
-                assert (command.action == 'is_ready') == (command.incu_loc is None)
+                assert command.action in {'put', 'get', 'get_climate'}
                 if runtime.config.incu_mode == 'noop':
                     pass
                 elif runtime.config.incu_mode == 'execute':
                     if command.action == 'put':
-                        action_path = 'input_plate'
+                        assert command.incu_loc is not None
+                        action_path = 'input_plate/' + command.incu_loc
                     elif command.action == 'get':
-                        action_path = 'output_plate'
-                    elif command.action == 'is_ready':
-                        action_path = 'is_ready'
+                        assert command.incu_loc is not None
+                        action_path = 'output_plate/' + command.incu_loc
+                    elif command.action == 'get_climate':
+                        assert command.incu_loc is None
+                        action_path = 'getClimate'
                     else:
                         raise ValueError
-                    url = runtime.env.incu_url + '/' + action_path + '/' + (command.incu_loc or '')
+                    url = runtime.env.incu_url + '/' + action_path
                     res = curl(url)
                     assert res['status'] == 'OK', res
                     while not self.is_endpoint_ready(runtime):
@@ -446,22 +449,22 @@ class disp_cmd(Command):
 
 @dataclass(frozen=True)
 class incu_cmd(Command):
-    action: Literal['put', 'get', 'is_ready']
+    action: Literal['put', 'get', 'get_climate']
     incu_loc: str | None
     def execute(self, runtime: Runtime, metadata: dict[str, Any]) -> None:
         runtime.incu.run(IncubatorMessage(runtime, self, metadata))
 
-def test_comm(runtime: Runtime):
+def test_comm(config: Config):
     '''
     Test communication with robotarm, washer, dispenser and incubator.
     '''
     print('Testing communication with robotarm, washer, dispenser and incubator.')
-    metadata = {'event_id': 'test_comm'}
-    disp_cmd(sub_cmd='LHC_TestCommunications', protocol_path=None).execute(runtime, metadata)
-    wash_cmd(sub_cmd='LHC_TestCommunications', protocol_path=None).execute(runtime, metadata)
-    incu_cmd(action='is_ready', incu_loc=None).execute(runtime, metadata)
-    robotarm_cmd('noop').execute(runtime, metadata)
-    wait_for(Ready('disp')).execute(runtime, metadata)
-    wait_for(Ready('wash')).execute(runtime, metadata)
-    wait_for(Ready('incu')).execute(runtime, metadata)
+    runtime = Runtime(config=config)
+    disp_cmd(sub_cmd='LHC_TestCommunications', protocol_path=None).execute(runtime, {})
+    wash_cmd(sub_cmd='LHC_TestCommunications', protocol_path=None).execute(runtime, {})
+    incu_cmd(action='get_climate', incu_loc=None).execute(runtime, {})
+    robotarm_cmd('noop').execute(runtime, {})
+    wait_for(Ready('disp')).execute(runtime, {})
+    wait_for(Ready('wash')).execute(runtime, {})
+    wait_for(Ready('incu')).execute(runtime, {})
     print('Communication tests ok.')
