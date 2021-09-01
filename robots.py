@@ -29,8 +29,8 @@ class Env:
 
 live_env = Env(
     robotarm_host = '10.10.0.112',
-    incu_url      = '10.10.0.56:5003',
-    biotek_url    = '10.10.0.56:5050',
+    incu_url      = 'http://10.10.0.56:5051',
+    biotek_url    = 'http://10.10.0.56:5050',
 )
 
 live_arm_incu = Env(
@@ -73,11 +73,14 @@ configs = {
     'dry-run':       Config('fast forward', 'noop',          'noop',    'noop',               dry_env),
 }
 
-def curl(url: str) -> Any:
+def curl(url: str, print_result: bool = False) -> Any:
     if 'is_ready' not in url:
         print('curl', url)
     ten_minutes = 60 * 10
-    return json.loads(urlopen(url, timeout=ten_minutes).read())
+    res = json.loads(urlopen(url, timeout=ten_minutes).read())
+    if 'is_ready' not in url:
+        print_result and print('curl', url, '=', utils.show(res))
+    return res
 
 @dataclass(frozen=True)
 class BiotekMessage:
@@ -461,10 +464,10 @@ def test_comm(config: Config):
     print('Testing communication with robotarm, washer, dispenser and incubator.')
     runtime = Runtime(config=config)
     disp_cmd(sub_cmd='LHC_TestCommunications', protocol_path=None).execute(runtime, {})
-    wash_cmd(sub_cmd='LHC_TestCommunications', protocol_path=None).execute(runtime, {})
     incu_cmd(action='get_climate', incu_loc=None).execute(runtime, {})
     robotarm_cmd('noop').execute(runtime, {})
     wait_for(Ready('disp')).execute(runtime, {})
+    wash_cmd(sub_cmd='LHC_TestCommunications', protocol_path=None).execute(runtime, {})
     wait_for(Ready('wash')).execute(runtime, {})
     wait_for(Ready('incu')).execute(runtime, {})
     print('Communication tests ok.')
