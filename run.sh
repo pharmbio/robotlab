@@ -22,22 +22,11 @@ function show-env {
 note '
     Run eval "$(./run.sh setup-env)" to set up the robot ip to the robotlab robotarm.
 
-    Add the robot 10.10.0.112 to .ssh/config as robotlab-ur
+    Prerequisite: Add the robot 10.10.0.112 to .ssh/config as robotlab-ur
 '
 function setup-env {
     printf '%s\n' "export ROBOT_IP=robotlab-ur"
     printf '%s\n' "export ROBOT_PORT=30001"
-}
-
-note '
-    Forward the remote robot to localhost via the jumphost
-
-    Set $ROBOT_IP with eval "$(./run.sh setup-env)"
-'
-function forward-robot-to-localhost {
-    set -x
-    trap 'kill $(jobs -p)' EXIT
-    ssh -N -L "30001:localhost:30001" -l root "$ROBOT_IP"
 }
 
 note '
@@ -223,17 +212,22 @@ function cobot-curl {
 }
 
 note '
-    Start the gui with entr live-reloading
+    Forward the remote robot to localhost via the jumphost
 '
-function entr-gui {
-    ls *py | entr -r python gui.py "$@"
+function forward-robot-to-localhost {
+    set -x
+    trap 'kill $(jobs -p)' EXIT
+    eval "$(setup-env)"
+    ssh -N -L "30001:localhost:30001" -l root "$ROBOT_IP"
 }
 
 note '
-    Start the protocol visualization with entr live-reloading
+    Forward the remote robot to localhost then start gui with entr live reloading
 '
-function entr-protocol-vis {
-    ls *py | entr -r python protocol_vis.py
+function forward-robot-then-entr-gui {
+    forward-robot-to-localhost &
+    sleep 1
+    ls *py | entr -r python gui.py "$@" --forward
 }
 
 note '
@@ -274,10 +268,9 @@ function test-wash-disp () {
 
 note '
     Copy URP scripts from the robot
-
-    Set $ROBOT_IP with eval "$(./run.sh setup-env)"
 '
 function copy-urp-scripts {
+    eval "$(setup-env)"
     set -x
     mkdir -p scripts
     scp "root@$ROBOT_IP:/data/programs/dan_*" scripts/

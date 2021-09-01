@@ -8,7 +8,7 @@
 [ ] prio 2. washer wrapper: doesn't throw an error properly when out of liquid (but you can notice something is wrong because duration is only 22s, not >100s)
 [ ] prio 2. moves: wash put move has this really annoying start
 [ ] prio 2. moves: still some moves with 0.8° roll such as r21. make them level
-[ ] prio 2. repo: document how to start everything, in particular how to start the GUI (forwarding robot is an option... forwarding gui is another option)
+[ ] prio 2. repo: document how to start everything, in particular how to start the GUI (gui on forwarded robot can be started with run.sh)
 
 [ ] prio 1. system: incorporate real robotarm timings into dry run
 
