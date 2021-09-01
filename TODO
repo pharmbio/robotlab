@@ -1,6 +1,8 @@
 
 [ ] prio 4. moves: dispenser get move slipped a little !! does the gripper get sufficient power?
 
+[ ] prio 3. protocol: add purge after each mito disp and prime before each mito disp
+
 [ ] prio 3. robotarm: check that it is close to h neu when starting
 [ ] prio 3. robustness: raise gripper if close more than expected
 [ ] prio 3. robustness: don't start program if gripper is more closed than expected

@@ -20,6 +20,9 @@ from robotarm import Robotarm
 import utils
 from utils import Mutable
 
+import chrono
+from chrono import TimeLike, WallTime, SimulatedTime
+
 @dataclass(frozen=True)
 class Env:
     robotarm_host: str = 'http://[100::]' # RFC 6666: A Discard Prefix for IPv6
@@ -50,7 +53,7 @@ dry_env = Env()
 
 @dataclass(frozen=True)
 class Config:
-    time_mode:          Literal['wall', 'fast forward',                  ]
+    time:               TimeLike
     disp_and_wash_mode: Literal['noop', 'execute', 'execute short',      ]
     incu_mode:          Literal['noop', 'execute',                       ]
     robotarm_mode:      Literal['noop', 'execute', 'execute no gripper', ]
@@ -65,12 +68,12 @@ class Config:
 
 configs: dict[str, Config]
 configs = {
-    'live':          Config('wall',         'execute',       'execute', 'execute',            live_env),
-    'test-all':      Config('fast forward', 'execute short', 'execute', 'execute',            live_env),
-    'test-arm-incu': Config('fast forward', 'noop',          'execute', 'execute',            live_arm_incu),
-    'simulator':     Config('fast forward', 'noop',          'noop',    'execute no gripper', simulator_env),
-    'forward':       Config('fast forward', 'noop',          'noop',    'execute',            forward_env),
-    'dry-run':       Config('fast forward', 'noop',          'noop',    'noop',               dry_env),
+    'live':          Config(WallTime(),      'execute',       'execute', 'execute',            live_env),
+    'test-all':      Config(SimulatedTime(), 'execute short', 'execute', 'execute',            live_env),
+    'test-arm-incu': Config(SimulatedTime(), 'noop',          'execute', 'execute',            live_arm_incu),
+    'simulator':     Config(SimulatedTime(), 'noop',          'noop',    'execute no gripper', simulator_env),
+    'forward':       Config(SimulatedTime(), 'noop',          'noop',    'execute',            forward_env),
+    'dry-run':       Config(SimulatedTime(), 'noop',          'noop',    'noop',               dry_env),
 }
 
 def curl(url: str, print_result: bool = False) -> Any:
@@ -84,9 +87,10 @@ def curl(url: str, print_result: bool = False) -> Any:
 
 @dataclass(frozen=True)
 class BiotekMessage:
-    runtime: Runtime
     command: wash_cmd | disp_cmd
     metadata: dict[str, Any]
+
+h = SimpleQueue
 
 @dataclass
 class Biotek:
@@ -96,12 +100,11 @@ class Biotek:
     last_started: float | None = None
     last_finished: float | None = None
     last_finished_by_plate_id: dict[str, float] = field(default_factory=dict)
-
-    def __post_init__(self):
-        t = threading.Thread(target=self.loop, daemon=True)
+    def start(self, runtime: Runtime):
+        t = threading.Thread(target=self.loop, args=(runtime,), daemon=True)
         t.start()
 
-    def loop(self):
+    def loop(self, runtime: Runtime):
         '''
         Repeatedly try to run the protocol until it succeeds or we get an unknown error.
 
@@ -120,9 +123,8 @@ class Biotek:
             "status":"99","value":"EXCEPTION"}}
 
         '''
-        while msg := self.queue.get():
+        while msg := runtime.chrono.queue_get(self.queue):
             self.state = 'busy'
-            runtime = msg.runtime
             command = msg.command
             metadata = msg.metadata
             del msg
@@ -180,7 +182,6 @@ class Biotek:
 
 @dataclass(frozen=True)
 class IncubatorMessage:
-    runtime: Runtime
     command: incu_cmd
     metadata: dict[str, Any]
 
@@ -189,14 +190,13 @@ class Incubator:
     queue: SimpleQueue[IncubatorMessage] = field(default_factory=SimpleQueue)
     state: Literal['ready', 'busy'] = 'ready'
 
-    def __post_init__(self):
-        t = threading.Thread(target=self.loop, daemon=True)
+    def start(self, runtime: Runtime):
+        t = threading.Thread(target=self.loop, args=(runtime,), daemon=True)
         t.start()
 
-    def loop(self):
+    def loop(self, runtime: Runtime):
         while msg := self.queue.get():
             self.state = 'busy'
-            runtime = msg.runtime
             command = msg.command
             metadata = msg.metadata
             del msg
@@ -253,6 +253,15 @@ class Runtime:
     time_lock: RLock = field(default_factory=RLock)
     skipped_time: Mutable[float] = Mutable.factory(0.0)
     start_time: float            = field(default_factory=time.monotonic)
+
+    @property
+    def time(self) -> TimeLike:
+        return config.time
+
+    def __post_init__(self):
+        self.wash.start(self)
+        self.disp.start(self)
+        self.incu.start(self)
 
     @property
     def env(self):
