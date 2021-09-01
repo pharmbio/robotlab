@@ -123,22 +123,33 @@ class Biotek:
             command = msg.command
             metadata = msg.metadata
             del msg
+            log_arg = command.protocol_path or command.sub_cmd
             if command.delay:
-                with runtime.timeit(self.name + '_delay', command.protocol_path, metadata):
+                with runtime.timeit(self.name + '_delay', log_arg, metadata):
                     command.delay.execute(runtime, metadata)
-            with runtime.timeit(self.name, command.protocol_path, metadata):
+            with runtime.timeit(self.name, log_arg, metadata):
                 while True:
                     self.last_started = runtime.monotonic()
                     if runtime.config.disp_and_wash_mode == 'noop':
                         est = 15
-                        if '3X' in command.protocol_path: est = 60 + 42
-                        if '4X' in command.protocol_path: est = 60 + 52
+                        if command.protocol_path is None:
+                            est = 0
+                        elif '3X' in command.protocol_path:
+                            est = 60 + 42
+                        elif '4X' in command.protocol_path:
+                            est = 60 + 52
                         runtime.log('info', self.name, f'pretending to run for {est}s', metadata)
                         while self.last_started + est > runtime.monotonic():
                             time.sleep(0.0001)
                         res: Any = {"err":"","out":{"details":"1 - eOK","status":"1","value":""}}
                     else:
-                        res: Any = curl(runtime.env.biotek_url + '/' + self.name + '/LHC_RunProtocol/' + command.protocol_path)
+                        url = (
+                            runtime.env.biotek_url +
+                            '/' + self.name +
+                            '/' + command.sub_cmd +
+                            '/' + (command.protocol_path or '')
+                        )
+                        res: Any = curl(url)
                     out = res['out']
                     status = out['status']
                     details = out['details']
@@ -185,8 +196,11 @@ class Incubator:
             command = msg.command
             metadata = msg.metadata
             del msg
-            with runtime.timeit('incu', command.action, {**metadata, 'loc': command.incu_loc}):
-                assert command.action in {'put', 'get'}
+            if command.incu_loc is not None:
+                metadata = {**metadata, 'loc': command.incu_loc}
+            with runtime.timeit('incu', command.action, metadata):
+                assert command.action in {'put', 'get', 'is_ready'}
+                assert (command.action == 'is_ready') == (command.incu_loc is None)
                 if runtime.config.incu_mode == 'noop':
                     pass
                 elif runtime.config.incu_mode == 'execute':
@@ -194,9 +208,11 @@ class Incubator:
                         action_path = 'input_plate'
                     elif command.action == 'get':
                         action_path = 'output_plate'
+                    elif command.action == 'is_ready':
+                        action_path = 'is_ready'
                     else:
                         raise ValueError
-                    url = runtime.env.incu_url + '/' + action_path + '/' + command.incu_loc
+                    url = runtime.env.incu_url + '/' + action_path + '/' + (command.incu_loc or '')
                     res = curl(url)
                     assert res['status'] == 'OK', res
                     while not self.is_endpoint_ready(runtime):
@@ -396,7 +412,7 @@ class wait_for(Command):
 
 def get_robotarm(config: Config, quiet: bool = False) -> Robotarm:
     if config.robotarm_mode == 'noop':
-        return Robotarm.init_simulate(with_gripper=True, quiet=quiet)
+        return Robotarm.init_noop(with_gripper=True, quiet=quiet)
     assert config.robotarm_mode == 'execute' or config.robotarm_mode == 'execute no gripper'
     with_gripper = config.robotarm_mode == 'execute'
     return Robotarm.init(config.env.robotarm_host, config.env.robotarm_port, with_gripper, quiet=quiet)
@@ -412,24 +428,40 @@ class robotarm_cmd(Command):
 
 @dataclass(frozen=True)
 class wash_cmd(Command):
-    protocol_path: str
+    protocol_path: str | None
     plate_id: str | None = None
     delay: wait_for | None = None
+    sub_cmd: Literal['LHC_RunProtocol', 'LHC_TestCommunications'] = 'LHC_RunProtocol'
     def execute(self, runtime: Runtime, metadata: dict[str, Any]) -> None:
         runtime.wash.run(BiotekMessage(runtime, self, metadata))
 
 @dataclass(frozen=True)
 class disp_cmd(Command):
-    protocol_path: str
+    protocol_path: str | None
     plate_id: str | None = None
     delay: wait_for | None = None
+    sub_cmd: Literal['LHC_RunProtocol', 'LHC_TestCommunications'] = 'LHC_RunProtocol'
     def execute(self, runtime: Runtime, metadata: dict[str, Any]) -> None:
         runtime.disp.run(BiotekMessage(runtime, self, metadata))
 
 @dataclass(frozen=True)
 class incu_cmd(Command):
-    action: Literal['put', 'get']
-    incu_loc: str
+    action: Literal['put', 'get', 'is_ready']
+    incu_loc: str | None
     def execute(self, runtime: Runtime, metadata: dict[str, Any]) -> None:
         runtime.incu.run(IncubatorMessage(runtime, self, metadata))
 
+def test_comm(runtime: Runtime):
+    '''
+    Test communication with robotarm, washer, dispenser and incubator.
+    '''
+    print('Testing communication with robotarm, washer, dispenser and incubator.')
+    metadata = {'event_id': 'test_comm'}
+    disp_cmd(sub_cmd='LHC_TestCommunications', protocol_path=None).execute(runtime, metadata)
+    wash_cmd(sub_cmd='LHC_TestCommunications', protocol_path=None).execute(runtime, metadata)
+    incu_cmd(action='is_ready', incu_loc=None).execute(runtime, metadata)
+    robotarm_cmd('noop').execute(runtime, metadata)
+    wait_for(Ready('disp')).execute(runtime, metadata)
+    wait_for(Ready('wash')).execute(runtime, metadata)
+    wait_for(Ready('incu')).execute(runtime, metadata)
+    print('Communication tests ok.')

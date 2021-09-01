@@ -467,6 +467,8 @@ def read_movelists() -> dict[str, MoveList]:
 
         grand_out |= v.expand_hotels(k)
 
+    grand_out['noop'] = MoveList()
+
     return grand_out
 
 movelists: dict[str, MoveList]

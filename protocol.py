@@ -22,19 +22,18 @@ from utils import pr, show, Mutable
 import robots
 import utils
 
-def ATTENTION(s: str, *, require_confirmation: bool):
+def ATTENTION(s: str):
     color = utils.Color()
     print(color.red('*' * 80))
     print()
-    print(textwrap.indent(textwrap.dedent(s.strip('\n')), '    '))
+    print(textwrap.indent(textwrap.dedent(s.strip('\n')), '    ').rstrip('\n'))
     print()
     print(color.red('*' * 80))
-    if require_confirmation:
-        v = input('Continue? [y/n] ')
-        if v.strip() != 'y':
-            raise ValueError('Program aborted by user')
-        else:
-            print('continuing...')
+    v = input('Continue? [y/n] ')
+    if v.strip() != 'y':
+        raise ValueError('Program aborted by user')
+    else:
+        print('continuing...')
 
 Mito_prime   = 'automation/1_D_P1_PRIME.LHC'
 Mito_disp    = 'automation/1_D_P1_30ul_mito.LHC'
@@ -471,41 +470,38 @@ def test_circuit(config: Config) -> None:
         ]
 
     ]
-    metadata: dict[str, str] = {
-        'options': 'test_circuit',
-    }
-    ATTENTION(
-        '''
-            Test circuit using one plate.
+    robots.test_comm(config)
+    ATTENTION('''
+        Test circuit using one plate.
 
-            Required lab prerequisites:
-                1. hotel one:               empty!
-                2. hotel two:               empty!
-                3. hotel three:             empty!
-                4. biotek washer:           empty!
-                5. biotek dispenser:        empty!
-                6. incubator transfer door: one plate with lid
-                7. robotarm:                in neutral position by lid hotel
-                8. gripper:                 sufficiently open to grab a plate
-        ''',
-        require_confirmation=config.robotarm_mode != 'noop'
-    )
-    execute_events_with_logging(config, events, metadata)
+        Required lab prerequisites:
+            1. hotel one:               empty!
+            2. hotel two:               empty!
+            3. hotel three:             empty!
+            4. biotek washer:           empty!
+            5. biotek dispenser:        empty!
+            6. incubator transfer door: one plate with lid
+            7. robotarm:                in neutral position by lid hotel
+            8. gripper:                 sufficiently open to grab a plate
+    ''')
+    execute_events_with_logging(config, events, metadata={'options': 'test_circuit'})
 
 def main(config: Config, *, batch_sizes: list[int], short_test_paint: bool = False) -> None:
     events = eventlist(batch_sizes, short_test_paint=short_test_paint)
     metadata: dict[str, str] = {
         'batch_sizes': ','.join(str(bs) for bs in batch_sizes),
     }
+
+
     if short_test_paint:
         metadata = {
             **metadata,
             'options': 'short_test_paint'
         }
-        ATTENTION(
-            'Short test paint mode, NOT real cell painting',
-            require_confirmation=True
-        )
+        robots.test_comm(config)
+        ATTENTION('''
+            Short test paint mode, NOT real cell painting
+        ''')
 
     execute_events_with_logging(config, events, metadata)
 

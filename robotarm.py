@@ -190,23 +190,23 @@ class Robotarm:
         return Robotarm(with_gripper, sock, quiet)
 
     @staticmethod
-    def init_simulate(with_gripper: bool, quiet: bool = False) -> Robotarm:
-        return Robotarm(with_gripper, 'simulate', quiet)
+    def init_noop(with_gripper: bool, quiet: bool = False) -> Robotarm:
+        return Robotarm(with_gripper, 'noop', quiet)
 
     with_gripper: bool
-    sock: socket.socket | Literal['simulate']
+    sock: socket.socket | Literal['noop']
     quiet: bool = False
 
     def send(self, prog_str: str) -> Robotarm:
         prog_bytes = prog_str.encode()
-        if self.sock == 'simulate':
+        if self.sock == 'noop':
             return self
         # print(prog_str)
         self.sock.sendall(prog_bytes)
         return self
 
     def recv(self) -> Iterator[bytes]:
-        if self.sock == 'simulate':
+        if self.sock == 'noop':
             raise RuntimeError
         while True:
             data = self.sock.recv(4096)
@@ -219,7 +219,7 @@ class Robotarm:
             yield data
 
     def recv_until(self, needle: str) -> None:
-        if self.sock == 'simulate':
+        if self.sock == 'noop':
             return
         for data in self.recv():
             if needle.encode() in data:
@@ -227,7 +227,7 @@ class Robotarm:
                 return
 
     def close(self) -> None:
-        if self.sock == 'simulate':
+        if self.sock == 'noop':
             return
         self.sock.close()
 

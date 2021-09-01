@@ -16,13 +16,14 @@ import protocol
 
 def main():
     parser = argparse.ArgumentParser(description='Make the lab robots do things.', )
-    parser.add_argument('--config', metavar='NAME', type=str, default='dry-run', help='Config to use')
+    parser.add_argument('--config', metavar='NAME', type=str, default='dry-run', help=argparse.SUPPRESS)
     for k, v in configs.items():
         parser.add_argument('--' + k, dest="config", action="store_const", const=k, help='Run with config ' + k)
 
     parser.add_argument('--cell-paint', metavar='BS', type=str, default=None, help='Cell paint with batch sizes of BS, separated by comma (such as 6,6 for 2x6). Plates start stored in incubator L1, L2, ..')
     parser.add_argument('--short-test-paint', action='store_true', help='Run a shorter test version of the cell painting protocol')
     parser.add_argument('--test-circuit', action='store_true', help='Test circuit: start with one plate with lid on incubator transfer door, and all other positions empty!')
+    parser.add_argument('--test-comm', action='store_true', help=robots.test_comm.__doc__.strip())
 
     parser.add_argument('--wash', type=str, help='Run a program on the washer')
     parser.add_argument('--disp', type=str, help='Run a program on the dispenser')
@@ -47,6 +48,7 @@ def main():
         raise ValueError(f'Unknown {config_name = }. Available: {show(configs.keys())}')
 
     print(f'Using', config.name(), 'config =', show(config))
+    print(f'{args.robotarm_speed = }')
 
     if args.cell_paint:
         robots.get_robotarm(config).set_speed(args.robotarm_speed).close()
@@ -60,6 +62,9 @@ def main():
         robots.get_robotarm(config).set_speed(args.robotarm_speed).close()
         protocol.test_circuit(config=config)
 
+    elif args.test_comm:
+        robots.test_comm(config)
+
     elif args.robotarm:
         runtime = robots.Runtime(config)
         robots.get_robotarm(config).set_speed(args.robotarm_speed).close()
@@ -67,7 +72,7 @@ def main():
             if name in movelists:
                 robots.robotarm_cmd(name).execute(runtime, {})
             else:
-                print('Unknown program:', name)
+                raise ValueError(f'Unknown program: {name}')
 
     elif args.robotarm_send:
         arm = robots.get_robotarm(config)
