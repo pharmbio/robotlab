@@ -3,16 +3,18 @@ import logging
 from flask import Flask
 from IncubatorSTX import IncubatorSTX
 
-# Constants
-PORT = 5003
+import os
 
 if __name__ == '__main__':
+    PORT = int(os.environ.get('PORT', 5051))
+    HOST = os.environ.get('HOST', '10.10.0.56')
+
     # Init logging
     logging.basicConfig(level=logging.DEBUG)
     logging.info("Before start server")
 
     # Create Incubator object
-    incubator = IncubatorSTX("STX", "130.238.44.60", 3333)
+    incubator = IncubatorSTX("STX", "localhost", 3333)
 
     # Create webserver and map rest-api to runner methods
     server = Flask(__name__)
@@ -24,12 +26,12 @@ if __name__ == '__main__':
     server.add_url_rule('/getClimate', 'getClimate', incubator.getClimate)
     server.add_url_rule('/getPresetClimate', 'getPresetClimate', incubator.getPresetClimate)
     server.add_url_rule('/setPresetClimate/<int:temp>/<int:humid>/<int:co2>/<int:n2>', 'setPresetClimate', incubator.setPresetClimate)
-    server.run(host='0.0.0.0', port=PORT)
+    server.run(host=HOST, port=PORT)
 
     #
     # Example rest-calls
     #
-    # http://localhost:5003/is_ready
-    # http://localhost:5003/resetAndActivate
-    # 
+    # http://10.10.0.56:5050/is_ready
+    # http://10.10.0.56:5050/resetAndActivate
+    #
     #

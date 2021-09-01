@@ -93,7 +93,7 @@ class IncubatorSTX:
             response = [{"status": "ERROR",
                         "value": "",
                         "details": "See log for traceback"}]
-            
+
         finally:
             logging.debug('Done finally')
             return jsonify(response)
@@ -149,12 +149,12 @@ class IncubatorSTX:
             response = [{"status": "ERROR",
                         "value": "",
                         "details": "See log for traceback"}]
-            
+
         finally:
             logging.debug('Done finally inputPlate')
             self._synchronization_lock.release()
             return jsonify(response)
-    
+
     def outputPlate(self, pos):
         logging.debug("Inside outputPlate, pos= " + str(pos))
 
@@ -194,7 +194,7 @@ class IncubatorSTX:
             response = [{"status": "ERROR",
                         "value": "",
                         "details": "See log for traceback"}]
-            
+
         finally:
             logging.debug('Done finally outputPlate')
             self._synchronization_lock.release()
@@ -220,7 +220,7 @@ class IncubatorSTX:
         return jsonify(response)
 
         return response
-    
+
     def getPresetClimate(self):
         logging.debug("Inside getPresetClimate")
         response = self._stxReadSetClimate()
@@ -240,7 +240,7 @@ class IncubatorSTX:
         return jsonify(response)
 
         return response
-    
+
     def setPresetClimate(self, temp, humid, co2, n2):
         logging.debug("Inside setPresetClimate")
 
@@ -253,7 +253,7 @@ class IncubatorSTX:
             response = [{"status": "ERROR",
                         "value": "",
                         "details": "See log for traceback"}]
-            
+
         finally:
             logging.debug('Done finally')
             return jsonify(response)
@@ -283,34 +283,34 @@ class IncubatorSTX:
         logging.debug("response:" + str(response))
         return response
 
-    def _movePlateFromCassetteToShovel(self, nCassette, nLevel): 
+    def _movePlateFromCassetteToShovel(self, nCassette, nLevel):
         id = self.id
         self._stx2ServiceMovePlate(id,2,nCassette,nLevel,1,1,id,3,0,0,1,1)
 
-    def _movePlateFromShovelToCassette(self, nCassette, nLevel): 
+    def _movePlateFromShovelToCassette(self, nCassette, nLevel):
         id = self.id
         self._stx2ServiceMovePlate(id,3,0,0,1,1,id,2,nCassette,nLevel,1,1)
 
-    def _movePlateFromTransferStationToShovel(self): 
+    def _movePlateFromTransferStationToShovel(self):
         id = self.id
-        self._stx2ServiceMovePlate(id,1,0,0,1,1,id,3,0,0,1,1) 
-    
-    def _movePlateFromShovelToTransferStation(self): 
+        self._stx2ServiceMovePlate(id,1,0,0,1,1,id,3,0,0,1,1)
+
+    def _movePlateFromShovelToTransferStation(self):
         id = self.id
-        self._stx2ServiceMovePlate(id,3,0,0,1,1,id,1,0,0,1,1) 
-    
+        self._stx2ServiceMovePlate(id,3,0,0,1,1,id,1,0,0,1,1)
+
     def _movePlateFromTransferStationToCassette(self, nCassette, nLevel):
         id = self.id
         self._stx2ServiceMovePlate(id,1,0,0,1,1,id,2,nCassette,nLevel,1,1)
-    
+
     def _movePlateFromCassetteToTransferStation(self, nCassette, nLevel):
         id = self.id
         self._stx2ServiceMovePlate(id,2,nCassette,nLevel,1,1,id,1,0,0,1,1)
-    
+
     def _movePlateFromCassetteToCassette(self, nCassette, nLevel, nToCassette, nToLevel):
         id = self.id
         self._stx2ServiceMovePlate(id,2,nCassette,nLevel,1,1,id,2,nToCassette,nToLevel,1,1)
-    
+
 
     def _stx2ServiceMovePlate(self, srcID, srcPos, srcSlot, srcLevel, transSrcSlot, srcPlType,
                                    trgID, trgPos, trgSlot, trgLevel, transTrgSlot, trgPlType):
@@ -375,7 +375,7 @@ class IncubatorSTX:
         cmd = "STX2IsOperationRunning(" + self.id + ")\r"
         retval = self._sendCmd(cmd)
 
-    
+
     def _stx2ReadActualClimate(self):
         logging.debug("Inside _stx2ReadActualClimate")
         cmd = "STX2ReadActualClimate(" + self.id + ")\r"
@@ -426,7 +426,7 @@ class IncubatorSTX:
         logging.debug("Inside sendCmd")
         logging.debug("cmd:" + str(cmd))
         RECIEVE_BUFFER_SIZE = 8192 # Also max response length since we are not looping response if buffer gets full
-        
+
         # convert cmd to bytes
         cmd_as_bytes = bytes(cmd, "ascii")
 
@@ -441,10 +441,11 @@ class IncubatorSTX:
         # decode recieved byte array to ascii
         response = recieved.decode('ascii')
         response = response.strip()
- 
+
         return response
 
 if __name__ == '__main__':
+    print('Debugging')
 
 
     #
@@ -457,8 +458,8 @@ if __name__ == '__main__':
     rootLogger = logging.getLogger()
 
     server = Flask(__name__)
-    
-    incu = IncubatorSTX("STX", "130.238.44.60", 3333)
+
+    incu = IncubatorSTX("STX", "localhost", 3333)
 
     incu.resetAndActivate()
     #incu.stx2Reset()
@@ -481,5 +482,5 @@ if __name__ == '__main__':
     #incu.stx2GetSysStatus()
     #incu.outputPlate(31)
     #incu.inputPlate(20)
-    incu.inputPlate(22)
+    # incu.inputPlate(22)
 

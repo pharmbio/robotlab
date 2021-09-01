@@ -49,11 +49,11 @@ sudo systemctl start incubatorSTX.service
 
 Robot URL:s
 ```
-http://incubator.lab.pharmb.io:5003/is_ready
-http://incubator.lab.pharmb.io:5003/getClimate
-http://incubator.lab.pharmb.io:5003/input_plate/xx
-http://incubator.lab.pharmb.io:5003/output_plate/xx
-http://incubator.lab.pharmb.io:5003/last_STX_response
+http://10.10.0.56:5051/is_ready
+http://10.10.0.56:5051/getClimate
+http://10.10.0.56:5051/input_plate/xx
+http://10.10.0.56:5051/output_plate/xx
+http://10.10.0.56:5051/last_STX_response
 ```
 
 

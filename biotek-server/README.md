@@ -70,6 +70,9 @@ In another terminal you can now curl to it.
 # try the test endpoint `help`, which writes windows help pages to you
 curl.exe 'http://10.10.0.56:5050/help/ren'
 
+# execute test communication on washer
+curl 'http://10.10.0.56:5000/wash/LHC_TestCommunications/'
+
 # execute test program on washer
 # make sure you have a plate in washer and D bottle with something like destilled water or PBS
 curl 'http://10.10.0.56:5000/wash/LHC_RunProtocol/automation/2_4_6_W-3X_FinalAspirate_test.LHC
