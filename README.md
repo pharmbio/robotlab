@@ -12,34 +12,34 @@ UR control box | 10.0.0.112
 
 The command line interface, `cli.py`, accepts the following configurations:
 
-config name   | timers       | disp & wash   | incu         | robotarm
----           | ---          | ---           | ---          | ---
-live          | wall         | execute       | execute      | execute
-test-all      | fast-forward | execute-short | execute      | execute
-test-arm-incu | fast-forward | instant noop  | execute      | execute
-simulator     | fast-forward | instant noop  | instant noop | execute-no-gripper
-dry-run       | instant noop | instant noop  | instant noop | instant noop
+config name   | timers   | disp & wash   | incu         | robotarm
+---           | ---      | ---           | ---          | ---
+live          | wall     | execute       | execute      | execute
+test-all      | simulate | execute       | execute      | execute
+test-arm-incu | simulate | instant noop  | execute      | execute
+simulator     | simulate | instant noop  | instant noop | execute-no-gripper
+dry-run       | simulate | instant noop  | instant noop | instant noop
 
-| filename            | description
-| ---                 | ---
-|                     | _a command line interface_
-| cli.py              | make the robots in the lab do things such as cell paint
-|                     | _a graphical user interface_
-| gui.py              | teach the robotarm moves
-|                     | _notes_
-| notes.md            | things I have learned working on this
-| run.sh              | notes that can be run
-|                     | _nice robotarm move representations_
-| moves.py            | robotarm positions in mm XYZ and degrees RPY
-| robotarm.py         | send moves to the robotarm and its gripper
-|                     | _the other lab robots_
-| robots.py           | uniform control over the washer, dispenser, incubator and the robotarm
-| protocol.py         | cell painting protocol
-| analyze_log.py      | timings statistics for a cell painting log
-|                     | _utils_
-| utils.py            | pretty printing and other small utils
-| viable.py           | a viable alternative to front-end programming
-|                     |
+| filename       | description
+| ---            | ---
+|                | _a command line interface_
+| cli.py         | make the robots in the lab do things such as cell paint
+|                | _a graphical user interface_
+| gui.py         | teach the robotarm moves
+|                | _notes_
+| notes.md       | things I have learned working on this
+| run.sh         | notes that can be run
+|                | _nice robotarm move representations_
+| moves.py       | robotarm positions in mm XYZ and degrees RPY
+| robotarm.py    | send moves to the robotarm and its gripper
+|                | _the other lab robots_
+| robots.py      | uniform control over the washer, dispenser, incubator and the robotarm
+| protocol.py    | cell painting protocol
+| analyze_log.py | timings statistics for a cell painting log
+|                | _utils_
+| utils.py       | pretty printing and other small utils
+| viable.py      | a viable alternative to front-end programming
+|                |
 
 ### Liquid handling robots
 

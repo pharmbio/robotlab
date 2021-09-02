@@ -20,8 +20,8 @@ from robotarm import Robotarm
 import utils
 from utils import Mutable
 
-import chrono
-from chrono import TimeLike, WallTime, SimulatedTime
+import timelike
+from timelike import Timelike, WallTime, SimulatedTime
 
 @dataclass(frozen=True)
 class Env:
@@ -53,8 +53,8 @@ dry_env = Env()
 
 @dataclass(frozen=True)
 class Config:
-    time:               TimeLike
-    disp_and_wash_mode: Literal['noop', 'execute', 'execute short',      ]
+    timelike_factory:   Callable[[], Timelike]
+    disp_and_wash_mode: Literal['noop', 'execute',                       ]
     incu_mode:          Literal['noop', 'execute',                       ]
     robotarm_mode:      Literal['noop', 'execute', 'execute no gripper', ]
 
@@ -66,14 +66,17 @@ class Config:
                 return k
         raise ValueError(f'unknown config {self}')
 
+simulated_and_wall = lambda: SimulatedTime(include_wall_time=True)
+simulated_no_wall  = lambda: SimulatedTime(include_wall_time=False)
+
 configs: dict[str, Config]
 configs = {
-    'live':          Config(WallTime(),      'execute',       'execute', 'execute',            live_env),
-    'test-all':      Config(SimulatedTime(), 'execute short', 'execute', 'execute',            live_env),
-    'test-arm-incu': Config(SimulatedTime(), 'noop',          'execute', 'execute',            live_arm_incu),
-    'simulator':     Config(SimulatedTime(), 'noop',          'noop',    'execute no gripper', simulator_env),
-    'forward':       Config(SimulatedTime(), 'noop',          'noop',    'execute',            forward_env),
-    'dry-run':       Config(SimulatedTime(), 'noop',          'noop',    'noop',               dry_env),
+    'live':          Config(WallTime,           'execute', 'execute', 'execute',            live_env),
+    'test-all':      Config(simulated_and_wall, 'execute', 'execute', 'execute',            live_env),
+    'test-arm-incu': Config(simulated_and_wall, 'noop',    'execute', 'execute',            live_arm_incu),
+    'simulator':     Config(simulated_and_wall, 'noop',    'noop',    'execute no gripper', simulator_env),
+    'forward':       Config(simulated_no_wall,  'noop',    'noop',    'execute',            forward_env),
+    'dry-run':       Config(simulated_no_wall,  'noop',    'noop',    'noop',               dry_env),
 }
 
 def curl(url: str, print_result: bool = False) -> Any:
@@ -121,7 +124,8 @@ class Biotek:
             "status":"99","value":"EXCEPTION"}}
 
         '''
-        while msg := runtime.chrono.queue_get(self.queue):
+        runtime.register_thread(self.name)
+        while msg := runtime.queue_get(self.queue):
             self.state = 'busy'
             command = msg.command
             metadata = msg.metadata
@@ -142,8 +146,7 @@ class Biotek:
                         elif '4X' in command.protocol_path:
                             est = 60 + 52
                         runtime.log('info', self.name, f'pretending to run for {est}s', metadata)
-                        while self.last_started + est > runtime.monotonic():
-                            time.sleep(0.0001)
+                        runtime.sleep(est)
                         res: Any = {"err":"","out":{"details":"1 - eOK","status":"1","value":""}}
                     else:
                         url = (
@@ -193,7 +196,8 @@ class Incubator:
         t.start()
 
     def loop(self, runtime: Runtime):
-        while msg := self.queue.get():
+        runtime.register_thread('incu')
+        while msg := runtime.queue_get(self.queue):
             self.state = 'busy'
             command = msg.command
             metadata = msg.metadata
@@ -203,7 +207,7 @@ class Incubator:
             with runtime.timeit('incu', command.action, metadata):
                 assert command.action in {'put', 'get', 'get_climate'}
                 if runtime.config.incu_mode == 'noop':
-                    pass
+                    runtime.sleep(15)
                 elif runtime.config.incu_mode == 'execute':
                     if command.action == 'put':
                         assert command.incu_loc is not None
@@ -240,6 +244,8 @@ class Incubator:
         assert res['status'] == 'OK', res
         return res['value'] is True
 
+A = TypeVar('A')
+
 @dataclass(frozen=True)
 class Runtime:
     config: Config
@@ -249,14 +255,11 @@ class Runtime:
     incu: Incubator  = field(default_factory=lambda: Incubator())
     log_lock: RLock  = field(default_factory=RLock)
     time_lock: RLock = field(default_factory=RLock)
-    skipped_time: Mutable[float] = Mutable.factory(0.0)
-    start_time: float            = field(default_factory=time.monotonic)
-
-    @property
-    def time(self) -> TimeLike:
-        return config.time
+    timelike: Mutable[Timelike] = Mutable.factory(cast(Any, 'initialize in __post_init__ based on config.timelike_factory'))
 
     def __post_init__(self):
+        self.timelike.value = self.config.timelike_factory()
+        self.register_thread('main')
         self.wash.start(self)
         self.disp.start(self)
         self.incu.start(self)
@@ -278,7 +281,7 @@ class Runtime:
         with self.time_lock:
             t = round(self.monotonic(), 3)
             log_time = self.now()
-        if isinstance(t0, float):
+        if isinstance(t0, (float, int)):
             duration = round(t - t0, 3)
         else:
             duration = None
@@ -292,8 +295,12 @@ class Runtime:
             'arg': arg,
             **metadata
         }
-        if self.config.time_mode == 'fast forward':
-            entry['skipped_time'] = round(self.skipped_time.value, 3)
+        if 0:
+            print('---', '\t| '.join(
+                str(v)
+                for k, v in entry.items()
+                if k not in {'log_time', 't0'}
+            ))
         utils.pr(entry)
         if self.log_filename:
             with self.log_lock:
@@ -314,34 +321,22 @@ class Runtime:
         return worker(source, arg, metadata)
 
     def now(self) -> datetime:
-        if self.config.time_mode == 'wall':
-            assert self.skipped_time.value == 0.0
-        with self.time_lock:
-            return datetime.now() + timedelta(seconds=self.skipped_time.value)
+        return datetime.now() + timedelta(seconds=self.monotonic())
 
     def monotonic(self) -> float:
-        if self.config.time_mode == 'wall':
-            assert self.skipped_time.value == 0.0
-        with self.time_lock:
-            return time.monotonic() - self.start_time + self.skipped_time.value
+        return self.timelike.value.monotonic()
 
     def sleep(self, secs: float):
-        def fmt(s: float) -> str:
-            m = int(s // 60)
-            return f'{secs}s ({m}min {s - 60 * m - 0.05:.1f}s)'
-        if secs < 0:
-            print('Behind time:', fmt(-secs), '!')
-            return
-        if self.config.time_mode == 'wall':
-            print('Sleeping for', fmt(secs), '...')
-            time.sleep(secs)
-        elif self.config.time_mode == 'fast forward':
-            if secs > 1:
-                print('Fast forwarding', fmt(secs))
-            with self.time_lock:
-                self.skipped_time.value += secs
-        else:
-            raise ValueError(self.config.time_mode)
+        return self.timelike.value.sleep(secs)
+
+    def busywait_step(self):
+        return self.timelike.value.busywait_step()
+
+    def queue_get(self, queue: SimpleQueue[A]) -> A:
+        return self.timelike.value.queue_get(queue)
+
+    def register_thread(self, name: str):
+        return self.timelike.value.register_thread(name)
 
 class Command(abc.ABC):
     @abc.abstractmethod
@@ -368,29 +363,17 @@ class Ready(Waitable):
     name: Literal['incu', 'wash', 'disp']
     def wait(self, runtime: Runtime):
         if self.name == 'incu':
-            if runtime.config.incu_mode == 'execute':
-                while not runtime.incu.is_ready():
-                    time.sleep(0.01)
-            elif runtime.config.incu_mode == 'noop':
-                pass
-            else:
-                raise ValueError(runtime.config.incu_mode)
+            while not runtime.incu.is_ready():
+                print('busywait incu')
+                runtime.busywait_step()
         elif self.name == 'wash':
             while not runtime.wash.is_ready():
-                if runtime.config.disp_and_wash_mode == 'noop':
-                    assert runtime.config.time_mode == 'fast forward'
-                    time.sleep(0.00001)
-                    runtime.sleep(1.00)
-                else:
-                    time.sleep(0.01)
+                print('busywait wash')
+                runtime.busywait_step()
         elif self.name == 'disp':
             while not runtime.disp.is_ready():
-                if runtime.config.disp_and_wash_mode == 'noop':
-                    assert runtime.config.time_mode == 'fast forward'
-                    time.sleep(0.00001)
-                    runtime.sleep(1.00)
-                else:
-                    time.sleep(0.01)
+                print('busywait disp')
+                runtime.busywait_step()
         else:
             raise ValueError(self.name)
 
@@ -435,9 +418,12 @@ class robotarm_cmd(Command):
     program_name: str
     def execute(self, runtime: Runtime, metadata: dict[str, Any]) -> None:
         with runtime.timeit('robotarm', self.program_name, metadata):
-            arm = get_robotarm(runtime.config)
-            arm.execute_moves(movelists[self.program_name], name=self.program_name)
-            arm.close()
+            if runtime.config.robotarm_mode == 'noop':
+                runtime.sleep(10)
+            else:
+                arm = get_robotarm(runtime.config)
+                arm.execute_moves(movelists[self.program_name], name=self.program_name)
+                arm.close()
 
 @dataclass(frozen=True)
 class wash_cmd(Command):
