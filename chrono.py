@@ -50,6 +50,8 @@ class SimulatedTime(Timelike):
     skipped_time: float = 0
     lock: Lock = field(default_factory=Lock)
 
+    # add option to include passed wall time as well?
+
     def register_thread(self, name: str):
         tid = threading.current_thread()
         self.threads[tid] = ThreadData(name)

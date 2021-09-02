@@ -90,8 +90,6 @@ class BiotekMessage:
     command: wash_cmd | disp_cmd
     metadata: dict[str, Any]
 
-h = SimpleQueue
-
 @dataclass
 class Biotek:
     name: Literal['wash', 'disp']
@@ -448,7 +446,7 @@ class wash_cmd(Command):
     delay: wait_for | None = None
     sub_cmd: Literal['LHC_RunProtocol', 'LHC_TestCommunications'] = 'LHC_RunProtocol'
     def execute(self, runtime: Runtime, metadata: dict[str, Any]) -> None:
-        runtime.wash.run(BiotekMessage(runtime, self, metadata))
+        runtime.wash.run(BiotekMessage(self, metadata))
 
 @dataclass(frozen=True)
 class disp_cmd(Command):
@@ -457,14 +455,14 @@ class disp_cmd(Command):
     delay: wait_for | None = None
     sub_cmd: Literal['LHC_RunProtocol', 'LHC_TestCommunications'] = 'LHC_RunProtocol'
     def execute(self, runtime: Runtime, metadata: dict[str, Any]) -> None:
-        runtime.disp.run(BiotekMessage(runtime, self, metadata))
+        runtime.disp.run(BiotekMessage(self, metadata))
 
 @dataclass(frozen=True)
 class incu_cmd(Command):
     action: Literal['put', 'get', 'get_climate']
     incu_loc: str | None
     def execute(self, runtime: Runtime, metadata: dict[str, Any]) -> None:
-        runtime.incu.run(IncubatorMessage(runtime, self, metadata))
+        runtime.incu.run(IncubatorMessage(self, metadata))
 
 def test_comm(config: Config):
     '''
