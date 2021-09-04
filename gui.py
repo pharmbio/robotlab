@@ -263,7 +263,7 @@ def index() -> Iterator[head | str]:
 
     visible_moves: list[Move] = []
 
-    for i, ((m_section, m), m_abs) in enumerate(zip(ml.with_sections(include_Section=True), ml.to_abs())):
+    for i, (m_section, m) in enumerate(ml.with_sections(include_Section=True)):
         if section != m_section[:len(section)]:
             continue
         visible_moves += [m]
@@ -291,9 +291,9 @@ def index() -> Iterator[head | str]:
                 data-index={i}
             >'''
 
-        if isinstance(m_abs, moves.MoveLin) and (xyz := info.get("xyz")) and (rpy := info.get("rpy")):
-            dx, dy, dz = dxyz = utils.zip_sub(m_abs.xyz, xyz, ndigits=6)
-            dR, dP, dY = drpy = utils.zip_sub(m_abs.rpy, rpy, ndigits=6)
+        if isinstance(m, moves.MoveLin) and (xyz := info.get("xyz")) and (rpy := info.get("rpy")):
+            dx, dy, dz = dxyz = utils.zip_sub(m.xyz, xyz, ndigits=6)
+            dR, dP, dY = drpy = utils.zip_sub(m.rpy, rpy, ndigits=6)
             dist = math.sqrt(sum(c*c for c in dxyz))
             buttons = [
                 (f'{dx: 6.1f}', moves.MoveRel(xyz=[dx, 0, 0], rpy=[0, 0, 0])),

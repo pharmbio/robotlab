@@ -191,53 +191,6 @@ class MoveList(list[Move]):
                 out += [m]
         return out
 
-    def to_rel(self) -> MoveList:
-        out = MoveList()
-        last: MoveLin | None = None
-        for m in self.to_abs():
-            if isinstance(m, MoveLin):
-                if last is None:
-                    out += [m]
-                else:
-                    out += [
-                        MoveRel(
-                            xyz=[round(a - b, 1) for a, b in zip(m.xyz, last.xyz)],
-                            rpy=[round(a - b, 1) for a, b in zip(m.rpy, last.rpy)],
-                            name=m.name,
-                            slow=m.slow,
-                            tag=m.tag,
-                        )]
-                last = m
-            elif isinstance(m, MoveRel):
-                assert False, 'to_abs returned a MoveRel'
-            elif isinstance(m, MoveJoint):
-                last = None
-                out += [m]
-            else:
-                out += [m]
-        return out
-
-    def to_abs(self) -> MoveList:
-        out = MoveList()
-        last: MoveLin | None = None
-        for m in self:
-            if isinstance(m, MoveLin):
-                last = m
-                out += [last]
-            elif isinstance(m, MoveRel):
-                if last is None:
-                    raise ValueError('MoveRel without MoveLin reference')
-                xyz = [round(float(a + b), 1) for a, b in zip(m.xyz, last.xyz)]
-                rpy = [round(float(a + b), 1) for a, b in zip(m.rpy, last.rpy)]
-                last = MoveLin(xyz=xyz, rpy=rpy, name=m.name, slow=m.slow, tag=m.tag)
-                out += [last]
-            elif isinstance(m, MoveJoint):
-                last = None
-                out += [m]
-            else:
-                out += [m]
-        return out
-
     def adjust_tagged(self, tag: str, *, dz: float) -> MoveList:
         '''
         Adjusts the z in room reference frame for all MoveLin with the given tag.
