@@ -182,15 +182,6 @@ class MoveList(list[Move]):
         )
         return json_str
 
-    def normalize(self) -> MoveList:
-        out = MoveList()
-        for m, next in utils.iterate_with_next(self):
-            if isinstance(m, Section) and (isinstance(next, Section) or next is None):
-                pass
-            else:
-                out += [m]
-        return out
-
     def adjust_tagged(self, tag: str, *, dz: float) -> MoveList:
         '''
         Adjusts the z in room reference frame for all MoveLin with the given tag.
