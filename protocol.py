@@ -21,6 +21,7 @@ from robots import DispFinished, WashStarted, Now, Ready
 from utils import pr, show, Mutable
 import robots
 import utils
+import moves
 
 def ATTENTION(s: str):
     color = utils.Color()
@@ -86,41 +87,6 @@ def execute_events(runtime: Runtime, events: list[Event]) -> None:
         }
         event.command.execute(runtime, metadata)
 
-def sleek_movements(events: list[Event]) -> list[Event]:
-    '''
-    if program A ends by h21 neu and program B by h21 neu then run:
-        program A to h21 neu
-        program B from h21 neu
-    '''
-
-    out = [*events]
-
-    arm_indicies: list[int] = [
-        i
-        for i, event in enumerate(out)
-        if isinstance(event.command, robots.robotarm_cmd)
-    ]
-
-    for i, j in utils.iterate_with_next(arm_indicies):
-        if j is None:
-            continue
-        event_a = out[i]
-        event_b = out[j]
-        a = cast(robots.robotarm_cmd, event_a.command).program_name
-        b = cast(robots.robotarm_cmd, event_b.command).program_name
-        a_ml = movelists[a]
-        b_ml = movelists[b]
-        neu, a_opt, b_opt = a_ml.optimize_transition(b_ml)
-        if neu:
-            neu = neu.removesuffix('neu').strip()
-            a2 = a + ' to ' + neu
-            b2 = b + ' from ' + neu
-            movelists[a2] = a_opt
-            movelists[b2] = b_opt
-            out[i] = replace(event_a, command=replace(event_a.command, program_name=a2))
-            out[j] = replace(event_b, command=replace(event_b.command, program_name=b2))
-    return out
-
 @dataclass(frozen=True)
 class Plate:
     id: str
@@ -168,6 +134,15 @@ lid_locs:  list[str] = [h for h in h_locs if h != h21]
 
 Desc = tuple[Plate, str, str]
 
+def robotarm_cmds(s: str, before_pick: list[robots.Command] = [], after_drop: list[robots.Command] = []) -> list[robots.Command]:
+    return [
+        robots.robotarm_cmd(s + ' prep'),
+        *before_pick,
+        robots.robotarm_cmd(s + ' transfer'),
+        *after_drop,
+        robots.robotarm_cmd(s + ' return'),
+    ]
+
 def paint_batch(batch: list[Plate], short_test_paint: bool=False):
 
     first_plate = batch[0]
@@ -176,37 +151,33 @@ def paint_batch(batch: list[Plate], short_test_paint: bool=False):
     chunks: dict[Desc, Iterable[Command]] = {}
     for plate in batch:
         lid_mount = [
-            robots.robotarm_cmd(plate.lid_get),
+            *robotarm_cmds(plate.lid_get),
         ]
 
         lid_unmount = [
-            robots.robotarm_cmd(plate.lid_put),
+            *robotarm_cmds(plate.lid_put),
         ]
 
         incu_get = [
             robots.incu_cmd('get', plate.incu_loc),
-            robots.robotarm_cmd('incu get prep'),
-            robots.wait_for(Ready('incu')),
-            robots.robotarm_cmd('incu get main'),
+            *robotarm_cmds('incu get', before_pick = [robots.wait_for(Ready('incu'))]),
             *lid_unmount,
         ]
 
         incu_put = [
             *lid_mount,
-            robots.robotarm_cmd('incu put main'),
-            robots.incu_cmd('put', plate.incu_loc),
-            robots.robotarm_cmd('incu put return'),
+            *robotarm_cmds('incu put', after_drop = [robots.incu_cmd('put', plate.incu_loc)]),
             robots.wait_for(Ready('incu')),
         ]
 
         RT_get = [
-            robots.robotarm_cmd(plate.r_get),
+            *robotarm_cmds(plate.r_get),
             *lid_unmount,
         ]
 
         RT_put = [
             *lid_mount,
-            robots.robotarm_cmd(plate.r_put),
+            *robotarm_cmds(plate.r_put),
         ]
 
         def wash(wash_wait: robots.wait_for | None, wash_path: str, disp_prime_path: str | None=None):
@@ -215,7 +186,8 @@ def paint_batch(batch: list[Plate], short_test_paint: bool=False):
             else:
                 disp_prime = []
             return [
-                robots.robotarm_cmd('wash put main'),
+                robots.robotarm_cmd('wash put prep'),
+                robots.robotarm_cmd('wash put transfer'),
                 robots.wash_cmd(wash_path, delay=wash_wait),
                 *disp_prime,
                 robots.robotarm_cmd('wash put return'),
@@ -234,18 +206,18 @@ def paint_batch(batch: list[Plate], short_test_paint: bool=False):
         disp_to_incu = [
             robots.robotarm_cmd('disp get prep'),
             robots.wait_for(Ready('disp')),
-            robots.robotarm_cmd('disp get main'),
+            robots.robotarm_cmd('disp get transfer'),
+            robots.robotarm_cmd('disp get return'),
             *incu_put,
         ]
 
         disp_to_RT = [
             robots.robotarm_cmd('disp get prep'),
             robots.wait_for(Ready('disp')),
-            robots.robotarm_cmd('disp get main'),
+            robots.robotarm_cmd('disp get transfer'),
+            robots.robotarm_cmd('disp get return'),
             *RT_put,
         ]
-
-        p = plate
 
         guesstimate_time_wash_3X_minus_incu_pop = 45 # can probably be increased
         guesstimate_time_wash_3X_minus_RT_pop   = 60 # can probably be increased
@@ -258,13 +230,13 @@ def paint_batch(batch: list[Plate], short_test_paint: bool=False):
             incu_30 = 3 + 2 * len(batch)
             incu_20 = 2 + 2 * len(batch)
 
-        if p is first_plate:
+        if plate is first_plate:
             incu_wait_1 = []
             wash_wait_1 = None
-            incu_wait_2 = [robots.wait_for(DispFinished(p.id)) + (incu_30 - 1) * 60]
-            incu_wait_3 = [robots.wait_for(DispFinished(p.id)) + (incu_20 - 1) * 60]
-            incu_wait_4 = [robots.wait_for(DispFinished(p.id)) + (incu_20 - 1) * 60]
-            incu_wait_5 = [robots.wait_for(DispFinished(p.id)) + (incu_20 - 1) * 60]
+            incu_wait_2 = [robots.wait_for(DispFinished(plate.id)) + (incu_30 - 1) * 60]
+            incu_wait_3 = [robots.wait_for(DispFinished(plate.id)) + (incu_20 - 1) * 60]
+            incu_wait_4 = [robots.wait_for(DispFinished(plate.id)) + (incu_20 - 1) * 60]
+            incu_wait_5 = [robots.wait_for(DispFinished(plate.id)) + (incu_20 - 1) * 60]
         else:
             incu_wait_1 = [robots.wait_for(WashStarted()) + guesstimate_time_wash_3X_minus_incu_pop]
             wash_wait_1 =  robots.wait_for(Now())         + guesstimate_time_wash_4X_minus_wash_3X
@@ -273,42 +245,40 @@ def paint_batch(batch: list[Plate], short_test_paint: bool=False):
             incu_wait_4 = [robots.wait_for(WashStarted()) + guesstimate_time_wash_3X_minus_RT_pop]
             incu_wait_5 = [robots.wait_for(WashStarted()) + guesstimate_time_wash_3X_minus_RT_pop]
 
-        wash_wait_2 = robots.wait_for(DispFinished(p.id)) + incu_30 * 60
-        wash_wait_3 = robots.wait_for(DispFinished(p.id)) + incu_20 * 60
-        wash_wait_4 = robots.wait_for(DispFinished(p.id)) + incu_20 * 60
-        wash_wait_5 = robots.wait_for(DispFinished(p.id)) + incu_20 * 60
+        wash_wait_2 = robots.wait_for(DispFinished(plate.id)) + incu_30 * 60
+        wash_wait_3 = robots.wait_for(DispFinished(plate.id)) + incu_20 * 60
+        wash_wait_4 = robots.wait_for(DispFinished(plate.id)) + incu_20 * 60
+        wash_wait_5 = robots.wait_for(DispFinished(plate.id)) + incu_20 * 60
 
-        chunks[p, 'Mito', 'to h21']            = [*incu_wait_1, *incu_get]
-        chunks[p, 'Mito', 'to wash']           = wash(wash_wait_1, wash_protocols['1'], Mito_prime)
-        chunks[p, 'Mito', 'to disp']           = disp(Mito_disp)
-        chunks[p, 'Mito', 'to incu via h21']   = disp_to_incu
+        chunks[plate, 'Mito', 'to h21']            = [*incu_wait_1, *incu_get]
+        chunks[plate, 'Mito', 'to wash']           = wash(wash_wait_1, wash_protocols['1'], Mito_prime)
+        chunks[plate, 'Mito', 'to disp']           = disp(Mito_disp)
+        chunks[plate, 'Mito', 'to incu via h21']   = disp_to_incu
 
-        chunks[p, 'PFA', 'to h21']             = [*incu_wait_2, *incu_get]
-        chunks[p, 'PFA', 'to wash']            = wash(wash_wait_2, wash_protocols['2'], PFA_prime)
-        chunks[p, 'PFA', 'to disp']            = disp(PFA_disp)
-        chunks[p, 'PFA', 'to incu via h21']    = disp_to_RT
+        chunks[plate, 'PFA', 'to h21']             = [*incu_wait_2, *incu_get]
+        chunks[plate, 'PFA', 'to wash']            = wash(wash_wait_2, wash_protocols['2'], PFA_prime)
+        chunks[plate, 'PFA', 'to disp']            = disp(PFA_disp)
+        chunks[plate, 'PFA', 'to incu via h21']    = disp_to_RT
 
-        chunks[p, 'Triton', 'to h21']          = [*incu_wait_3, *RT_get]
-        chunks[p, 'Triton', 'to wash']         = wash(wash_wait_3, wash_protocols['3'], Triton_prime)
-        chunks[p, 'Triton', 'to disp']         = disp(Triton_disp)
-        chunks[p, 'Triton', 'to incu via h21'] = disp_to_RT
+        chunks[plate, 'Triton', 'to h21']          = [*incu_wait_3, *RT_get]
+        chunks[plate, 'Triton', 'to wash']         = wash(wash_wait_3, wash_protocols['3'], Triton_prime)
+        chunks[plate, 'Triton', 'to disp']         = disp(Triton_disp)
+        chunks[plate, 'Triton', 'to incu via h21'] = disp_to_RT
 
-        chunks[p, 'Stains', 'to h21']          = [*incu_wait_4, *RT_get]
-        chunks[p, 'Stains', 'to wash']         = wash(wash_wait_4, wash_protocols['4'], Stains_prime)
-        chunks[p, 'Stains', 'to disp']         = disp(Stains_disp)
-        chunks[p, 'Stains', 'to incu via h21'] = disp_to_RT
+        chunks[plate, 'Stains', 'to h21']          = [*incu_wait_4, *RT_get]
+        chunks[plate, 'Stains', 'to wash']         = wash(wash_wait_4, wash_protocols['4'], Stains_prime)
+        chunks[plate, 'Stains', 'to disp']         = disp(Stains_disp)
+        chunks[plate, 'Stains', 'to incu via h21'] = disp_to_RT
 
-        chunks[p, 'Final', 'to h21']           = [*incu_wait_5, *RT_get]
-        chunks[p, 'Final', 'to wash']          = wash(wash_wait_5, wash_protocols['5'])
-        chunks[p, 'Final', 'to r21 from wash'] = [
-            robots.robotarm_cmd('wash_to_r21 get prep'),
-            robots.wait_for(Ready('wash')),
-            robots.robotarm_cmd('wash_to_r21 get main')
+        chunks[plate, 'Final', 'to h21']           = [*incu_wait_5, *RT_get]
+        chunks[plate, 'Final', 'to wash']          = wash(wash_wait_5, wash_protocols['5'])
+        chunks[plate, 'Final', 'to r21 from wash'] = [
+            *robotarm_cmds('wash_to_r21 get', before_pick=[robots.wait_for(Ready('wash'))])
         ]
-        chunks[p, 'Final', 'to out via r21 and h21']   = [
-            robots.robotarm_cmd('r21 get'),
+        chunks[plate, 'Final', 'to out via r21 and h21'] = [
+            *robotarm_cmds('r21 get'),
             *lid_mount,
-            robots.robotarm_cmd(plate.out_put),
+            *robotarm_cmds(plate.out_put)
         ]
 
     from collections import defaultdict
@@ -451,7 +421,12 @@ def eventlist(batch_sizes: list[int], short_test_paint: bool = False, sleek: boo
             short_test_paint=short_test_paint,
         )
         if sleek:
-            events = sleek_movements(events)
+            def get_movelist(event: Event) -> moves.MoveList | None:
+                if isinstance(event.command, robots.robotarm_cmd):
+                    return movelists[event.command.program_name]
+                else:
+                    return None
+            events = moves.sleek_movements(events, get_movelist)
         all_events += events
     return all_events
 

@@ -301,6 +301,8 @@ class Runtime:
                 for k, v in entry.items()
                 if k not in {'log_time', 't0'}
             ))
+        if 0:
+            print('program_name:', entry.get('arg'))
         utils.pr(entry)
         if self.log_filename:
             with self.log_lock:

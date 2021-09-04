@@ -11,7 +11,7 @@
   {"type": "MoveLin", "xyz": [508.0, 370.7, 818.0], "rpy": [-0.0, -4.0, -132.5], "tag": "21/21", "name": "out21 drop neu"},
   {"type": "MoveLin", "xyz": [508.0, 370.7, 800.5], "rpy": [0.0, -4.0, -132.5], "tag": "21/21", "name": "out21 drop"},
   {"type": "GripperMove", "pos": 88},
-  {"type": "MoveLin", "xyz": [508.0, 370.7, 818.0], "rpy": [-0.0, -4.0, -132.5], "tag": "21/21", "name": "out21 drop"},
+  {"type": "MoveLin", "xyz": [508.0, 370.7, 818.0], "rpy": [-0.0, -4.0, -132.5], "tag": "21/21", "name": "out21 drop neu"},
   {"type": "MoveLin", "xyz": [394.5, 251.6, 817.9], "rpy": [-0.0, -4.0, -132.9], "tag": "21/21", "name": "out21 entrance"},
   {"type": "MoveLin", "xyz": [394.5, 251.6, 817.9], "rpy": [-0.0, -4.0, -132.9], "name": "out neu"},
   {"type": "MoveLin", "xyz": [209.1, -427.0, 818.0], "rpy": [-0.0, -4.0, 90.1], "name": "h neu"},
