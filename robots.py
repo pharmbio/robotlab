@@ -40,6 +40,7 @@ def estimates_from(path: str) -> dict[Estimated, float]:
         arg = v['arg']
         if duration is not None and source in sources:
             ests[source, arg].append(duration)
+    utils.pr(sorted(ests.items()))
     return {est: sum(vs) / len(vs) for est, vs in ests.items()}
 
 @dataclass(frozen=True)
@@ -155,9 +156,9 @@ class Biotek:
                     command.delay.execute(runtime, metadata)
             # print(self.name, command.plate_id, runtime.t0s)
             if command.plate_id:
-                time_name = command.plate_id + ' ' + {'wash': 'incubation', 'disp': 'transfer'}[self.name]
-                if (t0 := runtime.t0s.pop(time_name, None)):
-                    runtime.log('end', 'time', time_name, t0=t0)
+                time_name = {'wash': 'incubation', 'disp': 'transfer'}[self.name]
+                if (t0 := runtime.t0s.pop((command.plate_id, time_name), None)):
+                    runtime.log('end', 'time', time_name, metadata=metadata, t0=t0)
             with runtime.timeit(self.name, log_arg, metadata):
                 while True:
                     self.last_started = runtime.monotonic()
@@ -188,8 +189,8 @@ class Biotek:
             self.last_finished = runtime.monotonic()
             if command.plate_id:
                 self.last_finished_by_plate_id[command.plate_id] = self.last_finished
-                time_name = command.plate_id + ' ' + {'disp': 'incubation', 'wash': 'transfer'}[self.name]
-                runtime.t0s[time_name] = self.last_finished
+                time_name = {'disp': 'incubation', 'wash': 'transfer'}[self.name]
+                runtime.t0s[command.plate_id, time_name] = self.last_finished
             # print(self.name, 'ready')
             self.state = 'ready'
 
@@ -225,10 +226,11 @@ class Incubator:
             if command.incu_loc is not None:
                 metadata = {**metadata, 'action': command.action, 'loc': command.incu_loc}
                 arg = command.action + ' ' + command.incu_loc
-                if command.action == 'get' and (t0 := runtime.t0s.pop(command.incu_loc, None)):
-                    runtime.log('end', 'time', command.incu_loc, t0=t0)
+                time_tuple = command.incu_loc, 'incubator'
+                if command.action == 'get' and (t0 := runtime.t0s.pop(time_tuple, None)):
+                    runtime.log('end', 'time', 'incubator', metadata=metadata, t0=t0)
                 elif command.action == 'put':
-                    runtime.t0s[command.incu_loc] = runtime.monotonic()
+                    runtime.t0s[time_tuple] = runtime.monotonic()
             else:
                 arg = command.action
             with runtime.timeit('incu', arg, metadata):
@@ -283,9 +285,10 @@ class Runtime:
     incu: Incubator  = field(default_factory=lambda: Incubator())
     log_lock: RLock  = field(default_factory=RLock)
     time_lock: RLock = field(default_factory=RLock)
-    t0s: dict[str, float] = field(default_factory=dict)
+    t0s: dict[tuple[str, str], float] = field(default_factory=dict)
     estimates: dict[Estimated, float] = field(default_factory=dict)
     timelike: Mutable[Timelike] = Mutable.factory(cast(Any, 'initialize in __post_init__ based on config.timelike_factory'))
+    times: dict[str, list[float]] = field(default_factory=lambda: cast(Any, defaultdict(list)))
 
     def __post_init__(self):
         self.timelike.value = self.config.timelike_factory()
@@ -293,12 +296,13 @@ class Runtime:
         self.wash.start(self)
         self.disp.start(self)
         self.incu.start(self)
-        self.estimates.update(estimates_from('timings.jsonl'))
+        self.estimates.update(estimates_from('timings_v2_ms.jsonl'))
 
     def est(self, source: Literal['wash', 'disp', 'robotarm', 'incu'], arg: str) -> float:
         if ret := self.estimates.get((source, arg)):
             return ret
         else:
+            raise ValueError(f'No timing for {(source, arg)=}')
             if source == 'wash':
                 if '1X' in arg:
                     return 60.0 + 34 # ?
@@ -346,17 +350,25 @@ class Runtime:
             'arg': arg,
             **metadata
         }
+        if source == 'time' and kind == 'end' and duration is not None:
+            self.times[str(arg)].append(duration)
         if 1:
-            if 1 or kind == 'end': # and source in {'time', 'wait'}: # not in {'robotarm', 'wait', 'wash_delay', 'disp_delay', 'experiment'}:
-                print('\t|'.join(
-                    f'{str(v).removeprefix("automation_v2_ms/"): <50}'
+            # if 1 or kind == 'end': # and source in {'time', 'wait'}: # not in {'robotarm', 'wait', 'wash_delay', 'disp_delay', 'experiment'}:
+            if source == 'time':
+                print(' | '.join(
+                    ' ' * 8
+                    if v is None else
+                    f'{str(v).removeprefix("automation_v2_ms/"): <64}'
                     if k == 'arg' else
                     f'{str(v): <10}'
                     if k == 'source' else
-                    str(v)
+                    f'{v:8.2f}'
+                    if isinstance(v, float) else
+                    f'{str(v): <8}'
+
                     for k, v in entry.items()
-                    if k not in {'log_time', 't0', 'event_machine'}
-                    if v not in {None, ''} or k == 'duration'
+                    if k not in {'log_time', 't0', 'event_machine', 'event_id'}
+                    if v not in {None, ''} or k in 'duration'
                 ))
         if 0:
             utils.pr(entry)
@@ -508,18 +520,6 @@ class incu_cmd(Command):
     incu_loc: str | None
     def execute(self, runtime: Runtime, metadata: dict[str, Any]) -> None:
         runtime.incu.run(IncubatorMessage(self, metadata))
-
-@dataclass(frozen=True)
-class time_begin_cmd(Command):
-    name: str
-    def execute(self, runtime: Runtime, metadata: dict[str, Any]) -> None:
-        runtime.t0s[self.name] = runtime.log('begin', 'time', self.name, metadata)
-
-@dataclass(frozen=True)
-class time_end_cmd(Command):
-    name: str
-    def execute(self, runtime: Runtime, metadata: dict[str, Any]) -> None:
-        runtime.log('end', 'time', self.name, metadata, t0=runtime.t0s.pop(self.name))
 
 def test_comm(config: RuntimeConfig):
     '''

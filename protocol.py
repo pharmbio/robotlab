@@ -124,6 +124,11 @@ class ProtocolConfig:
     guesstimate_time_wash_4X_minus_wash_3X:  int
     prep_wash: str | None = None
     prep_disp: str | None = None
+    delay_before_first_wash: int = 0
+    separation_between_first_washes: int = 0
+    wait_before_incu_get_1st: Steps[int] = Steps(0,60,60,60,60)
+    wait_before_incu_get_2nd: Steps[int] = Steps(60,60,60,60,60)
+    wait_before_incu_get_rest: Steps[int] = Steps(60,60,60,60,60)
 
 v1 = ProtocolConfig(
     wash = Steps(
@@ -208,10 +213,15 @@ v2_ms = ProtocolConfig(
         'automation_v2_ms/8_D_P2_20ul_STAINS.LHC',
         '',
     ),
-    incu = Steps(30, 20, 20, 20, 0),
-    guesstimate_time_wash_3X_minus_incu_pop = 101, # TODO
-    guesstimate_time_wash_3X_minus_RT_pop   = 100, # TODO
-    guesstimate_time_wash_4X_minus_wash_3X  = 2, # TODO
+    incu = Steps(20, 20, 20, 20, 0),
+    guesstimate_time_wash_3X_minus_incu_pop = 110, # TODO
+    guesstimate_time_wash_3X_minus_RT_pop   = 60,  # TODO
+    guesstimate_time_wash_4X_minus_wash_3X  = 200, # TODO
+    delay_before_first_wash         = 0,
+    separation_between_first_washes = 0,
+    wait_before_incu_get_1st  = Steps(0,60,40,40,40),
+    wait_before_incu_get_2nd  = Steps(0,171,0,0,0),
+    wait_before_incu_get_rest = Steps(0,171,0,0,0),
 )
 
 def time_protocol(config: RuntimeConfig, protocol_config: ProtocolConfig, include_robotarm: bool):
@@ -392,6 +402,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig, short_test_
     ]
 
     first_plate = batch[0]
+    second_plate = batch[1] if len(batch) >= 2 else None
     last_plate = batch[-1]
 
     chunks: dict[Desc, Iterable[Command]] = {}
@@ -466,7 +477,8 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig, short_test_
         ]
 
         wait_before_wash_start: dict[int, robots.wait_for | None] = {
-            1: robots.wait_for(Now()) + p.guesstimate_time_wash_4X_minus_wash_3X,
+            # 1: robots.wait_for(Now()) + p.delay_before_first_wash,
+            1: robots.wait_for(WashStarted()) + p.separation_between_first_washes,
             2: robots.wait_for(DispFinished(plate.id)) + p.incu[1] * 60,
             3: robots.wait_for(DispFinished(plate.id)) + p.incu[2] * 60,
             4: robots.wait_for(DispFinished(plate.id)) + p.incu[3] * 60,
@@ -474,21 +486,29 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig, short_test_
         }
 
         if plate is first_plate:
-            wait_before_wash_start[1] = None
+            wait_before_wash_start[1] = robots.wait_for(Now()) + p.delay_before_first_wash
             wait_before_incu_get = {
                 1: [],
-                2: [robots.wait_for(DispFinished(plate.id)) + (p.incu[1] * 60 - 65)],
-                3: [robots.wait_for(DispFinished(plate.id)) + (p.incu[2] * 60 - 50)],
-                4: [robots.wait_for(DispFinished(plate.id)) + (p.incu[3] * 60 - 60)],
-                5: [robots.wait_for(DispFinished(plate.id)) + (p.incu[4] * 60 - 60)],
+                2: [robots.wait_for(DispFinished(plate.id)) + (p.incu[1] * 60 - p.wait_before_incu_get_1st[2])],
+                3: [robots.wait_for(DispFinished(plate.id)) + (p.incu[2] * 60 - p.wait_before_incu_get_1st[3])],
+                4: [robots.wait_for(DispFinished(plate.id)) + (p.incu[3] * 60 - p.wait_before_incu_get_1st[4])],
+                5: [robots.wait_for(DispFinished(plate.id)) + (p.incu[4] * 60 - p.wait_before_incu_get_1st[5])],
+            }
+        elif plate is second_plate:
+            wait_before_incu_get: dict[int, list[robots.wait_for]] = {
+                1: [robots.wait_for(WashStarted()) + p.wait_before_incu_get_2nd[1]],
+                2: [robots.wait_for(WashStarted()) + p.wait_before_incu_get_2nd[2]],
+                3: [robots.wait_for(WashStarted()) + p.wait_before_incu_get_2nd[3]],
+                4: [robots.wait_for(WashStarted()) + p.wait_before_incu_get_2nd[4]],
+                5: [robots.wait_for(WashStarted()) + p.wait_before_incu_get_2nd[5]],
             }
         else:
             wait_before_incu_get: dict[int, list[robots.wait_for]] = {
-                1: [robots.wait_for(WashStarted()) + p.guesstimate_time_wash_3X_minus_incu_pop],
-                2: [robots.wait_for(WashStarted()) + p.guesstimate_time_wash_3X_minus_incu_pop],
-                3: [robots.wait_for(WashStarted()) + p.guesstimate_time_wash_3X_minus_RT_pop],
-                4: [robots.wait_for(WashStarted()) + p.guesstimate_time_wash_3X_minus_RT_pop],
-                5: [robots.wait_for(WashStarted()) + p.guesstimate_time_wash_3X_minus_RT_pop],
+                1: [robots.wait_for(WashStarted()) + p.wait_before_incu_get_rest[1]],
+                2: [robots.wait_for(WashStarted()) + p.wait_before_incu_get_rest[2]],
+                3: [robots.wait_for(WashStarted()) + p.wait_before_incu_get_rest[3]],
+                4: [robots.wait_for(WashStarted()) + p.wait_before_incu_get_rest[4]],
+                5: [robots.wait_for(WashStarted()) + p.wait_before_incu_get_rest[5]],
             }
 
 
@@ -559,33 +579,61 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig, short_test_
 
     for A, B, C in utils.iterate_with_context(batch):
         for part in parts:
-            if part != 'Final':
-                # seq(A, B) := t[A] < t[B]
-                seq([
-                    desc(A, part, 'to h21'),
-                    desc(A, part, 'to wash'),
-                    desc(B, part, 'to h21'),
-                    desc(A, part, 'to disp'),
-                    desc(B, part, 'to wash'),
-                    desc(A, part, 'to incu via h21'),
-                    desc(C, part, 'to h21'),
-                    desc(B, part, 'to disp'),
-                    desc(C, part, 'to wash'),
-                    desc(B, part, 'to incu via h21'),
-                ])
-            if part == 'Final':
-                seq([
-                    desc(A, part, 'to h21'),
-                    desc(A, part, 'to wash'),
-                    desc(B, part, 'to h21'),
-                    desc(A, part, 'to r21 from wash'),
-                    desc(B, part, 'to wash'),
-                    desc(A, part, 'to out via r21 and h21'),
-                    desc(C, part, 'to h21'),
-                    desc(B, part, 'to r21 from wash'),
-                    desc(C, part, 'to wash'),
-                    desc(B, part, 'to out via r21 and h21'),
-                ])
+            if 0:
+                if part != 'Final':
+                    # seq(A, B) := t[A] < t[B]
+                    seq([
+                        desc(A, part, 'to h21'),
+                        desc(A, part, 'to wash'),
+                        desc(B, part, 'to h21'),
+                        desc(A, part, 'to disp'),
+                        desc(B, part, 'to wash'),
+                        desc(A, part, 'to incu via h21'),
+                        desc(C, part, 'to h21'),
+                        desc(B, part, 'to disp'),
+                        desc(C, part, 'to wash'),
+                        desc(B, part, 'to incu via h21'),
+                    ])
+                if part == 'Final':
+                    seq([
+                        desc(A, part, 'to h21'),
+                        desc(A, part, 'to wash'),
+                        desc(B, part, 'to h21'),
+                        desc(A, part, 'to r21 from wash'),
+                        desc(B, part, 'to wash'),
+                        desc(A, part, 'to out via r21 and h21'),
+                        desc(C, part, 'to h21'),
+                        desc(B, part, 'to r21 from wash'),
+                        desc(C, part, 'to wash'),
+                        desc(B, part, 'to out via r21 and h21'),
+                    ])
+            else:
+                if part != 'Final':
+                    seq([
+                        desc(A, part, 'to h21'),
+                        desc(A, part, 'to wash'),
+                        desc(A, part, 'to disp'),
+                        desc(A, part, 'to incu via h21'),
+                        desc(B, part, 'to h21'),
+                        desc(B, part, 'to wash'),
+                        desc(B, part, 'to disp'),
+                        desc(B, part, 'to incu via h21'),
+                        desc(C, part, 'to h21'),
+                        desc(C, part, 'to wash'),
+                    ])
+                if part == 'Final':
+                    seq([
+                        desc(A, part, 'to h21'),
+                        desc(A, part, 'to wash'),
+                        desc(A, part, 'to r21 from wash'),
+                        desc(A, part, 'to out via r21 and h21'),
+                        desc(B, part, 'to h21'),
+                        desc(B, part, 'to wash'),
+                        desc(B, part, 'to r21 from wash'),
+                        desc(B, part, 'to out via r21 and h21'),
+                        desc(C, part, 'to h21'),
+                        desc(C, part, 'to wash'),
+                    ])
 
     deps: dict[Desc, set[Desc]] = defaultdict(set)
     for node, nexts in adjacent.items():
@@ -713,7 +761,9 @@ def main(config: RuntimeConfig, protocol_config: ProtocolConfig, *, batch_sizes:
             Short test paint mode, NOT real cell painting
         ''')
 
-    execute_events_with_logging(config, events, metadata)
+    runtime = execute_events_with_logging(config, events, metadata)
+    for k, v in runtime.times.items():
+        print(k, v)
 
 import contextlib
 
@@ -732,11 +782,6 @@ def runtime_with_logging(config: RuntimeConfig, metadata: dict[str, str]) -> Ite
 
     runtime = robots.Runtime(config=config, log_filename=log_filename)
 
-    # a little hack for now ...
-    runtime.estimates.update({
-        ('disp', v2_ms.disp.Mito): 60 + 7,
-    })
-
     metadata['git_HEAD'] = utils.git_HEAD() or ''
     metadata['host']     = platform.node()
     try:
@@ -746,7 +791,8 @@ def runtime_with_logging(config: RuntimeConfig, metadata: dict[str, str]) -> Ite
         runtime.log('error', 'exception', traceback.format_exc())
         raise e
 
-def execute_events_with_logging(config: RuntimeConfig, events: list[Event], metadata: dict[str, str]) -> None:
+def execute_events_with_logging(config: RuntimeConfig, events: list[Event], metadata: dict[str, str]) -> Runtime:
     with runtime_with_logging(config, metadata) as runtime:
         execute_events(runtime, events)
+        return runtime
 
