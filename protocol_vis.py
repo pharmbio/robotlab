@@ -11,7 +11,7 @@ import utils
 
 from protocol import Event
 import protocol
-from robots import Config, configs
+from robots import RuntimeConfig, configs
 
 colors = dict(
     background = '#fff',

@@ -3,7 +3,7 @@ from typing import *
 
 import argparse
 
-from robots import Config, configs
+from robots import RuntimeConfig, configs
 from utils import show
 
 import robots
@@ -24,6 +24,8 @@ def main():
     parser.add_argument('--short-test-paint', action='store_true', help='Run a shorter test version of the cell painting protocol')
     parser.add_argument('--test-circuit', action='store_true', help='Test circuit: start with one plate with lid on incubator transfer door, and all other positions empty!')
     parser.add_argument('--test-comm', action='store_true', help=robots.test_comm.__doc__.strip())
+    parser.add_argument('--time-protocol', action='store_true', help='Timing for all lab components.')
+    parser.add_argument('--time-protocol-include-robotarm', action='store_true', help='Time all lab components, including the robotarm')
 
     parser.add_argument('--wash', type=str, help='Run a program on the washer')
     parser.add_argument('--disp', type=str, help='Run a program on the dispenser')
@@ -43,7 +45,7 @@ def main():
 
     config_name = args.config
     try:
-        config: Config = configs[config_name]
+        config: RuntimeConfig = configs[config_name]
     except KeyError:
         raise ValueError(f'Unknown {config_name = }. Available: {show(configs.keys())}')
 
@@ -55,12 +57,21 @@ def main():
         protocol.main(
             config=config,
             batch_sizes=[int(bs.strip()) for bs in args.cell_paint.split(',')],
+            protocol_config=protocol.v2_ms,
             short_test_paint=args.short_test_paint,
         )
 
     elif args.test_circuit:
         robots.get_robotarm(config).set_speed(args.robotarm_speed).close()
         protocol.test_circuit(config=config)
+
+    elif args.time_protocol:
+        robots.get_robotarm(config).set_speed(args.robotarm_speed).close()
+        protocol.time_protocol(config=config, protocol_config=protocol.v2_ms, include_robotarm=False)
+
+    elif args.time_protocol_include_robotarm:
+        robots.get_robotarm(config).set_speed(args.robotarm_speed).close()
+        protocol.time_protocol(config=config, protocol_config=protocol.v2_ms, include_robotarm=True)
 
     elif args.test_comm:
         robots.test_comm(config)
@@ -85,8 +96,7 @@ def main():
             print(name)
 
     elif args.inspect_robotarm_programs:
-        events = protocol.paint_batch(protocol.define_plates([6, 6]))
-        events = protocol.sleek_movements(events)
+        events = protocol.paint_batch(protocol.define_plates([6, 6]), protocol_config=protocol.v2_ms)
 
         for k, v in movelists.items():
             import re

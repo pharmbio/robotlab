@@ -2,9 +2,11 @@ from __future__ import annotations
 from dataclasses import *
 from typing import *
 
+from collections import defaultdict
 from pprint import pformat
 import re
 import sys
+import json
 
 prims: tuple[Any, ...] = (int, float, bool, str, bytes, type(None))
 
@@ -265,4 +267,18 @@ def git_HEAD() -> str | None:
         return proc.stdout.decode().strip()[:8]
     except:
         return None
+
+def uniq(xs: Iterable[A]) -> Iterable[A]:
+    return {x: None for x in xs}.keys()
+
+def read_json_lines(path: str) -> Iterator[Any]:
+    with open(path, 'r') as f:
+        for line in f:
+            yield json.loads(line)
+
+def group_by(xs: list[A], key: Callable[[A], B]) -> dict[B, list[A]]:
+    d: dict[B, list[A]] = defaultdict(list)
+    for x in xs:
+        d[key(x)] += [x]
+    return d
 

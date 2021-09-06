@@ -22,6 +22,25 @@ from utils import Mutable
 
 import timelike
 from timelike import Timelike, WallTime, SimulatedTime
+from collections import defaultdict
+
+Estimated = tuple[Literal['wash', 'disp', 'robotarm', 'incu'], str]
+
+def estimates_from(path: str) -> dict[Estimated, float]:
+    ests: dict[Estimated, list[float]] = defaultdict(list)
+    sources = {
+        'wash',
+        'disp',
+        'robotarm',
+        'incu',
+    }
+    for v in utils.read_json_lines(path):
+        duration = v['duration']
+        source = v['source']
+        arg = v['arg']
+        if duration is not None and source in sources:
+            ests[source, arg].append(duration)
+    return {est: sum(vs) / len(vs) for est, vs in ests.items()}
 
 @dataclass(frozen=True)
 class Env:
@@ -52,7 +71,7 @@ forward_env = Env(
 dry_env = Env()
 
 @dataclass(frozen=True)
-class Config:
+class RuntimeConfig:
     timelike_factory:   Callable[[], Timelike]
     disp_and_wash_mode: Literal['noop', 'execute',                       ]
     incu_mode:          Literal['noop', 'execute',                       ]
@@ -69,14 +88,14 @@ class Config:
 simulated_and_wall = lambda: SimulatedTime(include_wall_time=True)
 simulated_no_wall  = lambda: SimulatedTime(include_wall_time=False)
 
-configs: dict[str, Config]
+configs: dict[str, RuntimeConfig]
 configs = {
-    'live':          Config(WallTime,           'execute', 'execute', 'execute',            live_env),
-    'test-all':      Config(simulated_and_wall, 'execute', 'execute', 'execute',            live_env),
-    'test-arm-incu': Config(simulated_and_wall, 'noop',    'execute', 'execute',            live_arm_incu),
-    'simulator':     Config(simulated_and_wall, 'noop',    'noop',    'execute no gripper', simulator_env),
-    'forward':       Config(simulated_no_wall,  'noop',    'noop',    'execute',            forward_env),
-    'dry-run':       Config(simulated_no_wall,  'noop',    'noop',    'noop',               dry_env),
+    'live':          RuntimeConfig(WallTime,           'execute', 'execute', 'execute',            live_env),
+    'test-all':      RuntimeConfig(simulated_and_wall, 'execute', 'execute', 'execute',            live_env),
+    'test-arm-incu': RuntimeConfig(simulated_and_wall, 'noop',    'execute', 'execute',            live_arm_incu),
+    'simulator':     RuntimeConfig(simulated_and_wall, 'noop',    'noop',    'execute no gripper', simulator_env),
+    'forward':       RuntimeConfig(simulated_no_wall,  'noop',    'noop',    'execute',            forward_env),
+    'dry-run':       RuntimeConfig(simulated_no_wall,  'noop',    'noop',    'noop',               dry_env),
 }
 
 def curl(url: str, print_result: bool = False) -> Any:
@@ -134,17 +153,16 @@ class Biotek:
             if command.delay:
                 with runtime.timeit(self.name + '_delay', log_arg, metadata):
                     command.delay.execute(runtime, metadata)
+            # print(self.name, command.plate_id, runtime.t0s)
+            if command.plate_id:
+                time_name = command.plate_id + ' ' + {'wash': 'incubation', 'disp': 'transfer'}[self.name]
+                if (t0 := runtime.t0s.pop(time_name, None)):
+                    runtime.log('end', 'time', time_name, t0=t0)
             with runtime.timeit(self.name, log_arg, metadata):
                 while True:
                     self.last_started = runtime.monotonic()
                     if runtime.config.disp_and_wash_mode == 'noop':
-                        est = 15
-                        if command.protocol_path is None:
-                            est = 0
-                        elif '3X' in command.protocol_path:
-                            est = 60 + 42
-                        elif '4X' in command.protocol_path:
-                            est = 60 + 52
+                        est = runtime.est(self.name, log_arg)
                         runtime.log('info', self.name, f'pretending to run for {est}s', metadata)
                         runtime.sleep(est)
                         res: Any = {"err":"","out":{"details":"1 - eOK","status":"1","value":""}}
@@ -170,14 +188,16 @@ class Biotek:
             self.last_finished = runtime.monotonic()
             if command.plate_id:
                 self.last_finished_by_plate_id[command.plate_id] = self.last_finished
-            print(self.name, 'ready')
+                time_name = command.plate_id + ' ' + {'disp': 'incubation', 'wash': 'transfer'}[self.name]
+                runtime.t0s[time_name] = self.last_finished
+            # print(self.name, 'ready')
             self.state = 'ready'
 
     def is_ready(self):
         return self.state == 'ready'
 
     def run(self, msg: BiotekMessage):
-        assert self.is_ready()
+        assert self.is_ready(), self
         self.state = 'busy'
         self.queue.put_nowait(msg)
 
@@ -203,11 +223,19 @@ class Incubator:
             metadata = msg.metadata
             del msg
             if command.incu_loc is not None:
-                metadata = {**metadata, 'loc': command.incu_loc}
-            with runtime.timeit('incu', command.action, metadata):
+                metadata = {**metadata, 'action': command.action, 'loc': command.incu_loc}
+                arg = command.action + ' ' + command.incu_loc
+                if command.action == 'get' and (t0 := runtime.t0s.pop(command.incu_loc, None)):
+                    runtime.log('end', 'time', command.incu_loc, t0=t0)
+                elif command.action == 'put':
+                    runtime.t0s[command.incu_loc] = runtime.monotonic()
+            else:
+                arg = command.action
+            with runtime.timeit('incu', arg, metadata):
                 assert command.action in {'put', 'get', 'get_climate'}
                 if runtime.config.incu_mode == 'noop':
-                    runtime.sleep(15)
+                    est = runtime.est('incu', arg)
+                    runtime.sleep(est)
                 elif runtime.config.incu_mode == 'execute':
                     if command.action == 'put':
                         assert command.incu_loc is not None
@@ -227,7 +255,7 @@ class Incubator:
                         time.sleep(0.05)
                 else:
                     raise ValueError
-            print('incu', 'ready')
+            # print('incu', 'ready')
             self.state = 'ready'
 
     def is_ready(self):
@@ -248,13 +276,15 @@ A = TypeVar('A')
 
 @dataclass(frozen=True)
 class Runtime:
-    config: Config
+    config: RuntimeConfig
     log_filename: str | None = None
     wash: Biotek     = field(default_factory=lambda: Biotek('wash'))
     disp: Biotek     = field(default_factory=lambda: Biotek('disp'))
     incu: Incubator  = field(default_factory=lambda: Incubator())
     log_lock: RLock  = field(default_factory=RLock)
     time_lock: RLock = field(default_factory=RLock)
+    t0s: dict[str, float] = field(default_factory=dict)
+    estimates: dict[Estimated, float] = field(default_factory=dict)
     timelike: Mutable[Timelike] = Mutable.factory(cast(Any, 'initialize in __post_init__ based on config.timelike_factory'))
 
     def __post_init__(self):
@@ -263,6 +293,27 @@ class Runtime:
         self.wash.start(self)
         self.disp.start(self)
         self.incu.start(self)
+        self.estimates.update(estimates_from('timings.jsonl'))
+
+    def est(self, source: Literal['wash', 'disp', 'robotarm', 'incu'], arg: str) -> float:
+        if ret := self.estimates.get((source, arg)):
+            return ret
+        else:
+            if source == 'wash':
+                if '1X' in arg:
+                    return 60.0 + 34 # ?
+                elif '2X' in arg:
+                    return 60.0 + 34 # ?
+                elif '3X' in arg:
+                    return 60.0 + 34
+                elif '4X' in arg:
+                    return 60.0 + 49
+                else:
+                    return 60.0
+            elif source == 'disp':
+                return 30.0
+            else:
+                return 15.0
 
     @property
     def env(self):
@@ -295,15 +346,20 @@ class Runtime:
             'arg': arg,
             **metadata
         }
+        if 1:
+            if 1 or kind == 'end': # and source in {'time', 'wait'}: # not in {'robotarm', 'wait', 'wash_delay', 'disp_delay', 'experiment'}:
+                print('\t|'.join(
+                    f'{str(v).removeprefix("automation_v2_ms/"): <50}'
+                    if k == 'arg' else
+                    f'{str(v): <10}'
+                    if k == 'source' else
+                    str(v)
+                    for k, v in entry.items()
+                    if k not in {'log_time', 't0', 'event_machine'}
+                    if v not in {None, ''} or k == 'duration'
+                ))
         if 0:
-            print('---', '\t| '.join(
-                str(v)
-                for k, v in entry.items()
-                if k not in {'log_time', 't0'}
-            ))
-        if 0:
-            print('program_name:', entry.get('arg'))
-        utils.pr(entry)
+            utils.pr(entry)
         if self.log_filename:
             with self.log_lock:
                 with open(self.log_filename, 'a') as fp:
@@ -340,6 +396,9 @@ class Runtime:
     def register_thread(self, name: str):
         return self.timelike.value.register_thread(name)
 
+    def thread_idle(self):
+        return self.timelike.value.thread_idle()
+
 class Command(abc.ABC):
     @abc.abstractmethod
     def execute(self, runtime: Runtime, metadata: dict[str, Any]) -> None:
@@ -366,15 +425,12 @@ class Ready(Waitable):
     def wait(self, runtime: Runtime):
         if self.name == 'incu':
             while not runtime.incu.is_ready():
-                print('busywait incu')
                 runtime.busywait_step()
         elif self.name == 'wash':
             while not runtime.wash.is_ready():
-                print('busywait wash')
                 runtime.busywait_step()
         elif self.name == 'disp':
             while not runtime.disp.is_ready():
-                print('busywait disp')
                 runtime.busywait_step()
         else:
             raise ValueError(self.name)
@@ -408,7 +464,7 @@ class wait_for(Command):
     def __add__(self, other: int) -> wait_for:
         return wait_for(self.base, self.plus_seconds + other)
 
-def get_robotarm(config: Config, quiet: bool = False) -> Robotarm:
+def get_robotarm(config: RuntimeConfig, quiet: bool = False) -> Robotarm:
     if config.robotarm_mode == 'noop':
         return Robotarm.init_noop(with_gripper=True, quiet=quiet)
     assert config.robotarm_mode == 'execute' or config.robotarm_mode == 'execute no gripper'
@@ -421,7 +477,8 @@ class robotarm_cmd(Command):
     def execute(self, runtime: Runtime, metadata: dict[str, Any]) -> None:
         with runtime.timeit('robotarm', self.program_name, metadata):
             if runtime.config.robotarm_mode == 'noop':
-                runtime.sleep(10)
+                est = runtime.est('robotarm', self.program_name)
+                runtime.sleep(est)
             else:
                 arm = get_robotarm(runtime.config)
                 arm.execute_moves(movelists[self.program_name], name=self.program_name)
@@ -452,7 +509,19 @@ class incu_cmd(Command):
     def execute(self, runtime: Runtime, metadata: dict[str, Any]) -> None:
         runtime.incu.run(IncubatorMessage(self, metadata))
 
-def test_comm(config: Config):
+@dataclass(frozen=True)
+class time_begin_cmd(Command):
+    name: str
+    def execute(self, runtime: Runtime, metadata: dict[str, Any]) -> None:
+        runtime.t0s[self.name] = runtime.log('begin', 'time', self.name, metadata)
+
+@dataclass(frozen=True)
+class time_end_cmd(Command):
+    name: str
+    def execute(self, runtime: Runtime, metadata: dict[str, Any]) -> None:
+        runtime.log('end', 'time', self.name, metadata, t0=runtime.t0s.pop(self.name))
+
+def test_comm(config: RuntimeConfig):
     '''
     Test communication with robotarm, washer, dispenser and incubator.
     '''
