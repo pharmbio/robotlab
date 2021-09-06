@@ -314,8 +314,8 @@ class MoveListParts:
 
         return MoveListParts(
             prep     = MoveList([*to_pick_neu, pick_neu]),
-            transfer = MoveList([              pick_neu, pick_pos, *transfer_inner, drop_neu]),
-            ret      = MoveList([                                                   drop_neu, *from_drop_neu]),
+            transfer = MoveList([              pick_neu, pick_pos, close, *transfer_inner, open, drop_neu]),
+            ret      = MoveList([                                                                drop_neu, *from_drop_neu]),
         )
 
 HasMoveList = TypeVar('HasMoveList')

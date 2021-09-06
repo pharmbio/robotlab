@@ -90,7 +90,7 @@ simulated_no_wall  = lambda: SimulatedTime(include_wall_time=False)
 
 configs: dict[str, RuntimeConfig]
 configs = {
-    'live':          RuntimeConfig(WallTime,           'execute', 'execute', 'execute',            live_env),
+    'live':          RuntimeConfig(lambda: WallTime(), 'execute', 'execute', 'execute',            live_env),
     'test-all':      RuntimeConfig(simulated_and_wall, 'execute', 'execute', 'execute',            live_env),
     'test-arm-incu': RuntimeConfig(simulated_and_wall, 'noop',    'execute', 'execute',            live_arm_incu),
     'simulator':     RuntimeConfig(simulated_and_wall, 'noop',    'noop',    'execute no gripper', simulator_env),
