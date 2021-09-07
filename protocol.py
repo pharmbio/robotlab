@@ -220,8 +220,8 @@ v2_ms = ProtocolConfig(
     delay_before_first_wash         = 0,
     separation_between_first_washes = 0,
     wait_before_incu_get_1st  = Steps(0,60,40,40,40),
-    wait_before_incu_get_2nd  = Steps(0,171,0,0,0),
-    wait_before_incu_get_rest = Steps(0,171,0,0,0),
+    wait_before_incu_get_2nd  = Steps(0,174,0,0,0),
+    wait_before_incu_get_rest = Steps(0,174,0,0,0),
 )
 
 def time_protocol(config: RuntimeConfig, protocol_config: ProtocolConfig, include_robotarm: bool):
@@ -783,7 +783,7 @@ def runtime_with_logging(config: RuntimeConfig, metadata: dict[str, str]) -> Ite
     runtime = robots.Runtime(config=config, log_filename=log_filename)
     # Overrides for v2_ms
     overrides: dict[robots.Estimated, float] = {
-        ('disp', v2_ms.disp.Mito): 107.0,
+        ('disp', v2_ms.disp.Mito): 73.11,
     }
     pr({k: (runtime.estimates.get(k, None), '->', v) for k, v in overrides.items()})
     runtime.estimates.update(overrides)
