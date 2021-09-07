@@ -40,7 +40,6 @@ def estimates_from(path: str) -> dict[Estimated, float]:
         arg = v['arg']
         if duration is not None and source in sources:
             ests[source, arg].append(duration)
-    utils.pr(sorted(ests.items()))
     return {est: sum(vs) / len(vs) for est, vs in ests.items()}
 
 @dataclass(frozen=True)
@@ -96,12 +95,13 @@ configs = {
     'test-arm-incu': RuntimeConfig(simulated_and_wall, 'noop',    'execute', 'execute',            live_arm_incu),
     'simulator':     RuntimeConfig(simulated_and_wall, 'noop',    'noop',    'execute no gripper', simulator_env),
     'forward':       RuntimeConfig(simulated_no_wall,  'noop',    'noop',    'execute',            forward_env),
+    'dry-wall':      RuntimeConfig(lambda: WallTime(), 'noop',    'noop',    'noop',               dry_env),
     'dry-run':       RuntimeConfig(simulated_no_wall,  'noop',    'noop',    'noop',               dry_env),
 }
 
 def curl(url: str, print_result: bool = False) -> Any:
-    if 'is_ready' not in url:
-        print('curl', url)
+    # if 'is_ready' not in url:
+        # print('curl', url)
     ten_minutes = 60 * 10
     res = json.loads(urlopen(url, timeout=ten_minutes).read())
     if 'is_ready' not in url:
@@ -354,7 +354,8 @@ class Runtime:
             self.times[str(arg)].append(duration)
         if 1:
             # if 1 or kind == 'end': # and source in {'time', 'wait'}: # not in {'robotarm', 'wait', 'wash_delay', 'disp_delay', 'experiment'}:
-            if source == 'time':
+            # if source == 'time':
+            if 1:
                 print(' | '.join(
                     ' ' * 8
                     if v is None else
@@ -492,7 +493,7 @@ class robotarm_cmd(Command):
                 est = runtime.est('robotarm', self.program_name)
                 runtime.sleep(est)
             else:
-                arm = get_robotarm(runtime.config)
+                arm = get_robotarm(runtime.config, quiet=True)
                 arm.execute_moves(movelists[self.program_name], name=self.program_name)
                 arm.close()
 

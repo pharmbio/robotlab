@@ -193,7 +193,6 @@ class WallTime(Timelike):
         pass
 
     def sleep(self, seconds: float):
-
         if seconds < 0:
             print('Behind time:', fmt(-seconds), '!')
         else:
@@ -208,5 +207,5 @@ class WallTime(Timelike):
 
 def fmt(s: float) -> str:
     m = int(s // 60)
-    return f'{s}s ({m}min {s - 60 * m - 0.05:.1f}s)'
+    return f'{s:7.1f}s ({m}min {s - 60 * m:4.1f}s)'
 
