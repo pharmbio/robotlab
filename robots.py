@@ -369,7 +369,7 @@ class Runtime:
 
                     for k, v in entry.items()
                     if k not in {'log_time', 't0', 'event_machine', 'event_id'}
-                    if v not in {None, ''} or k in 'duration'
+                    if (v is not None and v != '') or k in 'duration'
                 ))
         if 0:
             utils.pr(entry)
