@@ -182,7 +182,7 @@ class MoveList(list[Move]):
         )
         return json_str
 
-    def adjust_tagged(self, tag: str, *, dz: float) -> MoveList:
+    def adjust_tagged(self, tag: str, *, dname: str, dz: float) -> MoveList:
         '''
         Adjusts the z in room reference frame for all MoveLin with the given tag.
         '''
@@ -190,7 +190,7 @@ class MoveList(list[Move]):
         for m in self:
             if isinstance(m, MoveLin) and m.tag == tag:
                 x, y, z = list(m.xyz)
-                out += [replace(m, tag=None, xyz=[x, y, round(z + dz, 1)])]
+                out += [replace(m, name=dname + ' ' + m.name, tag=None, xyz=[x, y, round(z + dz, 1)])]
             elif hasattr(m, 'tag') and getattr(m, 'tag') == tag:
                 raise ValueError('Tagged move must be MoveLin for adjust_tagged')
             else:
@@ -222,7 +222,7 @@ class MoveList(list[Move]):
                 for h in [1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21]:
                     dz = (h - ref_h) / 2 * hotel_dist
                     name_h = name.replace(str(ref_h), str(h), 1)
-                    out[name_h] = self.adjust_tagged(tag, dz=dz)
+                    out[name_h] = self.adjust_tagged(tag, dname=str(h), dz=dz)
         return out
 
     def with_sections(self, include_Section: bool=False) -> list[tuple[tuple[str, ...], Move]]:
