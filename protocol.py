@@ -781,6 +781,12 @@ def runtime_with_logging(config: RuntimeConfig, metadata: dict[str, str]) -> Ite
     print(f'{log_filename=}')
 
     runtime = robots.Runtime(config=config, log_filename=log_filename)
+    # Overrides for v2_ms
+    overrides: dict[robots.Estimated, float] = {
+        ('disp', v2_ms.disp.Mito): 107.0,
+    }
+    pr({k: (runtime.estimates.get(k, None), '->', v) for k, v in overrides.items()})
+    runtime.estimates.update(overrides)
 
     metadata['git_HEAD'] = utils.git_HEAD() or ''
     metadata['host']     = platform.node()
