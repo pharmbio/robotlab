@@ -14,7 +14,7 @@ import time
 
 from moves import Move, MoveList
 from protocol import Event
-from robots import Config, configs
+from robots import RuntimeConfig, configs
 from viable import head, serve, esc, make_classes, expose, app
 import moves
 import protocol
@@ -30,7 +30,7 @@ log.setLevel(logging.ERROR)
 
 import sys
 
-config: Config = configs['live']
+config: RuntimeConfig = configs['live']
 if '--no-gripper' in sys.argv:
     config = configs['simulator']
 elif '--forward' in sys.argv:
