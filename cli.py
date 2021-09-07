@@ -29,6 +29,7 @@ def main():
 
     parser.add_argument('--wash', type=str, help='Run a program on the washer')
     parser.add_argument('--disp', type=str, help='Run a program on the dispenser')
+    parser.add_argument('--prime', type=str, help='Run a priming program on the dispenser')
     parser.add_argument('--incu-put', metavar='POS', type=str, default=None, help='Put the plate in the transfer station to the argument position POS (L1, .., R1, ..).')
     parser.add_argument('--incu-get', metavar='POS', type=str, default=None, help='Get the plate in the argument position POS. It ends up in the transfer station.')
 
@@ -108,15 +109,22 @@ def main():
 
     elif args.wash:
         runtime = robots.Runtime(config)
-        path = protocol.wash_protocols.get(args.wash)
-        assert path, utils.pr(protocol.wash_protocols)
+        path = getattr(protocol.v2_ms.wash, args.wash, None)
+        assert path, utils.pr(protocol.v2_ms.wash)
         robots.wash_cmd(path).execute(runtime, {})
         robots.wait_for(robots.Ready('wash')).execute(runtime, {})
 
     elif args.disp:
         runtime = robots.Runtime(config)
-        path = protocol.disp_protocols.get(args.disp)
-        assert path, utils.pr(protocol.disp_protocols)
+        path = getattr(protocol.v2_ms.disp, args.disp, None)
+        assert path, utils.pr(protocol.v2_ms.disp)
+        robots.disp_cmd(path).execute(runtime, {})
+        robots.wait_for(robots.Ready('disp')).execute(runtime, {})
+
+    elif args.prime:
+        runtime = robots.Runtime(config)
+        path = getattr(protocol.v2_ms.prime, args.prime, None)
+        assert path, utils.pr(protocol.v2_ms.prime)
         robots.disp_cmd(path).execute(runtime, {})
         robots.wait_for(robots.Ready('disp')).execute(runtime, {})
 
