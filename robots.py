@@ -302,7 +302,7 @@ class Runtime:
         if ret := self.estimates.get((source, arg)):
             return ret
         else:
-            raise ValueError(f'No timing for {(source, arg)=}')
+            # raise ValueError(f'No timing for {(source, arg)=}')
             if source == 'wash':
                 if '1X' in arg:
                     return 60.0 + 34 # ?
