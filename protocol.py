@@ -81,6 +81,7 @@ h_locs:    list[str] = [f'h{i}' for i in H]
 r_locs:    list[str] = [f'r{i}' for i in H][1:]
 out_locs:  list[str] = [f'out{i}' for i in reversed(H)] + list(reversed(r_locs))
 lid_locs:  list[str] = [h for h in h_locs if h != h21]
+lid_locs.remove('h17')
 
 A = TypeVar('A')
 
