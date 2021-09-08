@@ -784,8 +784,24 @@ def runtime_with_logging(config: RuntimeConfig, metadata: dict[str, str]) -> Ite
     runtime = robots.Runtime(config=config, log_filename=log_filename)
     # Overrides for v2_ms
     overrides: dict[robots.Estimated, float] = {
-        ('disp', v2_ms.disp.Mito): 73.11,
+        ('disp', v2_ms.disp.Mito): 73.11 - 15,
     }
+    for (k, a), v in runtime.estimates.items():
+        if '19' in a:
+            for h in H:
+                ah = a.replace('19', str(h))
+                if (k, ah) not in runtime.estimates:
+                    overrides[k, ah] = v
+        if 'out1 ' in a:
+            for h in H:
+                ah = a.replace('out1 ', f'out{h} ')
+                if (k, ah) not in runtime.estimates:
+                    overrides[k, ah] = v
+        if 'L1' in a:
+            for i in incu_locs:
+                ah = a.replace('L1', i)
+                if (k, ah) not in runtime.estimates:
+                    overrides[k, ah] = v
     pr({k: (runtime.estimates.get(k, None), '->', v) for k, v in overrides.items()})
     runtime.estimates.update(overrides)
 
