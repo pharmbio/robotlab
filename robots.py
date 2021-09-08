@@ -391,8 +391,10 @@ class Runtime:
 
         return worker(source, arg, metadata)
 
+    start_time: datetime = field(default_factory=datetime.now)
+
     def now(self) -> datetime:
-        return datetime.now() + timedelta(seconds=self.monotonic())
+        return self.start_time + timedelta(seconds=self.monotonic())
 
     def monotonic(self) -> float:
         return self.timelike.value.monotonic()
