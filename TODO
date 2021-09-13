@@ -1,8 +1,4 @@
 
-[ ] prio 4. moves: dispenser get move slipped a little !! does the gripper get sufficient power?
-
-[ ] prio 3. protocol: add purge after each mito disp and prime before each mito disp
-
 [ ] prio 3. robotarm: check that it is close to h neu when starting
 [ ] prio 3. robustness: raise gripper if close more than expected
 [ ] prio 3. robustness: don't start program if gripper is more closed than expected
@@ -12,21 +8,18 @@
 [ ] prio 2. moves: still some moves with 0.8° roll such as r21. make them level
 [ ] prio 2. repo: document how to start everything, in particular how to start the GUI (gui on forwarded robot can be started with run.sh)
 
-[ ] prio 1. system: incorporate real robotarm timings into dry run
-
 [ ] prio 1. post mortem: put/get names not transparent enough ... ? lid_put lid_get
 
-[ ] prio 3. safety, gui: reset LinRel every time last move wasn't LinRel. Right now you can go into freedrive, move the robot arm, then do LinRel moves which moves the robot directly relative to a position _before_ the freedrive. This is dangerous!!
+[ ] prio 1. gui: level RPY
 [ ] prio 1. gui: speed setting buttons
 [ ] prio 1. gui: soft stop by setting speed to 0.01. can we get the current speed to reset it afterwards?
-[ ] prio 1. gui: make it easier to see where you are, use colours or add a 3d graph
-[ ] prio 1. gui: level RPY
-[ ] prio 1. gui: keyboard reference rotation
 [ ] prio 1. gui: grip test: make an intense version shake far above the plate
+[ ] prio 1. gui: make it easier to see where you are, use colours or add a 3d graph
+[ ] prio 1. gui: keyboard reference rotation
 [ ] prio 1. gui: add links to first subsections so you can go directly to ie wash_put and wash_get
-[ ] prio 1. gui: make poll request return via http for faster refresh
-[ ] prio 1. gui: make it possible to run incu wash disp and any robotarm program
-[ ] prio 1. gui: update to newest viable
+[ ] prio 0. gui: make poll request return via http for faster refresh
+
+[x] prio 1. gui: update to newest viable
 
 [ ] prio 1. repo: run black prettyprinter
 
@@ -38,7 +31,9 @@
 [x] prio 3. protocol: make a stress test circuit (put them back in incu again)
 [x] prio 3. protocol: prime dispenser pumps
 [x] prio 3. protocol: add batching (make it possible to handle 12 plates)
+[x] prio 3. protocol: add purge after each mito disp and prime before each mito disp
 [x] prio 3. robustness: make sure cobot programs exit cleanly (use the log again)
+[x] prio 4. moves: dispenser get move slipped a little !! does the gripper get sufficient power?
 [x] prio 3. moves: glue them together properly for protocol
 [x] prio 3. moves: use no force on lids
 [x] prio 3. gripper: there is a rq_close but it just calls rq_set_pos
@@ -47,6 +42,8 @@
 [x] prio 3. post mortem: config names are too confusing. try to reduce them
 [x] prio 3. lab setup: tell the rest of the group that the incubator position is not fixed !! (of course)
 
+
+[x] prio 3. safety, gui: reset LinRel every time last move wasn't LinRel. Right now you can go into freedrive, move the robot arm, then do LinRel moves which moves the robot directly relative to a position _before_ the freedrive. This is dangerous!!
 [x] prio 1. gui: grip test: remove grip test button, only have one copy
 [x] prio 1. gui: remove to_rel to_abs
 [x] prio 1. repo: remove scriptparser, scriptgenerator, copyscripts and scipy dependency
@@ -60,6 +57,7 @@
     [x] check consistency of run.sh
 [x] prio 1. system, incu: make a blocking wrapper around incubator so that it can be timed properly
 [x] prio 1. system: write runtime errors to log file
+[x] prio 1. system: incorporate real robotarm timings into dry run
 
 [x] prio 2. system: the test circuit program does things in quite a confusing order... would be better if it did things more like the CP protocol
 [x] prio 2. system ui: how to start ? anders wants a config file but just start with python cli.py --cell-paint 6,6 --live
