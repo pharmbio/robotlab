@@ -73,7 +73,7 @@ prelude = '''
     end
 
     def EnsureRelPos():
-        if not last_lin:
+        # if not last_lin:
             while not is_steady():
                 sync()
             end
@@ -83,7 +83,7 @@ prelude = '''
             xyz = [p[0]*1000, p[1]*1000, p[2]*1000]
             set_last(xyz[0], xyz[1], xyz[2], rpy[0], rpy[1], rpy[2], True)
             textmsg("log set reference pos to " + to_str(xyz) + " " + to_str(rpy))
-        end
+        # end
     end
 
     def MoveJoint(q1, q2, q3, q4, q5, q6, slow=False):

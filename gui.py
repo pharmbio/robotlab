@@ -15,13 +15,16 @@ import time
 from moves import Move, MoveList
 from protocol import Event
 from robots import RuntimeConfig, configs
-from viable import head, serve, esc, make_classes, expose, app
 import moves
 import protocol
 import robotarm
 import robots
 import utils
 from utils import catch
+
+from viable import head, serve, esc, css_esc, trim, button, pre
+from viable import Tag, div, span, label, img, raw, Input, input
+import viable as V
 
 # suppress flask logging
 import logging
@@ -31,20 +34,20 @@ log.setLevel(logging.ERROR)
 import sys
 
 config: RuntimeConfig = configs['live']
-if '--no-gripper' in sys.argv:
+if '--simulator' in sys.argv:
     config = configs['simulator']
 elif '--forward' in sys.argv:
     config = configs['forward']
 
 utils.pr(config)
 
-def spawn(f: Callable[[], None]) -> None:
-    threading.Thread(target=f, daemon=True).start()
-
 polled_info: dict[str, list[float]] = {}
 
 from datetime import datetime, timedelta
 server_start = datetime.now()
+
+def spawn(f: Callable[[], None]) -> None:
+    threading.Thread(target=f, daemon=True).start()
 
 @spawn
 def poll() -> None:
@@ -79,13 +82,13 @@ def poll() -> None:
                     tb.print_exc()
                 break
 
-@expose
+@serve.expose
 def arm_do(*ms: Move):
     arm = robots.get_robotarm(config)
     arm.execute_moves(list(ms), name='gui', allow_partial_completion=True)
     arm.close()
 
-@expose
+@serve.expose
 def edit_at(program_name: str, i: int, changes: dict[str, Any]):
     filename = get_programs()[program_name]
     ml = MoveList.from_json_file(filename)
@@ -100,7 +103,7 @@ def edit_at(program_name: str, i: int, changes: dict[str, Any]):
     ml[i] = m
     ml.write_json(filename)
 
-@expose
+@serve.expose
 def keydown(program_name: str, args: dict[str, Any]):
     mm: float = 1.0
     deg: float = 1.0
@@ -139,35 +142,38 @@ def keydown(program_name: str, args: dict[str, Any]):
     utils.pr(k)
     if m := keymap.get(k):
         utils.pr(m)
-        arm_do.call( # type: ignore
+        arm_do( # type: ignore
             moves.RawCode("EnsureRelPos()"),
             m,
         )
 
-    i = catch(lambda: int(args.pop('selected')))
-    if i is not None and k in {'b', 'm'}:
-        filename = get_programs()[program_name]
-        ml = MoveList.from_json_file(filename)
-        m = ml[i]
-        if isinstance(m, (moves.MoveLin, moves.MoveRel)):
-            v = asdict(m)
-            v['xyz'] = [utils.round_nnz(v, 1) for v in polled_info['xyz']]
-            v['rpy'] = [utils.round_nnz(v, 1) for v in polled_info['rpy']]
-            ml = MoveList(ml)
-            ml[i] = moves.MoveLin(**v)
-            ml.write_json(filename)
-        elif isinstance(m, (moves.GripperMove)):
-            v = asdict(m)
-            v['pos'] = polled_info['pos'][0]
-            ml = MoveList(ml)
-            ml[i] = moves.GripperMove(**v)
-            ml.write_json(filename)
-        elif isinstance(m, (moves.MoveJoint)):
-            v = asdict(m)
-            v['joints'] = [utils.round_nnz(v, 1) for v in polled_info['joints']]
-            ml = MoveList(ml)
-            ml[i] = moves.MoveJoint(**v)
-            ml.write_json(filename)
+@serve.expose
+def update(program_name: str, i: int):
+    if i is None:
+        return
+
+    filename = get_programs()[program_name]
+    ml = MoveList.from_json_file(filename)
+    m = ml[i]
+    if isinstance(m, (moves.MoveLin, moves.MoveRel)):
+        v = asdict(m)
+        v['xyz'] = [utils.round_nnz(v, 1) for v in polled_info['xyz']]
+        v['rpy'] = [utils.round_nnz(v, 1) for v in polled_info['rpy']]
+        ml = MoveList(ml)
+        ml[i] = moves.MoveLin(**v)
+        ml.write_json(filename)
+    elif isinstance(m, (moves.GripperMove)):
+        v = asdict(m)
+        v['pos'] = polled_info['pos'][0]
+        ml = MoveList(ml)
+        ml[i] = moves.GripperMove(**v)
+        ml.write_json(filename)
+    elif isinstance(m, (moves.MoveJoint)):
+        v = asdict(m)
+        v['joints'] = [utils.round_nnz(v, 1) for v in polled_info['joints']]
+        ml = MoveList(ml)
+        ml[i] = moves.MoveJoint(**v)
+        ml.write_json(filename)
 
 def get_programs() -> dict[str, Path]:
     return {
@@ -175,82 +181,85 @@ def get_programs() -> dict[str, Path]:
         for path in sorted(Path('./movelists').glob('*.json'))
     }
 
-@serve
-def index() -> Iterator[head | str]:
+@serve.one('/')
+def index() -> Iterator[Tag | dict[str, str]]:
     programs = get_programs()
     program_name = request.args.get('program', next(iter(programs.keys())))
     section: tuple[str, ...] = tuple(request.args.get('section', "").split())
     ml = MoveList.from_json_file(programs[program_name])
 
-    title = ' '.join([program_name, *section])
-    yield head(f'<title>{title}</title>')
+    yield V.title(' '.join([program_name, *section]))
 
-    yield r'''
-        <body
-            onkeydown="
-                if (event.target.tagName == 'INPUT') {
-                    console.log('keydown event handled by input', event)
-                } else if (event.repeat || event.metaKey || event.key.match(/F\d+|^[^dubmjkcr]$|Tab|Enter|Escape|Meta|Control|Alt|Shift/)) {
-                    console.log('keydown event passed on', event)
-                } else {
-                    event.preventDefault()
-                    console.log(event)
-                    call(''' + keydown(program_name) + ''', {
-                        selected: window.selected,
-                        key: event.key,
-                        altKey: event.altKey,
-                        shiftKey: event.shiftKey,
-                    })
-                }
-            "
-            css="
-                & {
-                    font-family: monospace;
-                    font-size: 16px;
-                    user-select: none;
-                    # padding: 0;
-                    # margin: 0;
-                }
-                button {
-                    font-family: monospace;
-                    font-size: 12px;
-                    cursor: pointer;
-                }
-                ul {
-                    list-style-type: none;
-                    padding: 0;
-                    margin: 0;
-                }
-                table {
-                    table-layout: fixed;
-                }
-            ">
-    '''
+    yield dict(
+        onkeydown=r'''
+            if (event.target.tagName == 'INPUT') {
+                console.log('keydown event handled by input', event)
+            } else if (event.repeat || event.metaKey || event.key.match(/F\d+|^[^dubmjkcr]$|Tab|Enter|Escape|Meta|Control|Alt|Shift/)) {
+                console.log('keydown event passed on', event)
+            } else {
+                event.preventDefault()
+                console.log(event)
+                call(''' + keydown.url(program_name) + ''', {
+                    selected: window.selected,
+                    key: event.key,
+                    altKey: event.altKey,
+                    shiftKey: event.shiftKey,
+                })
+            }
+        ''',
+        sheet='''
+            body {
+                font-family: monospace;
+                font-size: 16px;
+                user-select: none;
+                # padding: 0;
+                # margin: 0;
+            }
+            button {
+                font-family: monospace;
+                font-size: 12px;
+                cursor: pointer;
+            }
+            ul {
+                list-style-type: none;
+                padding: 0;
+                margin: 0;
+            }
+            table {
+                table-layout: fixed;
+            }
+        '''
+    )
 
-    yield '<div css="display: flex; flex-direction: row; flex-wrap: wrap; justify-content: center;">'
+    header = div(css='''
+        display: flex;
+        flex-direction: row;
+        flex-wrap: wrap;
+        justify-content: center;
+        padding: 8px 0 16px;
+    ''')
     for name in programs.keys():
-        yield '''
-            <div
-                css="
+        header += div(
+            name,
+            selected=name == program_name,
+            css='''
+                & {
                     text-align: center;
                     cursor: pointer;
                     padding: 5px 10px;
                     margin: 0 5px;
-                "
-                css="
-                    &[selected] {
-                        background: #fd9;
-                    }
-                    &:hover {
-                        background: #ecf;
-                    }
-                "
-        ''' + f'''
-                {'selected' if name == program_name else ''}
-                onclick="{esc(f"set_query({{program: {name!r}}}); refresh()")}"
-                >{name}</div>
-        '''
-    yield '</div>'
+                }
+                &[selected] {
+                    background: #fd9;
+                }
+                &:hover {
+                    background: #ecf;
+                }
+            ''',
+            onclick=f'''
+                set_query({{program: {name!r}}}); refresh()
+            ''')
+    yield header
 
     info = {
         k: [utils.round_nnz(v, 1) for v in vs]
@@ -263,70 +272,118 @@ def index() -> Iterator[head | str]:
 
     visible_moves: list[Move] = []
 
+    grid: Tag = div(css='''
+        display: grid;
+        grid-gap: 3px 0;
+        grid-template-columns:
+            [x] 100px
+            [y] 100px
+            [z] 100px
+            [go] 80px
+            [name] 200px
+            [value] 1fr
+            [update] 100px;
+    ''')
+
     for i, (m_section, m) in enumerate(ml.with_sections(include_Section=True)):
         if section != m_section[:len(section)]:
             continue
         visible_moves += [m]
-        yield '''
-            <div css="display: flex; flex-direction: row;"
-                css="
-                    &:nth-child(odd) {
-                        background: #eee;
+        row = div(
+            style=f'--grid-row: {i+1}',
+            css='''
+                & > * {
+                    grid-row: var(--grid-row);
+                    padding: 5px 0;
+                }
+                & {
+                    display: contents
+                }
+                &&:hover > * {
+                    background: #fd9
+                }
+            ''')
+        row += div(
+            style=f'grid-column: 1 / -1',
+            css='''
+                :nth-child(odd) > & {
+                    background: #eee
+                }
+            ''')
+        grid += row
+
+        if isinstance(m, moves.Section):
+            sect = div(
+                css="""
+                    & {
+                        grid-column: value;
+                        margin-top: 12px;
+                        padding-bottom: 4px;
                     }
-                    &:hover {
-                        background: #fd9;
+                    & button {
+                        padding: 1px 14px 5px;
+                        margin-right: 6px;
+                        font-family: sans;
+                        font-size: 14px;
                     }
-                    & > * {
-                        flex-grow: 1;
-                        flex-basis: 0;
-                        margin: 0px;
-                        padding: 8px 0;
-                    }
-                    & [hide] {
-                        visibility: hidden;
-                    }
-                "
-                onmouseover="window.selected=Number(this.dataset.index)"
-            ''' + f'''
-                data-index={i}
-            >'''
+                """
+            )
+            row += sect
+            sect += button(program_name,
+                tabindex='-1',
+                onclick="update_query({ section: '' })",
+                style="cursor: pointer;"
+            )
+            seen: list[str] = []
+            for s in m.sections:
+                seen += [s]
+                sect += button(s,
+                    tabindex='-1',
+                    onclick=f"update_query({{ section: {' '.join(seen)!r} }})",
+                    style="cursor: pointer;"
+                )
+            continue
 
         if isinstance(m, moves.MoveLin) and (xyz := info.get("xyz")) and (rpy := info.get("rpy")):
             dx, dy, dz = dxyz = utils.zip_sub(m.xyz, xyz, ndigits=6)
             dR, dP, dY = drpy = utils.zip_sub(m.rpy, rpy, ndigits=6)
             dist = math.sqrt(sum(c*c for c in dxyz))
             buttons = [
-                (f'{dx: 6.1f}', moves.MoveRel(xyz=[dx, 0, 0], rpy=[0, 0, 0])),
-                (f'{dy: 6.1f}', moves.MoveRel(xyz=[0, dy, 0], rpy=[0, 0, 0])),
-                (f'{dz: 6.1f}', moves.MoveRel(xyz=[0, 0, dz], rpy=[0, 0, 0])),
+                ('x', f'{dx: 6.1f}', moves.MoveRel(xyz=[dx, 0, 0], rpy=[0, 0, 0])),
+                ('y', f'{dy: 6.1f}', moves.MoveRel(xyz=[0, dy, 0], rpy=[0, 0, 0])),
+                ('z', f'{dz: 6.1f}', moves.MoveRel(xyz=[0, 0, dz], rpy=[0, 0, 0])),
                 # (f'P', moves.MoveRel(xyz=[0, 0, 0],  rpy=[0, dP, 0])),
                 # (f'Y', moves.MoveRel(xyz=[0, 0, 0],  rpy=[0, 0, dY])),
             ]
             if any(abs(d) < 10.0 for d in dxyz):
-                for k, v in buttons:
-                    yield f'''
-                        <pre style="cursor: pointer; flex-grow: 0.8; text-align: right"
-                            css="
-                                &:hover {{
-                                    background: #fff8;
-                                    box-shadow:
-                                        inset  1px  0px #0006,
-                                        inset  0px  1px #0006,
-                                        inset -1px  0px #0006,
-                                        inset  0px -1px #0006;
-                                }}
-                            "
-                            onclick=call({arm_do(
-                                moves.RawCode("EnsureRelPos()"),
-                                v,
-                            )})
-                        >{k}  </pre>
-                    '''
+                for col, k, v in buttons:
+                    row += div(k,
+                        style=f'grid-column: {col}',
+                        css='''
+                            & {
+                                cursor: pointer;
+                                padding-right: 10px;
+                                text-align: right
+                            }
+                            &:hover {
+                                background: #fff8;
+                                box-shadow:
+                                    inset  1px  0px #0006,
+                                    inset  0px  1px #0006,
+                                    inset -1px  0px #0006,
+                                    inset  0px -1px #0006;
+                            }
+                        ''',
+                        onclick=f'call({arm_do.url(moves.RawCode("EnsureRelPos()"), v)})',
+                    )
             else:
-                # yield f'{dx: 6.1f}, {dy: 6.1f}, {dz: 6.1f}   '
-                yield f'<pre style="flex-grow: 2.4; text-align: right">{dist: 5.0f}  </pre>'
-        else:
-            yield f'<pre style="flex-grow: 2.4"></pre>'
+                row += div(f'{dist: 5.0f}',
+                    style=f'grid-column: z',
+                    css='''
+                        text-align: right;
+                        padding-right: 10px;
+                    '''
+                )
 
         show_grip_test = catch(lambda:
                 isinstance(m, (moves.MoveLin, moves.MoveRel))
@@ -335,75 +392,55 @@ def index() -> Iterator[head | str]:
 
         show_go_btn = not isinstance(m, moves.Section)
 
-        yield f'''
-            <button tabindex=-1
-                {"" if show_go_btn else "hide"}
-                css="margin: 0 10px;"
-                style="flex-grow: 0.8" onclick=call({arm_do(m)})>go</button>
-        '''
+        row += button('go',
+            tabindex='-1',
+            style=f'grid-column: go',
+            css='margin: 0 10px;',
+            onclick=f'call({arm_do.url(m)})'
+        )
+
+        row += button('update',
+            tabindex='-1',
+            style=f'grid-column: update',
+            css='margin: 0 10px;',
+            onclick=f'call({update.url(program_name, i)})'
+        )
 
 
-
-        yield f'''
-            <input style="flex-grow: 2"
-                type=text
-                css="
-                    &:hover:not([disabled]) {{
-                        background: #fff8;
-                        box-shadow:
-                            inset  1px  0px #0006,
-                            inset  0px  1px #0006,
-                            inset -1px  0px #0006,
-                            inset  0px -1px #0006;
-                    }}
-                "
-                css="
+        row += input(
+            style=f'grid-column: name',
+            type='text',
+            css='''
+                &:hover:not([disabled]) {
+                    background: #fff8;
+                    box-shadow:
+                        inset  1px  0px #0006,
+                        inset  0px  1px #0006,
+                        inset -1px  0px #0006,
+                        inset  0px -1px #0006;
+                }
+                & {
                     padding: 0 10px;
                     margin-right: 10px;
                     border: 0;
                     background: unset;
                     min-width: 0; /* makes flex able to shrink element */
                     font-size: 14px;
-                "
+                }
+            ''',
+            disabled=not hasattr(m, "name"),
+            value=catch(lambda: getattr(m, "name"), ""),
+            oninput=f'call({edit_at.url(program_name, i)},{{name:event.target.value}}).then(refresh)'
+        )
+        if not isinstance(m, moves.Section):
+            row += V.code(m.to_script(),
+                style=f'grid-column: value',
+            )
 
-                {"" if hasattr(m, "name") else "disabled"}
-                value="{esc(catch(lambda: getattr(m, "name"), ""))}"
-                oninput=call({edit_at(program_name, i)},{{name:event.target.value}}).then(refresh)
-            >
-        '''
-        if isinstance(m, moves.Section):
-            yield '''<div style="flex-grow: 5; display: flex; margin-top: 12px; padding-bottom: 4px;"
-                css="
-                    & button {
-                        padding: 1px 14px 5px;
-                        margin-right: 6px;
-                        font-family: sans;
-                        font-size: 16px;
-                    }
-                ">'''
-            yield f'''<button tabindex=-1
-                    onclick="update_query({{ section: '' }})"
-                    style="cursor: pointer;"
-                    >{program_name}</button>'''
-            seen: list[str] = []
-            for s in m.sections:
-                seen += [s]
-                yield f'''<button tabindex=-1
-                    onclick="update_query({{ section: {' '.join(seen)!r} }})"
-                    style="cursor: pointer;"
-                    >{s}</button>'''
-                    # {m.to_script()}
-            yield f'''</div>'''
-        else:
-            yield f'''
-                <code style="flex-grow: 5">{m.to_script()}</code>
-            '''
-        yield '''
-            </div>
-        '''
+    yield grid
 
-    yield '''
-        <div css="
+    yield div(
+        css="""
             & {
                 display: flex;
             }
@@ -416,41 +453,39 @@ def index() -> Iterator[head | str]:
             & button:not(:first-child) {
                 margin-left: 10px;
             }
-        ">
-    ''' + f'''
-        <button tabindex=-1
-            onclick=call({
-                arm_do(
+        """).append(
+            button('run program', tabindex='-1', onclick=f'call({arm_do.url(*visible_moves)}).then(refresh)'),
+            button('freedrive', tabindex='-1', onclick=f'''call({
+                arm_do.url(
                     moves.RawCode("freedrive_mode() sleep(3600)")
                 )
-            })>freedrive</button>
-
-        <div style="flex-grow: 1"></div>
-
-        <button tabindex=-1 onclick=call({arm_do(*visible_moves)}).then(refresh)>run program</button>
-        <button tabindex=-1 onclick=call({arm_do()}).then(refresh)>stop robot</button>
-
-        <div style="flex-grow: 1"></div>
-
-        <button tabindex=-1
-            onclick=call({
-                arm_do(
+            })'''),
+            div(css='flex-grow: 1'),
+            button('stop robot', tabindex='-1', onclick=f'call({arm_do.url()}).then(refresh)'),
+            div(css='flex-grow: 1'),
+            button('gripper open', tabindex='-1', onclick=f'''call({
+                arm_do.url(
+                    moves.RawCode("GripperMove(88)"),
+                )
+            })'''),
+            button('gripper close', tabindex='-1', onclick=f'''call({
+                arm_do.url(
+                    moves.RawCode("GripperMove(255)"),
+                )
+            })'''),
+            button('grip test', tabindex='-1', onclick=f'''call({
+                arm_do.url(
                     moves.RawCode("EnsureRelPos() GripperTest()"),
                 )
-            })>grip test</button>
-        </div>
-    '''
+            })'''),
+    )
 
-    yield '''
-        <script eval>
+    yield V.script(raw('''
             window.requestAnimationFrame(() => {
                 if (window.rt) window.clearTimeout(window.rt)
                 window.rt = window.setTimeout(() => refresh(0, () => 0), 100)
             })
-        </script>
-    '''
+    '''), eval=True)
 
-    yield f'''
-        <pre style="user-select: text; text-align: center">{info}</pre>
-    '''
+    yield pre(pformat(info, sort_dicts=False), css="user-select: text; text-align: left; padding: 15px")
 

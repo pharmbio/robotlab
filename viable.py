@@ -1,46 +1,41 @@
 from __future__ import annotations
 from typing import *
 
-from dataclasses import dataclass
-from flask import Flask, request
-import textwrap
-import gzip
-import inspect
-import re
-import sys
-import time
+from contextlib import contextmanager
+from dataclasses import *
+from threading import Event
+from types import ModuleType
+import abc
+import importlib
+import os
 import pickle
-
-from itsdangerous.url_safe import URLSafeSerializer # type: ignore
+import re
 import secrets
+import sys
+import textwrap
+import time
+import traceback
 
-__serializer = URLSafeSerializer(secrets.token_hex(32), serializer=pickle) # type: ignore
+from flask import Flask, request, jsonify
+from itsdangerous.url_safe import Serializer, URLSafeSerializer
 
-@dataclass(frozen=True)
-class head:
-    content: str
+def timeit(desc: str='') -> ContextManager[None]:
+    # The inferred type for the decorated function is wrong hence this wrapper to get the correct type
 
-def make_classes(html: str) -> tuple[head, str]:
-    classes: dict[str, str] = {}
-    def repl(m: re.Match[str]) -> str:
-        decls = textwrap.dedent(m.group(1)).strip()
-        if decls in classes:
-            name = classes[decls]
-        else:
-            name = f'css-{len(classes)}'
-            classes[decls] = name
-        return name
+    @contextmanager
+    def worker():
+        t0 = time.monotonic()
+        yield
+        T = time.monotonic() - t0
+        print(f'{T:.3f} {desc}')
 
-    html_out = re.sub('css="([^"]*)"', repl, html, flags=re.MULTILINE)
-    style = '\n'.join(
-        decls.replace('&', f'[{name}]')
-        if '&' in decls else
-        f'[{name}] {{ {decls} }}'
-        for decls, name in classes.items()
-    )
-    return head(f'<style>{style}</style>'), html_out
+    return worker()
 
-app = Flask(__name__)
+def trim(s: str, soft: bool=False, sep: str=' '):
+    if soft:
+        return textwrap.dedent(s).strip()
+    else:
+        return re.sub(r'\s*\n\s*', sep, s, flags=re.MULTILINE).strip()
 
 def esc(txt: str, __table: dict[int, str] = str.maketrans({
     "<": "&lt;",
@@ -48,285 +43,766 @@ def esc(txt: str, __table: dict[int, str] = str.maketrans({
     "&": "&amp;",
     "'": "&apos;",
     '"': "&quot;",
+    '`': "&#96;",
 })) -> str:
     return txt.translate(__table)
 
-__exposed: dict[str, Callable[..., Any]] = dict()
+def css_esc(txt: str, __table: dict[int, str] = str.maketrans({
+    "<": r"\<",
+    ">": r"\>",
+    "&": r"\&",
+    "'": r"\'",
+    '"': r"\❞",
+    '\\': "\\\\",
+})) -> str:
+    return txt.translate(__table)
 
-def expose(f: Callable[..., Any], *args: Any, **kws: Any) -> Callable[..., Any]:
-    name = f.__name__
-    is_lambda = name == '<lambda>'
-    if is_lambda:
-        # note: memory leak
-        name += str(len(__exposed))
-    if name in __exposed:
-        assert __exposed[name] == f                  # type: ignore
-    __exposed[name] = f                              #
-    def inner(*args, **kws):                         # type: ignore
-        msg: bytes = __serializer.dumps((name, *args, kws)) # type: ignore
-        return f"'/call/{msg.decode()}'"                      #
-    if args or kws or name.startswith('<lambda>'):   #
-        return inner(*args, **kws)                   # type: ignore
-    else:                                            #
-        inner.call = lambda *a, **ka: f(*a, **ka)    # type: ignore
-        return inner                                 # type: ignore
+class IAddable:
+    def __init__(self):
+        self.value = None
 
-def serve(f: Callable[..., str | Iterable[head | str]]):
+    def __iadd__(self, value: str):
+        self.value = value
+        return self
 
-    @app.route('/call/<msg>', methods=['POST'])
-    def call(msg: str):
-        try:
-            name, *args, kws = __serializer.loads(msg)      # type: ignore
-            more_args = request.json["args"]                # type: ignore
-            ret = __exposed[name](*args, *more_args, **kws) # type: ignore
-            if ret is None:
-                return '', 204
+class Node(abc.ABC):
+    @abc.abstractmethod
+    def to_strs(self, *, indent: int=0, i: int=0) -> Iterable[str]:
+        raise NotImplementedError
+
+    def __str__(self) -> str:
+        return self.to_str()
+
+    def to_str(self, indent: int=2) -> str:
+        sep = '' if indent == 0 else '\n'
+        return sep.join(self.to_strs(indent=indent))
+
+class Tag(Node):
+    _attributes_ = {'children', 'attrs', 'inline_css', 'inline_sheet'}
+    def __init__(self, *children: Node | str | dict[str, str | bool | None], **attrs: str | bool | None):
+        self.children: list[Node] = []
+        self.attrs: dict[str, str | bool | None] = {}
+        self.inline_css: list[str] = []
+        self.inline_sheet: list[str] = []
+        self.append(*children)
+        self.extend(attrs)
+
+    def append(self, *children: Node | str | dict[str, str | bool | None], **kws: str | bool | None) -> Tag:
+        self.children += [
+            text(child) if isinstance(child, str) else child
+            for child in children
+            if not isinstance(child, dict)
+        ]
+        for child in children:
+            if isinstance(child, dict):
+                self.extend(child)
+        self.extend(kws)
+        return self
+
+    def extend(self, attrs: dict[str, str | bool | None] = {}, **kws: str | bool | None) -> Tag:
+        for k, v in {**attrs, **kws}.items():
+            if k == 'css':
+                assert isinstance(v, str), 'inline css must be str'
+                self.inline_css += [v]
+                continue
+            if k == 'sheet':
+                assert isinstance(v, str), 'inline css must be str'
+                self.inline_sheet += [v]
+                continue
+            k = k.strip("_").replace("_", "-")
+            if k == 'className':
+                k = 'class'
+            if k == 'htmlFor':
+                k = 'for'
+            if k in self.attrs:
+                if k == 'style':
+                    sep = ';'
+                elif k.startswith('on'):
+                    sep = ';'
+                elif k == 'class':
+                    sep = ' '
+                else:
+                    raise ValueError(f'only event handlers, styles and classes can be combined, not {k}')
+                if not isinstance(v, str):
+                    raise ValueError(f'attribute {k}={v} not str' )
+                self.attrs[k] = str(self.attrs[k]).rstrip(sep) + sep + v.lstrip(sep)
             else:
-                return ret
-        except:
-            import traceback as tb
-            tb.print_exc()
-            return '', 400
+                self.attrs[k] = v
+        return self
 
-    @app.route('/hot.js')
-    def hot_js():
-        return r'''
-            function call(url, ...args) {
-                return fetch(url, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ args: args }),
-                })
+    def __iadd__(self, other: str | Tag) -> Tag:
+        return self.append(other)
+
+    def __getattr__(self, attr: str) -> IAddable:
+        if attr in self._attributes_:
+            return self.__dict__[attr]
+        return IAddable()
+
+    def __setattr__(self, attr: str, value: IAddable):
+        if attr in self._attributes_:
+            self.__dict__[attr] = value
+        else:
+            assert isinstance(value, IAddable)
+            self.extend({attr: value.value})
+
+    def tag_name(self) -> str:
+        return self.__class__.__name__
+
+    def to_strs(self, *, indent: int=2, i: int=0) -> Iterable[str]:
+        if self.attrs:
+            attrs = ' ' + ' '.join(
+                k if v is True else
+                f'{k}={v}' if
+                    # https://html.spec.whatwg.org/multipage/syntax.html#unquoted
+                    re.match(r'[\w\-\.,:;/+@#?(){}[\]]+$', v)
+                else f'{k}="{esc(v)}"'
+                for k, v in sorted(self.attrs.items())
+                if v is not False
+                if v is not None
+            )
+        else:
+            attrs = ''
+        name = self.tag_name()
+        if len(self.children) == 0:
+            yield ' ' * i + f'<{name}{attrs}></{name}>'
+        elif len(self.children) == 1 and isinstance(self.children[0], text):
+            yield ' ' * i + f'<{name}{attrs}>{self.children[0].to_str()}</{name}>'
+        else:
+            yield ' ' * i + f'<{name}{attrs}>'
+            for child in self.children:
+                yield from child.to_strs(indent=indent, i=i+indent)
+            yield ' ' * i + f'</{name}>'
+
+    def make_classes(self, classes: dict[str, tuple[str, str]], minify: bool=True) -> dict[str, tuple[str, str]]:
+        for decls in self.inline_sheet:
+            if decls not in classes:
+                norm = trim(decls, soft=not minify, sep=' ')
+                classes[decls] = '', norm
+        self.inline_sheet.clear()
+        for decls in self.inline_css:
+            if decls in classes:
+                name, _ = classes[decls]
+            else:
+                name = f'css-{len(classes)}'
+                norm = trim(decls, soft=not minify, sep=' ')
+                if '&' in norm:
+                    inst = norm.replace('&', f'[{name}]')
+                else:
+                    if minify:
+                        inst = f'[{name}]{{{norm}}}'
+                    else:
+                        norm = '\n' + textwrap.indent(norm, prefix='    ') + '\n'
+                        inst = f'[{name}] {{{norm}}}'
+                classes[decls] = name, inst
+            self.extend({name: True})
+        self.inline_css.clear()
+        for child in self.children:
+            if isinstance(child, Tag):
+                child.make_classes(classes, minify)
+        return classes
+
+class tag(Tag):
+    _attributes_ = {*Tag._attributes_, 'name'}
+    def __init__(self, name: str, *children: Node | str, **attrs: str | int | bool | None | float):
+        super(tag, self).__init__(*children, **attrs)
+        self.name = name
+
+    def tag_name(self) -> str:
+        return self.name
+
+class text(Node):
+    def __init__(self, txt: str, raw: bool=False):
+        super(text, self).__init__()
+        self.raw = raw
+        if raw:
+            self.txt = txt
+        else:
+            self.txt = esc(txt)
+
+    def tag_name(self) -> str:
+        return ''
+
+    def to_strs(self, *, indent: int=0, i: int=0) -> Iterable[str]:
+        if self.raw:
+            yield self.txt
+        else:
+            yield ' ' * i + self.txt
+
+def raw(txt: str) -> text:
+    return text(txt, raw=True)
+
+def throw(e: Exception):
+    raise e
+
+def serializer_factory() -> Serializer:
+    return URLSafeSerializer(secrets.token_hex(32), serializer=pickle)
+
+@dataclass(frozen=True)
+class Exposed:
+    _f: Callable[..., Any]
+    _serializer: Serializer
+
+    def __call__(self, *args: Any, **kws: Any) -> Any:
+        '''
+        Call from python.
+
+        >>> @serve.expose
+        ... def Sum(*args: str | int | float) -> float
+        ...     res = sum(map(float, args))
+        ...     print(res)
+        ...     return res
+        >>> print('{Sum(1,2)=}')
+        3.0
+        Sum(1,2)=3.0
+        '''
+        return self._f(*args, **kws)
+
+    def url(self, *args: Any, **kws: Any):
+        '''
+        The quoted url for the function, optionally already applied to some arguments.
+
+        >>> @serve.expose
+        ... def Sum(*args: str | int | float) -> float
+        ...     res = sum(map(float, args))
+        ...     print(res)
+        ...     return res
+        >>> elem = input(onclick=f'call({Sum.url(1)},this.value).then(async resp=>console.log(await resp.json()))')
+        '''
+        msg: bytes = self._serializer.dumps((self._f.__name__, *args, kws)) # type: ignore
+        return f"'/call/{msg.decode()}'"
+
+app = Flask(__name__)
+
+@dataclass
+class Serve:
+    # Routes
+    routes: dict[str, Callable[..., Iterable[Tag | str | dict[str, str]]]] = field(default_factory=dict)
+
+    # Exposed functions
+    exposed: dict[str, Exposed] = field(default_factory=dict)
+    _serializer: Serializer = field(default_factory=serializer_factory)
+
+    # State for reloading
+    running: bool = False
+    reloading: bool = False
+    rereload: bool = False
+    last_err: str | None = None
+    notify_reload: Event = field(default_factory=Event)
+    module_order: list[str] = field(default_factory=list)
+
+    def expose(self, f: Callable[..., Any], *args: Any, **kws: Any) -> Exposed:
+        name = f.__name__
+        assert name != '<lambda>'
+        if name in self.exposed:
+            assert self.exposed[name].f == f # type: ignore
+        res = Exposed(f, self._serializer)
+        self.exposed[name] = res
+        return res
+
+    def route(self, rule: str = '/'):
+        def inner(f: Callable[..., Iterable[Tag | str | dict[str, str]]]):
+            if rule not in self.routes:
+                endpoint = f'viable{len(self.routes)+1}'
+                app.add_url_rule( # type: ignore
+                    rule,
+                    endpoint=endpoint,
+                    view_func=lambda *args: self.view(rule, *args) # type: ignore
+                )
+            self.routes[rule] = f
+        return inner
+
+    def one(self, rule: str = '/'):
+        def inner(f: Callable[..., Iterable[Tag | str | dict[str, str]]]):
+            self.route(rule)(f)
+            self.run()
+        return inner
+
+    def _reimport_modules(self) -> None:
+        modules: dict[str, ModuleType] = {}
+        with timeit(f'get modules'):
+            pwd = os.getcwd()
+            for k, m in list(sys.modules.items()):
+                if m.__name__ == 'viable':
+                    continue
+                if getattr(m, '__file__', None) and m.__file__.startswith(pwd):
+                    modules[k] = m
+        for k in reversed(modules.keys()):
+            if k not in self.module_order:
+                self.module_order.append(k)
+        for k in list(self.module_order):
+            m = modules.get(k)
+            if not m:
+                self.module_order.remove(k)
+                continue
+            with timeit(f'reload {k} {m.__file__}'):
+                if m.__name__ == '__main__':
+                    # It is a module -- insert its dir into sys.path and try to
+                    # import it. If it is part of a package, that possibly
+                    # won't work because of package imports.
+                    filename = m.__file__
+                    dirname, filename = os.path.split(filename)
+                    name = filename[:-3]
+                    sys.path.insert(0, dirname)
+                    sys.modules.pop(k)
+                    __import__(name, m.__dict__)
+                    del sys.path[0]
+                else:
+                    importlib.reload(m)
+        print(f'{self.module_order = }')
+
+    def reload(self) -> None:
+        if self.reloading:
+            self.rereload = True
+            return
+        self.reloading = True
+        try:
+            with timeit('reload'):
+                # purge routes
+                for k in self.routes.keys():
+                    self.routes[k] = lambda *args: throw(ValueError(f''''
+                        Route {k} stale after reloading, program restart might be required.
+                    '''.strip()))
+                # purge exposed functions
+                self.exposed.clear()
+                # reimport modules
+                self._reimport_modules()
+                # notify pings
+                self.last_err = None
+                self.notify_reload.set()
+                self.notify_reload.clear()
+        except:
+            self.last_err = traceback.format_exc()
+            print(self.last_err)
+            # notify pings
+            self.notify_reload.set()
+            self.notify_reload.clear()
+        finally:
+            self.reloading = False
+            if self.rereload:
+                with timeit('rereload'):
+                    self.rereload = False
+                    self.reload()
+
+    def view(self, rule: str, *args: Any) -> str:
+        f = self.routes[rule]
+        try:
+            parts = f(*args)
+            body_node = body(*cast(Any, parts))
+            title_str = f.__name__
+        except Exception as e:
+            title_str = 'error'
+            body_node = body()
+            body_node.sheet += '''
+                body {
+                    margin: 0 auto;
+                    padding: 5px;
+                    max-width: 800px;
+                    background: #222;
+                    color: #f2777a;
+                    font-size: 16px;
+                }
+                pre {
+                    white-space: pre-wrap;
+                    overflow-wrap: break-word;
+                }
+            '''
+            body_node += pre(traceback.format_exc())
+
+        head_node = head()
+        for node in body_node.children:
+            if isinstance(node, head):
+                head_node = node
+
+        has_title = False
+        has_charset = False
+        has_viewport = False
+        has_icon = False
+        for node in head_node.children:
+            has_title = has_title or isinstance(node, title)
+            has_charset = has_charset or isinstance(node, meta) and node.attrs.get('charset')
+            has_viewport = has_viewport or isinstance(node, meta) and node.attrs.get('viewport')
+            has_icon = has_icon or isinstance(node, link) and node.attrs.get('rel') == 'icon'
+
+        if not has_title:
+            head_node += title(title_str)
+        if not has_charset:
+            head_node += meta(charset='utf-8')
+        if not has_viewport:
+            head_node += meta(name="viewport", content="width=device-width,initial-scale=1")
+        if not has_icon:
+            # favicon because of chromium bug, see https://stackoverflow.com/a/36104057
+            head_node += meta(rel="icon", type="image/png", href="data:image/png;base64,iVBORw0KGgo=")
+
+        minify = bool(re.search('gzip|br|deflate', cast(Any, request).headers.get('Accept-encoding', '')))
+        indent = 0 if minify else 2
+        newline = '\n' if minify else ''
+
+        classes = body_node.make_classes({}, minify=minify)
+        head_node += style(*[raw(inst) for name, inst in classes.values()])
+
+        head_node += script(src="/hot.js", defer=True)
+
+        return (
+            f'<!doctype html>{newline}' +
+            html(head_node, body_node, lang='en').to_str(indent)
+        )
+
+    def run(self):
+        if self.running:
+            return
+        self.running = True
+        @app.post('/reload')
+        def reload():
+            self.reload()
+            return self.last_err or '', {'Content-Type': 'text/plain'}
+
+        @app.post('/call/<msg>')
+        def call(msg: str):
+            try:
+                name, *args, kws = self._serializer.loads(msg)     # type: ignore
+                more_args = request.json["args"]                   # type: ignore
+                ret = self.exposed[name](*args, *more_args, **kws) # type: ignore
+                return jsonify(ret)
+            except:
+                traceback.print_exc()
+                return '', 400
+
+        @app.route('/hot.js')
+        def hot_js_route():
+            return hot_js, {'Content-Type': 'application/javascript'}
+
+        @app.route('/ping')
+        def ping():
+            needs_reload = self.notify_reload.wait(115)
+            return jsonify(dict(
+                needs_reload=needs_reload,
+                last_err=self.last_err
+            ))
+
+        try:
+            from flask_compress import Compress # type: ignore
+            Compress(app)
+        except Exception as e:
+            print('Not using flask_compress:', str(e), file=sys.stderr)
+
+        if sys.argv[0].endswith('.py'):
+            host = os.environ.get('VIABLE_HOST')
+            port = os.environ.get('VIABLE_PORT')
+            port = int(port) if port else None
+            app.run(host=host, port=port)
+
+serve = Serve()
+
+hot_js = str(r'''
+    function call(url, ...args) {
+        return fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ args: args }),
+        })
+    }
+    function morph(prev, next) {
+        if (
+            prev.nodeType === Node.ELEMENT_NODE &&
+            next.nodeType === Node.ELEMENT_NODE &&
+            prev.tagName === next.tagName
+        ) {
+            for (let name of prev.getAttributeNames()) {
+                if (!next.hasAttribute(name)) {
+                    prev.removeAttribute(name)
+                }
             }
-            function morph(prev, next) {
+            for (let name of next.getAttributeNames()) {
                 if (
-                    prev.nodeType === Node.ELEMENT_NODE &&
-                    next.nodeType === Node.ELEMENT_NODE &&
-                    prev.tagName === next.tagName
+                    !prev.hasAttribute(name) ||
+                    next.getAttribute(name) !== prev.getAttribute(name)
                 ) {
-                    if (
-                        (prev.hasAttribute('id') || next.hasAttribute('id')) &&
-                        prev.getAttribute('id') !== next.getAttribute('id')
-                    ) {
-                        prev.replaceWith(next)
+                    prev.setAttribute(name, next.getAttribute(name))
+                }
+            }
+            if (prev.tagName === 'INPUT' && (document.activeElement !== prev || next.getAttribute('truth') === 'server')) {
+                if (prev.type == 'radio' && document.activeElement.name === prev.name) {
+                    // pass
+                } else {
+                    if (next.value !== prev.value) {
+                        prev.value = next.value
                     }
-                    if (next.hasAttribute('replace')) {
-                        prev.replaceWith(next)
-                        return
-                    }
-                    if (
-                        next.hasAttribute('protect')
-                        // && prev.id === next.id ?
-                    ) {
-                        return
-                    }
-                    for (let name of prev.getAttributeNames()) {
-                        if (!next.hasAttribute(name)) {
-                            prev.removeAttribute(name)
-                        }
-                    }
-                    for (let name of next.getAttributeNames()) {
-                        if (
-                            !prev.hasAttribute(name) ||
-                            next.getAttribute(name) !== prev.getAttribute(name)
-                        ) {
-                            prev.setAttribute(name, next.getAttribute(name))
-                        }
-                    }
-                    if (prev.tagName === 'INPUT' && document.activeElement !== prev) {
-                        prev.value = next.getAttribute('value')
+                    if (prev.checked !== next.hasAttribute('checked')) {
                         prev.checked = next.hasAttribute('checked')
                     }
-                    const pc = [...prev.childNodes]
-                    const nc = [...next.childNodes]
-                    const num_max = Math.max(pc.length, nc.length)
-                    for (let i = 0; i < num_max; ++i) {
-                        if (i >= nc.length) {
-                            prev.removeChild(pc[i])
-                        } else if (i >= pc.length) {
-                            prev.appendChild(nc[i])
-                        } else {
-                            morph(pc[i], nc[i])
-                        }
-                    }
-                } else if (
-                    prev.nodeType === Node.TEXT_NODE &&
-                    next.nodeType === Node.TEXT_NODE
-                ) {
-                    if (prev.textContent !== next.textContent) {
-                        prev.textContent = next.textContent
-                    }
+                }
+            }
+            const pc = [...prev.childNodes]
+            const nc = [...next.childNodes]
+            const num_max = Math.max(pc.length, nc.length)
+            for (let i = 0; i < num_max; ++i) {
+                if (i >= nc.length) {
+                    prev.removeChild(pc[i])
+                } else if (i >= pc.length) {
+                    prev.appendChild(nc[i])
                 } else {
-                    prev.replaceWith(next)
+                    morph(pc[i], nc[i])
                 }
             }
-            let in_progress = false
-            let rejected = false
-            async function refresh(i=0, and_then) {
-                if (!and_then) {
-                    if (in_progress) {
-                        rejected = true
-                        return
-                    }
-                    in_progress = true
+        } else if (
+            prev.nodeType === Node.TEXT_NODE &&
+            next.nodeType === Node.TEXT_NODE
+        ) {
+            if (prev.textContent !== next.textContent) {
+                prev.textContent = next.textContent
+            }
+        } else {
+            prev.replaceWith(next)
+        }
+    }
+    let in_progress = false
+    let rejected = false
+    async function refresh(i=0, and_then) {
+        if (!and_then) {
+            if (in_progress) {
+                rejected = true
+                return
+            }
+            in_progress = true
+        }
+        let text = null
+        try {
+            const resp = await fetch(window.location.href)
+            text = await resp.text()
+        } catch (e) {
+            if (i > 0) {
+                window.setTimeout(() => refresh(i-1, and_then), i < 300 ? 1000 : 16)
+            } else {
+                console.warn('timeout', e)
+            }
+        }
+        if (text !== null) {
+            try {
+                const parser = new DOMParser()
+                const doc = parser.parseFromString(text, "text/html")
+                morph(document.head, doc.head)
+                morph(document.body, doc.body)
+                for (const script of document.querySelectorAll('script[eval]')) {
+                    const global_eval = eval
+                    global_eval(script.textContent)
                 }
-                let text = null
-                try {
-                    const resp = await fetch(window.location.href)
-                    text = await resp.text()
-                } catch (e) {
-                    if (i > 0) {
-                        window.setTimeout(() => refresh(i-1, and_then), i < 300 ? 1000 : 16)
-                    } else {
-                        console.warn('timeout', e)
-                    }
-                }
-                if (text !== null) {
-                    try {
-                        const parser = new DOMParser()
-                        const doc = parser.parseFromString(text, "text/html")
-                        morph(document.head, doc.head)
-                        morph(document.body, doc.body)
-                        for (const script of document.querySelectorAll('script[eval]')) {
-                            const global_eval = eval
-                            global_eval(script.textContent)
-                        }
-                    } catch(e) {
-                        console.warn(e)
-                    }
-                    if (and_then) {
-                        and_then()
-                    } else if (in_progress) {
-                        in_progress = false
-                        if (rejected) {
-                            rejected = false
-                            refresh()
-                        }
-                    }
+            } catch(e) {
+                console.warn(e)
+            }
+            if (and_then) {
+                and_then()
+            } else if (in_progress) {
+                in_progress = false
+                if (rejected) {
+                    rejected = false
+                    refresh()
                 }
             }
-            window.refresh = refresh
-            async function long_poll() {
-                try {
-                    while (await fetch('/ping'));
-                } catch (e) {
-                    refresh(600, long_poll)
+        }
+    }
+    async function long_poll() {
+        while (true) {
+            try {
+                const resp = await fetch('/ping')
+                const msg = await resp.json()
+                if (msg.last_err) {
+                    console.error(msg.last_err)
+                    const pre = document.createElement('pre')
+                    pre.innerText = msg.last_err
+                    pre.style = `
+                        position: fixed;
+                        left: 50%;
+                        top: 2em;
+                        transform: translateX(-50%);
+                        padding: 1em;
+                        background: #222;
+                        color: #f2777a;
+                        font-size: 16px;
+                    `
+                    document.body.append(pre)
+                } else if (msg.needs_reload) {
+                    break
                 }
+            } catch {
+                break
             }
-            long_poll()
-            window.onpopstate = () => refresh()
-            function get_query(q) {
-                return Object.fromEntries(new URLSearchParams(location.search))
+        }
+        refresh(600, long_poll)
+    }
+    long_poll()
+    window.onpopstate = () => refresh()
+    function input_values() {
+        const inputs = document.querySelectorAll('input:not([type=radio]),input[type=radio]:checked,select')
+        const vals = {}
+        for (let i of inputs) {
+            if (i.getAttribute('truth') == 'server') {
+                continue
             }
-            function update_query(q) {
-                return set_query({...get_query(), ...q})
+            if (!i.name) {
+                console.error(i, 'has no name attribute')
+                continue
             }
-            function set_query(q) {
-                if (typeof q === 'string' && q[0] == '#') {
-                    q = document.querySelector(q)
-                }
-                if (q instanceof HTMLFormElement) {
-                    q = new FormData(q)
-                } else if (q instanceof URLSearchParams) {
-                    q = '?' + q.toString()
-                } else if (q && typeof q === 'object') {
-                    const kvs = Object.entries(q)
-                    q = new FormData()
-                    for (let [k, v] of kvs) {
-                        q.append(k, v)
-                    }
-                }
-                if (q instanceof FormData) {
-                    q = '?' + new URLSearchParams(q).toString()
-                }
-                if (typeof q[0] === 'string' && q[0] == '?') {
-                    next = location.href
-                    if (next.indexOf('?') == -1 || !location.search) {
-                        next = next.replace(/\?$/, '') + q
-                    } else {
-                        next = next.replace(location.search, q)
-                    }
-                    history.replaceState(null, null, next)
-                } else {
-                    console.warn('Not a valid query', q)
-                }
+            if (i.type == 'radio') {
+                console.assert(i.checked)
+                vals[i.name] = i.value
+            } else if (i.type == 'checkbox') {
+                vals[i.name] = i.checked
+            } else {
+                vals[i.name] = i.value
             }
-        '''
+        }
+        return vals
+    }
+    function get_query(q) {
+        return Object.fromEntries(new URLSearchParams(location.search))
+    }
+    function update_query(kvs) {
+        return set_query({...get_query(), ...kvs})
+    }
+    function set_query(kvs) {
+        let q = '?' + new URLSearchParams(kvs).toString()
+        let next = location.href
+        if (next.indexOf('?') == -1 || !location.search) {
+            next = next.replace(/\?$/, '') + q
+        } else {
+            next = next.replace(location.search, q)
+        }
+        history.replaceState(null, null, next)
+    }
+''')
+hot_js = trim(hot_js, sep='\n')
 
-    @app.route('/traceback.css')
-    def traceback_css():
-        return '''
-            body {
-                margin: 0 auto;
-                padding: 5px;
-                max-width: 800px;
-                background: #222;
-                color: #f2777a;
-                font-size: 16px;
-            }
-            pre {
-                white-space: pre-wrap;
-                overflow-wrap: break-word;
-            }
-        ''', 200, {'Content-Type': 'text/css'}
+class a(Tag): pass
+class abbr(Tag): pass
+class address(Tag): pass
+class area(Tag): pass
+class article(Tag): pass
+class aside(Tag): pass
+class audio(Tag): pass
+class b(Tag): pass
+class base(Tag): pass
+class bdi(Tag): pass
+class bdo(Tag): pass
+class blockquote(Tag): pass
+class body(Tag): pass
+class br(Tag): pass
+class button(Tag): pass
+class canvas(Tag): pass
+class caption(Tag): pass
+class cite(Tag): pass
+class code(Tag): pass
+class col(Tag): pass
+class colgroup(Tag): pass
+class data(Tag): pass
+class datalist(Tag): pass
+class dd(Tag): pass
+# class del(Tag): pass
+class details(Tag): pass
+class dfn(Tag): pass
+class dialog(Tag): pass
+class div(Tag): pass
+class dl(Tag): pass
+class dt(Tag): pass
+class em(Tag): pass
+class embed(Tag): pass
+class fieldset(Tag): pass
+class figcaption(Tag): pass
+class figure(Tag): pass
+class footer(Tag): pass
+class form(Tag): pass
+class h1(Tag): pass
+class h2(Tag): pass
+class h3(Tag): pass
+class h4(Tag): pass
+class h5(Tag): pass
+class h6(Tag): pass
+class head(Tag): pass
+class header(Tag): pass
+class hgroup(Tag): pass
+class hr(Tag): pass
+class html(Tag): pass
+class i(Tag): pass
+class iframe(Tag): pass
+class img(Tag): pass
+class input(Tag): pass
+class ins(Tag): pass
+class kbd(Tag): pass
+class label(Tag): pass
+class legend(Tag): pass
+class li(Tag): pass
+class link(Tag): pass
+class main(Tag): pass
+# class map(Tag): pass
+class mark(Tag): pass
+class menu(Tag): pass
+class meta(Tag): pass
+class meter(Tag): pass
+class nav(Tag): pass
+class noscript(Tag): pass
+# class object(Tag): pass
+class ol(Tag): pass
+class optgroup(Tag): pass
+class option(Tag): pass
+class output(Tag): pass
+class p(Tag): pass
+class param(Tag): pass
+class picture(Tag): pass
+class pre(Tag): pass
+class progress(Tag): pass
+class q(Tag): pass
+class rp(Tag): pass
+class rt(Tag): pass
+class ruby(Tag): pass
+class s(Tag): pass
+class samp(Tag): pass
+class script(Tag): pass
+class section(Tag): pass
+class select(Tag): pass
+class slot(Tag): pass
+class small(Tag): pass
+class source(Tag): pass
+class span(Tag): pass
+class strong(Tag): pass
+class style(Tag): pass
+class sub(Tag): pass
+class summary(Tag): pass
+class sup(Tag): pass
+class table(Tag): pass
+class tbody(Tag): pass
+class td(Tag): pass
+class template(Tag): pass
+class textarea(Tag): pass
+class tfoot(Tag): pass
+class th(Tag): pass
+class thead(Tag): pass
+# class time(Tag): pass
+class title(Tag): pass
+class tr(Tag): pass
+class track(Tag): pass
+class u(Tag): pass
+class ul(Tag): pass
+class var(Tag): pass
+class video(Tag): pass
+class wbr(Tag): pass
 
-    @app.route('/ping')
-    def ping():
-        time.sleep(115)
-        return f'pong\n'
+def Input(store: dict[str, str | bool], name: str, type: str, value: str | None = None, default: str | bool | None = None, **attrs: str | None) -> input | option:
+    if default is None:
+        default = ""
+    state = request.args.get(name, default)
+    if type == 'checkbox':
+        state = str(state).lower() == 'true'
+    store[name] = state
+    if type == 'checkbox':
+        return input(type=type, name=name, checked=bool(state), **attrs)
+    elif type == 'radio':
+        return input(type=type, name=name, value=value, checked=state == value, **attrs)
+    elif type == 'option':
+        return option(type=type, value=value, selected=state == value, **attrs)
+    else:
+        return input(type=type, name=name, value=str(state), **attrs)
 
-    @app.route('/')
-    @app.route('/<path:path>')
-    def index(path: str|None=None):
-        parts = []
-        try:
-            if isinstance(f, str):
-                parts = f
-                title = ''
-            else:
-                if path is None:
-                    parts = f()
-                else:
-                    parts = f(path)
-                title = f.__name__
-        except Exception as e:
-            import traceback as tb
-            title = 'error'
-            parts = [
-               head('<link href=/traceback.css rel=stylesheet>'),
-               head('<title>error</title>'),
-               f'<pre>{esc(tb.format_exc())}</pre>'
-            ]
-        if isinstance(parts, str):
-            parts = [parts]
-
-        parts = list(parts)
-        heads = [part.content for part in parts if isinstance(part, head)]
-        bodies = [part for part in parts if isinstance(part, str)]
-        if not any(hd.lstrip().startswith('<title') for hd in heads):
-            heads += [f'<title>{title}</title>']
-        if not any(hd.lstrip().startswith('<link rel="icon"') for hd in heads):
-            # <!-- favicon because of chromium bug, see https://stackoverflow.com/a/36104057 -->
-            heads += ['<link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgo=">']
-        if bodies and not bodies[0].lstrip().startswith('<body'):
-            bodies = ['<body>', *bodies, '</body>']
-        css_head, body = make_classes('\n'.join(bodies))
-        head_str = '\n'.join([*heads, css_head.content])
-        html = textwrap.dedent('''
-            <!doctype html>
-            <html lang="en">
-            <head>
-            <meta charset="utf-8" />
-            <script defer src="/hot.js"></script>
-            {head}
-            </head>
-            {body}
-            </html>
-        ''').strip().format(head=head_str, body=body)
-        if 'gzip' in request.accept_encodings:
-            return gzip.compress(html.encode()), {'Content-Encoding': 'gzip'}
-        else:
-            return html
-
-    if sys.argv[0].endswith('.py'):
-        app.run()
+if 0:
+    test = body()
+    test += div()
+    test.css += 'lol;'
+    print(test)
