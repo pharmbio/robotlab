@@ -270,27 +270,30 @@ def index() -> Iterator[Tag | dict[str, str]]:
 
     from pprint import pformat
 
-    visible_moves: list[Move] = []
 
     grid: Tag = div(css='''
         display: grid;
         grid-gap: 3px 0;
         grid-template-columns:
+            [update] 100px
             [x] 100px
             [y] 100px
             [z] 100px
             [go] 80px
             [name] 200px
             [value] 1fr
-            [update] 100px;
+            [run] 160px;
     ''')
 
+    visible_moves: list[tuple[int, Move]] = []
     for i, (m_section, m) in enumerate(ml.with_sections(include_Section=True)):
         if section != m_section[:len(section)]:
             continue
-        visible_moves += [m]
+        visible_moves += [(i, m)]
+
+    for row_index, (i, m) in enumerate(visible_moves):
         row = div(
-            style=f'--grid-row: {i+1}',
+            style=f'--grid-row: {row_index+1}',
             css='''
                 & > * {
                     grid-row: var(--grid-row);
@@ -306,8 +309,8 @@ def index() -> Iterator[Tag | dict[str, str]]:
         row += div(
             style=f'grid-column: 1 / -1',
             css='''
-                :nth-child(odd) > & {
-                    background: #eee
+                :nth-child(even) > & {
+                    background: #f2f2f2
                 }
             ''')
         grid += row
@@ -399,6 +402,17 @@ def index() -> Iterator[Tag | dict[str, str]]:
             onclick=f'call({arm_do.url(m)})'
         )
 
+        from_here = [m for _, m in visible_moves[row_index:] if not isinstance(m, moves.Section)]
+
+        row += button('run from here',
+            tabindex='-1',
+            style=f'grid-column: run',
+            css='margin: 0 10px;',
+            onclick=f'call({arm_do.url(*from_here)}).then(refresh)',
+            title=', '.join(m.try_name() or m.__class__.__name__ for m in from_here)
+        )
+
+
         row += button('update',
             tabindex='-1',
             style=f'grid-column: update',
@@ -454,15 +468,6 @@ def index() -> Iterator[Tag | dict[str, str]]:
                 margin-left: 10px;
             }
         """).append(
-            button('run program', tabindex='-1', onclick=f'call({arm_do.url(*visible_moves)}).then(refresh)'),
-            button('freedrive', tabindex='-1', onclick=f'''call({
-                arm_do.url(
-                    moves.RawCode("freedrive_mode() sleep(3600)")
-                )
-            })'''),
-            div(css='flex-grow: 1'),
-            button('stop robot', tabindex='-1', onclick=f'call({arm_do.url()}).then(refresh)'),
-            div(css='flex-grow: 1'),
             button('gripper open', tabindex='-1', onclick=f'''call({
                 arm_do.url(
                     moves.RawCode("GripperMove(88)"),
@@ -478,6 +483,13 @@ def index() -> Iterator[Tag | dict[str, str]]:
                     moves.RawCode("EnsureRelPos() GripperTest()"),
                 )
             })'''),
+            button('stop robot', tabindex='-1', onclick=f'call({arm_do.url()}).then(refresh)', css='flex-grow: 1; color: red; font-size: 48px'),
+            button('freedrive', tabindex='-1', onclick=f'''call({
+                arm_do.url(
+                    moves.RawCode("freedrive_mode() sleep(3600)")
+                )
+            })'''),
+            button('run program', tabindex='-1', onclick=f'call({arm_do.url(*visible_moves)}).then(refresh)', css='width: 160px'),
     )
 
     yield V.script(raw('''
