@@ -11,6 +11,7 @@ import re
 import socket
 import time
 import threading
+import traceback
 from queue import SimpleQueue
 from contextlib import contextmanager
 from threading import RLock
@@ -122,8 +123,7 @@ class Biotek:
     last_finished: float | None = None
     last_finished_by_plate_id: dict[str, float] = field(default_factory=dict)
     def start(self, runtime: Runtime):
-        t = threading.Thread(target=self.loop, args=(runtime,), daemon=True)
-        t.start()
+        runtime.spawn(lambda: self.loop(runtime))
 
     def loop(self, runtime: Runtime):
         '''
@@ -213,8 +213,7 @@ class Incubator:
     state: Literal['ready', 'busy'] = 'ready'
 
     def start(self, runtime: Runtime):
-        t = threading.Thread(target=self.loop, args=(runtime,), daemon=True)
-        t.start()
+        runtime.spawn(lambda: self.loop(runtime))
 
     def loop(self, runtime: Runtime):
         runtime.register_thread('incu')
@@ -297,6 +296,20 @@ class Runtime:
         self.disp.start(self)
         self.incu.start(self)
         self.estimates.update(estimates_from('timings_v2_ms.jsonl'))
+
+    def spawn(self, f: Callable[[], None]) -> None:
+        def F():
+            with self.excepthook():
+                f()
+        threading.Thread(target=F, daemon=True).start()
+
+    @contextmanager
+    def excepthook(self):
+        try:
+            yield
+        except BaseException as e:
+            self.log('error', 'exception', traceback.format_exc())
+            raise
 
     def est(self, source: Literal['wash', 'disp', 'robotarm', 'incu'], arg: str) -> float:
         if ret := self.estimates.get((source, arg)):

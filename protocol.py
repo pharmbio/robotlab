@@ -807,12 +807,9 @@ def runtime_with_logging(config: RuntimeConfig, metadata: dict[str, str]) -> Ite
 
     metadata['git_HEAD'] = utils.git_HEAD() or ''
     metadata['host']     = platform.node()
-    try:
+    with runtime.excepthook():
         with runtime.timeit('experiment', metadata=metadata):
             yield runtime
-    except BaseException as e:
-        runtime.log('error', 'exception', traceback.format_exc())
-        raise e
 
 def execute_events_with_logging(config: RuntimeConfig, events: list[Event], metadata: dict[str, str]) -> Runtime:
     with runtime_with_logging(config, metadata) as runtime:
