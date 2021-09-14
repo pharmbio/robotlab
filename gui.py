@@ -137,13 +137,15 @@ def keydown(program_name: str, args: dict[str, Any]):
         'End':        moves.MoveRel(xyz=[0, 0, 0], rpy=[0, 0,  deg]),
         '[':          moves.MoveRel(xyz=[0, 0, 0], rpy=[0, 0, -deg]),
         ']':          moves.MoveRel(xyz=[0, 0, 0], rpy=[0, 0,  deg]),
+        ',':          moves.MoveRel(xyz=[0, 0, 0], rpy=[-deg, 0, 0]),
+        '.':          moves.MoveRel(xyz=[0, 0, 0], rpy=[ deg, 0, 0]),
         'Insert':     moves.MoveRel(xyz=[0, 0, 0], rpy=[0, -deg, 0]),
         'Delete':     moves.MoveRel(xyz=[0, 0, 0], rpy=[0,  deg, 0]),
         '+':          moves.RawCode(f'GripperMove(read_output_integer_register(0) - {int(mm)})'),
         '-':          moves.RawCode(f'GripperMove(read_output_integer_register(0) + {int(mm)})'),
     }
     def norm(k: str):
-        tr: dict[str, str] = cast(Any, dict)(['[{', ']}', '+=', '-_'])
+        tr: dict[str, str] = cast(Any, dict)(['[{', ']}', '+=', '-_', ',<', '.>'])
         return tr.get(k) or k.upper()
     keymap |= {norm(k): v for k, v in keymap.items()}
     utils.pr(k)
@@ -299,6 +301,8 @@ def index() -> Iterator[Tag | dict[str, str]]:
         if section != m_section[:len(section)]:
             continue
         visible_moves += [(i, m)]
+
+    visible_program = [m for _, m in visible_moves if not isinstance(m, moves.Section)]
 
     for row_index, (i, m) in enumerate(visible_moves):
         row = div(
@@ -482,7 +486,7 @@ def index() -> Iterator[Tag | dict[str, str]]:
                 margin-left: 10px;
             }
         """).append(
-            button('run program',   tabindex='-1', onclick=f'''call({ arm_do.url(*visible_moves)                                })''', css='width: 160px'),
+            button('run program',   tabindex='-1', onclick=f'''call({ arm_do.url(*visible_program)                              })''', css='width: 160px'),
             button('freedrive',     tabindex='-1', onclick=f'''call({ arm_do.url(moves.RawCode("freedrive_mode() sleep(3600)")) })'''),
             button('stop robot',    tabindex='-1', onclick=f'''call({ arm_do.url()                                              })''', css='flex-grow: 1; color: red; font-size: 48px'),
             button('gripper open',  tabindex='-1', onclick=f'''call({ arm_do.url(moves.RawCode("GripperMove(88)"))              })'''),
