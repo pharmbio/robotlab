@@ -227,7 +227,15 @@ note '
 function forward-robot-then-entr-gui {
     forward-robot-to-localhost &
     sleep 1
-    ls *py | entr -r python gui.py "$@" --forward
+    ls *py | entr -c -r python gui.py "$@" --forward
+}
+
+note '
+    Start gui for simulator
+'
+function simulator-entr-gui {
+    sleep 1
+    ls *py | entr -c -r python gui.py "$@" --simulator
 }
 
 note '

@@ -19,9 +19,9 @@
 [ ] prio 1. gui: add links to first subsections so you can go directly to ie wash_put and wash_get
 [ ] prio 0. gui: make poll request return via http for faster refresh
 
-[x] prio 1. gui: update to newest viable
-
 [ ] prio 1. repo: run black prettyprinter
+
+[x] prio 1. gui: update to newest viable
 
 [x] prio 3. robots: test communication with all robots before starting a protocol
 [x] prio 3. timings: extract the important parts of the protocol

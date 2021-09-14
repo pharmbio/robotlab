@@ -283,12 +283,7 @@ class Serve:
     _serializer: Serializer = field(default_factory=serializer_factory)
 
     # State for reloading
-    running: bool = False
-    reloading: bool = False
-    rereload: bool = False
-    last_err: str | None = None
     notify_reload: Event = field(default_factory=Event)
-    module_order: list[str] = field(default_factory=list)
 
     def expose(self, f: Callable[..., Any], *args: Any, **kws: Any) -> Exposed:
         name = f.__name__
@@ -317,71 +312,9 @@ class Serve:
             self.run()
         return inner
 
-    def _reimport_modules(self) -> None:
-        modules: dict[str, ModuleType] = {}
-        with timeit(f'get modules'):
-            pwd = os.getcwd()
-            for k, m in list(sys.modules.items()):
-                if m.__name__ == 'viable':
-                    continue
-                if getattr(m, '__file__', None) and m.__file__.startswith(pwd):
-                    modules[k] = m
-        for k in reversed(modules.keys()):
-            if k not in self.module_order:
-                self.module_order.append(k)
-        for k in list(self.module_order):
-            m = modules.get(k)
-            if not m:
-                self.module_order.remove(k)
-                continue
-            with timeit(f'reload {k} {m.__file__}'):
-                if m.__name__ == '__main__':
-                    # It is a module -- insert its dir into sys.path and try to
-                    # import it. If it is part of a package, that possibly
-                    # won't work because of package imports.
-                    filename = m.__file__
-                    dirname, filename = os.path.split(filename)
-                    name = filename[:-3]
-                    sys.path.insert(0, dirname)
-                    sys.modules.pop(k)
-                    __import__(name, m.__dict__)
-                    del sys.path[0]
-                else:
-                    importlib.reload(m)
-        print(f'{self.module_order = }')
-
     def reload(self) -> None:
-        if self.reloading:
-            self.rereload = True
-            return
-        self.reloading = True
-        try:
-            with timeit('reload'):
-                # purge routes
-                for k in self.routes.keys():
-                    self.routes[k] = lambda *args: throw(ValueError(f''''
-                        Route {k} stale after reloading, program restart might be required.
-                    '''.strip()))
-                # purge exposed functions
-                self.exposed.clear()
-                # reimport modules
-                self._reimport_modules()
-                # notify pings
-                self.last_err = None
-                self.notify_reload.set()
-                self.notify_reload.clear()
-        except:
-            self.last_err = traceback.format_exc()
-            print(self.last_err)
-            # notify pings
-            self.notify_reload.set()
-            self.notify_reload.clear()
-        finally:
-            self.reloading = False
-            if self.rereload:
-                with timeit('rereload'):
-                    self.rereload = False
-                    self.reload()
+        self.notify_reload.set()
+        self.notify_reload.clear()
 
     def view(self, rule: str, *args: Any) -> str:
         f = self.routes[rule]
@@ -448,9 +381,6 @@ class Serve:
         )
 
     def run(self):
-        if self.running:
-            return
-        self.running = True
         @app.post('/reload')
         def reload():
             self.reload()
@@ -473,11 +403,8 @@ class Serve:
 
         @app.route('/ping')
         def ping():
-            needs_reload = self.notify_reload.wait(115)
-            return jsonify(dict(
-                needs_reload=needs_reload,
-                last_err=self.last_err
-            ))
+            self.notify_reload.wait(115)
+            return jsonify({})
 
         try:
             from flask_compress import Compress # type: ignore
@@ -600,36 +527,18 @@ hot_js = str(r'''
             }
         }
     }
-    async function long_poll() {
+    async function poll() {
         while (true) {
             try {
                 const resp = await fetch('/ping')
-                const msg = await resp.json()
-                if (msg.last_err) {
-                    console.error(msg.last_err)
-                    const pre = document.createElement('pre')
-                    pre.innerText = msg.last_err
-                    pre.style = `
-                        position: fixed;
-                        left: 50%;
-                        top: 2em;
-                        transform: translateX(-50%);
-                        padding: 1em;
-                        background: #222;
-                        color: #f2777a;
-                        font-size: 16px;
-                    `
-                    document.body.append(pre)
-                } else if (msg.needs_reload) {
-                    break
-                }
+                await resp.json()
             } catch {
                 break
             }
         }
-        refresh(600, long_poll)
+        refresh(600, poll)
     }
-    long_poll()
+    poll()
     window.onpopstate = () => refresh()
     function input_values() {
         const inputs = document.querySelectorAll('input:not([type=radio]),input[type=radio]:checked,select')

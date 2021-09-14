@@ -120,25 +120,26 @@ def keydown(program_name: str, args: dict[str, Any]):
         mm = 100.0
         deg = 90.0
     k = str(args['key'])
-    keymap = dict(
-        ArrowRight = moves.MoveRel(xyz=[ mm, 0, 0], rpy=[0, 0, 0]),
-        ArrowLeft  = moves.MoveRel(xyz=[-mm, 0, 0], rpy=[0, 0, 0]),
-        ArrowUp    = moves.MoveRel(xyz=[0,  mm, 0], rpy=[0, 0, 0]),
-        ArrowDown  = moves.MoveRel(xyz=[0, -mm, 0], rpy=[0, 0, 0]),
-        PageUp     = moves.MoveRel(xyz=[0, 0,  mm], rpy=[0, 0, 0]),
-        PageDown   = moves.MoveRel(xyz=[0, 0, -mm], rpy=[0, 0, 0]),
-        u          = moves.MoveRel(xyz=[0, 0,  mm], rpy=[0, 0, 0]),
-        d          = moves.MoveRel(xyz=[0, 0, -mm], rpy=[0, 0, 0]),
-        Home       = moves.MoveRel(xyz=[0, 0, 0], rpy=[0, 0, -deg]),
-        End        = moves.MoveRel(xyz=[0, 0, 0], rpy=[0, 0,  deg]),
-        Insert     = moves.MoveRel(xyz=[0, 0, 0], rpy=[0, -deg, 0]),
-        Delete     = moves.MoveRel(xyz=[0, 0, 0], rpy=[0,  deg, 0]),
-        j          = moves.RawCode(f'GripperMove(read_output_integer_register(0) - {int(mm)})'),
-        c          = moves.RawCode(f'GripperMove(read_output_integer_register(0) + {int(mm)})'),
-        r          = moves.RawCode(f'GripperMove(read_output_integer_register(0) - {int(mm)})'),
-        k          = moves.RawCode(f'GripperMove(read_output_integer_register(0) + {int(mm)})'),
-    )
-    keymap |= {k.upper(): v for k, v in keymap.items()}
+    keymap = {
+        'ArrowRight': moves.MoveRel(xyz=[ mm, 0, 0], rpy=[0, 0, 0]),
+        'ArrowLeft':  moves.MoveRel(xyz=[-mm, 0, 0], rpy=[0, 0, 0]),
+        'ArrowUp':    moves.MoveRel(xyz=[0,  mm, 0], rpy=[0, 0, 0]),
+        'ArrowDown':  moves.MoveRel(xyz=[0, -mm, 0], rpy=[0, 0, 0]),
+        'PageUp':     moves.MoveRel(xyz=[0, 0,  mm], rpy=[0, 0, 0]),
+        'PageDown':   moves.MoveRel(xyz=[0, 0, -mm], rpy=[0, 0, 0]),
+        'Home':       moves.MoveRel(xyz=[0, 0, 0], rpy=[0, 0, -deg]),
+        'End':        moves.MoveRel(xyz=[0, 0, 0], rpy=[0, 0,  deg]),
+        '[':          moves.MoveRel(xyz=[0, 0, 0], rpy=[0, 0, -deg]),
+        ']':          moves.MoveRel(xyz=[0, 0, 0], rpy=[0, 0,  deg]),
+        'Insert':     moves.MoveRel(xyz=[0, 0, 0], rpy=[0, -deg, 0]),
+        'Delete':     moves.MoveRel(xyz=[0, 0, 0], rpy=[0,  deg, 0]),
+        '+':          moves.RawCode(f'GripperMove(read_output_integer_register(0) - {int(mm)})'),
+        '-':          moves.RawCode(f'GripperMove(read_output_integer_register(0) + {int(mm)})'),
+    }
+    def norm(k: str):
+        tr: dict[str, str] = cast(Any, dict)(['[{', ']}', '+=', '-_'])
+        return tr.get(k) or k.upper()
+    keymap |= {norm(k): v for k, v in keymap.items()}
     utils.pr(k)
     if m := keymap.get(k):
         utils.pr(m)
@@ -192,13 +193,14 @@ def index() -> Iterator[Tag | dict[str, str]]:
 
     yield dict(
         onkeydown=r'''
+            const re = /F\d+|^[^-_=+{}[\]]$|Tab|Enter|Escape|Meta|Control|Alt|Shift/
             if (event.target.tagName == 'INPUT') {
-                console.log('keydown event handled by input', event)
-            } else if (event.repeat || event.metaKey || event.key.match(/F\d+|^[^dubmjkcr]$|Tab|Enter|Escape|Meta|Control|Alt|Shift/)) {
-                console.log('keydown event passed on', event)
+                console.log('by input', event)
+            } else if (event.repeat || event.metaKey || event.key.match(re)) {
+                console.log('to browser', event)
             } else {
                 event.preventDefault()
-                console.log(event)
+                console.log('to backend', event)
                 call(''' + keydown.url(program_name) + ''', {
                     selected: window.selected,
                     key: event.key,
@@ -270,20 +272,21 @@ def index() -> Iterator[Tag | dict[str, str]]:
 
     from pprint import pformat
 
-
-    grid: Tag = div(css='''
+    grid = div(css='''
         display: grid;
         grid-gap: 3px 0;
         grid-template-columns:
-            [update] 100px
+            [run] 130px
+            [value] 1fr
+            [update] 90px
             [x] 100px
             [y] 100px
             [z] 100px
-            [go] 80px
-            [name] 200px
-            [value] 1fr
-            [run] 160px;
+            [go] 90px
+            [name] 180px
+        ;
     ''')
+    yield grid
 
     visible_moves: list[tuple[int, Move]] = []
     for i, (m_section, m) in enumerate(ml.with_sections(include_Section=True)):
@@ -310,7 +313,7 @@ def index() -> Iterator[Tag | dict[str, str]]:
             style=f'grid-column: 1 / -1',
             css='''
                 :nth-child(even) > & {
-                    background: #f2f2f2
+                    background: #f4f4f4
                 }
             ''')
         grid += row
@@ -319,7 +322,7 @@ def index() -> Iterator[Tag | dict[str, str]]:
             sect = div(
                 css="""
                     & {
-                        grid-column: value;
+                        grid-column: x / -1;
                         margin-top: 12px;
                         padding-bottom: 4px;
                     }
@@ -388,10 +391,18 @@ def index() -> Iterator[Tag | dict[str, str]]:
                     '''
                 )
 
-        show_grip_test = catch(lambda:
-                isinstance(m, (moves.MoveLin, moves.MoveRel))
-            and isinstance(ml[i+1], moves.GripperMove)
-        )
+        if m.is_gripper():
+            row += div(
+                'gripper close' if m.is_close() else 'gripper open',
+                css='''
+                    grid-column: x / span 3;
+                    justify-self: end;
+                    font-family: sans;
+                    font-size: 13px;
+                    font-style: italic;
+                '''
+            )
+
 
         show_go_btn = not isinstance(m, moves.Section)
 
@@ -420,7 +431,6 @@ def index() -> Iterator[Tag | dict[str, str]]:
             onclick=f'call({update.url(program_name, i)})'
         )
 
-
         row += input(
             style=f'grid-column: name',
             type='text',
@@ -442,16 +452,14 @@ def index() -> Iterator[Tag | dict[str, str]]:
                     font-size: 14px;
                 }
             ''',
-            disabled=not hasattr(m, "name"),
-            value=catch(lambda: getattr(m, "name"), ""),
+            disabled=not hasattr(m, 'name'),
+            value=getattr(m, 'name', ''),
             oninput=f'call({edit_at.url(program_name, i)},{{name:event.target.value}}).then(refresh)'
         )
         if not isinstance(m, moves.Section):
             row += V.code(m.to_script(),
                 style=f'grid-column: value',
             )
-
-    yield grid
 
     yield div(
         css="""
@@ -468,36 +476,57 @@ def index() -> Iterator[Tag | dict[str, str]]:
                 margin-left: 10px;
             }
         """).append(
-            button('gripper open', tabindex='-1', onclick=f'''call({
-                arm_do.url(
-                    moves.RawCode("GripperMove(88)"),
-                )
-            })'''),
-            button('gripper close', tabindex='-1', onclick=f'''call({
-                arm_do.url(
-                    moves.RawCode("GripperMove(255)"),
-                )
-            })'''),
-            button('grip test', tabindex='-1', onclick=f'''call({
-                arm_do.url(
-                    moves.RawCode("EnsureRelPos() GripperTest()"),
-                )
-            })'''),
-            button('stop robot', tabindex='-1', onclick=f'call({arm_do.url()}).then(refresh)', css='flex-grow: 1; color: red; font-size: 48px'),
-            button('freedrive', tabindex='-1', onclick=f'''call({
-                arm_do.url(
-                    moves.RawCode("freedrive_mode() sleep(3600)")
-                )
-            })'''),
-            button('run program', tabindex='-1', onclick=f'call({arm_do.url(*visible_moves)}).then(refresh)', css='width: 160px'),
+            button('run program',   tabindex='-1', onclick=f'''call({ arm_do.url(*visible_moves)                                })''', css='width: 160px'),
+            button('freedrive',     tabindex='-1', onclick=f'''call({ arm_do.url(moves.RawCode("freedrive_mode() sleep(3600)")) })'''),
+            button('stop robot',    tabindex='-1', onclick=f'''call({ arm_do.url()                                              })''', css='flex-grow: 1; color: red; font-size: 48px'),
+            button('gripper open',  tabindex='-1', onclick=f'''call({ arm_do.url(moves.RawCode("GripperMove(88)"))              })'''),
+            button('gripper close', tabindex='-1', onclick=f'''call({ arm_do.url(moves.RawCode("GripperMove(255)"))             })'''),
+            button('grip test',     tabindex='-1', onclick=f'''call({ arm_do.url(moves.RawCode("EnsureRelPos() GripperTest()")) })'''),
     )
 
+    foot = div(css='''
+        & {
+            display: flex;
+            margin-top: 10px;
+        }
+    ''')
+    yield foot
+
+    if rpy := info.get('rpy'):
+        r, p, y = rpy
+        EnsureRelPos = moves.RawCode("EnsureRelPos()")
+        btns = div(css="""
+            & {
+                display: inline-flex;
+                flex-direction: column;
+                width: fit-content;
+            }
+            & > button {
+                display: block;
+                padding: 10px 20px;
+                margin: 5px 10px;
+                font-family: sans-serif;
+                text-align: left;
+            }
+        """)
+        btns += button('roll -> 0° (level roll)',                    tabindex='-1', onclick=f'''call({ arm_do.url(EnsureRelPos, moves.MoveRel([0, 0, 0], [-r,  0,       0     ])) })''')
+        btns += button('pitch -> 0° (face horizontally)',            tabindex='-1', onclick=f'''call({ arm_do.url(EnsureRelPos, moves.MoveRel([0, 0, 0], [ 0, -p,       0     ])) })''')
+        btns += button('pitch -> -90° (face the floor)',             tabindex='-1', onclick=f'''call({ arm_do.url(EnsureRelPos, moves.MoveRel([0, 0, 0], [ 0, -p - 90,  0     ])) })''')
+        btns += button('yaw -> 0° (towards washer and dispenser)' ,  tabindex='-1', onclick=f'''call({ arm_do.url(EnsureRelPos, moves.MoveRel([0, 0, 0], [ 0,  0,      -y     ])) })''')
+        btns += button('yaw -> 90° (towards hotels and incu)' ,      tabindex='-1', onclick=f'''call({ arm_do.url(EnsureRelPos, moves.MoveRel([0, 0, 0], [ 0,  0,      -y + 90])) })''')
+        foot += btns
+
+    foot += pre(
+        pformat(info, sort_dicts=False),
+        css='''
+            user-select: text;
+            text-align: left;
+            width: fit-content;
+        ''')
+
     yield V.script(raw('''
-            window.requestAnimationFrame(() => {
-                if (window.rt) window.clearTimeout(window.rt)
-                window.rt = window.setTimeout(() => refresh(0, () => 0), 100)
-            })
+        window.requestAnimationFrame(() => {
+            if (window.rt) window.clearTimeout(window.rt)
+            window.rt = window.setTimeout(() => refresh(0, () => 0), 100)
+        })
     '''), eval=True)
-
-    yield pre(pformat(info, sort_dicts=False), css="user-select: text; text-align: left; padding: 15px")
-
