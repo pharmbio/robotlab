@@ -10,18 +10,16 @@
 
 [ ] prio 1. post mortem: put/get names not transparent enough ... ? lid_put lid_get
 
-[ ] prio 1. gui: level RPY
-[ ] prio 1. gui: speed setting buttons
-[ ] prio 1. gui: soft stop by setting speed to 0.01. can we get the current speed to reset it afterwards?
 [ ] prio 1. gui: grip test: make an intense version shake far above the plate
+[ ] prio 1. gui: soft stop by setting speed to 0.01. can we get the current speed to reset it afterwards?
 [ ] prio 1. gui: make it easier to see where you are, use colours or add a 3d graph
 [ ] prio 1. gui: keyboard reference rotation
 [ ] prio 1. gui: add links to first subsections so you can go directly to ie wash_put and wash_get
 [ ] prio 0. gui: make poll request return via http for faster refresh
 
-[ ] prio 1. repo: run black prettyprinter
-
+[x] prio 1. gui: speed setting buttons
 [x] prio 1. gui: update to newest viable
+[x] prio 1. gui: level RPY
 
 [x] prio 3. robots: test communication with all robots before starting a protocol
 [x] prio 3. timings: extract the important parts of the protocol

@@ -89,6 +89,12 @@ def arm_do(*ms: Move):
     arm.close()
 
 @serve.expose
+def arm_set_speed(value: int) -> None:
+    arm = robots.get_robotarm(config, quiet=False)
+    arm.set_speed(value)
+    arm.close()
+
+@serve.expose
 def edit_at(program_name: str, i: int, changes: dict[str, Any]):
     filename = get_programs()[program_name]
     ml = MoveList.from_json_file(filename)
@@ -193,10 +199,10 @@ def index() -> Iterator[Tag | dict[str, str]]:
 
     yield dict(
         onkeydown=r'''
-            const re = /F\d+|^[^-_=+{}[\]]$|Tab|Enter|Escape|Meta|Control|Alt|Shift/
+            const re = /^\w$|Tab|Enter|Escape|Meta|Control|Alt|Shift/
             if (event.target.tagName == 'INPUT') {
                 console.log('by input', event)
-            } else if (event.repeat || event.metaKey || event.key.match(re)) {
+            } else if (event.repeat || event.metaKey || event.ctrlKey || event.key.match(re)) {
                 console.log('to browser', event)
             } else {
                 event.preventDefault()
@@ -264,7 +270,7 @@ def index() -> Iterator[Tag | dict[str, str]]:
     yield header
 
     info = {
-        k: [utils.round_nnz(v, 1) for v in vs]
+        k: [utils.round_nnz(v, 2) for v in vs]
         for k, vs in polled_info.items()
     }
 
@@ -497,9 +503,8 @@ def index() -> Iterator[Tag | dict[str, str]]:
         EnsureRelPos = moves.RawCode("EnsureRelPos()")
         btns = div(css="""
             & {
-                display: inline-flex;
+                display: flex;
                 flex-direction: column;
-                width: fit-content;
             }
             & > button {
                 display: block;
@@ -509,11 +514,11 @@ def index() -> Iterator[Tag | dict[str, str]]:
                 text-align: left;
             }
         """)
-        btns += button('roll -> 0° (level roll)',                    tabindex='-1', onclick=f'''call({ arm_do.url(EnsureRelPos, moves.MoveRel([0, 0, 0], [-r,  0,       0     ])) })''')
-        btns += button('pitch -> 0° (face horizontally)',            tabindex='-1', onclick=f'''call({ arm_do.url(EnsureRelPos, moves.MoveRel([0, 0, 0], [ 0, -p,       0     ])) })''')
-        btns += button('pitch -> -90° (face the floor)',             tabindex='-1', onclick=f'''call({ arm_do.url(EnsureRelPos, moves.MoveRel([0, 0, 0], [ 0, -p - 90,  0     ])) })''')
-        btns += button('yaw -> 0° (towards washer and dispenser)' ,  tabindex='-1', onclick=f'''call({ arm_do.url(EnsureRelPos, moves.MoveRel([0, 0, 0], [ 0,  0,      -y     ])) })''')
-        btns += button('yaw -> 90° (towards hotels and incu)' ,      tabindex='-1', onclick=f'''call({ arm_do.url(EnsureRelPos, moves.MoveRel([0, 0, 0], [ 0,  0,      -y + 90])) })''')
+        btns += button('roll -> 0° (level roll)',                  tabindex='-1', onclick=f'''call({ arm_do.url(EnsureRelPos, moves.MoveRel([0, 0, 0], [-r,  0,       0     ])) })''')
+        btns += button('pitch -> 0° (face horizontally)',          tabindex='-1', onclick=f'''call({ arm_do.url(EnsureRelPos, moves.MoveRel([0, 0, 0], [ 0, -p,       0     ])) })''')
+        btns += button('pitch -> -90° (face the floor)',           tabindex='-1', onclick=f'''call({ arm_do.url(EnsureRelPos, moves.MoveRel([0, 0, 0], [ 0, -p - 90,  0     ])) })''')
+        btns += button('yaw -> 0° (towards washer and dispenser)', tabindex='-1', onclick=f'''call({ arm_do.url(EnsureRelPos, moves.MoveRel([0, 0, 0], [ 0,  0,      -y     ])) })''')
+        btns += button('yaw -> 90° (towards hotels and incu)',     tabindex='-1', onclick=f'''call({ arm_do.url(EnsureRelPos, moves.MoveRel([0, 0, 0], [ 0,  0,      -y + 90])) })''')
         foot += btns
 
     foot += pre(
@@ -522,7 +527,25 @@ def index() -> Iterator[Tag | dict[str, str]]:
             user-select: text;
             text-align: left;
             width: fit-content;
+            flex-grow: 1;
         ''')
+
+    speed_btns = div(css="""
+        & {
+            display: flex;
+            flex-direction: column;
+        }
+        & > button {
+            display: block;
+            padding: 10px 20px;
+            margin: 5px 10px;
+            font-family: sans-serif;
+            text-align: left;
+        }
+    """)
+    for speed in [20, 40, 60, 80, 100]:
+        speed_btns += button(f'set speed to {speed}', tabindex='-1', onclick=f'''call({ arm_set_speed.url(speed) })''')
+    foot += speed_btns
 
     yield V.script(raw('''
         window.requestAnimationFrame(() => {
