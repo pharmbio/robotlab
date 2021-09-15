@@ -361,7 +361,7 @@ def read_movelists() -> dict[str, MoveList]:
             expanded = v.expand_hotels(k)
             for kk, vv in {k: v, **expanded}.items() :
                 out: dict[str, MoveList] = {}
-                # out[kk] = vv
+                out[kk] = vv
                 parts = vv.split()
                 out[kk + ' prep']     = parts.prep
                 out[kk + ' transfer'] = parts.transfer

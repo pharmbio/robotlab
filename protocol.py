@@ -81,7 +81,6 @@ h_locs:    list[str] = [f'h{i}' for i in H]
 r_locs:    list[str] = [f'r{i}' for i in H][1:]
 out_locs:  list[str] = [f'out{i}' for i in reversed(H)] + list(reversed(r_locs))
 lid_locs:  list[str] = [h for h in h_locs if h != h21]
-lid_locs.remove('h17')
 
 A = TypeVar('A')
 
@@ -279,8 +278,7 @@ def time_protocol(config: RuntimeConfig, protocol_config: ProtocolConfig, includ
         *robotarm_cmds('wash_to_disp'),
         *robotarm_cmds('disp get'),
         *robotarm_cmds('wash put'),
-        *robotarm_cmds('wash_to_r21 get'),
-        *robotarm_cmds('r21 get'),
+        *robotarm_cmds('wash get'),
         *robotarm_cmds(plate.lid_get),
     ]
     with runtime_with_logging(config, {'options': 'time_protocols'}) as runtime:
@@ -536,10 +534,9 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig, short_test_
         chunks[plate, 'Final', 'to h21']           = [*wait_before_incu_get[5], *RT_get]
         chunks[plate, 'Final', 'to wash']          = wash(wait_before_wash_start[5], p.wash[5])
         chunks[plate, 'Final', 'to r21 from wash'] = [
-            *robotarm_cmds('wash_to_r21 get', before_pick=[robots.wait_for(Ready('wash'))])
+            *robotarm_cmds('wash get', before_pick=[robots.wait_for(Ready('wash'))])
         ]
         chunks[plate, 'Final', 'to out via r21 and h21'] = [
-            *robotarm_cmds('r21 get'),
             *lid_mount,
             *robotarm_cmds(plate.out_put)
         ]
@@ -730,7 +727,6 @@ def test_circuit(config: RuntimeConfig) -> None:
         ]
 
     ]
-    robots.test_comm(config)
     ATTENTION('''
         Test circuit using one plate.
 
