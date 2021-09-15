@@ -141,8 +141,8 @@ def keydown(program_name: str, args: dict[str, Any]):
         '.':          moves.MoveRel(xyz=[0, 0, 0], rpy=[ deg, 0, 0]),
         'Insert':     moves.MoveRel(xyz=[0, 0, 0], rpy=[0, -deg, 0]),
         'Delete':     moves.MoveRel(xyz=[0, 0, 0], rpy=[0,  deg, 0]),
-        '+':          moves.RawCode(f'GripperMove(read_output_integer_register(0) - {int(mm)})'),
-        '-':          moves.RawCode(f'GripperMove(read_output_integer_register(0) + {int(mm)})'),
+        '-':          moves.RawCode(f'GripperMove(read_output_integer_register(0) - {int(mm)})'),
+        '+':          moves.RawCode(f'GripperMove(read_output_integer_register(0) + {int(mm)})'),
     }
     def norm(k: str):
         tr: dict[str, str] = cast(Any, dict)(['[{', ']}', '+=', '-_', ',<', '.>'])
