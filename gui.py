@@ -118,7 +118,7 @@ def keydown(program_name: str, args: dict[str, Any]):
     Shift = bool(args.get('shiftKey'))
     if Shift:
         mm = 0.25
-        deg = 0.25
+        deg = 0.125
     if Alt:
         mm = 10.0
         deg = 90.0 / 8
