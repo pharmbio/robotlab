@@ -10,7 +10,7 @@
   {"type": "MoveLin", "xyz": [-131.8, -501.6, 398.1], "rpy": [0.0, 0.0, 0.0], "name": "disp above"},
   {"type": "MoveLin", "xyz": [-131.8, -501.6, 77.1], "rpy": [0.5, 0.0, 0.0], "name": "disp drop"},
   {"type": "GripperMove", "pos": 89},
-  {"type": "MoveLin", "xyz": [-131.8, -501.6, 126.8], "rpy": [0.0, 0.0, 0.0], "name": "disp neu"},
+  {"type": "MoveLin", "xyz": [-131.8, -501.6, 126.8], "rpy": [0.5, 0.0, 0.0], "name": "disp neu"},
   {"type": "MoveLin", "xyz": [-131.8, -501.6, 398.1], "rpy": [0.0, 0.0, 0.0], "name": "disp above"},
   {"type": "MoveLin", "xyz": [-2.0, -421.7, 808.7], "rpy": [0.0, 0.0, 55.1], "name": "h safe"},
   {"type": "MoveLin", "xyz": [198.7, -421.7, 808.6], "rpy": [0.0, 0.0, 90], "name": "h neu"},
