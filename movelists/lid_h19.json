@@ -1,6 +1,6 @@
 [
   {"type": "Section", "sections": ["put"]},
-  {"type": "MoveJoint", "joints": [94.6, -111.3, 93.2, 18.0, 94.6, -0.1], "name": "h neu"},
+  {"type": "MoveJoint", "joints": [94.56, -111.29, 93.27, 17.99, 94.57, -0.1], "name": "h neu"},
   {"type": "MoveLin", "xyz": [198.7, -569.3, 809.1], "rpy": [0.0, 0.0, 90.0], "name": "h21 neu"},
   {"type": "MoveLin", "xyz": [198.7, -569.3, 791.2], "rpy": [0.0, 0.0, 90.0], "name": "h21 pick"},
   {"type": "GripperMove", "pos": 255, "soft": true},
@@ -14,7 +14,7 @@
   {"type": "MoveLin", "xyz": [198.7, -421.7, 722.5], "rpy": [0.0, 0.0, 90.0], "tag": "19/21", "name": "h19 entrance"},
   {"type": "MoveLin", "xyz": [198.7, -421.7, 809.1], "rpy": [0.0, 0.0, 90], "name": "h neu"},
   {"type": "Section", "sections": ["get"]},
-  {"type": "MoveJoint", "joints": [94.6, -111.3, 93.2, 18.0, 94.6, -0.1], "name": "h neu"},
+  {"type": "MoveJoint", "joints": [94.56, -111.29, 93.27, 17.99, 94.57, -0.1], "name": "h neu"},
   {"type": "MoveLin", "xyz": [198.7, -421.7, 722.6], "rpy": [0.0, 0.0, 90.0], "tag": "19/21", "name": "h19 entrance"},
   {"type": "MoveLin", "xyz": [198.7, -569.3, 722.6], "rpy": [0.0, 0.0, 90], "tag": "19/21", "name": "h19 pick neu"},
   {"type": "MoveLin", "xyz": [198.7, -569.3, 714.8], "rpy": [0.0, 0.0, 90.0], "tag": "19/21", "name": "h19 pick"},
