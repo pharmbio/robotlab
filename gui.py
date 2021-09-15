@@ -179,7 +179,7 @@ def update(program_name: str, i: int):
         ml.write_json(filename)
     elif isinstance(m, (moves.MoveJoint)):
         v = asdict(m)
-        v['joints'] = [utils.round_nnz(v, 1) for v in polled_info['joints']]
+        v['joints'] = [utils.round_nnz(v, 2) for v in polled_info['joints']]
         ml = MoveList(ml)
         ml[i] = moves.MoveJoint(**v)
         ml.write_json(filename)
