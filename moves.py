@@ -265,8 +265,14 @@ class MoveList(list[Move]):
             for m in self
         ])
 
+    def has_open(self) -> bool:
+        return any(m.is_open() for m in self)
+
+    def has_close(self) -> bool:
+        return any(m.is_close() for m in self)
+
     def has_gripper(self) -> bool:
-        return any(m.is_gripper() for m in self)
+        return self.has_open() or self.has_close()
 
     def split_on(self, pred: Callable[[Move], bool]) -> tuple[MoveList, Move, MoveList]:
         for i, move in enumerate(self):
@@ -362,10 +368,19 @@ def read_movelists() -> dict[str, MoveList]:
             for kk, vv in {k: v, **expanded}.items() :
                 out: dict[str, MoveList] = {}
                 out[kk] = vv
-                parts = vv.split()
-                out[kk + ' prep']     = parts.prep
-                out[kk + ' transfer'] = parts.transfer
-                out[kk + ' return']   = parts.ret
+                if 'put-prep' not in kk and not 'put-return' in kk:
+                    parts = vv.split()
+                    out[kk + ' prep']     = parts.prep
+                    out[kk + ' transfer'] = parts.transfer
+                    out[kk + ' return']   = parts.ret
+                    if 'incu_A' in kk and 'put' in kk:
+                        print(kk)
+                        to_neu, neu, after_neu = parts.transfer.split_on(lambda m: m.try_name().endswith('drop neu'))
+                        pr((to_neu, neu, after_neu))
+                        assert to_neu.has_close() and not to_neu.has_open()
+                        assert not after_neu.has_close() and after_neu.has_open()
+                        out[kk + ' transfer to drop neu'] = MoveList(to_neu + [neu])
+                        out[kk + ' transfer from drop neu'] = after_neu
                 grand_out = grand_out | out
 
     grand_out['noop'] = MoveList()

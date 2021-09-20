@@ -291,8 +291,9 @@ def load_incu(config: RuntimeConfig, num_plates: int):
         pos = p.out_loc.removeprefix('out')
         commands = [
             robots.robotarm_cmd(f'incu_A{pos} put prep'),
+            robots.robotarm_cmd(f'incu_A{pos} put transfer to drop neu'),
             robots.wait_for(Ready('incu')),
-            robots.robotarm_cmd(f'incu_A{pos} put transfer'),
+            robots.robotarm_cmd(f'incu_A{pos} put transfer from drop neu'),
             robots.incu_cmd('put', p.incu_loc),
             robots.robotarm_cmd(f'incu_A{pos} put return'),
         ]
@@ -300,6 +301,11 @@ def load_incu(config: RuntimeConfig, num_plates: int):
             Event(p.id, 'incu load', '', cmd)
             for cmd in commands
         ]
+    events = [
+        Event('', 'incu load', 'prep', robots.robotarm_cmd('incu_A21 put-prep')),
+        *events,
+        Event('', 'incu load', 'return', robots.robotarm_cmd('incu_A21 put-return'))
+    ]
     ATTENTION(load_incu.__doc__ or '')
     execute_events_with_logging(config, events, {'options': 'load_incu'})
 

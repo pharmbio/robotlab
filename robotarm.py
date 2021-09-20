@@ -247,6 +247,7 @@ class Robotarm:
     def execute_moves(self, movelist: list[Move], name: str='script', allow_partial_completion: bool=False) -> None:
         name = name.replace('/', '_of_')
         name = name.replace(' ', '_')
+        name = name.replace('-', '_')
         name = name[:30]
         self.send(make_script(movelist, self.with_gripper, name=name))
         if allow_partial_completion:
