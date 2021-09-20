@@ -119,9 +119,6 @@ class ProtocolConfig:
     prime: Steps[str]
     disp:  Steps[str]
     incu:  Steps[int]
-    guesstimate_time_wash_3X_minus_incu_pop: int
-    guesstimate_time_wash_3X_minus_RT_pop:   int
-    guesstimate_time_wash_4X_minus_wash_3X:  int
     prep_wash: str | None = None
     prep_disp: str | None = None
     delay_before_first_wash: int = 0
@@ -155,14 +152,11 @@ v3 = ProtocolConfig(
         '',
     ),
     incu = Steps(20, 20, 20, 20, 0),
-    guesstimate_time_wash_3X_minus_incu_pop = 110, # TODO
-    guesstimate_time_wash_3X_minus_RT_pop   = 60,  # TODO
-    guesstimate_time_wash_4X_minus_wash_3X  = 200, # TODO
     delay_before_first_wash         = 0,
-    separation_between_first_washes = 0,
+    separation_between_first_washes = 245,
     wait_before_incu_get_1st  = Steps(0,60,40,40,40),
-    wait_before_incu_get_2nd  = Steps(0,174,0,0,0),
-    wait_before_incu_get_rest = Steps(0,174,0,0,0),
+    wait_before_incu_get_2nd  = Steps(0,185,0,0,0),
+    wait_before_incu_get_rest = Steps(0,185,0,0,0),
 )
 
 def time_bioteks(config: RuntimeConfig, protocol_config: ProtocolConfig):
@@ -456,7 +450,6 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig, short_test_
         ]
 
         wait_before_wash_start: dict[int, robots.wait_for | None] = {
-            # 1: robots.wait_for(Now()) + p.delay_before_first_wash,
             1: robots.wait_for(WashStarted()) + p.separation_between_first_washes,
             2: robots.wait_for(DispFinished(plate.id)) + p.incu[1] * 60,
             3: robots.wait_for(DispFinished(plate.id)) + p.incu[2] * 60,
@@ -735,7 +728,7 @@ def runtime_with_logging(config: RuntimeConfig, metadata: dict[str, str]) -> Ite
     runtime = robots.Runtime(config=config, log_filename=log_filename)
     # Overrides for v3
     overrides: dict[robots.Estimated, float] = {
-        ('disp', v3.disp.Mito): 73.11 - 15,
+        # ('disp', v3.disp.Mito): 73.11 - 15,
     }
     for (k, a), v in runtime.estimates.items():
         if '19' in a:
