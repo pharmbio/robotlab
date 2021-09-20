@@ -374,9 +374,7 @@ def read_movelists() -> dict[str, MoveList]:
                     out[kk + ' transfer'] = parts.transfer
                     out[kk + ' return']   = parts.ret
                     if 'incu_A' in kk and 'put' in kk:
-                        print(kk)
                         to_neu, neu, after_neu = parts.transfer.split_on(lambda m: m.try_name().endswith('drop neu'))
-                        pr((to_neu, neu, after_neu))
                         assert to_neu.has_close() and not to_neu.has_open()
                         assert not after_neu.has_close() and after_neu.has_open()
                         out[kk + ' transfer to drop neu'] = MoveList(to_neu + [neu])
