@@ -13,7 +13,7 @@ import time
 import threading
 from queue import SimpleQueue
 from contextlib import contextmanager
-from threading import Lock, RLock
+from threading import Lock
 
 from moves import movelists
 from robotarm import Robotarm
@@ -67,14 +67,15 @@ class SimulatedTime(Timelike):
 
     def log(self):
         return
-        out: list[str] = ['... {self.monotonic()}']
-        for v in self.threads.values():
-            out += [
-                f'{v.name}: {v.state} to {v.sleep_until}'
-                if v.sleep_until != float('inf') else
-                f'{v.name}: {v.state}'
-            ]
-        print(' | '.join(out))
+        with self.lock:
+            out: list[str] = ['... {self.monotonic()}']
+            for v in self.threads.values():
+                out += [
+                    f'{v.name}: {v.state} to {v.sleep_until}'
+                    if v.sleep_until != float('inf') else
+                    f'{v.name}: {v.state}'
+                ]
+            print(' | '.join(out))
 
     def monotonic(self):
         if self.include_wall_time:
@@ -83,8 +84,9 @@ class SimulatedTime(Timelike):
             return self.skipped_time
 
     def register_thread(self, name: str):
-        tid = threading.current_thread()
-        self.threads[tid] = ThreadData(name)
+        with self.lock:
+            tid = threading.current_thread()
+            self.threads[tid] = ThreadData(name)
 
     def current_thread_data(self) -> ThreadData:
         tid = threading.current_thread()

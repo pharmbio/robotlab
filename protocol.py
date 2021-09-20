@@ -130,103 +130,9 @@ class ProtocolConfig:
     wait_before_incu_get_2nd: Steps[int] = Steps(60,60,60,60,60)
     wait_before_incu_get_rest: Steps[int] = Steps(60,60,60,60,60)
 
-v1 = ProtocolConfig(
-    wash = Steps(
-        Mito   = 'automation/2_4_6_W-3X_z40.LHC',
-        PFA    = 'automation/2_4_6_W-3X_z40.LHC',
-        Triton = 'automation/2_4_6_W-3X_FinalAspirate.LHC',
-        Stains = 'automation/2_4_6_W-3X_FinalAspirate.LHC',
-        Final  = 'automation/8_W-4X_NoFinalAspirate.LHC',
-    ),
-    prime = Steps(
-        Mito   = 'automation/1_D_P1_PRIME.LHC',
-        PFA    = 'automation/3_D_SA_PRIME.LHC',
-        Triton = 'automation/5_D_SB_PRIME.LHC',
-        Stains = 'automation/7_D_P2_PRIME.LHC',
-        Final  = '',
-    ),
-    disp = Steps(
-        Mito    = 'automation/1_D_P1_30ul_mito.LHC',
-        PFA     = 'automation/3_D_SA_384_50ul_PFA.LHC',
-        Triton  = 'automation/5_D_SB_384_50ul_TRITON.LHC',
-        Stains  = 'automation/7_D_P2_20ul_STAINS.LHC',
-        Final   = '',
-    ),
-    incu = Steps(30, 20, 20, 20, 0),
-    guesstimate_time_wash_3X_minus_incu_pop = 45, # can probably be increased
-    guesstimate_time_wash_3X_minus_RT_pop   = 60, # can probably be increased
-    guesstimate_time_wash_4X_minus_wash_3X  = 17, # most critical of the guesstimates (!)
-)
-
-
-v2 = ProtocolConfig(
-    prep_wash = 'automation_v2/0_W_D_PRIME.LHC',
-    prep_disp = None,
-    wash = Steps(
-        'automation_v2/0_2_W-3X_beforeFixation_leaves20ul.LHC',
-        'automation_v2/0_2_W-3X_beforeFixation_leaves20ul.LHC',
-        'automation_v2/4_6_W-3X_FinalAspirate.LHC',
-        'automation_v2/4_6_W-3X_FinalAspirate.LHC',
-        'automation_v2/8_W-4X_NoFinalAspirate.LHC',
-    ),
-    prime = Steps(
-        'automation_v2/1_D_P1_MIX.LHC',
-        'automation_v2/3_D_SA_PRIME.LHC',
-        'automation_v2/5_D_SB_PRIME.LHC',
-        'automation_v2/7_D_P2_PRIME.LHC',
-        '',
-    ),
-    disp = Steps(
-       'automation_v2/1_D_P1_80ul_mito_purge.LHC',
-       'automation_v2/3_D_SA_384_80ul_PFA.LHC',
-       'automation_v2/5_D_SB_384_80ul_TRITON.LHC',
-       'automation_v2/7_D_P2_20ul_STAINS.LHC',
-       '',
-    ),
-    incu = Steps(30, 20, 20, 20, 0),
-    guesstimate_time_wash_3X_minus_incu_pop = 45, # TODO
-    guesstimate_time_wash_3X_minus_RT_pop   = 60, # TODO
-    guesstimate_time_wash_4X_minus_wash_3X  = 17, # TODO
-)
-
-v2_ms = ProtocolConfig(
-    prep_wash='automation_v2_ms/0_W_D_PRIME.LHC',
-    prep_disp='automation_v2_ms/0_D_prime_SAB.LHC',
-    wash = Steps(
-        'automation_v2_ms/1_W-1X_beforeMito_leaves20ul.LHC',
-        'automation_v2_ms/3_W-2X_beforeFixation_leaves20ul.LHC',
-        'automation_v2_ms/5_W-3X_beforeTriton.LHC',
-        'automation_v2_ms/7_W-3X_beforeStains.LHC',
-        'automation_v2_ms/9_W-4X_NoFinalAspirate.LHC',
-    ),
-    prime = Steps(
-        'automation_v2_ms/1_D_P1_MIX.LHC',
-        'automation_v2_ms/3_D_SA_PRIME.LHC',
-        'automation_v2_ms/5_D_SB_PRIME.LHC',
-        'automation_v2_ms/7_D_P2_PRIME.LHC',
-        '',
-    ),
-    disp = Steps(
-        'automation_v2_ms/2_D_P1_80ul_mito_purge.LHC',
-        'automation_v2_ms/4_D_SA_384_80ul_PFA.LHC',
-        'automation_v2_ms/6_D_SB_384_80ul_TRITON.LHC',
-        'automation_v2_ms/8_D_P2_20ul_STAINS.LHC',
-        '',
-    ),
-    incu = Steps(20, 20, 20, 20, 0),
-    guesstimate_time_wash_3X_minus_incu_pop = 110, # TODO
-    guesstimate_time_wash_3X_minus_RT_pop   = 60,  # TODO
-    guesstimate_time_wash_4X_minus_wash_3X  = 200, # TODO
-    delay_before_first_wash         = 0,
-    separation_between_first_washes = 0,
-    wait_before_incu_get_1st  = Steps(0,60,40,40,40),
-    wait_before_incu_get_2nd  = Steps(0,174,0,0,0),
-    wait_before_incu_get_rest = Steps(0,174,0,0,0),
-)
-
 v3 = ProtocolConfig(
     prep_wash='automation_v3/0_W_D_PRIME.LHC',
-    prep_disp='automation_v3/1_D_P1_MIX.LHC',
+    prep_disp=None, # 'automation_v3/1_D_P1_MIX.LHC',
     wash = Steps(
         'automation_v3/1_W-1X_beforeMito_leaves20ul.LHC',
         'automation_v3/3_W-3X_beforeFixation_leaves20ul.LHC',
@@ -242,10 +148,10 @@ v3 = ProtocolConfig(
         '',
     ),
     disp = Steps(
-        'automation_v3/2_D_P1_40ul_purge_mito.LHC'
-        'automation_v3/4_D_SA_384_80ul_PFA.LHC'
-        'automation_v3/6_D_SB_384_80ul_TRITON.LHC'
-        'automation_v3/8_D_P2_20ul_purge_stains.LHC'
+        'automation_v3/2_D_P1_40ul_purge_mito.LHC',
+        'automation_v3/4_D_SA_384_80ul_PFA.LHC',
+        'automation_v3/6_D_SB_384_80ul_TRITON.LHC',
+        'automation_v3/8_D_P2_20ul_purge_stains.LHC',
         '',
     ),
     incu = Steps(20, 20, 20, 20, 0),
@@ -259,23 +165,57 @@ v3 = ProtocolConfig(
     wait_before_incu_get_rest = Steps(0,174,0,0,0),
 )
 
-def time_protocol(config: RuntimeConfig, protocol_config: ProtocolConfig, include_robotarm: bool):
+def time_bioteks(config: RuntimeConfig, protocol_config: ProtocolConfig):
+    '''
+    Timing for biotek protocols and robotarm moves from and to bioteks.
+
+    This is preferably done with the bioteks connected to water.
+
+    Required lab prerequisites:
+        1. hotel B21:        one plate *without* lid
+        2. biotek washer:    empty
+        3. biotek washer:    connected to water
+        4. biotek dispenser: empty
+        5. biotek dispenser: all pumps and syringes connected to water
+        6. robotarm:         in neutral position by B hotel
+        7. gripper:          sufficiently open to grab a plate
+
+        8. incubator transfer door: not used
+        9. hotel B1-19:             not used
+       10. hotel A:                 not used
+       11. hotel C:                 not used
+    '''
+    protocol_config = replace(protocol_config, incu = Steps(0,0,0,0,0))
+    events = eventlist([1], protocol_config=protocol_config, short_test_paint=False, sleek=True)
+    events = [
+        e
+        for e in events
+        for c in [e.command]
+        if not isinstance(c, robots.incu_cmd)
+        if not isinstance(c, robots.robotarm_cmd) or any(
+            needle in c.program_name
+            for needle in ['wash', 'disp']
+        )
+    ]
+    ATTENTION(time_bioteks.__doc__ or '')
+    execute_events_with_logging(config, events, metadata={'options': 'time_bioteks'})
+
+def time_arm_incu(config: RuntimeConfig):
+    '''
+    Timing for robotarm and incubator.
+
+    Required lab prerequisites:
+        1. incubator transfer door: one plate with lid
+        2. hotel B21:               one plate with lid
+        3. hotel B1-19:             empty!
+        4. hotel A:                 empty!
+        5. hotel C:                 empty!
+        6. biotek washer:           empty!
+        7. biotek dispenser:        empty!
+        8. robotarm:                in neutral position by B hotel
+        9. gripper:                 sufficiently open to grab a plate
+    '''
     N = 4
-    p = protocol_config
-    wash: list[Command] = []
-    for v in utils.uniq([p.prep_wash, *p.wash.values()]):
-        if v:
-            wash += [
-                robots.wash_cmd(v),
-                robots.wait_for(robots.Ready('wash')),
-            ]
-    disp: list[Command] = []
-    for v in utils.uniq([p.prep_disp, *p.prime.values(), *p.disp.values()]):
-        if v:
-            disp += [
-                robots.disp_cmd(v, delay=robots.wait_for(robots.WashStarted()) + 5),
-                robots.wait_for(robots.Ready('disp')),
-            ]
     incu: list[Command] = []
     for loc in incu_locs[:N]:
         incu += [
@@ -304,9 +244,9 @@ def time_protocol(config: RuntimeConfig, protocol_config: ProtocolConfig, includ
             *robotarm_cmds(plate.out_put),
             *robotarm_cmds(plate.out_get),
         ]
-    plate = replace(plate, lid_loc=lid_locs[0])
+    plate = replace(plate, lid_loc=lid_locs[0], r_loc=r_locs[0])
     arm2: list[Command] = [
-        *robotarm_cmds('incu put'),
+        *robotarm_cmds(plate.r_put),
         *robotarm_cmds('incu get'),
         *robotarm_cmds(plate.lid_put),
         *robotarm_cmds('wash put'),
@@ -315,44 +255,20 @@ def time_protocol(config: RuntimeConfig, protocol_config: ProtocolConfig, includ
         *robotarm_cmds('wash put'),
         *robotarm_cmds('wash get'),
         *robotarm_cmds(plate.lid_get),
+        *robotarm_cmds('incu put'),
+        *robotarm_cmds(plate.r_get),
     ]
     with runtime_with_logging(config, {'options': 'time_protocols'}) as runtime:
-        ATTENTION(f'''
-            Timing for all lab components.
-
-            This is preferably done with the bioteks connected to water.
-
-            Required lab prerequisites:
-                1. hotel H21:               if include-robotarm: one plate with lid, else: empty!
-                2. hotel H1-H19:            empty!
-                3. hotel R:                 empty!
-                4. hotel out:               empty!
-                5. biotek washer:           one plate (without lid)
-                6.    "     "               connected to water
-                7. biotek dispenser:        one plate (without lid)
-                8.    "     "               all pumps and syringes connected to water
-                9. incubator transfer door: one plate with lid
-               10. robotarm:                in neutral position by H hotel
-               11. gripper:                 sufficiently open to grab a plate
-
-            If include-robotarm:
-                There will be a second step using only the robotarm and one plate.
-                A new confirmation, like this will one, will be required before that.
-        ''')
+        ATTENTION(time_arm_incu.__doc__ or '')
         def execute(name: str, cmds: list[Command]):
             runtime.register_thread(f'{name} main')
             execute_commands(runtime, cmds)
             runtime.thread_idle()
 
         threads = [
-            threading.Thread(target=lambda: execute('wash', wash), daemon=True),
-            threading.Thread(target=lambda: execute('disp', disp), daemon=True),
             threading.Thread(target=lambda: execute('incu', incu), daemon=True),
+            threading.Thread(target=lambda: execute('arm', arm), daemon=True),
         ]
-        if include_robotarm:
-            threads += [
-                threading.Thread(target=lambda: execute('arm', arm), daemon=True),
-            ]
 
         runtime.thread_idle()
 
@@ -361,23 +277,7 @@ def time_protocol(config: RuntimeConfig, protocol_config: ProtocolConfig, includ
         for t in threads:
             t.join()
 
-        if include_robotarm:
-            ATTENTION('''
-                Remove the plate in incubator washer and dispenser please.
-                Only one plate should remain, the one in h21 (with lid)
-
-                Required lab prerequisites:
-                    1. hotel H21:               one plate with lid
-                    2. hotel H1-H19:            empty!
-                    3. hotel R:                 empty!
-                    4. hotel out:               empty!
-                    5. biotek washer:           empty!
-                    6. biotek dispenser:        empty!
-                    7. incubator transfer door: empty!
-                    8. robotarm:                in neutral position by H hotel
-                    9. gripper:                 sufficiently open to grab a plate
-            ''')
-            execute_commands(runtime, arm2)
+        execute_commands(runtime, arm2)
 
 @dataclass(frozen=True)
 class Event:
@@ -424,12 +324,27 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig, short_test_
 
     p = protocol_config
 
-    prep_cmds: list[Command] = [
-        robots.wash_cmd(p.prep_wash),
-        robots.disp_cmd(p.prep_disp, delay=robots.wait_for(robots.WashStarted()) + 5),
-        robots.wait_for(robots.Ready('disp')),
-        robots.wait_for(robots.Ready('wash')),
-    ]
+    if p.prep_wash and p.prep_disp:
+        prep_cmds: list[Command] = [
+            robots.wash_cmd(p.prep_wash),
+            robots.disp_cmd(p.prep_disp, delay=robots.wait_for(robots.WashStarted()) + 5),
+            robots.wait_for(robots.Ready('disp')),
+            robots.wait_for(robots.Ready('wash')),
+        ]
+    elif p.prep_wash and not p.prep_disp:
+        prep_cmds: list[Command] = [
+            robots.wash_cmd(p.prep_wash),
+            robots.wait_for(robots.Ready('wash')),
+        ]
+    elif not p.prep_wash and p.prep_disp:
+        prep_cmds: list[Command] = [
+            robots.disp_cmd(p.prep_disp),
+            robots.wait_for(robots.Ready('disp')),
+        ]
+    elif not p.prep_wash and not p.prep_disp:
+        prep_cmds: list[Command] = []
+    else:
+        assert False
 
     prep_events: list[Event] = [
         Event('', 'prep', '', cmd) for cmd in prep_cmds
@@ -568,10 +483,10 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig, short_test_
 
         chunks[plate, 'Final', 'to h21']           = [*wait_before_incu_get[5], *RT_get]
         chunks[plate, 'Final', 'to wash']          = wash(wait_before_wash_start[5], p.wash[5])
-        chunks[plate, 'Final', 'to r21 from wash'] = [
+        chunks[plate, 'Final', 'to h21 from wash'] = [
             *robotarm_cmds('wash get', before_pick=[robots.wait_for(Ready('wash'))])
         ]
-        chunks[plate, 'Final', 'to out via r21 and h21'] = [
+        chunks[plate, 'Final', 'to out via h21'] = [
             *lid_mount,
             *robotarm_cmds(plate.out_put)
         ]
@@ -612,61 +527,33 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig, short_test_
 
     for A, B, C in utils.iterate_with_context(batch):
         for part in parts:
-            if 0:
-                if part != 'Final':
-                    # seq(A, B) := t[A] < t[B]
-                    seq([
-                        desc(A, part, 'to h21'),
-                        desc(A, part, 'to wash'),
-                        desc(B, part, 'to h21'),
-                        desc(A, part, 'to disp'),
-                        desc(B, part, 'to wash'),
-                        desc(A, part, 'to incu via h21'),
-                        desc(C, part, 'to h21'),
-                        desc(B, part, 'to disp'),
-                        desc(C, part, 'to wash'),
-                        desc(B, part, 'to incu via h21'),
-                    ])
-                if part == 'Final':
-                    seq([
-                        desc(A, part, 'to h21'),
-                        desc(A, part, 'to wash'),
-                        desc(B, part, 'to h21'),
-                        desc(A, part, 'to r21 from wash'),
-                        desc(B, part, 'to wash'),
-                        desc(A, part, 'to out via r21 and h21'),
-                        desc(C, part, 'to h21'),
-                        desc(B, part, 'to r21 from wash'),
-                        desc(C, part, 'to wash'),
-                        desc(B, part, 'to out via r21 and h21'),
-                    ])
+            if part != 'Final':
+                seq([
+                    desc(A, part, 'to h21'),
+                    desc(A, part, 'to wash'),
+                    desc(A, part, 'to disp'),
+                    desc(A, part, 'to incu via h21'),
+                    desc(B, part, 'to h21'),
+                    desc(B, part, 'to wash'),
+                    desc(B, part, 'to disp'),
+                    desc(B, part, 'to incu via h21'),
+                    desc(C, part, 'to h21'),
+                    desc(C, part, 'to wash'),
+                ])
             else:
-                if part != 'Final':
-                    seq([
-                        desc(A, part, 'to h21'),
-                        desc(A, part, 'to wash'),
-                        desc(A, part, 'to disp'),
-                        desc(A, part, 'to incu via h21'),
-                        desc(B, part, 'to h21'),
-                        desc(B, part, 'to wash'),
-                        desc(B, part, 'to disp'),
-                        desc(B, part, 'to incu via h21'),
-                        desc(C, part, 'to h21'),
-                        desc(C, part, 'to wash'),
-                    ])
-                if part == 'Final':
-                    seq([
-                        desc(A, part, 'to h21'),
-                        desc(A, part, 'to wash'),
-                        desc(A, part, 'to r21 from wash'),
-                        desc(A, part, 'to out via r21 and h21'),
-                        desc(B, part, 'to h21'),
-                        desc(B, part, 'to wash'),
-                        desc(B, part, 'to r21 from wash'),
-                        desc(B, part, 'to out via r21 and h21'),
-                        desc(C, part, 'to h21'),
-                        desc(C, part, 'to wash'),
-                    ])
+                assert part == 'Final'
+                seq([
+                    desc(A, part, 'to h21'),
+                    desc(A, part, 'to wash'),
+                    desc(A, part, 'to h21 from wash'),
+                    desc(A, part, 'to out via h21'),
+                    desc(B, part, 'to h21'),
+                    desc(B, part, 'to wash'),
+                    desc(B, part, 'to h21 from wash'),
+                    desc(B, part, 'to out via h21'),
+                    desc(C, part, 'to h21'),
+                    desc(C, part, 'to wash'),
+                ])
 
     deps: dict[Desc, set[Desc]] = defaultdict(set)
     for node, nexts in adjacent.items():
@@ -702,7 +589,7 @@ def define_plates(batch_sizes: list[int]) -> list[Plate]:
     for batch_index, batch_size in enumerate(batch_sizes):
         for index_in_batch in range(batch_size):
             plates += [Plate(
-                id=f'p{index+1:02d}',
+                id=f'{index+1}',
                 incu_loc=incu_locs[index],
                 r_loc=r_locs[index_in_batch],
                 lid_loc=lid_locs[index_in_batch],
@@ -748,6 +635,9 @@ def eventlist(batch_sizes: list[int], protocol_config: ProtocolConfig, short_tes
     return all_events
 
 def test_circuit(config: RuntimeConfig) -> None:
+    '''
+    Test circuit: Short test paint on one plate, without incubator
+    '''
     plate, = define_plates([1])
     events = eventlist([1], protocol_config=v3, short_test_paint=True)
     events = [

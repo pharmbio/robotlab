@@ -20,12 +20,13 @@ def main():
     for k, v in configs.items():
         parser.add_argument('--' + k, dest="config", action="store_const", const=k, help='Run with config ' + k)
 
+    parser.add_argument('--test-comm', action='store_true', help=(robots.test_comm.__doc__ or '').strip())
+
     parser.add_argument('--cell-paint', metavar='BS', type=str, default=None, help='Cell paint with batch sizes of BS, separated by comma (such as 6,6 for 2x6). Plates start stored in incubator L1, L2, ..')
-    parser.add_argument('--short-test-paint', action='store_true', help='Run a shorter test version of the cell painting protocol')
+    parser.add_argument('--short-test-paint', metavar='BS', type=str, default=None, help='Run a shorter test version of the cell painting protocol with batch sizes of BS')
     parser.add_argument('--test-circuit', action='store_true', help='Test circuit: start with one plate with lid on incubator transfer door, and all other positions empty!')
-    parser.add_argument('--test-comm', action='store_true', help=robots.test_comm.__doc__.strip())
-    parser.add_argument('--time-protocol', action='store_true', help='Timing for all lab components.')
-    parser.add_argument('--time-protocol-include-robotarm', action='store_true', help='Time all lab components, including the robotarm')
+    parser.add_argument('--time-bioteks', action='store_true', help=(protocol.time_bioteks.__doc__ or '').strip().splitlines()[0])
+    parser.add_argument('--time-arm-incu', action='store_true', help=(protocol.time_arm_incu.__doc__ or '').strip().splitlines()[0])
 
     parser.add_argument('--wash', type=str, help='Run a program on the washer')
     parser.add_argument('--disp', type=str, help='Run a program on the dispenser')
@@ -53,26 +54,30 @@ def main():
     print(f'Using', config.name(), 'config =', show(config))
     print(f'{args.robotarm_speed = }')
 
-    if args.cell_paint:
+    if args.cell_paint or args.short_test_paint:
+        batch_sizes: list[int] = [
+            int(bs.strip())
+            for bs in (args.cell_paint or args.short_test_paint).split(',')
+        ]
         robots.get_robotarm(config).set_speed(args.robotarm_speed).close()
         protocol.main(
             config=config,
-            batch_sizes=[int(bs.strip()) for bs in args.cell_paint.split(',')],
+            batch_sizes=batch_sizes,
             protocol_config=protocol.v3,
-            short_test_paint=args.short_test_paint,
+            short_test_paint=bool(args.short_test_paint),
         )
 
     elif args.test_circuit:
         robots.get_robotarm(config).set_speed(args.robotarm_speed).close()
         protocol.test_circuit(config=config)
 
-    elif args.time_protocol:
+    elif args.time_bioteks:
         robots.get_robotarm(config).set_speed(args.robotarm_speed).close()
-        protocol.time_protocol(config=config, protocol_config=protocol.v3, include_robotarm=False)
+        protocol.time_bioteks(config=config, protocol_config=protocol.v3)
 
-    elif args.time_protocol_include_robotarm:
+    elif args.time_arm_incu:
         robots.get_robotarm(config).set_speed(args.robotarm_speed).close()
-        protocol.time_protocol(config=config, protocol_config=protocol.v3, include_robotarm=True)
+        protocol.time_arm_incu(config=config)
 
     elif args.test_comm:
         robots.test_comm(config)

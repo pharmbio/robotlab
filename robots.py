@@ -36,9 +36,9 @@ def estimates_from(path: str) -> dict[Estimated, float]:
         'incu',
     }
     for v in utils.read_json_lines(path):
-        duration = v['duration']
-        source = v['source']
-        arg = v['arg']
+        duration = v.get('duration')
+        source = v.get('source')
+        arg = v.get('arg')
         if duration is not None and source in sources:
             ests[source, arg].append(duration)
     return {est: sum(vs) / len(vs) for est, vs in ests.items()}
@@ -86,18 +86,19 @@ class RuntimeConfig:
                 return k
         raise ValueError(f'unknown config {self}')
 
+wall_time          = lambda: WallTime()
 simulated_and_wall = lambda: SimulatedTime(include_wall_time=True)
 simulated_no_wall  = lambda: SimulatedTime(include_wall_time=False)
 
 configs: dict[str, RuntimeConfig]
 configs = {
-    'live':          RuntimeConfig(lambda: WallTime(), 'execute', 'execute', 'execute',            live_env),
-    'test-all':      RuntimeConfig(simulated_and_wall, 'execute', 'execute', 'execute',            live_env),
-    'test-arm-incu': RuntimeConfig(simulated_and_wall, 'noop',    'execute', 'execute',            live_arm_incu),
-    'simulator':     RuntimeConfig(simulated_and_wall, 'noop',    'noop',    'execute no gripper', simulator_env),
-    'forward':       RuntimeConfig(simulated_no_wall,  'noop',    'noop',    'execute',            forward_env),
-    'dry-wall':      RuntimeConfig(lambda: WallTime(), 'noop',    'noop',    'noop',               dry_env),
-    'dry-run':       RuntimeConfig(simulated_no_wall,  'noop',    'noop',    'noop',               dry_env),
+    'live':          RuntimeConfig(wall_time,          disp_and_wash_mode='execute', incu_mode='execute', robotarm_mode='execute',            env=live_env),
+    'test-all':      RuntimeConfig(simulated_and_wall, disp_and_wash_mode='execute', incu_mode='execute', robotarm_mode='execute',            env=live_env),
+    'test-arm-incu': RuntimeConfig(simulated_and_wall, disp_and_wash_mode='noop',    incu_mode='execute', robotarm_mode='execute',            env=live_arm_incu),
+    'simulator':     RuntimeConfig(simulated_and_wall, disp_and_wash_mode='noop',    incu_mode='noop',    robotarm_mode='execute no gripper', env=simulator_env),
+    'forward':       RuntimeConfig(simulated_no_wall,  disp_and_wash_mode='noop',    incu_mode='noop',    robotarm_mode='execute',            env=forward_env),
+    'dry-wall':      RuntimeConfig(wall_time,          disp_and_wash_mode='noop',    incu_mode='noop',    robotarm_mode='noop',               env=dry_env),
+    'dry-run':       RuntimeConfig(simulated_no_wall,  disp_and_wash_mode='noop',    incu_mode='noop',    robotarm_mode='noop',               env=dry_env),
 }
 
 def curl(url: str, print_result: bool = False) -> Any:
