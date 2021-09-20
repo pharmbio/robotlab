@@ -224,6 +224,41 @@ v2_ms = ProtocolConfig(
     wait_before_incu_get_rest = Steps(0,174,0,0,0),
 )
 
+v3 = ProtocolConfig(
+    prep_wash='automation_v3/0_W_D_PRIME.LHC',
+    prep_disp='automation_v3/1_D_P1_MIX.LHC',
+    wash = Steps(
+        'automation_v3/1_W-1X_beforeMito_leaves20ul.LHC',
+        'automation_v3/3_W-3X_beforeFixation_leaves20ul.LHC',
+        'automation_v3/5_W-3X_beforeTriton.LHC',
+        'automation_v3/7_W-3X_beforeStains.LHC',
+        'automation_v3/9_W-5X_NoFinalAspirate.LHC',
+    ),
+    prime = Steps(
+        'automation_v3/1_D_P1_MIX_PRIME.LHC',
+        'automation_v3/3_D_SA_PRIME.LHC',
+        'automation_v3/5_D_SB_PRIME.LHC',
+        'automation_v3/7_D_P2_MIX_PRIME.LHC',
+        '',
+    ),
+    disp = Steps(
+        'automation_v3/2_D_P1_40ul_purge_mito.LHC'
+        'automation_v3/4_D_SA_384_80ul_PFA.LHC'
+        'automation_v3/6_D_SB_384_80ul_TRITON.LHC'
+        'automation_v3/8_D_P2_20ul_purge_stains.LHC'
+        '',
+    ),
+    incu = Steps(20, 20, 20, 20, 0),
+    guesstimate_time_wash_3X_minus_incu_pop = 110, # TODO
+    guesstimate_time_wash_3X_minus_RT_pop   = 60,  # TODO
+    guesstimate_time_wash_4X_minus_wash_3X  = 200, # TODO
+    delay_before_first_wash         = 0,
+    separation_between_first_washes = 0,
+    wait_before_incu_get_1st  = Steps(0,60,40,40,40),
+    wait_before_incu_get_2nd  = Steps(0,174,0,0,0),
+    wait_before_incu_get_rest = Steps(0,174,0,0,0),
+)
+
 def time_protocol(config: RuntimeConfig, protocol_config: ProtocolConfig, include_robotarm: bool):
     N = 4
     p = protocol_config
@@ -714,7 +749,7 @@ def eventlist(batch_sizes: list[int], protocol_config: ProtocolConfig, short_tes
 
 def test_circuit(config: RuntimeConfig) -> None:
     plate, = define_plates([1])
-    events = eventlist([1], protocol_config=v2_ms, short_test_paint=True)
+    events = eventlist([1], protocol_config=v3, short_test_paint=True)
     events = [
         event
         for event in events
@@ -778,9 +813,9 @@ def runtime_with_logging(config: RuntimeConfig, metadata: dict[str, str]) -> Ite
     print(f'{log_filename=}')
 
     runtime = robots.Runtime(config=config, log_filename=log_filename)
-    # Overrides for v2_ms
+    # Overrides for v3
     overrides: dict[robots.Estimated, float] = {
-        ('disp', v2_ms.disp.Mito): 73.11 - 15,
+        ('disp', v3.disp.Mito): 73.11 - 15,
     }
     for (k, a), v in runtime.estimates.items():
         if '19' in a:

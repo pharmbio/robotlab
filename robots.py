@@ -295,7 +295,7 @@ class Runtime:
         self.wash.start(self)
         self.disp.start(self)
         self.incu.start(self)
-        self.estimates.update(estimates_from('timings_v2_ms.jsonl'))
+        self.estimates.update(estimates_from('timings_v3.jsonl'))
 
     def spawn(self, f: Callable[[], None]) -> None:
         def F():
@@ -372,7 +372,7 @@ class Runtime:
                 print(' | '.join(
                     ' ' * 8
                     if v is None else
-                    f'{str(v).removeprefix("automation_v2_ms/"): <64}'
+                    f'{str(v).removeprefix("automation_v3/"): <64}'
                     if k == 'arg' else
                     f'{str(v): <10}'
                     if k == 'source' else

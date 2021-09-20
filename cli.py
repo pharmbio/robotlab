@@ -58,7 +58,7 @@ def main():
         protocol.main(
             config=config,
             batch_sizes=[int(bs.strip()) for bs in args.cell_paint.split(',')],
-            protocol_config=protocol.v2_ms,
+            protocol_config=protocol.v3,
             short_test_paint=args.short_test_paint,
         )
 
@@ -68,11 +68,11 @@ def main():
 
     elif args.time_protocol:
         robots.get_robotarm(config).set_speed(args.robotarm_speed).close()
-        protocol.time_protocol(config=config, protocol_config=protocol.v2_ms, include_robotarm=False)
+        protocol.time_protocol(config=config, protocol_config=protocol.v3, include_robotarm=False)
 
     elif args.time_protocol_include_robotarm:
         robots.get_robotarm(config).set_speed(args.robotarm_speed).close()
-        protocol.time_protocol(config=config, protocol_config=protocol.v2_ms, include_robotarm=True)
+        protocol.time_protocol(config=config, protocol_config=protocol.v3, include_robotarm=True)
 
     elif args.test_comm:
         robots.test_comm(config)
@@ -97,7 +97,7 @@ def main():
             print(name)
 
     elif args.inspect_robotarm_programs:
-        events = protocol.paint_batch(protocol.define_plates([6, 6]), protocol_config=protocol.v2_ms)
+        events = protocol.paint_batch(protocol.define_plates([6, 6]), protocol_config=protocol.v3)
 
         for k, v in movelists.items():
             import re
@@ -109,22 +109,22 @@ def main():
 
     elif args.wash:
         runtime = robots.Runtime(config)
-        path = getattr(protocol.v2_ms.wash, args.wash, None)
-        assert path, utils.pr(protocol.v2_ms.wash)
+        path = getattr(protocol.v3.wash, args.wash, None)
+        assert path, utils.pr(protocol.v3.wash)
         robots.wash_cmd(path).execute(runtime, {})
         robots.wait_for(robots.Ready('wash')).execute(runtime, {})
 
     elif args.disp:
         runtime = robots.Runtime(config)
-        path = getattr(protocol.v2_ms.disp, args.disp, None)
-        assert path, utils.pr(protocol.v2_ms.disp)
+        path = getattr(protocol.v3.disp, args.disp, None)
+        assert path, utils.pr(protocol.v3.disp)
         robots.disp_cmd(path).execute(runtime, {})
         robots.wait_for(robots.Ready('disp')).execute(runtime, {})
 
     elif args.prime:
         runtime = robots.Runtime(config)
-        path = getattr(protocol.v2_ms.prime, args.prime, None)
-        assert path, utils.pr(protocol.v2_ms.prime)
+        path = getattr(protocol.v3.prime, args.prime, None)
+        assert path, utils.pr(protocol.v3.prime)
         robots.disp_cmd(path).execute(runtime, {})
         robots.wait_for(robots.Ready('disp')).execute(runtime, {})
 
