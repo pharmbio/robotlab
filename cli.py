@@ -27,6 +27,7 @@ def main():
     parser.add_argument('--test-circuit', action='store_true', help='Test circuit: start with one plate with lid on incubator transfer door, and all other positions empty!')
     parser.add_argument('--time-bioteks', action='store_true', help=(protocol.time_bioteks.__doc__ or '').strip().splitlines()[0])
     parser.add_argument('--time-arm-incu', action='store_true', help=(protocol.time_arm_incu.__doc__ or '').strip().splitlines()[0])
+    parser.add_argument('--load-incu', type=int, help=(protocol.load_incu.__doc__ or '').strip().splitlines()[0])
 
     parser.add_argument('--wash', type=str, help='Run a program on the washer')
     parser.add_argument('--disp', type=str, help='Run a program on the dispenser')
@@ -78,6 +79,10 @@ def main():
     elif args.time_arm_incu:
         robots.get_robotarm(config).set_speed(args.robotarm_speed).close()
         protocol.time_arm_incu(config=config)
+
+    elif args.load_incu:
+        robots.get_robotarm(config).set_speed(args.robotarm_speed).close()
+        protocol.load_incu(config=config, num_plates=args.load_incu)
 
     elif args.test_comm:
         robots.test_comm(config)

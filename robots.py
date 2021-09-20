@@ -224,8 +224,8 @@ class Incubator:
             metadata = msg.metadata
             del msg
             if command.incu_loc is not None:
-                metadata = {**metadata, 'action': command.action, 'loc': command.incu_loc}
-                arg = command.action + ' ' + command.incu_loc
+                metadata = {**metadata, 'loc': command.incu_loc}
+                arg = command.action # + ' ' + command.incu_loc
                 time_tuple = command.incu_loc, 'incubator'
                 if command.action == 'get' and (t0 := runtime.t0s.pop(time_tuple, None)):
                     runtime.log('end', 'time', 'incubator', metadata=metadata, t0=t0)

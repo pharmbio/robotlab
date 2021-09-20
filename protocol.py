@@ -132,7 +132,7 @@ class ProtocolConfig:
 
 v3 = ProtocolConfig(
     prep_wash='automation_v3/0_W_D_PRIME.LHC',
-    prep_disp=None, # 'automation_v3/1_D_P1_MIX.LHC',
+    prep_disp='automation_v3/0_D_P1_MIX.LHC',
     wash = Steps(
         'automation_v3/1_W-1X_beforeMito_leaves20ul.LHC',
         'automation_v3/3_W-3X_beforeFixation_leaves20ul.LHC',
@@ -278,6 +278,36 @@ def time_arm_incu(config: RuntimeConfig):
             t.join()
 
         execute_commands(runtime, arm2)
+
+def load_incu(config: RuntimeConfig, num_plates: int):
+    '''
+    Load the incubator with plates from A hotel, starting at the bottom to incubator positions L1, ...
+
+    Required lab prerequisites:
+        1. incubator transfer door: empty!
+        2. incubator L1, ...:       empty!
+        3. hotel A1-A#:             plates with lid
+        4. robotarm:                in neutral position by B hotel
+        5. gripper:                 sufficiently open to grab a plate
+    '''
+    plates = define_plates([num_plates])
+    events: list[Event] = []
+    for p in plates:
+        assert p.out_loc.startswith('out')
+        pos = p.out_loc.removeprefix('out')
+        commands = [
+            robots.robotarm_cmd(f'incu_A{pos} put prep'),
+            robots.wait_for(Ready('incu')),
+            robots.robotarm_cmd(f'incu_A{pos} put transfer'),
+            robots.incu_cmd('put', p.incu_loc),
+            robots.robotarm_cmd(f'incu_A{pos} put return'),
+        ]
+        events += [
+            Event(p.id, 'incu load', '', cmd)
+            for cmd in commands
+        ]
+    ATTENTION(load_incu.__doc__ or '')
+    execute_events_with_logging(config, events, {'options': 'load_incu'})
 
 @dataclass(frozen=True)
 class Event:

@@ -2,7 +2,7 @@
   {"type": "MoveJoint", "joints": [94.6, -111.3, 93.2, 18.0, 94.6, -0.1], "name": "h neu"},
   {"type": "MoveJoint", "joints": [69.7, -114.5, 95.1, 19.4, 104.6, -0.1], "name": "h safe"},
   {"type": "MoveJoint", "joints": [-96.41, -125.21, 148.22, -24.55, -5.43, 1.55], "name": "wash above"},
-  {"type": "MoveLin", "xyz": [-269.5, 196.4, 338.7], "rpy": [0.0, 0.0, -1.0], "name": "wash neu", "slow": true},
+  {"type": "MoveLin", "xyz": [-269.5, 196.5, 148.4], "rpy": [0.0, 0.0, -1.2], "name": "wash neu", "slow": true},
   {"type": "MoveLin", "xyz": [-269.5, 196.5, 131.9], "rpy": [0.0, 0.0, -1.2], "name": "wash pick", "slow": true},
   {"type": "GripperMove", "pos": 255},
   {"type": "MoveLin", "xyz": [-269.5, 196.5, 148.4], "rpy": [0.0, 0.0, -1.2], "name": "wash neu", "slow": true},

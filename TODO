@@ -1,5 +1,5 @@
 
-[ ] prio 3. moves: fix w->d transfer pick vertical offset
+[x] prio 3. moves: fix w->d transfer pick vertical offset
 
 [ ] prio 3. robotarm: check that it is close to h neu when starting
 [ ] prio 3. robustness: raise gripper if close more than expected
