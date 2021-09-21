@@ -28,6 +28,7 @@ def main():
     parser.add_argument('--time-bioteks', action='store_true', help=(protocol.time_bioteks.__doc__ or '').strip().splitlines()[0])
     parser.add_argument('--time-arm-incu', action='store_true', help=(protocol.time_arm_incu.__doc__ or '').strip().splitlines()[0])
     parser.add_argument('--load-incu', type=int, help=(protocol.load_incu.__doc__ or '').strip().splitlines()[0])
+    parser.add_argument('--unload-incu', type=int, help=(protocol.unload_incu.__doc__ or '').strip().splitlines()[0])
 
     parser.add_argument('--wash', type=str, help='Run a program on the washer')
     parser.add_argument('--disp', type=str, help='Run a program on the dispenser')
@@ -83,6 +84,10 @@ def main():
     elif args.load_incu:
         robots.get_robotarm(config).set_speed(args.robotarm_speed).close()
         protocol.load_incu(config=config, num_plates=args.load_incu)
+
+    elif args.unload_incu:
+        robots.get_robotarm(config).set_speed(args.robotarm_speed).close()
+        protocol.unload_incu(config=config, num_plates=args.unload_incu)
 
     elif args.test_comm:
         robots.test_comm(config)

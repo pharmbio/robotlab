@@ -129,7 +129,7 @@ class ProtocolConfig:
 
 v3 = ProtocolConfig(
     prep_wash='automation_v3/0_W_D_PRIME.LHC',
-    prep_disp='automation_v3/0_D_P1_MIX.LHC',
+    prep_disp=None,
     wash = Steps(
         'automation_v3/1_W-1X_beforeMito_leaves20ul.LHC',
         'automation_v3/3_W-3X_beforeFixation_leaves20ul.LHC',
@@ -275,7 +275,7 @@ def time_arm_incu(config: RuntimeConfig):
 
 def load_incu(config: RuntimeConfig, num_plates: int):
     '''
-    Load the incubator with plates from A hotel, starting at the bottom to incubator positions L1, ...
+    Load the incubator with plates from A hotel, starting at the bottom, to incubator positions L1, ...
 
     Required lab prerequisites:
         1. incubator transfer door: empty!
@@ -302,12 +302,47 @@ def load_incu(config: RuntimeConfig, num_plates: int):
             for cmd in commands
         ]
     events = [
-        Event('', 'incu load', 'prep', robots.robotarm_cmd('incu_A21 put-prep')),
+        Event('', 'load incu', 'prep', robots.robotarm_cmd('incu_A21 put-prep')),
         *events,
-        Event('', 'incu load', 'return', robots.robotarm_cmd('incu_A21 put-return'))
+        Event('', 'load incu', 'return', robots.robotarm_cmd('incu_A21 put-return'))
     ]
     ATTENTION(load_incu.__doc__ or '')
     execute_events_with_logging(config, events, {'options': 'load_incu'})
+
+def unload_incu(config: RuntimeConfig, num_plates: int):
+    '''
+    Unload the incubator with plates from incubator positions L1, ..., to A hotel, starting at the bottom.
+
+    Required lab prerequisites:
+        1. incubator transfer door: empty!
+        2. incubator L1, ...:       plates with lid
+        3. hotel A1-A#:             empty!
+        4. robotarm:                in neutral position by B hotel
+        5. gripper:                 sufficiently open to grab a plate
+    '''
+    plates = define_plates([num_plates])
+    events: list[Event] = []
+    for p in plates:
+        assert p.out_loc.startswith('out')
+        pos = p.out_loc.removeprefix('out')
+        commands = [
+            robots.wait_for(Ready('incu')),
+            robots.incu_cmd('get', p.incu_loc),
+            robots.robotarm_cmd(f'incu_A{pos} get prep'),
+            robots.wait_for(Ready('incu')),
+            robots.robotarm_cmd(f'incu_A{pos} get transfer'),
+            robots.robotarm_cmd(f'incu_A{pos} get return'),
+        ]
+        events += [
+            Event(p.id, 'unload', '', cmd)
+            for cmd in commands
+        ]
+    events = [
+        *events,
+    ]
+    ATTENTION(unload_incu.__doc__ or '')
+    execute_events_with_logging(config, events, {'options': 'unload_incu'})
+
 
 @dataclass(frozen=True)
 class Event:
