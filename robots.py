@@ -120,9 +120,9 @@ class Biotek:
     name: Literal['wash', 'disp']
     queue: SimpleQueue[BiotekMessage] = field(default_factory=SimpleQueue)
     state: Literal['ready', 'busy'] = 'ready'
-    last_started: float | None = None
-    last_finished: float | None = None
-    last_finished_by_plate_id: dict[str, float] = field(default_factory=dict)
+    # last_started: float | None = None
+    # last_finished: float | None = None
+    # last_finished_by_plate_id: dict[str, float] = field(default_factory=dict)
     def start(self, runtime: Runtime):
         runtime.spawn(lambda: self.loop(runtime))
 
@@ -151,18 +151,11 @@ class Biotek:
             command = msg.command
             metadata = msg.metadata
             del msg
+            for cmd in command.before:
+                cmd.execute(runtime, {'origin': 'before ' + self.name})
             log_arg = command.protocol_path or command.sub_cmd
-            if command.delay:
-                with runtime.timeit(self.name + '_delay', log_arg, metadata):
-                    command.delay.execute(runtime, metadata)
-            # print(self.name, command.plate_id, runtime.t0s)
-            if command.plate_id:
-                time_name = {'wash': 'incubation', 'disp': 'transfer'}[self.name]
-                if (t0 := runtime.t0s.pop((command.plate_id, time_name), None)):
-                    runtime.log('end', 'time', time_name, metadata=metadata, t0=t0)
             with runtime.timeit(self.name, log_arg, metadata):
                 while True:
-                    self.last_started = runtime.monotonic()
                     if runtime.config.disp_and_wash_mode == 'noop':
                         est = runtime.est(self.name, log_arg)
                         runtime.log('info', self.name, f'pretending to run for {est}s', metadata)
@@ -187,11 +180,8 @@ class Biotek:
                         break
                     else:
                         raise ValueError(res)
-            self.last_finished = runtime.monotonic()
-            if command.plate_id:
-                self.last_finished_by_plate_id[command.plate_id] = self.last_finished
-                time_name = {'disp': 'incubation', 'wash': 'transfer'}[self.name]
-                runtime.t0s[command.plate_id, time_name] = self.last_finished
+                for cmd in command.after:
+                    cmd.execute(runtime, {'origin': 'after ' + self.name})
             # print(self.name, 'ready')
             self.state = 'ready'
 
@@ -227,10 +217,6 @@ class Incubator:
                 metadata = {**metadata, 'loc': command.incu_loc}
                 arg = command.action # + ' ' + command.incu_loc
                 time_tuple = command.incu_loc, 'incubator'
-                if command.action == 'get' and (t0 := runtime.t0s.pop(time_tuple, None)):
-                    runtime.log('end', 'time', 'incubator', metadata=metadata, t0=t0)
-                elif command.action == 'put':
-                    runtime.t0s[time_tuple] = runtime.monotonic()
             else:
                 arg = command.action
             with runtime.timeit('incu', arg, metadata):
@@ -257,6 +243,8 @@ class Incubator:
                         time.sleep(0.05)
                 else:
                     raise ValueError
+                for cmd in command.after:
+                    cmd.execute(runtime, {'origin': 'after incu'})
             # print('incu', 'ready')
             self.state = 'ready'
 
@@ -285,7 +273,6 @@ class Runtime:
     incu: Incubator  = field(default_factory=lambda: Incubator())
     log_lock: RLock  = field(default_factory=RLock)
     time_lock: RLock = field(default_factory=RLock)
-    t0s: dict[tuple[str, str], float] = field(default_factory=dict)
     estimates: dict[Estimated, float] = field(default_factory=dict)
     timelike: Mutable[Timelike] = Mutable.factory(cast(Any, 'initialize in __post_init__ based on config.timelike_factory'))
     times: dict[str, list[float]] = field(default_factory=lambda: cast(Any, defaultdict(list)))
@@ -364,7 +351,7 @@ class Runtime:
             'arg': arg,
             **metadata
         }
-        if source == 'time' and kind == 'end' and duration is not None:
+        if source == 'checkpoint' and kind == 'end' and duration is not None:
             self.times[str(arg)].append(duration)
         if 1:
             # if 1 or kind == 'end': # and source in {'time', 'wait'}: # not in {'robotarm', 'wait', 'wash_delay', 'disp_delay', 'experiment'}:
@@ -428,6 +415,28 @@ class Runtime:
     def thread_idle(self):
         return self.timelike.value.thread_idle()
 
+    checkpoints: dict[str, float] = field(default_factory=dict)
+    def checkpoint(self, kind: Literal['info', 'begin', 'end'], name: str, *, strict: bool=True, metadata: dict[str, Any] = {}):
+        with self.time_lock:
+            if kind == 'info':
+                t0 = self.checkpoints.get(name)
+                self.checkpoints[name] = self.log(kind, 'checkpoint', name, metadata=metadata, t0=t0)
+            elif kind == 'begin':
+                if strict:
+                    assert name not in self.checkpoints
+                self.checkpoints[name] = self.log(kind, 'checkpoint', name, metadata=metadata)
+            elif kind == 'end':
+                try:
+                    t0 = self.checkpoints.pop(name)
+                except KeyError:
+                    if strict:
+                        raise
+                    else:
+                        return
+                self.log(kind, 'checkpoint', name, metadata=metadata, t0=t0)
+            else:
+                raise ValueError(kind)
+
 class Command(abc.ABC):
     @abc.abstractmethod
     def execute(self, runtime: Runtime, metadata: dict[str, Any]) -> None:
@@ -437,12 +446,9 @@ class Waitable(abc.ABC):
     pass
 
 @dataclass(frozen=True)
-class DispFinished(Waitable):
-    plate_id: str
-
-@dataclass(frozen=True)
-class WashStarted(Waitable):
-    pass
+class Checkpoint(Waitable):
+    command_name: str
+    or_now: bool = False
 
 @dataclass(frozen=True)
 class Now(Waitable):
@@ -465,6 +471,14 @@ class Ready(Waitable):
             raise ValueError(self.name)
 
 @dataclass(frozen=True)
+class checkpoint_cmd(Command):
+    kind: Literal['info', 'begin', 'end']
+    name: str
+    strict: bool = True # if strict then kind == 'begin' must match up with kind == 'end'
+    def execute(self, runtime: Runtime, metadata: dict[str, Any]) -> None:
+        runtime.checkpoint(self.kind, self.name, strict=self.strict, metadata=metadata)
+
+@dataclass(frozen=True)
 class wait_for(Command):
     base: Waitable
     plus_seconds: int = 0
@@ -474,14 +488,11 @@ class wait_for(Command):
             if isinstance(self.base, Ready):
                 assert self.plus_seconds == 0
                 self.base.wait(runtime)
-            elif isinstance(self.base, WashStarted):
-                assert runtime.wash.last_started is not None
-                past_point_in_time = runtime.wash.last_started
-                desired_point_in_time = past_point_in_time + self.plus_seconds
-                delay = desired_point_in_time - runtime.monotonic()
-                runtime.sleep(delay)
-            elif isinstance(self.base, DispFinished):
-                past_point_in_time = runtime.disp.last_finished_by_plate_id[self.base.plate_id]
+            elif isinstance(self.base, Checkpoint):
+                if self.base.or_now and self.base.command_name not in runtime.checkpoints:
+                    past_point_in_time = runtime.monotonic()
+                else:
+                    past_point_in_time = runtime.checkpoints[self.base.command_name]
                 desired_point_in_time = past_point_in_time + self.plus_seconds
                 delay = desired_point_in_time - runtime.monotonic()
                 runtime.sleep(delay)
@@ -516,18 +527,18 @@ class robotarm_cmd(Command):
 @dataclass(frozen=True)
 class wash_cmd(Command):
     protocol_path: str | None
-    plate_id: str | None = None
-    delay: wait_for | None = None
     sub_cmd: Literal['LHC_RunProtocol', 'LHC_TestCommunications'] = 'LHC_RunProtocol'
+    before: list[wait_for | checkpoint_cmd] = field(default_factory=list)
+    after: list[checkpoint_cmd] = field(default_factory=list)
     def execute(self, runtime: Runtime, metadata: dict[str, Any]) -> None:
         runtime.wash.run(BiotekMessage(self, metadata))
 
 @dataclass(frozen=True)
 class disp_cmd(Command):
     protocol_path: str | None
-    plate_id: str | None = None
-    delay: wait_for | None = None
     sub_cmd: Literal['LHC_RunProtocol', 'LHC_TestCommunications'] = 'LHC_RunProtocol'
+    before: list[wait_for | checkpoint_cmd] = field(default_factory=list)
+    after: list[checkpoint_cmd] = field(default_factory=list)
     def execute(self, runtime: Runtime, metadata: dict[str, Any]) -> None:
         runtime.disp.run(BiotekMessage(self, metadata))
 
@@ -535,6 +546,7 @@ class disp_cmd(Command):
 class incu_cmd(Command):
     action: Literal['put', 'get', 'get_climate']
     incu_loc: str | None
+    after: list[checkpoint_cmd] = field(default_factory=list)
     def execute(self, runtime: Runtime, metadata: dict[str, Any]) -> None:
         runtime.incu.run(IncubatorMessage(self, metadata))
 

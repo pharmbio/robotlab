@@ -29,6 +29,7 @@ def main():
     parser.add_argument('--time-arm-incu', action='store_true', help=(protocol.time_arm_incu.__doc__ or '').strip().splitlines()[0])
     parser.add_argument('--load-incu', type=int, help=(protocol.load_incu.__doc__ or '').strip().splitlines()[0])
     parser.add_argument('--unload-incu', type=int, help=(protocol.unload_incu.__doc__ or '').strip().splitlines()[0])
+    parser.add_argument('--lid-stress-test', action='store_true', help=(protocol.lid_stress_test.__doc__ or '').strip().splitlines()[0])
 
     parser.add_argument('--wash', type=str, help='Run a program on the washer')
     parser.add_argument('--disp', type=str, help='Run a program on the dispenser')
@@ -88,6 +89,10 @@ def main():
     elif args.unload_incu:
         robots.get_robotarm(config).set_speed(args.robotarm_speed).close()
         protocol.unload_incu(config=config, num_plates=args.unload_incu)
+
+    elif args.lid_stress_test:
+        robots.get_robotarm(config).set_speed(args.robotarm_speed).close()
+        protocol.lid_stress_test(config=config)
 
     elif args.test_comm:
         robots.test_comm(config)

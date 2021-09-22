@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import *
 from typing import *
 
-from moves import Move, MoveList
+from moves import Move, MoveList, movelists
 
 import re
 import socket
@@ -139,9 +139,9 @@ def gripper_code(with_gripper: bool=False) -> str:
         def GripperTest():
             start_pos = read_output_integer_register(0)
             d = 14.0
-            GripperMove(255)       MoveRel(0, 0,  d,       0, 0, 0)
+            GripperMove(255, soft=True)       MoveRel(0, 0,  d,       0, 0, 0)
             Shake()                MoveRel(0, 0, -d + 0.5, 0, 0, 0)
-            GripperMove(start_pos) MoveRel(0, 0,     -0.5, 0, 0, 0)
+            GripperMove(start_pos, soft=True) MoveRel(0, 0,     -0.5, 0, 0, 0)
         end
     '''
 
@@ -254,3 +254,4 @@ class Robotarm:
             self.recv_until(f'PROGRAM_XXX_STOPPED{name}')
         else:
             self.recv_until(f'log {name} done')
+

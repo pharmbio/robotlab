@@ -387,3 +387,4 @@ def read_movelists() -> dict[str, MoveList]:
 
 movelists: dict[str, MoveList]
 movelists = read_movelists()
+
