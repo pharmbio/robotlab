@@ -17,7 +17,7 @@ import traceback
 
 from moves import movelists
 from robots import RuntimeConfig, Command, Runtime
-from robots import Checkpoint, Now, Ready
+from robots import wait_for_ready_cmd
 from utils import pr, show, Mutable
 import robots
 import utils
@@ -134,11 +134,6 @@ class ProtocolConfig:
     incu:  Steps[int]
     prep_wash: str | None = None
     prep_disp: str | None = None
-    delay_before_first_wash: int = 0
-    separation_between_first_washes: int = 0
-    wait_before_incu_get_1st: Steps[int] = Steps(0,60,60,60,60)
-    wait_before_incu_get_2nd: Steps[int] = Steps(60,60,60,60,60)
-    wait_before_incu_get_rest: Steps[int] = Steps(60,60,60,60,60)
 
 v3 = ProtocolConfig(
     prep_wash='automation_v3/0_W_D_PRIME.LHC',
@@ -165,11 +160,6 @@ v3 = ProtocolConfig(
         '',
     ),
     incu = Steps(20, 20, 20, 20, 0),
-    delay_before_first_wash         = 0,
-    separation_between_first_washes = 245,
-    wait_before_incu_get_1st  = Steps(0,60,40,40,40),
-    wait_before_incu_get_2nd  = Steps(0,185,0,0,0),
-    wait_before_incu_get_rest = Steps(0,185,0,0,0),
 )
 
 def time_bioteks(config: RuntimeConfig, protocol_config: ProtocolConfig):
@@ -227,9 +217,9 @@ def time_arm_incu(config: RuntimeConfig):
     for loc in incu_locs[:N]:
         incu += [
             robots.incu_cmd('put', loc),
-            robots.wait_for(robots.Ready('incu')),
+            robots.wait_for_ready_cmd('incu'),
             robots.incu_cmd('get', loc),
-            robots.wait_for(robots.Ready('incu')),
+            robots.wait_for_ready_cmd('incu'),
         ]
     arm: list[Command] = []
     plate = Plate('', '', '', '', '', 1)
@@ -268,7 +258,7 @@ def time_arm_incu(config: RuntimeConfig):
     with runtime_with_logging(config, {'options': 'time_protocols'}) as runtime:
         ATTENTION(time_arm_incu.__doc__ or '')
         def execute(name: str, cmds: list[Command]):
-            runtime.register_thread(f'{name} main')
+            runtime.register_thread(f'{name} last_main')
             execute_commands(runtime, cmds)
             runtime.thread_idle()
 
@@ -338,7 +328,7 @@ def load_incu(config: RuntimeConfig, num_plates: int):
         commands = [
             robots.robotarm_cmd(f'incu_A{pos} put prep'),
             robots.robotarm_cmd(f'incu_A{pos} put transfer to drop neu'),
-            robots.wait_for(Ready('incu')),
+            robots.wait_for_ready_cmd('incu'),
             robots.robotarm_cmd(f'incu_A{pos} put transfer from drop neu'),
             robots.incu_cmd('put', p.incu_loc),
             robots.robotarm_cmd(f'incu_A{pos} put return'),
@@ -372,10 +362,10 @@ def unload_incu(config: RuntimeConfig, num_plates: int):
         assert p.out_loc.startswith('out')
         pos = p.out_loc.removeprefix('out')
         commands = [
-            robots.wait_for(Ready('incu')),
+            robots.wait_for_ready_cmd('incu'),
             robots.incu_cmd('get', p.incu_loc),
             robots.robotarm_cmd(f'incu_A{pos} get prep'),
-            robots.wait_for(Ready('incu')),
+            robots.wait_for_ready_cmd('incu'),
             robots.robotarm_cmd(f'incu_A{pos} get transfer'),
             robots.robotarm_cmd(f'incu_A{pos} get return'),
         ]
@@ -388,7 +378,6 @@ def unload_incu(config: RuntimeConfig, num_plates: int):
     ]
     ATTENTION(unload_incu.__doc__ or '')
     execute_events_with_logging(config, events, {'options': 'unload_incu'})
-
 
 @dataclass(frozen=True)
 class Event:
@@ -438,19 +427,19 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig, short_test_
     if p.prep_wash and p.prep_disp:
         prep_cmds: list[Command] = [
             robots.wash_cmd(p.prep_wash),
-            robots.disp_cmd(p.prep_disp, before=[robots.wait_for(Now()) + 5]),
-            robots.wait_for(robots.Ready('disp')),
-            robots.wait_for(robots.Ready('wash')),
+            robots.disp_cmd(p.prep_disp, before=[robots.idle_cmd() + 5]),
+            robots.wait_for_ready_cmd('disp'),
+            robots.wait_for_ready_cmd('wash'),
         ]
     elif p.prep_wash and not p.prep_disp:
         prep_cmds: list[Command] = [
             robots.wash_cmd(p.prep_wash),
-            robots.wait_for(robots.Ready('wash')),
+            robots.wait_for_ready_cmd('wash'),
         ]
     elif not p.prep_wash and p.prep_disp:
         prep_cmds: list[Command] = [
             robots.disp_cmd(p.prep_disp),
-            robots.wait_for(robots.Ready('disp')),
+            robots.wait_for_ready_cmd('disp'),
         ]
     elif not p.prep_wash and not p.prep_disp:
         prep_cmds: list[Command] = []
@@ -458,6 +447,8 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig, short_test_
         assert False
 
     prep_cmds += [
+        robots.wait_for_checkpoint_cmd('batch start', or_now=True) + Symbolic.var('batch sep'),
+        robots.checkpoint_cmd('info', 'batch start'),
         robots.checkpoint_cmd('begin', 'batch'),
     ]
 
@@ -466,29 +457,28 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig, short_test_
     ]
 
     first_plate = batch[0]
-    second_plate = batch[1] if len(batch) >= 2 else None
     last_plate = batch[-1]
 
     chunks: dict[Desc, Iterable[Command]] = {}
-    for plate in batch:
+    for i, plate in enumerate(batch):
         lid_on = [
-            *robotarm_cmds(plate.lid_get, after_drop=[robots.checkpoint_cmd('begin', f'{plate.id} lid on')]),
+            *robotarm_cmds(plate.lid_get, after_drop=[robots.checkpoint_cmd('begin', f'plate {plate.id} lid on')]),
         ]
 
         lid_off = [
-            *robotarm_cmds(plate.lid_put, before_pick=[robots.checkpoint_cmd('end', f'{plate.id} lid on', strict=False)]),
+            *robotarm_cmds(plate.lid_put, before_pick=[robots.checkpoint_cmd('end', f'plate {plate.id} lid on', strict=False)]),
         ]
 
         incu_get = [
-            robots.incu_cmd('get', plate.incu_loc),
-            *robotarm_cmds('incu get', before_pick = [robots.wait_for(Ready('incu'))]),
+            robots.incu_cmd('get', plate.incu_loc, after=[robots.checkpoint_cmd('end', f'plate {plate.id} incubator', strict=False)]),
+            *robotarm_cmds('incu get', before_pick = [robots.wait_for_ready_cmd('incu')]),
             *lid_off,
         ]
 
         incu_put = [
             *lid_on,
-            *robotarm_cmds('incu put', after_drop = [robots.incu_cmd('put', plate.incu_loc)]),
-            robots.wait_for(Ready('incu')),
+            *robotarm_cmds('incu put', after_drop = [robots.incu_cmd('put', plate.incu_loc, after=[robots.checkpoint_cmd('begin', f'plate {plate.id} incubator')])]),
+            robots.wait_for_ready_cmd('incu'),
         ]
 
         RT_get = [
@@ -501,9 +491,9 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig, short_test_
             *robotarm_cmds(plate.r_put),
         ]
 
-        def wash(wash_wait: list[robots.wait_for], wash_path: str, disp_prime_path: str | None=None):
+        def wash(wash_wait: list[robots.wait_for_checkpoint_cmd], wash_path: str, disp_prime_path: str | None=None):
             if plate is first_plate and disp_prime_path is not None:
-                disp_prime = [robots.disp_cmd(disp_prime_path, before=[robots.wait_for(Now()) + 5])]
+                disp_prime = [robots.disp_cmd(disp_prime_path, before=[robots.idle_cmd() + 5])]
             else:
                 disp_prime = []
             return [
@@ -511,8 +501,8 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig, short_test_
                 robots.robotarm_cmd('wash put transfer'),
                 robots.wash_cmd(
                     wash_path,
-                    before=[*wash_wait, robots.checkpoint_cmd('end', f'{plate.id} active', strict=False)],
-                    after=[robots.checkpoint_cmd('begin', f'{plate.id} transfer')],
+                    before=[*wash_wait, robots.checkpoint_cmd('end', f'plate {plate.id} active', strict=False)],
+                    after=[robots.checkpoint_cmd('begin', f'plate {plate.id} transfer')],
                 ),
                 *disp_prime,
                 robots.robotarm_cmd('wash put return'),
@@ -521,20 +511,20 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig, short_test_
         def disp(disp_path: str):
             return [
                 robots.robotarm_cmd('wash_to_disp prep'),
-                robots.wait_for(Ready('wash')),
+                robots.wait_for_ready_cmd('wash'),
                 robots.robotarm_cmd('wash_to_disp transfer'),
-                robots.wait_for(Ready('disp')),  # ensure dispenser priming is done
+                robots.wait_for_ready_cmd('disp'),  # ensure dispenser priming is done
                 robots.disp_cmd(
                     disp_path,
-                    before=[robots.checkpoint_cmd('end', f'{plate.id} transfer')],
-                    after=[robots.checkpoint_cmd('begin', f'{plate.id} active')],
+                    before=[robots.checkpoint_cmd('end', f'plate {plate.id} transfer')],
+                    after=[robots.checkpoint_cmd('begin', f'plate {plate.id} active')],
                 ),
                 robots.robotarm_cmd('wash_to_disp return'),
             ]
 
         disp_to_incu = [
             robots.robotarm_cmd('disp get prep'),
-            robots.wait_for(Ready('disp')),
+            robots.wait_for_ready_cmd('disp'),
             robots.robotarm_cmd('disp get transfer'),
             robots.robotarm_cmd('disp get return'),
             *incu_put,
@@ -542,31 +532,28 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig, short_test_
 
         disp_to_RT = [
             robots.robotarm_cmd('disp get prep'),
-            robots.wait_for(Ready('disp')),
+            robots.wait_for_ready_cmd('disp'),
             robots.robotarm_cmd('disp get transfer'),
             robots.robotarm_cmd('disp get return'),
             *RT_put,
         ]
 
-        Var: Any = None
-        # either look it up in the protocol
-        # or make a symbolic variable
-        # or a qualified guess
+        var = robots.Symbolic.var
 
-        wait_before_incu_get: dict[int, list[robots.wait_for]] = {
-            1: [robots.wait_for(Checkpoint(f'batch')) + Var(f'{plate.id} incu get delay 1')],
-            2: [robots.wait_for(Checkpoint(f'{plate.id} active')) + Var(f'{plate.id} incu get delay 2')],
-            3: [robots.wait_for(Checkpoint(f'{plate.id} active')) + Var(f'{plate.id} incu get delay 3')],
-            4: [robots.wait_for(Checkpoint(f'{plate.id} active')) + Var(f'{plate.id} incu get delay 4')],
-            5: [robots.wait_for(Checkpoint(f'{plate.id} active')) + Var(f'{plate.id} incu get delay 5')],
+        wait_before_incu_get: dict[int, list[robots.wait_for_checkpoint_cmd]] = {
+            1: [robots.wait_for_checkpoint_cmd(f'batch')                   + var(f'plate {plate.id} incu get delay 1')],
+            2: [robots.wait_for_checkpoint_cmd(f'plate {plate.id} active') + var(f'plate {plate.id} incu get delay 2')],
+            3: [robots.wait_for_checkpoint_cmd(f'plate {plate.id} active') + var(f'plate {plate.id} incu get delay 3')],
+            4: [robots.wait_for_checkpoint_cmd(f'plate {plate.id} active') + var(f'plate {plate.id} incu get delay 4')],
+            5: [robots.wait_for_checkpoint_cmd(f'plate {plate.id} active') + var(f'plate {plate.id} incu get delay 5')],
         }
 
-        wait_before_wash_start: dict[int, list[robots.wait_for]] = {
-            1: [robots.wait_for(Checkpoint(f'batch')) + Var(f'{plate.id} first wash delay')],
-            2: [robots.wait_for(Checkpoint(f'{plate.id} active')) + p.incu[1] * 60],
-            3: [robots.wait_for(Checkpoint(f'{plate.id} active')) + p.incu[2] * 60],
-            4: [robots.wait_for(Checkpoint(f'{plate.id} active')) + p.incu[3] * 60],
-            5: [robots.wait_for(Checkpoint(f'{plate.id} active')) + p.incu[4] * 60],
+        wait_before_wash_start: dict[int, list[robots.wait_for_checkpoint_cmd]] = {
+            1: [robots.wait_for_checkpoint_cmd(f'batch')                   + var(f'plate {plate.id} first wash delay')],
+            2: [robots.wait_for_checkpoint_cmd(f'plate {plate.id} active') + (p.incu[1] * 60 - d) for d in [2,0]], # be there 2s early
+            3: [robots.wait_for_checkpoint_cmd(f'plate {plate.id} active') + (p.incu[2] * 60 - d) for d in [2,0]], # be there 2s early
+            4: [robots.wait_for_checkpoint_cmd(f'plate {plate.id} active') + (p.incu[3] * 60 - d) for d in [2,0]], # be there 2s early
+            5: [robots.wait_for_checkpoint_cmd(f'plate {plate.id} active') + (p.incu[4] * 60 - d) for d in [2,0]], # be there 2s early
         }
 
         chunks[plate, 'Mito', 'to h21']            = [*wait_before_incu_get[1], *incu_get]
@@ -592,7 +579,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig, short_test_
         chunks[plate, 'Final', 'to h21']           = [*wait_before_incu_get[5], *RT_get]
         chunks[plate, 'Final', 'to wash']          = wash(wait_before_wash_start[5], p.wash[5])
         chunks[plate, 'Final', 'to h21 from wash'] = [
-            *robotarm_cmds('wash get', before_pick=[robots.wait_for(Ready('wash'))])
+            *robotarm_cmds('wash get', before_pick=[robots.wait_for_ready_cmd('wash')])
         ]
         chunks[plate, 'Final', 'to out via h21'] = [
             *lid_on,
@@ -781,8 +768,10 @@ def test_circuit(config: RuntimeConfig) -> None:
     ''')
     execute_events_with_logging(config, events, metadata={'options': 'test_circuit'})
 
-def main(config: RuntimeConfig, protocol_config: ProtocolConfig, *, batch_sizes: list[int], short_test_paint: bool = False) -> None:
+
+def cell_paint(config: RuntimeConfig, protocol_config: ProtocolConfig, *, batch_sizes: list[int], short_test_paint: bool = False) -> None:
     events = eventlist(batch_sizes, protocol_config=protocol_config, short_test_paint=short_test_paint)
+    # pr(events)
     metadata: dict[str, str] = {
         'batch_sizes': ','.join(str(bs) for bs in batch_sizes),
     }
@@ -801,6 +790,214 @@ def main(config: RuntimeConfig, protocol_config: ProtocolConfig, *, batch_sizes:
     for k, v in runtime.times.items():
         print(k, v)
 
+from collections import defaultdict
+
+@dataclass(frozen=True)
+class Ids:
+    counts: dict[str, int] = field(default_factory=lambda: defaultdict[str, int](int))
+
+    def next(self, prefix: str = ''):
+        self.counts[prefix] += 1
+        return prefix + str(self.counts[prefix])
+
+from robots import Symbolic
+from z3 import * # type: ignore
+
+def constraints(events: list[Event]) -> dict[str, float]:
+    variables: set[str] = {
+        v
+        for e in events
+        for v in robots.vars_of(e.command)
+    }
+    ids = Ids()
+    def name(thing: Any) -> str:
+        template = utils.catch(lambda: thing.__class__.__name__.removesuffix('_cmd'), '')
+        return ids.next(template + '_')
+
+    var = Symbolic.var
+    const = Symbolic.const
+
+    last_main: Symbolic = const(0)
+    last_wash: Symbolic = const(0)
+    last_disp: Symbolic = const(0)
+    last_incu: Symbolic = const(0)
+    checkpoints: dict[str, Symbolic] = {}
+
+    C: list[
+        tuple[Symbolic, Literal['>', '>=', '=='], Symbolic] |
+        tuple[Symbolic, Literal['== max'], Symbolic, Symbolic]
+    ] = []
+
+    def tag(cmd: robots.checkpoint_cmd | robots.wait_for_checkpoint_cmd | robots.idle_cmd, base: Symbolic) -> Symbolic:
+        if isinstance(cmd, robots.checkpoint_cmd):
+            if cmd.kind == 'info':
+                v = checkpoints[cmd.name] = var(ids.next(cmd.name + ' '))
+                C.append((v, '==', base))
+                return v
+            elif cmd.kind == 'begin':
+                if cmd.strict:
+                    assert cmd.name not in checkpoints
+                v = checkpoints[cmd.name] = var(ids.next(cmd.name + ' '))
+                C.append((v, '==', base))
+                return v
+            elif cmd.kind == 'end':
+                try:
+                    v = checkpoints.pop(cmd.name)
+                    vd = var(ids.next(cmd.name + ' duration '))
+                    C.append((v + vd, '==', base))
+                except KeyError:
+                    if cmd.strict:
+                        raise
+                return base
+            else:
+                raise ValueError(cmd.kind)
+        elif isinstance(cmd, robots.wait_for_checkpoint_cmd):
+            if cmd.name not in checkpoints:
+                assert cmd.or_now
+                return base
+            else:
+                C.append((checkpoints[cmd.name] + cmd.plus_seconds, '>=', base))
+                return checkpoints[cmd.name] + cmd.plus_seconds
+        else:
+            assert isinstance(cmd, robots.idle_cmd)
+            return base + cmd.seconds
+
+    for e in events:
+        cmd = e.command
+        if isinstance(cmd, robots.robotarm_cmd):
+            last_main = last_main + cmd.est()
+        elif isinstance(cmd, robots.wait_for_ready_cmd):
+            v: Symbolic
+            if cmd.machine == 'incu':
+                v = last_incu
+            elif cmd.machine == 'disp':
+                v = last_disp
+            elif cmd.machine == 'wash':
+                v = last_wash
+            else:
+                raise ValueError
+            wait = var(ids.next(f'{cmd.machine} wait '))
+            C.append((wait, '== max', last_main, v))
+            last_main = wait
+        elif isinstance(cmd, robots.wash_cmd):
+            base = last_main
+            for c in cmd.before:
+                base = tag(c, base)
+            C.append((base, '>=', last_wash))
+            base = base + cmd.est()
+            for c in cmd.after:
+                base = tag(c, base)
+            last_wash = base
+        elif isinstance(cmd, robots.disp_cmd):
+            base = last_main
+            for c in cmd.before:
+                base = tag(c, base)
+            C.append((base, '>=', last_disp))
+            base = base + cmd.est()
+            for c in cmd.after:
+                base = tag(c, base)
+            last_disp = base
+        elif isinstance(cmd, robots.incu_cmd):
+            base = last_main
+            C.append((base, '>=', last_incu))
+            base = base + cmd.est()
+            for c in cmd.after:
+                base = tag(c, base)
+            last_incu = base
+        elif isinstance(cmd, (robots.checkpoint_cmd, robots.wait_for_checkpoint_cmd, robots.idle_cmd)):
+            last_main = tag(cmd, last_main)
+        else:
+            raise ValueError
+
+    s: Any = Optimize()
+
+    vs: set[str] = set()
+
+    R = 1000
+
+    def to_expr(x: Symbolic) -> Any:
+        for v in x.var_names:
+            vs.add(v)
+            # s.add(Int(v) >= 0)
+        return Sum(
+            int(x.offset * R),
+            *[Int(v) for v in x.var_names]
+        )
+
+    with utils.timeit('constrs'):
+        for i, (lhs, op, *rhss) in enumerate(C):
+            # print(i, lhs, op, *rhss)
+            rhs, *_ = rhss
+            if op == '==':
+                s.add(to_expr(lhs) == to_expr(rhs))
+            elif op == '>':
+                s.add(to_expr(lhs) > to_expr(rhs))
+            elif op == '>=':
+                s.add(to_expr(lhs) >= to_expr(rhs))
+            elif op == '== max':
+                a, b = rhss
+                s.add(to_expr(lhs) == If(to_expr(a) > to_expr(b), to_expr(a), to_expr(b)))
+            else:
+                raise ValueError(op)
+
+    maxi = {
+        a
+        for a in vs
+        if 'duration' in a
+        if 'lid on' in a or 'incubator' in a
+    }
+
+    mini = {
+        a
+        for a in vs
+        if 'batch sep' in a
+    }
+
+    s.maximize(Sum(
+        *[Int(v) for v in maxi],
+        *[-Int(v) for v in mini],
+    ))
+
+    print(s.check())
+
+    M = s.model()
+
+    us = [
+        (a, float(M.eval(Int(a)).as_long()) / R)
+        for a in vs
+        if 'delay' in a or 'batch' in a
+    ]
+    for a, v in sorted(us):
+        print(a, v, sep='\t')
+    print()
+    us = [
+        (a, float(M.eval(Int(a)).as_long()) / R)
+        for a in maxi
+        if 'lid' in a
+    ]
+    for a, v in sorted(us):
+        print(a, v, sep='\t')
+    print()
+    us = [
+        (a, float(M.eval(Int(a)).as_long()) / R)
+        for a in maxi
+        if 'incubator' in a
+    ]
+    for a, v in sorted(us):
+        print(a, v, sep='\t')
+
+    res = {
+        **{
+            a: float(M.eval(Int(a)).as_long()) / R
+            for a in variables & vs
+        },
+        **{
+            a: 0
+            for a in variables - vs
+        }
+    }
+    return res
+
 import contextlib
 
 @contextlib.contextmanager
@@ -817,28 +1014,12 @@ def runtime_with_logging(config: RuntimeConfig, metadata: dict[str, str]) -> Ite
     print(f'{log_filename=}')
 
     runtime = robots.Runtime(config=config, log_filename=log_filename)
-    # Overrides for v3
     overrides: dict[robots.Estimated, float] = {
         # ('disp', v3.disp.Mito): 73.11 - 15,
     }
-    for (k, a), v in runtime.estimates.items():
-        if '19' in a:
-            for h in H:
-                ah = a.replace('19', str(h))
-                if (k, ah) not in runtime.estimates:
-                    overrides[k, ah] = v
-        if 'out1 ' in a:
-            for h in H:
-                ah = a.replace('out1 ', f'out{h} ')
-                if (k, ah) not in runtime.estimates:
-                    overrides[k, ah] = v
-        if 'L1' in a:
-            for i in incu_locs:
-                ah = a.replace('L1', i)
-                if (k, ah) not in runtime.estimates:
-                    overrides[k, ah] = v
-    pr({k: (runtime.estimates.get(k, None), '->', v) for k, v in overrides.items()})
-    runtime.estimates.update(overrides)
+    pr({k: (robots.Estimates.get(k, None), '->', v) for k, v in overrides.items()})
+    robots.Estimates.update(overrides)
+    # pr(robots.Estimates)
 
     metadata['git_HEAD'] = utils.git_HEAD() or ''
     metadata['host']     = platform.node()
@@ -847,7 +1028,11 @@ def runtime_with_logging(config: RuntimeConfig, metadata: dict[str, str]) -> Ite
             yield runtime
 
 def execute_events_with_logging(config: RuntimeConfig, events: list[Event], metadata: dict[str, str]) -> Runtime:
+    with utils.timeit('constraints'):
+        d = constraints(events)
+    pr(d)
     with runtime_with_logging(config, metadata) as runtime:
+        runtime.var_values.update(d)
         execute_events(runtime, events)
         return runtime
 

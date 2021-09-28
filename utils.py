@@ -74,23 +74,8 @@ def show(x: Any, show_key: Any=show_key, width: int=80, use_color: bool=sys.stdo
             else:
                 raise ValueError
             values = list(x)
-            oneline: str | None = ''
-            for v in values:
-                if oneline is None:
-                    break
-                for out in go('', '', v, ', '):
-                    if oneline is None:
-                        break
-                    oneline += out
-                    if len(oneline) > 2 * width:
-                        # oops lengths are totally wrong because of escape codes
-                        # idea: use textwrap.fill if all values are primitive
-                        oneline = None
-                        break
             if len(values) == 0:
                 yield dent + pre + begin + end + post
-            elif oneline is not None and len(dent) + len(oneline) < 2 * width:
-                yield dent + pre + begin + oneline[:-2] + end + post
             else:
                 yield dent + pre + begin
                 for v in values:
@@ -281,4 +266,18 @@ def group_by(xs: list[A], key: Callable[[A], B]) -> dict[B, list[A]]:
     for x in xs:
         d[key(x)] += [x]
     return d
+
+from contextlib import contextmanager
+import time
+def timeit(desc: str='') -> ContextManager[None]:
+    # The inferred type for the decorated function is wrong hence this wrapper to get the correct type
+
+    @contextmanager
+    def worker():
+        t0 = time.monotonic()
+        yield
+        T = time.monotonic() - t0
+        print(f'{T:.3f} {desc}')
+
+    return worker()
 

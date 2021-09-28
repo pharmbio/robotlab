@@ -63,7 +63,7 @@ def main():
             for bs in (args.cell_paint or args.short_test_paint).split(',')
         ]
         robots.get_robotarm(config).set_speed(args.robotarm_speed).close()
-        protocol.main(
+        protocol.cell_paint(
             config=config,
             batch_sizes=batch_sizes,
             protocol_config=protocol.v3,

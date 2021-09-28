@@ -43,6 +43,10 @@ def estimates_from(path: str) -> dict[Estimated, float]:
             ests[source, arg].append(duration)
     return {est: sum(vs) / len(vs) for est, vs in ests.items()}
 
+Estimates: dict[Estimated, float] = {
+    **estimates_from('timings_v3.jsonl')
+}
+
 @dataclass(frozen=True)
 class Env:
     robotarm_host: str = 'http://[100::]' # RFC 6666: A Discard Prefix for IPv6
@@ -157,7 +161,7 @@ class Biotek:
             with runtime.timeit(self.name, log_arg, metadata):
                 while True:
                     if runtime.config.disp_and_wash_mode == 'noop':
-                        est = runtime.est(self.name, log_arg)
+                        est = command.est()
                         runtime.log('info', self.name, f'pretending to run for {est}s', metadata)
                         runtime.sleep(est)
                         res: Any = {"err":"","out":{"details":"1 - eOK","status":"1","value":""}}
@@ -222,7 +226,7 @@ class Incubator:
             with runtime.timeit('incu', arg, metadata):
                 assert command.action in {'put', 'get', 'get_climate'}
                 if runtime.config.incu_mode == 'noop':
-                    est = runtime.est('incu', arg)
+                    est = command.est()
                     runtime.sleep(est)
                 elif runtime.config.incu_mode == 'execute':
                     if command.action == 'put':
@@ -267,13 +271,13 @@ A = TypeVar('A')
 @dataclass(frozen=True)
 class Runtime:
     config: RuntimeConfig
+    var_values: dict[str, float] = field(default_factory=dict)
     log_filename: str | None = None
     wash: Biotek     = field(default_factory=lambda: Biotek('wash'))
     disp: Biotek     = field(default_factory=lambda: Biotek('disp'))
     incu: Incubator  = field(default_factory=lambda: Incubator())
     log_lock: RLock  = field(default_factory=RLock)
     time_lock: RLock = field(default_factory=RLock)
-    estimates: dict[Estimated, float] = field(default_factory=dict)
     timelike: Mutable[Timelike] = Mutable.factory(cast(Any, 'initialize in __post_init__ based on config.timelike_factory'))
     times: dict[str, list[float]] = field(default_factory=lambda: cast(Any, defaultdict(list)))
 
@@ -283,7 +287,6 @@ class Runtime:
         self.wash.start(self)
         self.disp.start(self)
         self.incu.start(self)
-        self.estimates.update(estimates_from('timings_v3.jsonl'))
 
     def spawn(self, f: Callable[[], None]) -> None:
         def F():
@@ -298,27 +301,6 @@ class Runtime:
         except BaseException as e:
             self.log('error', 'exception', traceback.format_exc())
             raise
-
-    def est(self, source: Literal['wash', 'disp', 'robotarm', 'incu'], arg: str) -> float:
-        if ret := self.estimates.get((source, arg)):
-            return ret
-        else:
-            # raise ValueError(f'No timing for {(source, arg)=}')
-            if source == 'wash':
-                if '1X' in arg:
-                    return 60.0 + 34 # ?
-                elif '2X' in arg:
-                    return 60.0 + 34 # ?
-                elif '3X' in arg:
-                    return 60.0 + 34
-                elif '4X' in arg:
-                    return 60.0 + 49
-                else:
-                    return 60.0
-            elif source == 'disp':
-                return 30.0
-            else:
-                return 15.0
 
     @property
     def env(self):
@@ -440,35 +422,10 @@ class Runtime:
 class Command(abc.ABC):
     @abc.abstractmethod
     def execute(self, runtime: Runtime, metadata: dict[str, Any]) -> None:
-        pass
+        return NotImplementedError
 
-class Waitable(abc.ABC):
-    pass
-
-@dataclass(frozen=True)
-class Checkpoint(Waitable):
-    command_name: str
-    or_now: bool = False
-
-@dataclass(frozen=True)
-class Now(Waitable):
-    pass
-
-@dataclass(frozen=True)
-class Ready(Waitable):
-    name: Literal['incu', 'wash', 'disp']
-    def wait(self, runtime: Runtime):
-        if self.name == 'incu':
-            while not runtime.incu.is_ready():
-                runtime.busywait_step()
-        elif self.name == 'wash':
-            while not runtime.wash.is_ready():
-                runtime.busywait_step()
-        elif self.name == 'disp':
-            while not runtime.disp.is_ready():
-                runtime.busywait_step()
-        else:
-            raise ValueError(self.name)
+    def est(self) -> float:
+        raise ValueError(self.__class__)
 
 @dataclass(frozen=True)
 class checkpoint_cmd(Command):
@@ -479,30 +436,93 @@ class checkpoint_cmd(Command):
         runtime.checkpoint(self.kind, self.name, strict=self.strict, metadata=metadata)
 
 @dataclass(frozen=True)
-class wait_for(Command):
-    base: Waitable
-    plus_seconds: int = 0
+class Symbolic:
+    var_names: list[str]
+    offset: float = 0
 
+    def __str__(self):
+        xs = [
+            f'`{x}`' if re.search(r'\W', x) else x
+            for x in self.var_names
+        ]
+        if self.offset or not xs:
+            xs += [str(round(self.offset, 1))]
+        return '+'.join(xs)
+
+    def __repr__(self):
+        return f'Symbolic({str(self)})'
+
+    def __add__(self, other: float | Symbolic) -> Symbolic:
+        if isinstance(other, (float, int)):
+            return Symbolic(self.var_names, self.offset + other)
+        else:
+            return Symbolic(
+                self.var_names + other.var_names,
+                self.offset + other.offset,
+            )
+
+    def resolve(self, var_values: dict[str, float]) -> float:
+        return sum(var_values[x] for x in self.var_names) + self.offset
+
+    @staticmethod
+    def var(name: str) -> Symbolic:
+        return Symbolic(var_names=[name])
+
+    @staticmethod
+    def const(value: float) -> Symbolic:
+        return Symbolic(var_names=[], offset=value)
+
+@dataclass(frozen=True)
+class idle_cmd(Command):
+    seconds: Symbolic = Symbolic.const(0)
+    def execute(self, runtime: Runtime, metadata: dict[str, Any]) -> None:
+        seconds = self.seconds.resolve(runtime.var_values)
+        with runtime.timeit('wait', str(self), metadata):
+            runtime.sleep(seconds)
+
+    def __add__(self, other: int | Symbolic) -> idle_cmd:
+        return idle_cmd(self.seconds + other)
+
+@dataclass(frozen=True)
+class wait_for_checkpoint_cmd(Command):
+    name: str
+    plus_seconds: Symbolic = Symbolic.const(0)
+    or_now: bool = False
+    def execute(self, runtime: Runtime, metadata: dict[str, Any]) -> None:
+        plus_seconds = self.plus_seconds.resolve(runtime.var_values)
+        with runtime.timeit('wait', str(self), metadata):
+            if self.name not in runtime.checkpoints:
+                assert self.or_now
+                past_point_in_time = runtime.monotonic()
+            else:
+                past_point_in_time = runtime.checkpoints[self.name]
+            desired_point_in_time = past_point_in_time + plus_seconds
+            delay = desired_point_in_time - runtime.monotonic()
+            runtime.sleep(delay)
+
+    def __add__(self, other: int | Symbolic) -> wait_for_checkpoint_cmd:
+        return wait_for_checkpoint_cmd(
+            name=self.name,
+            plus_seconds=self.plus_seconds + other,
+            or_now=self.or_now,
+        )
+
+@dataclass(frozen=True)
+class wait_for_ready_cmd(Command):
+    machine: Literal['incu', 'wash', 'disp']
     def execute(self, runtime: Runtime, metadata: dict[str, Any]) -> None:
         with runtime.timeit('wait', str(self), metadata):
-            if isinstance(self.base, Ready):
-                assert self.plus_seconds == 0
-                self.base.wait(runtime)
-            elif isinstance(self.base, Checkpoint):
-                if self.base.or_now and self.base.command_name not in runtime.checkpoints:
-                    past_point_in_time = runtime.monotonic()
-                else:
-                    past_point_in_time = runtime.checkpoints[self.base.command_name]
-                desired_point_in_time = past_point_in_time + self.plus_seconds
-                delay = desired_point_in_time - runtime.monotonic()
-                runtime.sleep(delay)
-            elif isinstance(self.base, Now):
-                runtime.sleep(self.plus_seconds)
+            if self.machine == 'incu':
+                while not runtime.incu.is_ready():
+                    runtime.busywait_step()
+            elif self.machine == 'wash':
+                while not runtime.wash.is_ready():
+                    runtime.busywait_step()
+            elif self.machine == 'disp':
+                while not runtime.disp.is_ready():
+                    runtime.busywait_step()
             else:
-                raise ValueError
-
-    def __add__(self, other: int) -> wait_for:
-        return wait_for(self.base, self.plus_seconds + other)
+                raise ValueError(self.machine)
 
 def get_robotarm(config: RuntimeConfig, quiet: bool = False) -> Robotarm:
     if config.robotarm_mode == 'noop':
@@ -517,30 +537,54 @@ class robotarm_cmd(Command):
     def execute(self, runtime: Runtime, metadata: dict[str, Any]) -> None:
         with runtime.timeit('robotarm', self.program_name, metadata):
             if runtime.config.robotarm_mode == 'noop':
-                est = runtime.est('robotarm', self.program_name)
-                runtime.sleep(est)
+                runtime.sleep(self.est())
             else:
                 arm = get_robotarm(runtime.config, quiet=True)
                 arm.execute_moves(movelists[self.program_name], name=self.program_name)
                 arm.close()
 
+    def est(self):
+        arg = self.program_name
+        guess = 2.5
+        if 'transfer' in arg:
+            guess = 10.0
+        return Estimates.get(('robotarm', self.program_name), guess)
+
 @dataclass(frozen=True)
 class wash_cmd(Command):
     protocol_path: str | None
     sub_cmd: Literal['LHC_RunProtocol', 'LHC_TestCommunications'] = 'LHC_RunProtocol'
-    before: list[wait_for | checkpoint_cmd] = field(default_factory=list)
+    before: list[wait_for_checkpoint_cmd | idle_cmd | checkpoint_cmd] = field(default_factory=list)
     after: list[checkpoint_cmd] = field(default_factory=list)
     def execute(self, runtime: Runtime, metadata: dict[str, Any]) -> None:
         runtime.wash.run(BiotekMessage(self, metadata))
+
+    def est(self):
+        arg = self.protocol_path or ''
+        guess = 60.0
+        if '2X' in arg:
+            guess = 60.0 + 20
+        elif '3X' in arg:
+            guess = 60.0 + 35
+        elif '4X' in arg:
+            guess = 60.0 + 50
+        elif '5X' in arg:
+            guess = 60.0 + 65
+        return Estimates.get(('wash', arg), guess)
 
 @dataclass(frozen=True)
 class disp_cmd(Command):
     protocol_path: str | None
     sub_cmd: Literal['LHC_RunProtocol', 'LHC_TestCommunications'] = 'LHC_RunProtocol'
-    before: list[wait_for | checkpoint_cmd] = field(default_factory=list)
+    before: list[wait_for_checkpoint_cmd | idle_cmd | checkpoint_cmd] = field(default_factory=list)
     after: list[checkpoint_cmd] = field(default_factory=list)
     def execute(self, runtime: Runtime, metadata: dict[str, Any]) -> None:
         runtime.disp.run(BiotekMessage(self, metadata))
+
+    def est(self):
+        arg = self.protocol_path or ''
+        guess = 20
+        return Estimates.get(('disp', arg), guess)
 
 @dataclass(frozen=True)
 class incu_cmd(Command):
@@ -549,6 +593,11 @@ class incu_cmd(Command):
     after: list[checkpoint_cmd] = field(default_factory=list)
     def execute(self, runtime: Runtime, metadata: dict[str, Any]) -> None:
         runtime.incu.run(IncubatorMessage(self, metadata))
+
+    def est(self):
+        arg = self.action
+        guess = 20
+        return Estimates.get(('incu', arg), guess)
 
 def test_comm(config: RuntimeConfig):
     '''
@@ -559,8 +608,31 @@ def test_comm(config: RuntimeConfig):
     disp_cmd(sub_cmd='LHC_TestCommunications', protocol_path=None).execute(runtime, {})
     incu_cmd(action='get_climate', incu_loc=None).execute(runtime, {})
     robotarm_cmd('noop').execute(runtime, {})
-    wait_for(Ready('disp')).execute(runtime, {})
+    wait_for_ready_cmd('disp').execute(runtime, {})
     wash_cmd(sub_cmd='LHC_TestCommunications', protocol_path=None).execute(runtime, {})
-    wait_for(Ready('wash')).execute(runtime, {})
-    wait_for(Ready('incu')).execute(runtime, {})
+    wait_for_ready_cmd('wash').execute(runtime, {})
+    wait_for_ready_cmd('incu').execute(runtime, {})
     print('Communication tests ok.')
+
+def vars_of(cmd: Command) -> set[str]:
+    if isinstance(cmd, wait_for_checkpoint_cmd):
+        return set(cmd.plus_seconds.var_names)
+    elif isinstance(cmd, idle_cmd):
+        return set(cmd.seconds.var_names)
+    elif isinstance(cmd, (wash_cmd, disp_cmd)):
+        return {
+            v
+            for c in [*cmd.before, *cmd.after]
+            for v in vars_of(c)
+        }
+    elif isinstance(cmd, incu_cmd):
+        return {
+            v
+            for c in cmd.after
+            for v in vars_of(c)
+        }
+    else:
+        return set()
+
+
+
