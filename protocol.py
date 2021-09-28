@@ -255,7 +255,7 @@ def time_arm_incu(config: RuntimeConfig):
         *robotarm_cmds('incu put'),
         *robotarm_cmds(plate.r_get),
     ]
-    with runtime_with_logging(config, {'options': 'time_protocols'}) as runtime:
+    with runtime_with_logging(config, {'options': 'time_arm_incu'}) as runtime:
         ATTENTION(time_arm_incu.__doc__ or '')
         def execute(name: str, cmds: list[Command]):
             runtime.register_thread(f'{name} last_main')
@@ -470,6 +470,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig, short_test_
         ]
 
         incu_get = [
+            # robots.wait_for_ready_cmd('incu'),
             robots.incu_cmd('get', plate.incu_loc, after=[robots.checkpoint_cmd('end', f'plate {plate.id} incubator', strict=False)]),
             *robotarm_cmds('incu get', before_pick = [robots.wait_for_ready_cmd('incu')]),
             *lid_off,
@@ -478,7 +479,6 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig, short_test_
         incu_put = [
             *lid_on,
             *robotarm_cmds('incu put', after_drop = [robots.incu_cmd('put', plate.incu_loc, after=[robots.checkpoint_cmd('begin', f'plate {plate.id} incubator')])]),
-            robots.wait_for_ready_cmd('incu'),
         ]
 
         RT_get = [
@@ -623,6 +623,24 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig, short_test_
     for A, B, C in utils.iterate_with_context(batch):
         for part in parts:
             if part != 'Final':
+                seq([
+                    desc(A, part, 'to h21'), desc(A, part, 'to wash'),
+
+                                                                       desc(A, part, 'to disp'),
+
+                    desc(B, part, 'to h21'), desc(B, part, 'to wash'),
+
+                                                                                               desc(A, part, 'to incu via h21'),
+
+                                                                     desc(B, part, 'to disp'),
+
+                    desc(C, part, 'to h21'), desc(C, part, 'to wash'),
+
+                                                                                                desc(B, part, 'to incu via h21'),
+
+                                                                     desc(C, part, 'to disp'),
+                ])
+            elif part != 'Final':
                 seq([
                     desc(A, part, 'to h21'),
                     desc(A, part, 'to wash'),
@@ -1014,11 +1032,6 @@ def runtime_with_logging(config: RuntimeConfig, metadata: dict[str, str]) -> Ite
     print(f'{log_filename=}')
 
     runtime = robots.Runtime(config=config, log_filename=log_filename)
-    overrides: dict[robots.Estimated, float] = {
-        # ('disp', v3.disp.Mito): 73.11 - 15,
-    }
-    pr({k: (robots.Estimates.get(k, None), '->', v) for k, v in overrides.items()})
-    robots.Estimates.update(overrides)
     # pr(robots.Estimates)
 
     metadata['git_HEAD'] = utils.git_HEAD() or ''

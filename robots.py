@@ -47,6 +47,31 @@ Estimates: dict[Estimated, float] = {
     **estimates_from('timings_v3.jsonl')
 }
 
+overrides: dict[Estimated, float] = {
+    ('robotarm', 'wash_to_disp prep'): 11.7,
+    ('robotarm', 'wash_to_disp return'): 8.5,
+    ('robotarm', 'wash put return'): 8.02,
+    ('robotarm', 'disp get prep'): 4.6,
+    ('robotarm', 'r11 put return'): 2.7,
+    ('robotarm', 'r9 put return'): 2.7,
+    ('robotarm', 'r7 put return'): 2.7,
+    ('robotarm', 'r11 get prep'): 3.0,
+    ('robotarm', 'r9 get prep'): 3.0,
+    ('robotarm', 'r7 get prep'): 3.0,
+    ('robotarm', 'r1 put transfer'): 6.0,
+    ('robotarm', 'r1 put return'): 6.0,
+    ('robotarm', 'out21 put return'): 6.0,
+    ('robotarm', 'out19 put return'): 6.0,
+    ('robotarm', 'out17 put return'): 6.0,
+    ('robotarm', 'out15 put return'): 6.0,
+    ('robotarm', 'out13 put return'): 6.0,
+    ('robotarm', 'out11 put return'): 6.0,
+    ('robotarm', 'out9 put return'): 6.0,
+    # ('wash', 'automation_v3/9_W-5X_NoFinalAspirate.LHC'): 112.5, #4X
+}
+utils.pr({k: (Estimates.get(k, None), '->', v) for k, v in overrides.items()})
+Estimates.update(overrides)
+
 @dataclass(frozen=True)
 class Env:
     robotarm_host: str = 'http://[100::]' # RFC 6666: A Discard Prefix for IPv6
@@ -99,7 +124,7 @@ configs = {
     'live':          RuntimeConfig(wall_time,          disp_and_wash_mode='execute', incu_mode='execute', robotarm_mode='execute',            env=live_env),
     'test-all':      RuntimeConfig(simulated_and_wall, disp_and_wash_mode='execute', incu_mode='execute', robotarm_mode='execute',            env=live_env),
     'test-arm-incu': RuntimeConfig(simulated_and_wall, disp_and_wash_mode='noop',    incu_mode='execute', robotarm_mode='execute',            env=live_arm_incu),
-    'simulator':     RuntimeConfig(simulated_and_wall, disp_and_wash_mode='noop',    incu_mode='noop',    robotarm_mode='execute no gripper', env=simulator_env),
+    'simulator':     RuntimeConfig(wall_time,          disp_and_wash_mode='noop',    incu_mode='noop',    robotarm_mode='execute no gripper', env=simulator_env),
     'forward':       RuntimeConfig(simulated_no_wall,  disp_and_wash_mode='noop',    incu_mode='noop',    robotarm_mode='execute',            env=forward_env),
     'dry-wall':      RuntimeConfig(wall_time,          disp_and_wash_mode='noop',    incu_mode='noop',    robotarm_mode='noop',               env=dry_env),
     'dry-run':       RuntimeConfig(simulated_no_wall,  disp_and_wash_mode='noop',    incu_mode='noop',    robotarm_mode='noop',               env=dry_env),
@@ -548,6 +573,7 @@ class robotarm_cmd(Command):
         guess = 2.5
         if 'transfer' in arg:
             guess = 10.0
+        assert ('robotarm', self.program_name) in Estimates, self.program_name
         return Estimates.get(('robotarm', self.program_name), guess)
 
 @dataclass(frozen=True)
