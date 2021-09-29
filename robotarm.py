@@ -167,6 +167,8 @@ def make_script(movelist: list[Move], with_gripper: bool, name: str='script') ->
         + m.to_script()
         for m in movelist
     )
+    # don't add the gripper code if it's not needed
+    with_gripper = with_gripper and MoveList(movelist).has_gripper()
     assert re.match(r'(?!\d)\w*$', name)
     assert len(name) <= 30
     return reindent(f'''
