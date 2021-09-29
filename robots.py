@@ -324,10 +324,17 @@ class Runtime:
                     speed: None | int = None
                     ESCAPE = '\x1b'
                     RETURN = '\n'
-                    if c == ESCAPE:
-                        speed = 1
-                    if c == RETURN:
-                        speed = 100
+                    if c == ESCAPE: speed = 1
+                    if c == RETURN: speed = 100
+                    if c == '1': speed = 10
+                    if c == '2': speed = 20
+                    if c == '3': speed = 30
+                    if c == '4': speed = 40
+                    if c == '5': speed = 50
+                    if c == '6': speed = 60
+                    if c == '7': speed = 70
+                    if c == '8': speed = 80
+                    if c == '9': speed = 90
                     if speed:
                         arm = get_robotarm(self.config, quiet=False)
                         arm.set_speed(speed)
