@@ -132,26 +132,26 @@ def main():
         path = getattr(protocol.v3.wash, args.wash, None)
         assert path, utils.pr(protocol.v3.wash)
         robots.wash_cmd(path).execute(runtime, {})
-        robots.wait_for(robots.Ready('wash')).execute(runtime, {})
+        robots.wait_for_ready_cmd('wash').execute(runtime, {})
 
     elif args.disp:
         runtime = robots.Runtime(config)
         path = getattr(protocol.v3.disp, args.disp, None)
         assert path, utils.pr(protocol.v3.disp)
         robots.disp_cmd(path).execute(runtime, {})
-        robots.wait_for(robots.Ready('disp')).execute(runtime, {})
+        robots.wait_for_ready_cmd('disp').execute(runtime, {})
 
     elif args.prime:
         runtime = robots.Runtime(config)
         path = getattr(protocol.v3.prime, args.prime, None)
         assert path, utils.pr(protocol.v3.prime)
         robots.disp_cmd(path).execute(runtime, {})
-        robots.wait_for(robots.Ready('disp')).execute(runtime, {})
+        robots.wait_for_ready_cmd('disp').execute(runtime, {})
 
     elif args.incu_put:
         runtime = robots.Runtime(config)
         robots.incu_cmd('put', args.incu_put).execute(runtime, {})
-        robots.wait_for(robots.Ready('incu')).execute(runtime, {})
+        robots.wait_for_ready_cmd('incu').execute(runtime, {})
 
     elif args.incu_get:
         runtime = robots.Runtime(config)
