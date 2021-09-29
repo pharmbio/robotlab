@@ -159,7 +159,7 @@ v3 = ProtocolConfig(
         'automation_v3/8_D_P2_20ul_purge_stains.LHC',
         '',
     ),
-    incu = Steps(1240 / 60, 1200 / 60, 1200 / 60, 1200 / 60, 0),
+    incu = Steps(1230 / 60, 1200 / 60, 1200 / 60, 1200 / 60, 0),
     # incu = Steps(1250 / 60, 1210 / 60, 1210 / 60, 1210 / 60, 0),
 )
 
@@ -557,10 +557,10 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig, short_test_
 
         wait_before_wash_start: dict[int, list[robots.wait_for_checkpoint_cmd]] = {
             1: [robots.wait_for_checkpoint_cmd(f'batch')                   + var(f'plate {plate.id} first wash delay')],
-            2: [robots.wait_for_checkpoint_cmd(f'plate {plate.id} active') + (p.incu[1] * 60 - d) for d in [1,0]], # be there 2s early
-            3: [robots.wait_for_checkpoint_cmd(f'plate {plate.id} active') + (p.incu[2] * 60 - d) for d in [1,0]], # be there 2s early
-            4: [robots.wait_for_checkpoint_cmd(f'plate {plate.id} active') + (p.incu[3] * 60 - d) for d in [1,0]], # be there 2s early
-            5: [robots.wait_for_checkpoint_cmd(f'plate {plate.id} active') + (p.incu[4] * 60 - d) for d in [1,0]], # be there 2s early
+            2: [robots.wait_for_checkpoint_cmd(f'plate {plate.id} active') + (p.incu[1] * 60 - d) for d in [2,0]], # be there 2s early
+            3: [robots.wait_for_checkpoint_cmd(f'plate {plate.id} active') + (p.incu[2] * 60 - d) for d in [2,0]], # be there 2s early
+            4: [robots.wait_for_checkpoint_cmd(f'plate {plate.id} active') + (p.incu[3] * 60 - d) for d in [2,0]], # be there 2s early
+            5: [robots.wait_for_checkpoint_cmd(f'plate {plate.id} active') + (p.incu[4] * 60 - d) for d in [2,0]], # be there 2s early
         }
 
         chunks[plate, 'Mito', 'to h21']            = [*wait_before_incu_get[1], *incu_get]
@@ -638,6 +638,8 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig, short_test_
     for A, B, C in utils.iterate_with_context(batch):
         for part in parts:
             if ilv[part] == 'mix':
+                assert A is None or A.lid_loc != B.lid_loc
+                assert C is None or C.lid_loc != B.lid_loc
                 assert part != 'Final'
                 seq([
                     desc(A, part, 'to h21'), desc(A, part, 'to wash'),
@@ -725,7 +727,9 @@ def define_plates(batch_sizes: list[int]) -> list[Plate]:
                 id=f'{index+1}',
                 incu_loc=incu_locs[index],
                 r_loc=r_locs[index_in_batch],
-                lid_loc=lid_locs[index_in_batch],
+                # lid_loc=lid_locs[index_in_batch],
+                # lid_loc=lid_locs[index_in_batch % 2],
+                lid_loc=lid_locs[0],
                 out_loc=out_locs[index],
                 batch_index=batch_index,
             )]
@@ -739,7 +743,7 @@ def define_plates(batch_sizes: list[int]) -> list[Plate]:
                 assert p.out_loc not in [q.out_loc, q.r_loc, q.lid_loc, q.incu_loc], (p, q)
                 if p.batch_index == q.batch_index:
                     assert p.r_loc != q.r_loc, (p, q)
-                    assert p.lid_loc != q.lid_loc, (p, q)
+                    # assert p.lid_loc != q.lid_loc, (p, q)
 
     return plates
 
