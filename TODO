@@ -1,3 +1,4 @@
+[ ] prio 3. add strict dry-run mode that fails if there is no estimate for a given move. or just list all moves that have no est
 
 [ ] prio 3. improve logging output. countdown on timers
 [ ] prio 3. timings, how to make them perfect?
@@ -12,7 +13,6 @@
 
 [ ] prio 3. robustness: raise gripper if close more than expected
 [ ] prio 3. robustness: don't start program if gripper is more closed than expected
-
 
 [ ] prio 2. repo: document how to start everything, in particular how to start the GUI (gui on forwarded robot can be started with run.sh)
 [ ] prio 2. moves: convert moves to jsonl
