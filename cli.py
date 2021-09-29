@@ -156,7 +156,7 @@ def main():
     elif args.incu_get:
         runtime = robots.Runtime(config)
         robots.incu_cmd('get', args.incu_get).execute(runtime, {})
-        robots.wait_for(robots.Ready('incu')).execute(runtime, {})
+        robots.wait_for_ready_cmd('incu').execute(runtime, {})
 
     else:
         parser.print_help()
