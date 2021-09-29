@@ -30,7 +30,7 @@ def show_key(x: object) -> str:
             return k
     return repr(x)
 
-def show(x: Any, show_key: Any=show_key, width: int=80, use_color: bool=sys.stdout.isatty()) -> str:
+def show(x: Any, show_key: Any=show_key, width: int=80, use_color: bool=False) -> str:
     color = Color(use_color)
     def go(dent: str, pre: str, x: Any, post: str) -> Iterator[str]:
         '''

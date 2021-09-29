@@ -159,7 +159,8 @@ v3 = ProtocolConfig(
         'automation_v3/8_D_P2_20ul_purge_stains.LHC',
         '',
     ),
-    incu = Steps(20, 20, 20, 20, 0),
+    incu = Steps(1240 / 60, 1200 / 60, 1200 / 60, 1200 / 60, 0),
+    # incu = Steps(1250 / 60, 1210 / 60, 1210 / 60, 1210 / 60, 0),
 )
 
 def time_bioteks(config: RuntimeConfig, protocol_config: ProtocolConfig):
@@ -446,8 +447,16 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig, short_test_
     else:
         assert False
 
+    first_plate = batch[0]
+    last_plate = batch[-1]
+    first_batch = first_plate.batch_index == 0
+
+    if not first_batch:
+        prep_cmds += [
+            robots.wait_for_checkpoint_cmd('batch start', or_now=True) + Symbolic.var('batch sep'),
+        ]
+
     prep_cmds += [
-        robots.wait_for_checkpoint_cmd('batch start', or_now=True) + Symbolic.var('batch sep'),
         robots.checkpoint_cmd('info', 'batch start'),
         robots.checkpoint_cmd('begin', 'batch'),
     ]
@@ -455,9 +464,6 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig, short_test_
     post_cmds = [
         robots.checkpoint_cmd('end', 'batch'),
     ]
-
-    first_plate = batch[0]
-    last_plate = batch[-1]
 
     chunks: dict[Desc, Iterable[Command]] = {}
     for i, plate in enumerate(batch):
@@ -470,7 +476,6 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig, short_test_
         ]
 
         incu_get = [
-            # robots.wait_for_ready_cmd('incu'),
             robots.incu_cmd('get', plate.incu_loc, after=[robots.checkpoint_cmd('end', f'plate {plate.id} incubator', strict=False)]),
             *robotarm_cmds('incu get', before_pick = [robots.wait_for_ready_cmd('incu')]),
             *lid_off,
@@ -479,6 +484,8 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig, short_test_
         incu_put = [
             *lid_on,
             *robotarm_cmds('incu put', after_drop = [robots.incu_cmd('put', plate.incu_loc, after=[robots.checkpoint_cmd('begin', f'plate {plate.id} incubator')])]),
+            robots.wait_for_ready_cmd('incu'),
+                # todo: this is required by 'lin' ilv but makes 'mix' w->d transfer worse
         ]
 
         RT_get = [
@@ -550,10 +557,10 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig, short_test_
 
         wait_before_wash_start: dict[int, list[robots.wait_for_checkpoint_cmd]] = {
             1: [robots.wait_for_checkpoint_cmd(f'batch')                   + var(f'plate {plate.id} first wash delay')],
-            2: [robots.wait_for_checkpoint_cmd(f'plate {plate.id} active') + (p.incu[1] * 60 - d) for d in [2,0]], # be there 2s early
-            3: [robots.wait_for_checkpoint_cmd(f'plate {plate.id} active') + (p.incu[2] * 60 - d) for d in [2,0]], # be there 2s early
-            4: [robots.wait_for_checkpoint_cmd(f'plate {plate.id} active') + (p.incu[3] * 60 - d) for d in [2,0]], # be there 2s early
-            5: [robots.wait_for_checkpoint_cmd(f'plate {plate.id} active') + (p.incu[4] * 60 - d) for d in [2,0]], # be there 2s early
+            2: [robots.wait_for_checkpoint_cmd(f'plate {plate.id} active') + (p.incu[1] * 60 - d) for d in [1,0]], # be there 2s early
+            3: [robots.wait_for_checkpoint_cmd(f'plate {plate.id} active') + (p.incu[2] * 60 - d) for d in [1,0]], # be there 2s early
+            4: [robots.wait_for_checkpoint_cmd(f'plate {plate.id} active') + (p.incu[3] * 60 - d) for d in [1,0]], # be there 2s early
+            5: [robots.wait_for_checkpoint_cmd(f'plate {plate.id} active') + (p.incu[4] * 60 - d) for d in [1,0]], # be there 2s early
         }
 
         chunks[plate, 'Mito', 'to h21']            = [*wait_before_incu_get[1], *incu_get]
@@ -620,9 +627,18 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig, short_test_
                 desc(first_plate, next_part, 'to h21'),
             ])
 
+    ilv = {
+        'Mito':   'lin',
+        'PFA':    'lin',
+        'Triton': 'lin',
+        'Stains': 'lin',
+        'Final':  'final',
+    }
+
     for A, B, C in utils.iterate_with_context(batch):
         for part in parts:
-            if part != 'Final':
+            if ilv[part] == 'mix':
+                assert part != 'Final'
                 seq([
                     desc(A, part, 'to h21'), desc(A, part, 'to wash'),
 
@@ -640,7 +656,8 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig, short_test_
 
                                                                      desc(C, part, 'to disp'),
                 ])
-            elif part != 'Final':
+            elif ilv[part] == 'lin':
+                assert part != 'Final'
                 seq([
                     desc(A, part, 'to h21'),
                     desc(A, part, 'to wash'),
@@ -653,7 +670,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig, short_test_
                     desc(C, part, 'to h21'),
                     desc(C, part, 'to wash'),
                 ])
-            else:
+            elif ilv[part] == 'final':
                 assert part == 'Final'
                 seq([
                     desc(A, part, 'to h21'),
@@ -828,9 +845,6 @@ def constraints(events: list[Event]) -> dict[str, float]:
         for v in robots.vars_of(e.command)
     }
     ids = Ids()
-    def name(thing: Any) -> str:
-        template = utils.catch(lambda: thing.__class__.__name__.removesuffix('_cmd'), '')
-        return ids.next(template + '_')
 
     var = Symbolic.var
     const = Symbolic.const
@@ -970,6 +984,9 @@ def constraints(events: list[Event]) -> dict[str, float]:
         for a in vs
         if 'batch sep' in a
     }
+
+    batch_sep = 120 # for v3 jump
+    s.add(Int('batch sep') == batch_sep * 60 * R)
 
     s.maximize(Sum(
         *[Int(v) for v in maxi],

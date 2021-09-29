@@ -68,6 +68,7 @@ overrides: dict[Estimated, float] = {
     ('robotarm', 'out11 put return'): 6.0,
     ('robotarm', 'out9 put return'): 6.0,
     # ('wash', 'automation_v3/9_W-5X_NoFinalAspirate.LHC'): 112.5, #4X
+    # ('disp', 'automation_v3/2_D_P1_40ul_purge_mito.LHC'): 20
 }
 utils.pr({k: (Estimates.get(k, None), '->', v) for k, v in overrides.items()})
 Estimates.update(overrides)
@@ -181,7 +182,7 @@ class Biotek:
             metadata = msg.metadata
             del msg
             for cmd in command.before:
-                cmd.execute(runtime, {'origin': 'before ' + self.name})
+                cmd.execute(runtime, {**metadata, 'origin': 'before ' + self.name})
             log_arg = command.protocol_path or command.sub_cmd
             with runtime.timeit(self.name, log_arg, metadata):
                 while True:
@@ -209,8 +210,8 @@ class Biotek:
                         break
                     else:
                         raise ValueError(res)
-                for cmd in command.after:
-                    cmd.execute(runtime, {'origin': 'after ' + self.name})
+            for cmd in command.after:
+                cmd.execute(runtime, {**metadata, 'origin': 'after ' + self.name})
             # print(self.name, 'ready')
             self.state = 'ready'
 
@@ -272,8 +273,8 @@ class Incubator:
                         time.sleep(0.05)
                 else:
                     raise ValueError
-                for cmd in command.after:
-                    cmd.execute(runtime, {'origin': 'after incu'})
+            for cmd in command.after:
+                cmd.execute(runtime, {**metadata, 'origin': 'after incu'})
             # print('incu', 'ready')
             self.state = 'ready'
 
@@ -363,7 +364,7 @@ class Runtime:
         if 1:
             # if 1 or kind == 'end': # and source in {'time', 'wait'}: # not in {'robotarm', 'wait', 'wash_delay', 'disp_delay', 'experiment'}:
             # if source == 'time':
-            if 1:
+            with self.log_lock:
                 print(' | '.join(
                     ' ' * 8
                     if v is None else
@@ -515,7 +516,10 @@ class wait_for_checkpoint_cmd(Command):
     or_now: bool = False
     def execute(self, runtime: Runtime, metadata: dict[str, Any]) -> None:
         plus_seconds = self.plus_seconds.resolve(runtime.var_values)
-        with runtime.timeit('wait', str(self), metadata):
+        arg = f'{Symbolic.var(self.name) + self.plus_seconds}'
+        if self.or_now:
+            arg += ' (or now)'
+        with runtime.timeit('wait', arg, metadata):
             if self.name not in runtime.checkpoints:
                 assert self.or_now
                 past_point_in_time = runtime.monotonic()
@@ -609,7 +613,7 @@ class disp_cmd(Command):
 
     def est(self):
         arg = self.protocol_path or ''
-        guess = 20
+        guess = 35
         return Estimates.get(('disp', arg), guess)
 
 @dataclass(frozen=True)
