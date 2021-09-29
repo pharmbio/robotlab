@@ -126,7 +126,7 @@ configs = {
     'live':          RuntimeConfig(wall_time,          disp_and_wash_mode='execute', incu_mode='execute', robotarm_mode='execute',            env=live_env),
     'test-all':      RuntimeConfig(simulated_and_wall, disp_and_wash_mode='execute', incu_mode='execute', robotarm_mode='execute',            env=live_env),
     'test-arm-incu': RuntimeConfig(simulated_and_wall, disp_and_wash_mode='noop',    incu_mode='execute', robotarm_mode='execute',            env=live_arm_incu),
-    'simulator':     RuntimeConfig(wall_time,          disp_and_wash_mode='noop',    incu_mode='noop',    robotarm_mode='execute no gripper', env=simulator_env),
+    'simulator':     RuntimeConfig(simulated_and_wall, disp_and_wash_mode='noop',    incu_mode='noop',    robotarm_mode='execute no gripper', env=simulator_env),
     'forward':       RuntimeConfig(simulated_no_wall,  disp_and_wash_mode='noop',    incu_mode='noop',    robotarm_mode='execute',            env=forward_env),
     'dry-wall':      RuntimeConfig(wall_time,          disp_and_wash_mode='noop',    incu_mode='noop',    robotarm_mode='noop',               env=dry_env),
     'dry-run':       RuntimeConfig(simulated_no_wall,  disp_and_wash_mode='noop',    incu_mode='noop',    robotarm_mode='noop',               env=dry_env),
@@ -314,6 +314,25 @@ class Runtime:
         self.wash.start(self)
         self.disp.start(self)
         self.incu.start(self)
+
+        if self.config.robotarm_mode != 'noop':
+            def change_robotarm_speed():
+                while True:
+                    with self.log_lock:
+                        print('Press escape to set speed to 1%, enter to return it to 100%')
+                    c = utils.getchar()
+                    speed: None | int = None
+                    ESCAPE = '\x1b'
+                    RETURN = '\n'
+                    if c == ESCAPE:
+                        speed = 1
+                    if c == RETURN:
+                        speed = 100
+                    if speed:
+                        arm = get_robotarm(self.config, quiet=False)
+                        arm.set_speed(speed)
+                        arm.close()
+            self.spawn(change_robotarm_speed)
 
     def spawn(self, f: Callable[[], None]) -> None:
         def F():

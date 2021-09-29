@@ -281,3 +281,20 @@ def timeit(desc: str='') -> ContextManager[None]:
 
     return worker()
 
+import tty
+import termios
+def getchar():
+    '''
+    Returns a single character from standard input
+
+    https://gist.github.com/jasonrdsouza/1901709
+    '''
+
+    fd = sys.stdin.fileno()
+    old_settings = termios.tcgetattr(fd)
+    try:
+         tty.setcbreak(sys.stdin.fileno())
+         ch = sys.stdin.read(1)
+    finally:
+         termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+    return ch
