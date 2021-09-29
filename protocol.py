@@ -848,6 +848,8 @@ def constraints(events: list[Event]) -> dict[str, float]:
         for e in events
         for v in robots.vars_of(e.command)
     }
+    if not variables:
+        return {}
     ids = Ids()
 
     var = Symbolic.var

@@ -48,6 +48,7 @@ Estimates: dict[Estimated, float] = {
 }
 
 overrides: dict[Estimated, float] = {
+    ('robotarm', 'noop'): 0.0,
     ('robotarm', 'wash_to_disp prep'): 11.7,
     ('robotarm', 'wash_to_disp return'): 8.5,
     ('robotarm', 'wash put return'): 8.02,
@@ -577,7 +578,7 @@ class robotarm_cmd(Command):
         guess = 2.5
         if 'transfer' in arg:
             guess = 10.0
-        assert ('robotarm', self.program_name) in Estimates, self.program_name
+        # assert ('robotarm', self.program_name) in Estimates, self.program_name
         return Estimates.get(('robotarm', self.program_name), guess)
 
 @dataclass(frozen=True)
