@@ -321,9 +321,18 @@ def load_incu(config: RuntimeConfig, num_plates: int):
         4. robotarm:                in neutral position by B hotel
         5. gripper:                 sufficiently open to grab a plate
     '''
-    plates = define_plates([num_plates])
     events: list[Event] = []
-    for p in plates:
+    for i, (incu_loc, a_loc) in enumerate(zip(incu_locs, reversed(A_locs)), start=1):
+        if i > num_plates:
+            break
+        p = Plate(
+            id=str(i),
+            incu_loc=incu_loc,
+            out_loc=a_loc,
+            r_loc='',
+            lid_loc='',
+            batch_index=0
+        )
         assert p.out_loc.startswith('out')
         pos = p.out_loc.removeprefix('out')
         commands = [
