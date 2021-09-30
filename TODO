@@ -1,18 +1,29 @@
-[ ] prio 3. add strict dry-run mode that fails if there is no estimate for a given move. or just list all moves that have no est
+[ ] prio 3. [moves] Raise disp put to be a bit above B21
 
-[ ] prio 3. improve logging output. countdown on timers
-[ ] prio 3. timings, how to make them perfect?
-[ ] prio 3. overview before starting
+[ ] prio 2. Add test comm before starting cell paint
 
+[ ] prio 1. Rename all occurrences to h21, r21, out21 to B21, C21, A21 and so on
+
+[ ] prio 1. remove all MoveJoint, instead check that the robot is roughly correct (??)
 [ ] prio 4. robotarm: check that it is close to h neu when starting, but don't move there using MoveJoint !!!
                       can check the inverse kinematics of the current position close to B neu
 
-[ ] prio 4. robustness: check that all LHC protocol files exist before starting, also associate their timings with their last modification date (and perhaps hash?)
-
+[ ] prio 3. overview before starting
 [ ] prio 2. make a little summary of LHC files before starting
+[ ] prio 4. robustness: check that all LHC protocol files exist before starting, also associate their timings with their last modification date (and perhaps hash?)
 
 [ ] prio 3. robustness: raise gripper if close more than expected
 [ ] prio 3. robustness: don't start program if gripper is more closed than expected
+
+[ ] prio 3. improve logging output. countdown on timers
+[ ] prio 1. what running information should be printed during run?
+
+[ ] prio 1. make it easy to start freedrive to put the robot in place
+[ ] prio 1. --incu-load with >11 plates
+[ ] prio 1. cover the dispenser with some proper cardboard
+[ ] prio 0. add stains purge after last purge?
+
+[ ] prio 3. add strict dry-run mode that fails if there is no estimate for a given move. or just list all moves that have no est
 
 [ ] prio 2. repo: document how to start everything, in particular how to start the GUI (gui on forwarded robot can be started with run.sh)
 [ ] prio 2. moves: convert moves to jsonl
@@ -26,6 +37,8 @@
 [x] prio 1. gui: speed setting buttons
 [x] prio 1. gui: update to newest viable
 [x] prio 1. gui: level RPY
+
+[x] prio 3. timings, how to make them perfect? solution: use z3
 
 [x] prio 3. robots: test communication with all robots before starting a protocol
 [x] prio 3. timings: extract the important parts of the protocol
