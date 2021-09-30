@@ -283,6 +283,7 @@ def timeit(desc: str='') -> ContextManager[None]:
 
 import tty
 import termios
+import atexit
 def getchar():
     '''
     Returns a single character from standard input
@@ -292,9 +293,13 @@ def getchar():
 
     fd = sys.stdin.fileno()
     old_settings = termios.tcgetattr(fd)
+    def cleanup():
+        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+    atexit.register(cleanup)
     try:
-         tty.setcbreak(sys.stdin.fileno())
-         ch = sys.stdin.read(1)
+        tty.setcbreak(sys.stdin.fileno())
+        ch = sys.stdin.read(1)
     finally:
-         termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+        atexit.unregister(cleanup)
+        cleanup()
     return ch
