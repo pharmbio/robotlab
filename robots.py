@@ -49,10 +49,10 @@ Estimates: dict[Estimated, float] = {
 
 overrides: dict[Estimated, float] = {
     ('robotarm', 'noop'): 0.0,
-    # ('robotarm', 'wash_to_disp prep'): 11.7,
-    # ('robotarm', 'wash_to_disp return'): 8.5,
-    # ('robotarm', 'wash put return'): 8.02,
-    # ('robotarm', 'disp get prep'): 4.6,
+    ('robotarm', 'wash_to_disp prep'): 11.7,
+    ('robotarm', 'wash_to_disp return'): 8.5,
+    ('robotarm', 'wash put return'): 8.02,
+    ('robotarm', 'disp get prep'): 4.6,
     # ('robotarm', 'r11 put return'): 2.7,
     # ('robotarm', 'r9 put return'): 2.7,
     # ('robotarm', 'r7 put return'): 2.7,
@@ -68,8 +68,11 @@ overrides: dict[Estimated, float] = {
     # ('robotarm', 'out13 put return'): 6.0,
     # ('robotarm', 'out11 put return'): 6.0,
     # ('robotarm', 'out9 put return'): 6.0,
-    # ('wash', 'automation_v3/9_W-5X_NoFinalAspirate.LHC'): 112.5, #4X
-    # ('disp', 'automation_v3/2_D_P1_40ul_purge_mito.LHC'): 20
+    ('wash', 'automation_v3/9_W-5X_NoFinalAspirate.LHC'): 112.5, #4X
+    # ('wash', 'automation_v3/9_W-5X_NoFinalAspirate.LHC'): 95.0, #3X
+    ('disp', 'automation_v3/2_D_P1_40ul_purge_mito.LHC'): 31.6,
+    ('disp', 'automation_v3/8_D_P2_20ul_purge_stains.LHC'): 21.3,
+    ('wash', 'automation_v3/3_W-3X_beforeFixation_leaves20ul.LHC'): 112.5 #4X
 }
 utils.pr({k: (Estimates.get(k, None), '->', v) for k, v in overrides.items()})
 Estimates.update(overrides)
@@ -561,6 +564,7 @@ class wait_for_checkpoint_cmd(Command):
     name: str
     plus_seconds: Symbolic = Symbolic.const(0)
     or_now: bool = False
+    strict: bool = False
     def execute(self, runtime: Runtime, metadata: dict[str, Any]) -> None:
         plus_seconds = self.plus_seconds.resolve(runtime.var_values)
         arg = f'{Symbolic.var(self.name) + self.plus_seconds}'

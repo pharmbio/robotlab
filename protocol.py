@@ -28,7 +28,7 @@ if 0:
     'wash -> disp'
     'disp -> A21'
     'wash -> B21'
-    'lid B21 -> B19'
+    'lid B21 -> B21'
 
     'B21 -> incu, prep'
     'B21 -> incu, transfer'
@@ -51,7 +51,7 @@ def ATTENTION(s: str):
 class Plate:
     id: str
     incu_loc: str
-    r_loc: str
+    rt_loc: str
     lid_loc: str
     out_loc: str
     batch_index: int
@@ -65,12 +65,12 @@ class Plate:
         return f'lid_{self.lid_loc} get'
 
     @property
-    def r_put(self):
-        return f'{self.r_loc} put'
+    def rt_put(self):
+        return f'{self.rt_loc} put'
 
     @property
-    def r_get(self):
-        return f'{self.r_loc} get'
+    def rt_get(self):
+        return f'{self.rt_loc} get'
 
     @property
     def out_put(self):
@@ -88,8 +88,8 @@ r21 = 'r21'
 
 incu_locs: list[str] = [f'L{i}' for i in I] + [f'R{i}' for i in I]
 h_locs:    list[str] = [f'h{i}' for i in H]
-r_locs:    list[str] = [f'r{i}' for i in H][1:]
-out_locs:  list[str] = [f'out{i}' for i in reversed(H)] + list(reversed(r_locs))
+rt_locs:   list[str] = [f'r{i}' for i in H][1:]
+out_locs:  list[str] = [f'out{i}' for i in reversed(H)] + list(reversed(rt_locs))
 lid_locs:  list[str] = [h for h in h_locs if h != h21]
 
 A_locs:    list[str] = [f'out{i}' for i in H]
@@ -159,7 +159,13 @@ v3 = ProtocolConfig(
         'automation_v3/8_D_P2_20ul_purge_stains.LHC',
         '',
     ),
-    incu = Steps(1230 / 60, 1200 / 60, 1200 / 60, 1200 / 60, 0),
+    incu = Steps(
+        1230 / 60,
+        1200 / 60,
+        1200 / 60,
+        1200 / 60,
+        0
+    ),
     # incu = Steps(1250 / 60, 1210 / 60, 1210 / 60, 1210 / 60, 0),
 )
 
@@ -230,11 +236,11 @@ def time_arm_incu(config: RuntimeConfig):
             *robotarm_cmds(plate.lid_put),
             *robotarm_cmds(plate.lid_get),
         ]
-    for r_loc in r_locs[:N]:
-        plate = replace(plate, r_loc=r_loc)
+    for rt_loc in rt_locs[:N]:
+        plate = replace(plate, rt_loc=rt_loc)
         arm += [
-            *robotarm_cmds(plate.r_put),
-            *robotarm_cmds(plate.r_get),
+            *robotarm_cmds(plate.rt_put),
+            *robotarm_cmds(plate.rt_get),
         ]
     for out_loc in out_locs[:N]:
         plate = replace(plate, out_loc=out_loc)
@@ -242,9 +248,9 @@ def time_arm_incu(config: RuntimeConfig):
             *robotarm_cmds(plate.out_put),
             *robotarm_cmds(plate.out_get),
         ]
-    plate = replace(plate, lid_loc=lid_locs[0], r_loc=r_locs[0])
+    plate = replace(plate, lid_loc=lid_locs[0], rt_loc=rt_locs[0])
     arm2: list[Command] = [
-        *robotarm_cmds(plate.r_put),
+        *robotarm_cmds(plate.rt_put),
         *robotarm_cmds('incu get'),
         *robotarm_cmds(plate.lid_put),
         *robotarm_cmds('wash put'),
@@ -254,7 +260,7 @@ def time_arm_incu(config: RuntimeConfig):
         *robotarm_cmds('wash get'),
         *robotarm_cmds(plate.lid_get),
         *robotarm_cmds('incu put'),
-        *robotarm_cmds(plate.r_get),
+        *robotarm_cmds(plate.rt_get),
     ]
     with runtime_with_logging(config, {'options': 'time_arm_incu'}) as runtime:
         ATTENTION(time_arm_incu.__doc__ or '')
@@ -291,12 +297,12 @@ def lid_stress_test(config: RuntimeConfig):
     '''
     events: list[Event] = []
     for i, (lid, A, C) in enumerate(zip(lid_locs, A_locs, C_locs)):
-        p = Plate('p', incu_loc='', r_loc=C, lid_loc=lid, out_loc=A, batch_index=1)
+        p = Plate('p', incu_loc='', rt_loc=C, lid_loc=lid, out_loc=A, batch_index=1)
         commands: list[Command] = [
             *robotarm_cmds(p.lid_put),
             *robotarm_cmds(p.lid_get),
-            *robotarm_cmds(p.r_put),
-            *robotarm_cmds(p.r_get),
+            *robotarm_cmds(p.rt_put),
+            *robotarm_cmds(p.rt_get),
             *robotarm_cmds(p.lid_put),
             *robotarm_cmds(p.lid_get),
             *robotarm_cmds(p.out_put),
@@ -329,7 +335,7 @@ def load_incu(config: RuntimeConfig, num_plates: int):
             id=str(i),
             incu_loc=incu_loc,
             out_loc=a_loc,
-            r_loc='',
+            rt_loc='',
             lid_loc='',
             batch_index=0
         )
@@ -430,6 +436,111 @@ def robotarm_cmds(s: str, before_pick: list[robots.Command] = [], after_drop: li
         robots.robotarm_cmd(s + ' return'),
     ]
 
+@dataclass(frozen=True)
+class Interleaving:
+    rows: list[tuple[int, str]]
+    @staticmethod
+    def init(s: str) -> Interleaving:
+        rows: list[tuple[int, str]] = []
+        seen: Counter[str] = Counter()
+        for line in s.strip().split('\n'):
+            sides = line.strip().split('->')
+            for a, b in zip(sides, sides[1:]):
+                arrow = f'{a.strip()} -> {b.strip()}'
+                rows += [(seen[arrow], arrow)]
+                seen[arrow] += 1
+        target = list(seen.values())[0]
+        assert target > 1, 'need at least two copies of all transitions'
+        for k, v in seen.items():
+            assert v == target, f'{k!r} occurred {v} times, should be {target} times'
+        return Interleaving(rows)
+
+lin = Interleaving.init('''
+    incu -> B21 -> wash -> disp -> B21 -> incu
+    incu -> B21 -> wash -> disp -> B21 -> incu
+''')
+
+june = Interleaving.init('''
+    incu -> B21  -> wash
+    incu -> B21
+                    wash -> disp
+            B21  -> wash
+                            disp -> B21 -> incu
+    incu -> B21
+                    wash -> disp
+            B21  -> wash
+                            disp -> B21 -> incu
+                    wash -> disp
+                            disp -> B21 -> incu
+''')
+
+mix = Interleaving.init('''
+    incu -> B21 -> wash
+                   wash -> disp
+    incu -> B21 -> wash
+                           disp -> B21 -> incu
+                   wash -> disp
+    incu -> B21 -> wash
+                           disp -> B21 -> incu
+                   wash -> disp
+                           disp -> B21 -> incu
+''')
+
+
+quad = Interleaving.init('''
+    incu -> B21 -> wash
+                   wash -> disp
+    incu -> B21 -> wash
+                           disp -> B21
+                   wash -> disp
+                                   B21  -> incu
+    incu -> B21 -> wash
+                           disp -> B21
+                   wash -> disp
+                                   B21  -> incu
+                           disp -> B21
+                                   B21  -> incu
+''')
+
+
+three = Interleaving.init('''
+    incu -> B21 -> wash
+                   wash -> disp
+    incu -> B21 -> wash
+                           disp -> B21
+                   wash -> disp
+    incu -> B21 -> wash
+                                   B21 -> incu
+                           disp -> B21
+                   wash -> disp
+    incu -> B21 -> wash
+                                   B21 -> incu
+                           disp -> B21
+                   wash -> disp
+                                   B21 -> incu
+                           disp -> B21
+                                   B21 -> incu
+''')
+
+finlin = Interleaving.init('''
+    incu -> B21 -> wash -> B21 -> out
+    incu -> B21 -> wash -> B21 -> out
+''')
+
+finjune = Interleaving.init('''
+    incu -> B21 -> wash
+                   wash -> B21
+    incu -> B21 -> wash
+                           B21 -> out
+                   wash -> B21
+    incu -> B21 -> wash
+                           B21 -> out
+                   wash -> B21
+                           B21 -> out
+''')
+
+Interleavings = {k: v for k, v in globals().items() if isinstance(v, Interleaving)}
+
 def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig, short_test_paint: bool=False):
 
     p = protocol_config
@@ -485,26 +596,35 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig, short_test_
         ]
 
         incu_get = [
+            # robots.wait_for_ready_cmd('incu'),
             robots.incu_cmd('get', plate.incu_loc, after=[robots.checkpoint_cmd('end', f'plate {plate.id} incubator', strict=False)]),
             *robotarm_cmds('incu get', before_pick = [robots.wait_for_ready_cmd('incu')]),
             *lid_off,
         ]
 
-        incu_put = [
-            *lid_on,
+        B21_to_incu = [
             *robotarm_cmds('incu put', after_drop = [robots.incu_cmd('put', plate.incu_loc, after=[robots.checkpoint_cmd('begin', f'plate {plate.id} incubator')])]),
             robots.wait_for_ready_cmd('incu'),
                 # todo: this is required by 'lin' ilv but makes 'mix' w->d transfer worse
         ]
 
+        incu_put = [
+            *lid_on,
+            *B21_to_incu,
+        ]
+
         RT_get = [
-            *robotarm_cmds(plate.r_get),
+            *robotarm_cmds(plate.rt_get),
             *lid_off,
         ]
 
         RT_put = [
             *lid_on,
-            *robotarm_cmds(plate.r_put),
+            *robotarm_cmds(plate.rt_put),
+        ]
+
+        B21_to_RT = [
+            *robotarm_cmds(plate.rt_put),
         ]
 
         def wash(wash_wait: list[robots.wait_for_checkpoint_cmd], wash_path: str, disp_prime_path: str | None=None):
@@ -533,7 +653,10 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig, short_test_
                 robots.disp_cmd(
                     disp_path,
                     before=[robots.checkpoint_cmd('end', f'plate {plate.id} transfer')],
-                    after=[robots.checkpoint_cmd('begin', f'plate {plate.id} active')],
+                    after=[
+                        robots.checkpoint_cmd('begin', f'plate {plate.id} disp done'),
+                        robots.checkpoint_cmd('begin', f'plate {plate.id} active')
+                    ],
                 ),
                 robots.robotarm_cmd('wash_to_disp return'),
             ]
@@ -541,14 +664,25 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig, short_test_
         disp_to_incu = [
             robots.robotarm_cmd('disp get prep'),
             robots.wait_for_ready_cmd('disp'),
+            robots.checkpoint_cmd('end', f'plate {plate.id} disp done'),
             robots.robotarm_cmd('disp get transfer'),
             robots.robotarm_cmd('disp get return'),
             *incu_put,
         ]
 
+        disp_to_B21 = [
+            robots.robotarm_cmd('disp get prep'),
+            robots.wait_for_ready_cmd('disp'),
+            robots.checkpoint_cmd('end', f'plate {plate.id} disp done'),
+            robots.robotarm_cmd('disp get transfer'),
+            robots.robotarm_cmd('disp get return'),
+            *lid_on,
+        ]
+
         disp_to_RT = [
             robots.robotarm_cmd('disp get prep'),
             robots.wait_for_ready_cmd('disp'),
+            robots.checkpoint_cmd('end', f'plate {plate.id} disp done'),
             robots.robotarm_cmd('disp get transfer'),
             robots.robotarm_cmd('disp get return'),
             *RT_put,
@@ -565,42 +699,43 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig, short_test_
         }
 
         wait_before_wash_start: dict[int, list[robots.wait_for_checkpoint_cmd]] = {
-            1: [robots.wait_for_checkpoint_cmd(f'batch')                   + var(f'plate {plate.id} first wash delay')],
-            2: [robots.wait_for_checkpoint_cmd(f'plate {plate.id} active') + (p.incu[1] * 60 - d) for d in [2,0]], # be there 2s early
-            3: [robots.wait_for_checkpoint_cmd(f'plate {plate.id} active') + (p.incu[2] * 60 - d) for d in [2,0]], # be there 2s early
-            4: [robots.wait_for_checkpoint_cmd(f'plate {plate.id} active') + (p.incu[3] * 60 - d) for d in [2,0]], # be there 2s early
-            5: [robots.wait_for_checkpoint_cmd(f'plate {plate.id} active') + (p.incu[4] * 60 - d) for d in [2,0]], # be there 2s early
+            1: [robots.wait_for_checkpoint_cmd(f'batch')                                + var(f'plate {plate.id} first wash delay')],
+            2: [robots.wait_for_checkpoint_cmd(f'plate {plate.id} active', strict=True) + (p.incu[1] * 60 - d) for d in [2,0]], # be there 2s early
+            3: [robots.wait_for_checkpoint_cmd(f'plate {plate.id} active', strict=True) + (p.incu[2] * 60 - d) for d in [2,0]], # be there 2s early
+            4: [robots.wait_for_checkpoint_cmd(f'plate {plate.id} active', strict=True) + (p.incu[3] * 60 - d) for d in [2,0]], # be there 2s early
+            5: [robots.wait_for_checkpoint_cmd(f'plate {plate.id} active', strict=True) + (p.incu[4] * 60 - d) for d in [2,0]], # be there 2s early
         }
 
-        chunks[plate, 'Mito', 'to h21']            = [*wait_before_incu_get[1], *incu_get]
-        chunks[plate, 'Mito', 'to wash']           = wash(wait_before_wash_start[1], p.wash[1], p.prime[1])
-        chunks[plate, 'Mito', 'to disp']           = disp(p.disp[1])
-        chunks[plate, 'Mito', 'to incu via h21']   = disp_to_incu
+        parts = chunks
 
-        chunks[plate, 'PFA', 'to h21']             = [*wait_before_incu_get[2], *incu_get]
-        chunks[plate, 'PFA', 'to wash']            = wash(wait_before_wash_start[2], p.wash[2], p.prime[2])
-        chunks[plate, 'PFA', 'to disp']            = disp(p.disp[2])
-        chunks[plate, 'PFA', 'to incu via h21']    = disp_to_RT
+        parts[plate, 'Mito',   'incu -> B21' ] = [*wait_before_incu_get[1], *incu_get]
+        parts[plate, 'Mito',    'B21 -> wash'] = wash(wait_before_wash_start[1], p.wash[1], p.prime[1])
+        parts[plate, 'Mito',   'wash -> disp'] = disp(p.disp[1])
+        parts[plate, 'Mito',   'disp -> B21' ] = disp_to_B21
+        parts[plate, 'Mito',    'B21 -> incu'] = B21_to_incu
 
-        chunks[plate, 'Triton', 'to h21']          = [*wait_before_incu_get[3], *RT_get]
-        chunks[plate, 'Triton', 'to wash']         = wash(wait_before_wash_start[3], p.wash[3], p.prime[3])
-        chunks[plate, 'Triton', 'to disp']         = disp(p.disp[3])
-        chunks[plate, 'Triton', 'to incu via h21'] = disp_to_RT
+        parts[plate, 'PFA',    'incu -> B21' ] = [*wait_before_incu_get[2], *incu_get]
+        parts[plate, 'PFA',     'B21 -> wash'] = wash(wait_before_wash_start[2], p.wash[2], p.prime[2])
+        parts[plate, 'PFA',    'wash -> disp'] = disp(p.disp[2])
+        parts[plate, 'PFA',    'disp -> B21' ] = disp_to_B21
+        parts[plate, 'PFA',     'B21 -> incu'] = B21_to_RT
 
-        chunks[plate, 'Stains', 'to h21']          = [*wait_before_incu_get[4], *RT_get]
-        chunks[plate, 'Stains', 'to wash']         = wash(wait_before_wash_start[4], p.wash[4], p.prime[4])
-        chunks[plate, 'Stains', 'to disp']         = disp(p.disp[4])
-        chunks[plate, 'Stains', 'to incu via h21'] = disp_to_RT
+        parts[plate, 'Triton', 'incu -> B21' ] = [*wait_before_incu_get[3], *RT_get]
+        parts[plate, 'Triton',  'B21 -> wash'] = wash(wait_before_wash_start[3], p.wash[3], p.prime[3])
+        parts[plate, 'Triton', 'wash -> disp'] = disp(p.disp[3])
+        parts[plate, 'Triton', 'disp -> B21' ] = disp_to_B21
+        parts[plate, 'Triton',  'B21 -> incu'] = B21_to_RT
 
-        chunks[plate, 'Final', 'to h21']           = [*wait_before_incu_get[5], *RT_get]
-        chunks[plate, 'Final', 'to wash']          = wash(wait_before_wash_start[5], p.wash[5])
-        chunks[plate, 'Final', 'to h21 from wash'] = [
-            *robotarm_cmds('wash get', before_pick=[robots.wait_for_ready_cmd('wash')])
-        ]
-        chunks[plate, 'Final', 'to out via h21'] = [
-            *lid_on,
-            *robotarm_cmds(plate.out_put)
-        ]
+        parts[plate, 'Stains', 'incu -> B21' ] = [*wait_before_incu_get[4], *RT_get]
+        parts[plate, 'Stains',  'B21 -> wash'] = wash(wait_before_wash_start[4], p.wash[4], p.prime[4])
+        parts[plate, 'Stains', 'wash -> disp'] = disp(p.disp[4])
+        parts[plate, 'Stains', 'disp -> B21' ] = disp_to_B21
+        parts[plate, 'Stains',  'B21 -> incu'] = B21_to_RT
+
+        parts[plate, 'Final', 'incu -> B21' ] = [*wait_before_incu_get[5], *RT_get]
+        parts[plate, 'Final',  'B21 -> wash'] = wash(wait_before_wash_start[5], p.wash[5])
+        parts[plate, 'Final', 'wash -> B21' ] = robotarm_cmds('wash get', before_pick=[robots.wait_for_ready_cmd('wash')])
+        parts[plate, 'Final',  'B21 -> out' ] = [*lid_on, *robotarm_cmds(plate.out_put)]
 
     from collections import defaultdict
     adjacent: dict[Desc, set[Desc]] = defaultdict(set)
@@ -618,6 +753,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig, short_test_
             return p, part, subpart
 
     parts = ['Mito', 'PFA', 'Triton', 'Stains', 'Final']
+    # parts = ['Mito', 'PFA']
 
     if short_test_paint:
         skip = ['Triton', 'Stains']
@@ -632,80 +768,45 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig, short_test_
     for part, next_part in utils.iterate_with_next(parts):
         if next_part:
             seq([
-                desc(last_plate, part, 'to incu via h21'),
-                desc(first_plate, next_part, 'to h21'),
+                desc(last_plate, part, 'B21 -> incu'),
+                desc(first_plate, next_part, 'incu -> B21'),
             ])
 
-    ilv = {
-        'Mito':   'lin',
-        'PFA':    'lin',
-        'Triton': 'lin',
-        'Stains': 'lin',
-        'Final':  'final',
+    ilvs = {
+        'Mito':   'june',
+        'PFA':    'june',
+        'Triton': 'june',
+        'Stains': 'june',
+        'Final':  'finjune',
     }
 
-    for A, B, C in utils.iterate_with_context(batch):
-        for part in parts:
-            if ilv[part] == 'mix':
-                assert A is None or A.lid_loc != B.lid_loc
-                assert C is None or C.lid_loc != B.lid_loc
-                assert part != 'Final'
-                seq([
-                    desc(A, part, 'to h21'), desc(A, part, 'to wash'),
-
-                                                                       desc(A, part, 'to disp'),
-
-                    desc(B, part, 'to h21'), desc(B, part, 'to wash'),
-
-                                                                                               desc(A, part, 'to incu via h21'),
-
-                                                                     desc(B, part, 'to disp'),
-
-                    desc(C, part, 'to h21'), desc(C, part, 'to wash'),
-
-                                                                                                desc(B, part, 'to incu via h21'),
-
-                                                                     desc(C, part, 'to disp'),
-                ])
-            elif ilv[part] == 'lin':
-                assert part != 'Final'
-                seq([
-                    desc(A, part, 'to h21'),
-                    desc(A, part, 'to wash'),
-                    desc(A, part, 'to disp'),
-                    desc(A, part, 'to incu via h21'),
-                    desc(B, part, 'to h21'),
-                    desc(B, part, 'to wash'),
-                    desc(B, part, 'to disp'),
-                    desc(B, part, 'to incu via h21'),
-                    desc(C, part, 'to h21'),
-                    desc(C, part, 'to wash'),
-                ])
-            elif ilv[part] == 'final':
-                assert part == 'Final'
-                seq([
-                    desc(A, part, 'to h21'),
-                    desc(A, part, 'to wash'),
-                    desc(A, part, 'to h21 from wash'),
-                    desc(A, part, 'to out via h21'),
-                    desc(B, part, 'to h21'),
-                    desc(B, part, 'to wash'),
-                    desc(B, part, 'to h21 from wash'),
-                    desc(B, part, 'to out via h21'),
-                    desc(C, part, 'to h21'),
-                    desc(C, part, 'to wash'),
-                ])
+    for part in parts:
+        ilv = Interleavings[ilvs[part]]
+        for offset, _ in enumerate(batch):
+            seq([
+                desc(batch[i+offset], part, subpart)
+                for i, subpart in ilv.rows
+                if i + offset < len(batch)
+            ])
 
     deps: dict[Desc, set[Desc]] = defaultdict(set)
     for node, nexts in adjacent.items():
         for next in nexts:
             deps[next] |= {node}
 
+    for d, ds in deps.items():
+        for x in ds:
+            print(
+                ', '.join((x[1], x[0].id, x[2])),
+                '<',
+                ', '.join((d[1], d[0].id, d[2]))
+            )
+
     linear = list(graphlib.TopologicalSorter(deps).static_order())
 
-    if 0:
+    if 1:
         pr([
-            ' '.join((desc[1], desc[0].id, desc[2]))
+            ', '.join((desc[1], desc[0].id, desc[2]))
             for desc in linear
         ])
 
@@ -721,6 +822,9 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig, short_test_
         for command in chunks[desc]
     ]
 
+    for e in plate_events:
+        print(e)
+
     prep_events: list[Event] = [ Event('', 'prep', '', cmd) for cmd in prep_cmds ]
     post_events: list[Event] = [ Event('', 'post', '', cmd) for cmd in post_cmds ]
 
@@ -735,10 +839,10 @@ def define_plates(batch_sizes: list[int]) -> list[Plate]:
             plates += [Plate(
                 id=f'{index+1}',
                 incu_loc=incu_locs[index],
-                r_loc=r_locs[index_in_batch],
+                rt_loc=rt_locs[index_in_batch],
                 # lid_loc=lid_locs[index_in_batch],
-                # lid_loc=lid_locs[index_in_batch % 2],
-                lid_loc=lid_locs[0],
+                lid_loc=lid_locs[index_in_batch % 2],
+                # lid_loc=lid_locs[0],
                 out_loc=out_locs[index],
                 batch_index=batch_index,
             )]
@@ -749,9 +853,9 @@ def define_plates(batch_sizes: list[int]) -> list[Plate]:
             if i != j:
                 assert p.id != q.id, (p, q)
                 assert p.incu_loc != q.incu_loc, (p, q)
-                assert p.out_loc not in [q.out_loc, q.r_loc, q.lid_loc, q.incu_loc], (p, q)
+                assert p.out_loc not in [q.out_loc, q.rt_loc, q.lid_loc, q.incu_loc], (p, q)
                 if p.batch_index == q.batch_index:
-                    assert p.r_loc != q.r_loc, (p, q)
+                    assert p.rt_loc != q.rt_loc, (p, q)
                     # assert p.lid_loc != q.lid_loc, (p, q)
 
     return plates
@@ -835,7 +939,7 @@ def cell_paint(config: RuntimeConfig, protocol_config: ProtocolConfig, *, batch_
         ''')
 
     runtime = execute_events_with_logging(config, events, metadata)
-    for k, v in runtime.times.items():
+    for k, v in sorted(runtime.times.items(), key=lambda s: ' '.join(s[0].split(' ')[2:] + s[0].split(' ')[:2])):
         print(k, v)
 
 from collections import defaultdict
@@ -883,7 +987,7 @@ def constraints(events: list[Event]) -> dict[str, float]:
                 return v
             elif cmd.kind == 'begin':
                 if cmd.strict:
-                    assert cmd.name not in checkpoints
+                    assert cmd.name not in checkpoints, utils.pr((cmd.name, checkpoints, cmd, base))
                 v = checkpoints[cmd.name] = var(ids.next(cmd.name + ' '))
                 C.append((v, '==', base))
                 return v
@@ -904,6 +1008,8 @@ def constraints(events: list[Event]) -> dict[str, float]:
                 return base
             else:
                 C.append((checkpoints[cmd.name] + cmd.plus_seconds, '>=', base))
+                if cmd.strict:
+                    C.append((checkpoints[cmd.name] + cmd.plus_seconds, '==', base))
                 return checkpoints[cmd.name] + cmd.plus_seconds
         else:
             assert isinstance(cmd, robots.idle_cmd)
@@ -987,26 +1093,25 @@ def constraints(events: list[Event]) -> dict[str, float]:
             else:
                 raise ValueError(op)
 
-    maxi = {
-        a
-        for a in vs
-        if 'duration' in a
-        if 'lid on' in a or 'incubator' in a
-    }
+    maxi: list[tuple[int, str]] = []
+    maxi += [(1, a) for a in vs if 'duration' in a and 'lid on' in a]
+    maxi += [(10, a) for a in vs if 'duration' in a and 'incubator' in a]
+    maxi += [(-100, a) for a in vs if 'duration' in a and 'transfer' in a]
 
-    mini = {
+    # maxi += [(-1, a) for a in vs if 'duration' in a and 'batch sep' in a]
+
+    utils.pr(maxi)
+
+    transfers = [
         a
         for a in vs
-        if 'batch sep' in a
-    }
+        if 'transfer' in a and 'duration' in a
+    ]
 
     batch_sep = 120 # for v3 jump
     s.add(Int('batch sep') == batch_sep * 60 * R)
 
-    s.maximize(Sum(
-        *[Int(v) for v in maxi],
-        *[-Int(v) for v in mini],
-    ))
+    s.maximize(Sum(*[m * Int(v) for m, v in maxi]))
 
     print(s.check())
 
