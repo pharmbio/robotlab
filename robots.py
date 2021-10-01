@@ -12,7 +12,7 @@ import socket
 import time
 import threading
 import traceback
-from queue import SimpleQueue
+from queue import Queue
 from contextlib import contextmanager
 from threading import RLock
 
@@ -146,10 +146,14 @@ class BiotekMessage:
     command: wash_cmd | disp_cmd
     metadata: dict[str, Any]
 
+@dataclass(frozen=True)
+class RequestReadyMessage:
+    reply_queue: Queue[object]
+
 @dataclass
 class Biotek:
     name: Literal['wash', 'disp']
-    queue: SimpleQueue[BiotekMessage] = field(default_factory=SimpleQueue)
+    queue: Queue[BiotekMessage | RequestReadyMessage] = field(default_factory=Queue)
     state: Literal['ready', 'busy'] = 'ready'
     # last_started: float | None = None
     # last_finished: float | None = None
@@ -178,6 +182,9 @@ class Biotek:
         '''
         runtime.register_thread(self.name)
         while msg := runtime.queue_get(self.queue):
+            if isinstance(msg, RequestReadyMessage):
+                runtime.queue_put(msg.reply_queue, object())
+                continue
             self.state = 'busy'
             command = msg.command
             metadata = msg.metadata
@@ -219,10 +226,15 @@ class Biotek:
     def is_ready(self):
         return self.state == 'ready'
 
-    def run(self, msg: BiotekMessage):
+    def wait_for_ready(self, runtime: Runtime):
+        q: Queue[object] = Queue()
+        runtime.queue_put(self.queue, RequestReadyMessage(q))
+        runtime.queue_get(q)
+
+    def run(self, runtime: Runtime, msg: BiotekMessage):
         assert self.is_ready(), self
         self.state = 'busy'
-        self.queue.put_nowait(msg)
+        runtime.queue_put(self.queue, msg)
 
 @dataclass(frozen=True)
 class IncubatorMessage:
@@ -231,7 +243,7 @@ class IncubatorMessage:
 
 @dataclass
 class Incubator:
-    queue: SimpleQueue[IncubatorMessage] = field(default_factory=SimpleQueue)
+    queue: Queue[IncubatorMessage | RequestReadyMessage] = field(default_factory=Queue)
     state: Literal['ready', 'busy'] = 'ready'
 
     def start(self, runtime: Runtime):
@@ -240,6 +252,9 @@ class Incubator:
     def loop(self, runtime: Runtime):
         runtime.register_thread('incu')
         while msg := runtime.queue_get(self.queue):
+            if isinstance(msg, RequestReadyMessage):
+                runtime.queue_put(msg.reply_queue, object())
+                continue
             self.state = 'busy'
             command = msg.command
             metadata = msg.metadata
@@ -282,10 +297,15 @@ class Incubator:
     def is_ready(self):
         return self.state == 'ready'
 
-    def run(self, msg: IncubatorMessage):
-        assert self.is_ready()
+    def wait_for_ready(self, runtime: Runtime):
+        q: Queue[object] = Queue()
+        runtime.queue_put(self.queue, RequestReadyMessage(q))
+        runtime.queue_get(q)
+
+    def run(self, runtime: Runtime, msg: IncubatorMessage):
+        assert self.is_ready(), self
         self.state = 'busy'
-        self.queue.put_nowait(msg)
+        runtime.queue_put(self.queue, msg)
 
     @staticmethod
     def is_endpoint_ready(runtime: Runtime):
@@ -438,11 +458,11 @@ class Runtime:
     def sleep(self, secs: float):
         return self.timelike.value.sleep(secs)
 
-    def busywait_step(self):
-        return self.timelike.value.busywait_step()
-
-    def queue_get(self, queue: SimpleQueue[A]) -> A:
+    def queue_get(self, queue: Queue[A]) -> A:
         return self.timelike.value.queue_get(queue)
+
+    def queue_put(self, queue: Queue[A], a: A) -> None:
+        return self.timelike.value.queue_put(queue, a)
 
     def register_thread(self, name: str):
         return self.timelike.value.register_thread(name)
@@ -569,14 +589,11 @@ class wait_for_ready_cmd(Command):
     def execute(self, runtime: Runtime, metadata: dict[str, Any]) -> None:
         with runtime.timeit('wait', str(self), metadata):
             if self.machine == 'incu':
-                while not runtime.incu.is_ready():
-                    runtime.busywait_step()
+                runtime.incu.wait_for_ready(runtime)
             elif self.machine == 'wash':
-                while not runtime.wash.is_ready():
-                    runtime.busywait_step()
+                runtime.wash.wait_for_ready(runtime)
             elif self.machine == 'disp':
-                while not runtime.disp.is_ready():
-                    runtime.busywait_step()
+                runtime.disp.wait_for_ready(runtime)
             else:
                 raise ValueError(self.machine)
 
@@ -614,7 +631,7 @@ class wash_cmd(Command):
     before: list[wait_for_checkpoint_cmd | idle_cmd | checkpoint_cmd] = field(default_factory=list)
     after: list[checkpoint_cmd] = field(default_factory=list)
     def execute(self, runtime: Runtime, metadata: dict[str, Any]) -> None:
-        runtime.wash.run(BiotekMessage(self, metadata))
+        runtime.wash.run(runtime, BiotekMessage(self, metadata))
 
     def est(self):
         arg = self.protocol_path or ''
@@ -636,7 +653,7 @@ class disp_cmd(Command):
     before: list[wait_for_checkpoint_cmd | idle_cmd | checkpoint_cmd] = field(default_factory=list)
     after: list[checkpoint_cmd] = field(default_factory=list)
     def execute(self, runtime: Runtime, metadata: dict[str, Any]) -> None:
-        runtime.disp.run(BiotekMessage(self, metadata))
+        runtime.disp.run(runtime, BiotekMessage(self, metadata))
 
     def est(self):
         arg = self.protocol_path or ''
@@ -649,7 +666,7 @@ class incu_cmd(Command):
     incu_loc: str | None
     after: list[checkpoint_cmd] = field(default_factory=list)
     def execute(self, runtime: Runtime, metadata: dict[str, Any]) -> None:
-        runtime.incu.run(IncubatorMessage(self, metadata))
+        runtime.incu.run(runtime, IncubatorMessage(self, metadata))
 
     def est(self):
         arg = self.action

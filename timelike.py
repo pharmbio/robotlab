@@ -11,7 +11,7 @@ import re
 import socket
 import time
 import threading
-from queue import SimpleQueue
+from queue import Queue, Empty
 from contextlib import contextmanager
 from threading import Lock
 
@@ -32,15 +32,15 @@ class Timelike(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def queue_get(self, queue: SimpleQueue[A]) -> A:
+    def queue_get(self, queue: Queue[A]) -> A:
+        pass
+
+    @abc.abstractmethod
+    def queue_put(self, queue: Queue[A], a: A) -> None:
         pass
 
     @abc.abstractmethod
     def sleep(self, seconds: float):
-        pass
-
-    @abc.abstractmethod
-    def busywait_step(self):
         pass
 
     @abc.abstractmethod
@@ -53,29 +53,30 @@ from collections import defaultdict
 @dataclass
 class ThreadData:
     name: str = field(default_factory=lambda: threading.current_thread().name)
-    state: Literal['busy', 'blocked', 'sleeping', 'busywaiting', 'idle'] = 'busy'
+    state: Literal['busy', 'blocked', 'sleeping', 'idle'] = 'busy'
     sleep_until: float = float('inf')
-    inbox: SimpleQueue[None] = field(default_factory=SimpleQueue)
+    inbox: Queue[None] = field(default_factory=Queue)
+    blocked_at: Queue[Any] | None = None
 
 @dataclass
 class SimulatedTime(Timelike):
     include_wall_time: bool
     start_time: float = field(default_factory=time.monotonic)
-    threads: dict[Thread, ThreadData] = field(default_factory=lambda: cast(dict[Thread, ThreadData], defaultdict(ThreadData)))
+    threads: dict[Thread, ThreadData] = field(default_factory=lambda: defaultdict[Thread, ThreadData](ThreadData))
     skipped_time: float = 0.0
     lock: Lock = field(default_factory=Lock)
+    qsize: dict[int, int] = field(default_factory=lambda: defaultdict[int, int](int))
 
     def log(self):
         return
-        with self.lock:
-            out: list[str] = ['... {self.monotonic()}']
-            for v in self.threads.values():
-                out += [
-                    f'{v.name}: {v.state} to {v.sleep_until}'
-                    if v.sleep_until != float('inf') else
-                    f'{v.name}: {v.state}'
-                ]
-            print(' | '.join(out))
+        out: list[str] = [f' {self.monotonic():.2f}']
+        for v in list(self.threads.values()):
+            out += [
+                f'{v.name}: {v.state} to {v.sleep_until:.1f}'
+                if v.sleep_until != float('inf') else
+                f'{v.name}: {v.state}'
+            ]
+        print(' | '.join(out))
 
     def monotonic(self):
         if self.include_wall_time:
@@ -92,30 +93,32 @@ class SimulatedTime(Timelike):
         tid = threading.current_thread()
         return self.threads[tid]
 
-    def queue_get(self, queue: SimpleQueue[A]) -> A:
+    def queue_put(self, queue: Queue[A], a: A) -> None:
+        with self.lock:
+            i = id(queue)
+            self.qsize[i] += 1
+        queue.put(a)
+        with self.lock:
+            self.wake_up()
+
+    def queue_get(self, queue: Queue[A]) -> A:
         thread_data = self.current_thread_data()
         with self.lock:
             thread_data.state = 'blocked'
+            thread_data.blocked_at = queue
             assert thread_data.sleep_until == float('inf')
             self.wake_up()
-        res = queue.get()
-        with self.lock:
-            thread_data.state = 'busy'
-            assert thread_data.sleep_until == float('inf')
-            self.log()
-        return res
 
-    def busywait_step(self):
-        thread_data = self.current_thread_data()
+        res = queue.get()
+
         with self.lock:
-            thread_data.state = 'busywaiting'
-            self.wake_up()
-        thread_data.inbox.get()
-        assert thread_data.state == 'busy'
-        with self.lock:
-            # take lock to make sure that the wake up procedure is finished
-            # before proceeding (possibly started by some other thread)
-            pass
+            i = id(queue)
+            self.qsize[i] -= 1
+            thread_data.state = 'busy'
+            thread_data.blocked_at = None
+            assert thread_data.sleep_until == float('inf')
+
+        return res
 
     def sleep(self, seconds: float):
         if seconds <= 0:
@@ -152,8 +155,13 @@ class SimulatedTime(Timelike):
         # Wake up next thread if all are sleeping or blocked
         self.log()
         states = {v.state for v in self.threads.values()}
+        for st in self.threads.values():
+            if st.state == 'blocked' and self.qsize[id(st.blocked_at)]:
+                # will receive a message soon
+                return
         if states == {'blocked'}:
             raise ValueError(f'Threads blocked indefinitely')
+            return
         if states <= {'blocked', 'idle'}:
             return
         if 'busy' in states and not self.include_wall_time:
@@ -172,9 +180,6 @@ class SimulatedTime(Timelike):
                 v.state = 'busy'
                 v.sleep_until = float('inf')
                 v.inbox.put_nowait(None)
-            elif v.state == 'busywaiting':
-                v.state = 'busy'
-                v.inbox.put_nowait(None) # wake up and see if there is any progress
         self.log()
 
 
@@ -188,11 +193,11 @@ class WallTime(Timelike):
     def register_thread(self, name: str):
         pass
 
-    def queue_get(self, queue: SimpleQueue[A]) -> A:
+    def queue_get(self, queue: Queue[A]) -> A:
         return queue.get()
 
-    def set_blocked(self, value: bool):
-        pass
+    def queue_put(self, queue: Queue[A], a: A) -> None:
+        queue.put(a)
 
     def sleep(self, seconds: float):
         if seconds < 0:
@@ -200,9 +205,6 @@ class WallTime(Timelike):
         else:
             print('Sleeping for', fmt(seconds), '...')
             time.sleep(seconds)
-
-    def busywait_step(self):
-        time.sleep(0.01)
 
     def thread_idle(self):
         pass
