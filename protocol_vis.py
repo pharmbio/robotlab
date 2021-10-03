@@ -1,7 +1,10 @@
 from __future__ import annotations
 from typing import *
 
-from viable import head, serve, esc, make_classes
+from viable import head, serve, esc, css_esc, trim, button, pre
+from viable import Tag, div, span, label, img, raw, Input, input
+import viable as V
+
 from flask import request
 from collections import *
 import re
@@ -79,229 +82,120 @@ stripes_dn_faint = b64svg(stripes_dn_faint)
 coords = ''
 n = 0
 
-def now():
-    import datetime
-    t = datetime.datetime.now()
-    s = t.strftime('%Y-%m-%d %H:%M:%S.%f')
-    return s[:-3]
+@serve.one('/')
+def index() -> Iterator[Tag | dict[str, str]]:
+    store: dict[str, str | bool] = {}
+    zoom_input = Input(store, 'zoom', 'text', default='1')
+    batch_size_input = Input(store, 'batch_size', 'text', default='6')
 
-@serve
-def index() -> Iterator[head | str]:
-    zoom = int(request.args.get('zoom', '200'))
-    num_batches = int(request.args.get('num_batches', '1'))
-    batch_size = int(request.args.get('batch_size', '2'))
-    between_batch_delay_str: str = request.args.get('between_batch_delay', 'auto')
-    within_batch_delay_str: str = request.args.get('within_batch_delay', 'auto')
-    events, between_batch_delay, within_batch_delay = protocol.cell_paint_batches_parse_delay(
-        num_batches,
-        batch_size,
-        between_batch_delay_str,
-        within_batch_delay_str,
-    )
-    sortby: str = request.args.get('sortby', 'plate')
+    zoom = utils.catch(lambda: float(store['zoom']), 1)
+    batch_size = utils.catch(lambda: int(store['batch_size']), 6)
 
-    print(f'{between_batch_delay=}')
-    print(f'{within_batch_delay=}')
-    events = protocol.sleek_movements(events)
+    with utils.timeit('eventlist'):
+        events = protocol.eventlist(batch_sizes=[batch_size], protocol_config=protocol.v3)
+    with utils.timeit('runtime'):
+        runtime = protocol.execute_events(configs['dry-run-no-log'], events, {})
 
-    with_group: list[tuple[tuple[int | str | None, ...], Event]] = []
-    for index, event in enumerate(events):
-        m = event.machine()
-        if 'wait' in m:
-            continue
-        i = dict(
-            timer=0,
-            incu=1,
-            wash=2,
-            robotarm=3,
-            disp=4,
-        ).get(m, 99)
-        sortable = dict(
-            machine=i,
-            plate=event.plate_id
-        )
-        with_group += [
-            (tuple(sortable.get(s) for s in sortby.split(',')),
-             event)
-        ]
+    entries = runtime.log_entries
 
-    grouped: defaultdict[tuple[int | str | None, ...], list[Event]] = defaultdict(list)
-    for g, e in sorted(with_group, key=lambda xy: xy[0]):
-        grouped[g] += [e]
-
-    tbl: list[str] = []
-    for g, events in grouped.items():
-        divs = ''
-        overlaps = False
-        for event in events:
-            machine = event.machine()
-            color = dict(
-                wait_for_ready='color0',
-                wait_for_timer='color0',
-                robotarm='color4',
-                wash='color6',
-                disp='color5',
-                incu='color2',
-                timer='color3',
+    with utils.timeit('area'):
+        area = div(style=f'''
+            width: 100%;
+            height: {zoom * max(e.get('t', 0) for e in entries)}px;
+        ''', css='''
+            position: relative;
+        ''')
+        for e in entries:
+            t0 = e.get('t0')
+            t = e.get('t')
+            if t0 is None or t is None:
+                continue
+            if 'idle' in str(e.get('source')):
+                continue
+            # if 'wait' in str(e.get('source')):
+                # continue
+            # part    = e.get('event_part', '')
+            # subpart = e.get('event_subpart', '')
+            # plate   = e.get('event_plate_id', '')
+            slots = {
+                'incu': 1,
+                'wait': 2,
+                'robotarm': 3,
+                'wash': 4,
+                'disp': 5,
+                'checkpoint': 6,
+            }
+            color_map = {
+                'wait': 'color3',
+                'idle': 'color3',
+                'robotarm': 'color4',
+                'wash': 'color6',
+                'disp': 'color5',
+                'incu': 'color2',
+                'timer': 'color3',
+            }
+            slot = slots.get(e.get('source', ''), 0)
+            slot += (1 + max(slots.values())) * utils.catch(lambda: int(e['event_plate_id']), 0)
+            # slot += batch_size * slot + utils.catch(lambda: int(e['event_plate_id']), 0)
+            # slot = utils.catch(lambda: int(e['event_plate_id']), 0)
+            color = colors.get(color_map.get(e.get('source', ''), ''), '#ccc')
+            width = 14
+            my_width = 14
+            if e.get('source') == 'checkpoint':
+                my_width = 7
+                # continue
+            area += div(
+                css='''
+                    position: absolute;
+                    border-radius: 2px;
+                    border: 1px #0005 solid;
+                ''',
+                style=trim(f'''
+                    left: {slot * width:.1f}px;
+                    width: {my_width - 2:.1f}px;
+                    top: {zoom * t0:.1f}px;
+                    height: {zoom * (t - t0):.1f}px;
+                    background: {color};
+                '''),
+                data_info=utils.show(e, use_color=False)
             )
-            color_var = f'--{color.get(machine, "color15")}'
-            try:
-                prep = event.command.prep # type: ignore
-            except:
-                prep = False
-            overlap = event.overlap.value
-            overlaps |= overlap
-            divs = f'''
-                <div {'css-stripes' if prep else ''} {'css-overlap' if overlap else ''}
-                    css="
-                        background-color: var(--color);
-                        --width: calc(var(--end) - var(--begin));
-                        position: absolute;
-                        left: var(--begin);
-                        width: var(--width);
-                        top: 0;
-                        height: 100%;
-                        border-radius: 4px;
-                        box-shadow:
-                            inset  1px  0px #0006,
-                            inset  0px  1px #0006,
-                            inset -1px  0px #0006,
-                            inset  0px -1px #0006;
-                    "
-                    style="
-                        --begin:  calc(var(--zoom) / 100 * {event.begin}px);
-                        --end:    calc(var(--zoom) / 100 * {event.end}px);
-                        --color:  var({color_var});
-                    "
-                    data-info="{esc(utils.show(event, use_color=False))}"
-                ></div>
-            ''' + divs
 
-        tbl += [f'''
-            <tr>
-                <td>{event.plate_id}</td>
-                <td>{esc(machine)}</td>
-                <td {'css-overlap-outline' if overlaps else ''}
-                        onmouseover="
-                            if (event.target.dataset.info)
-                                document.querySelector('#info').innerHTML = event.target.dataset.info.trim()
-                        "
-                        onmouseout="
-                            if (event.target.dataset.info)
-                                document.querySelector('#info').innerHTML = ''
-                        "
-                    css="
+    area.onmouseover += """
+        if (event.target.dataset.info)
+            document.querySelector('#info').innerHTML = event.target.dataset.info.trim()
+    """
 
-                        width: 100000px;
-                        position: relative;
-                    ">{textwrap.dedent(divs)}</td>
-            </tr>
-        ''']
+    area.onmouseout += """
+        if (event.target.dataset.info)
+            document.querySelector('#info').innerHTML = ''
+    """
 
-    nl = '\n'
-    yield head('''
-        <style>
+    yield {
+        'sheet': '''
             body, html {
                 font-family: monospace;
-                font-size: 22px;
-                ''' + colors_css + '''
-                background: var(--background);
-                color: var(--foreground);
-                position: relative;
+                font-size: 12px;
             }
-            label {
-                cursor: pointer;
-            }
-            tr:nth-child(even) {
-                background-color: #f2f2f2;
-            }
-            tr:hover {
-                background-color: #cef;
-            }
-            table, tr {
-                width: 10000px;
-            }
-            td {
-                padding: 0 5px;
-            }
-            [css-stripes] {
-                background-image: ''' + stripes_up + ''';
-            }
-            [css-overlap] {
-                background-image: ''' + stripes_dn + ''';
-            }
-            [css-overlap-outline] {
-                background-image: ''' + stripes_dn_faint + ''';
-            }
-        </style>
-    ''')
-    yield f'''
-        <body style="--zoom: {zoom};">
-        <form
-            nonchange="set_query(this); refresh()"
-            oninput="set_query(this); refresh()"
-            css="
-                position: fixed;
-                left: 0;
-                top: 0;
-                padding: 10px;
-                background: #fff;
-                z-index: 1;
-                width: 100vw;
-            "
-            css="
-               & input {{
-                   margin-right: 10px;
-               }}
-            "
-        >
+        '''
+    }
+    # yield zoom_input
+    # yield batch_size_input
+    yield area
 
-           <div>
-               <input type="range" id="zoom" name="zoom" min="1" max="400" value={zoom} style="width:600px"
-                onchange="
-                    event.stopPropagation();
-                    set_query(this.closest('form'))
-                    document.body.style='--zoom: ' + this.value;
-                "
-                oninput="
-                    event.stopPropagation();
-                    set_query(this.closest('form'))
-                    document.body.style='--zoom: ' + this.value;
-                "
-               >zoom: <span css="&::after {{
-                            counter-reset: zoom var(--zoom);
-                            content: counter(zoom);
-                            }}" />
+    yield div(' ', style="height:400px")
 
-           </div>
-           <div><input type="range" id="num_batches" name="num_batches" min="1" max="10" value={num_batches} style="width:600px">num_batches: {num_batches}</div>
-           <div><input type="range" id="batch_size" name="batch_size" min="1" max="10" value={batch_size} style="width:600px">batch_size: {batch_size}</div>
-           <div><input type="range" id="between_batch_delay" name="between_batch_delay" min="3600" max="10800" value={between_batch_delay} style="width:600px">between_batch_delay: {between_batch_delay}</div>
-           <div><input type="range" id="within_batch_delay" name="within_batch_delay" min="0" max="500" value={within_batch_delay} style="width:600px">within_batch_delay: {within_batch_delay}</div>
-           <div>
-               sort by:
-               <label><input type="radio" name="sortby" id="machine,plate" value="machine,plate" {"checked" if sortby == "machine,plate" else ""}>machine,plate</label>
-               <label><input type="radio" name="sortby" id="plate,machine" value="plate,machine" {"checked" if sortby == "plate,machine" else ""}>plate,machine</label>
-               <label><input type="radio" name="sortby" id="plate"         value="plate"         {"checked" if sortby == "plate"         else ""}>plate</label>
-               <label><input type="radio" name="sortby" id="machine"       value="machine"       {"checked" if sortby == "machine"       else ""}>machine</label>
-           </div>
-        </form>
-        <div css="height: 160px"></div>
-        <table css="margin-top: 20px;">
-           {nl.join(tbl)}
-        </table>
-        <div css="height: 50px"></div>
-        <pre id="info"
-            css="
-                position: fixed;
-                left: 0;
-                bottom: 0;
-                margin: 0;
-                padding: 10px;
-                background: #fff;
-                z-index: 1;
-                position: fixed;
-            "
-            ></pre>
-    '''
+    yield pre(
+        id="info",
+        css='''
+            position: fixed;
+            right: 0;
+            bottom: 0;
+            margin: 0;
+            padding: 10px;
+            background: #fff;
+            z-index: 1;
+            position: fixed;
+            border-radius: 5px;
+            border: 1px #0005 solid;
+        ''')
 

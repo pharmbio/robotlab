@@ -202,7 +202,7 @@ def time_bioteks(config: RuntimeConfig, protocol_config: ProtocolConfig):
         )
     ]
     ATTENTION(time_bioteks.__doc__ or '')
-    execute_events_with_logging(config, events, metadata={'options': 'time_bioteks'})
+    execute_events(config, events, metadata={'options': 'time_bioteks'})
 
 def time_arm_incu(config: RuntimeConfig):
     '''
@@ -262,11 +262,11 @@ def time_arm_incu(config: RuntimeConfig):
         *robotarm_cmds('incu put'),
         *robotarm_cmds(plate.rt_get),
     ]
-    with runtime_with_logging(config, {'options': 'time_arm_incu'}) as runtime:
+    with make_runtime(config, {'options': 'time_arm_incu'}) as runtime:
         ATTENTION(time_arm_incu.__doc__ or '')
         def execute(name: str, cmds: list[Command]):
             runtime.register_thread(f'{name} last_main')
-            execute_commands(runtime, cmds)
+            execute_commands_in_runtime(runtime, cmds)
             runtime.thread_idle()
 
         threads = [
@@ -281,7 +281,7 @@ def time_arm_incu(config: RuntimeConfig):
         for t in threads:
             t.join()
 
-        execute_commands(runtime, arm2)
+        execute_commands_in_runtime(runtime, arm2)
 
 def lid_stress_test(config: RuntimeConfig):
     '''
@@ -314,7 +314,7 @@ def lid_stress_test(config: RuntimeConfig):
         ]
     events = sleek_events(events)
     ATTENTION(lid_stress_test.__doc__ or '')
-    execute_events_with_logging(config, events, {'options': 'lid_stress_test'})
+    execute_events(config, events, {'options': 'lid_stress_test'})
 
 def load_incu(config: RuntimeConfig, num_plates: int):
     '''
@@ -359,7 +359,7 @@ def load_incu(config: RuntimeConfig, num_plates: int):
         Event('', 'load incu', 'return', robots.robotarm_cmd('incu_A21 put-return'))
     ]
     ATTENTION(load_incu.__doc__ or '')
-    execute_events_with_logging(config, events, {'options': 'load_incu'})
+    execute_events(config, events, {'options': 'load_incu'})
 
 def unload_incu(config: RuntimeConfig, num_plates: int):
     '''
@@ -393,7 +393,7 @@ def unload_incu(config: RuntimeConfig, num_plates: int):
         *events,
     ]
     ATTENTION(unload_incu.__doc__ or '')
-    execute_events_with_logging(config, events, {'options': 'unload_incu'})
+    execute_events(config, events, {'options': 'unload_incu'})
 
 @dataclass(frozen=True)
 class Event:
@@ -413,10 +413,10 @@ class Event:
             'event_machine': self.machine(),
         }
 
-def execute_commands(runtime: Runtime, cmds: list[Command]) -> None:
-    execute_events(runtime, [Event('', '', '', cmd) for cmd in cmds])
+def execute_commands_in_runtime(runtime: Runtime, cmds: list[Command]) -> None:
+    execute_events_in_runtime(runtime, [Event('', '', '', cmd) for cmd in cmds])
 
-def execute_events(runtime: Runtime, events: list[Event]) -> None:
+def execute_events_in_runtime(runtime: Runtime, events: list[Event]) -> None:
     for i, event in enumerate(events, start=1):
         # print(f'=== event {i}/{len(events)} | {" | ".join(event.desc().values())} ===')
         metadata: dict[str, str | int] = {
@@ -596,14 +596,18 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig, short_test_
         ]
 
         incu_get = [
-            # robots.wait_for_ready_cmd('incu'),
-            robots.incu_cmd('get', plate.incu_loc, after=[robots.checkpoint_cmd('end', f'plate {plate.id} incubator', strict=False)]),
-            *robotarm_cmds('incu get', before_pick = [robots.wait_for_ready_cmd('incu')]),
+            robots.incu_cmd('get', plate.incu_loc,
+                after=[robots.checkpoint_cmd('end', f'plate {plate.id} incubator', strict=False)]),
+            *robotarm_cmds('incu get',
+                before_pick = [robots.wait_for_ready_cmd('incu')]),
             *lid_off,
         ]
 
         B21_to_incu = [
-            *robotarm_cmds('incu put', after_drop = [robots.incu_cmd('put', plate.incu_loc, after=[robots.checkpoint_cmd('begin', f'plate {plate.id} incubator')])]),
+            *robotarm_cmds('incu put',
+                after_drop = [
+                    robots.incu_cmd('put', plate.incu_loc,
+                        after=[robots.checkpoint_cmd('begin', f'plate {plate.id} incubator')])]),
             robots.wait_for_ready_cmd('incu'),
                 # todo: this is required by 'lin' ilv but makes 'mix' w->d transfer worse
         ]
@@ -918,7 +922,7 @@ def test_circuit(config: RuntimeConfig) -> None:
             7. robotarm:                in neutral position by lid hotel
             8. gripper:                 sufficiently open to grab a plate
     ''')
-    execute_events_with_logging(config, events, metadata={'options': 'test_circuit'})
+    execute_events(config, events, metadata={'options': 'test_circuit'})
 
 
 def cell_paint(config: RuntimeConfig, protocol_config: ProtocolConfig, *, batch_sizes: list[int], short_test_paint: bool = False) -> None:
@@ -938,7 +942,7 @@ def cell_paint(config: RuntimeConfig, protocol_config: ProtocolConfig, *, batch_
             Short test paint mode, NOT real cell painting
         ''')
 
-    runtime = execute_events_with_logging(config, events, metadata)
+    runtime = execute_events(config, events, metadata)
     for k, v in sorted(runtime.times.items(), key=lambda s: ' '.join(s[0].split(' ')[2:] + s[0].split(' ')[:2])):
         print(k, v)
 
@@ -1066,15 +1070,15 @@ def constraints(events: list[Event]) -> dict[str, float]:
 
     vs: set[str] = set()
 
-    R = 1000
+    R = 1
 
     def to_expr(x: Symbolic) -> Any:
         for v in x.var_names:
             vs.add(v)
-            # s.add(Int(v) >= 0)
+            # s.add(Real(v) >= 0)
         return Sum(
             int(x.offset * R),
-            *[Int(v) for v in x.var_names]
+            *[Real(v) for v in x.var_names]
         )
 
     with utils.timeit('constrs'):
@@ -1093,10 +1097,11 @@ def constraints(events: list[Event]) -> dict[str, float]:
             else:
                 raise ValueError(op)
 
-    maxi: list[tuple[int, str]] = []
+    maxi: list[tuple[float, str]] = []
     maxi += [(1, a) for a in vs if 'duration' in a and 'lid on' in a]
     maxi += [(10, a) for a in vs if 'duration' in a and 'incubator' in a]
     maxi += [(-100, a) for a in vs if 'duration' in a and 'transfer' in a]
+    maxi += [(-0.1, a) for a in vs if 'duration' in a and 'batch' in a]
 
     # maxi += [(-1, a) for a in vs if 'duration' in a and 'batch sep' in a]
 
@@ -1109,16 +1114,19 @@ def constraints(events: list[Event]) -> dict[str, float]:
     ]
 
     batch_sep = 120 # for v3 jump
-    s.add(Int('batch sep') == batch_sep * 60 * R)
+    s.add(Real('batch sep') == batch_sep * 60 * R)
 
-    s.maximize(Sum(*[m * Int(v) for m, v in maxi]))
+    s.maximize(Sum(*[m * Real(v) for m, v in maxi]))
 
     print(s.check())
 
     M = s.model()
 
+    def get(a: str) -> float:
+        return float(M.eval(Real(a)).as_decimal(3).strip('?')) / R
+
     us = [
-        (a, float(M.eval(Int(a)).as_long()) / R)
+        (a, get(a))
         for a in vs
         if 'delay' in a or 'batch' in a
     ]
@@ -1126,7 +1134,7 @@ def constraints(events: list[Event]) -> dict[str, float]:
         print(a, v, sep='\t')
     print()
     us = [
-        (a, float(M.eval(Int(a)).as_long()) / R)
+        (a, get(a))
         for a in maxi
         if 'lid' in a
     ]
@@ -1134,7 +1142,7 @@ def constraints(events: list[Event]) -> dict[str, float]:
         print(a, v, sep='\t')
     print()
     us = [
-        (a, float(M.eval(Int(a)).as_long()) / R)
+        (a, get(a))
         for a in maxi
         if 'incubator' in a
     ]
@@ -1143,7 +1151,7 @@ def constraints(events: list[Event]) -> dict[str, float]:
 
     res = {
         **{
-            a: float(M.eval(Int(a)).as_long()) / R
+            a: get(a)
             for a in variables & vs
         },
         **{
@@ -1156,17 +1164,20 @@ def constraints(events: list[Event]) -> dict[str, float]:
 import contextlib
 
 @contextlib.contextmanager
-def runtime_with_logging(config: RuntimeConfig, metadata: dict[str, str]) -> Iterator[Runtime]:
+def make_runtime(config: RuntimeConfig, metadata: dict[str, str]) -> Iterator[Runtime]:
     metadata = {
         'start_time': str(datetime.now()).split('.')[0],
         **metadata,
         'config_name': config.name(),
     }
-    log_filename = ' '.join(['event log', *metadata.values()])
-    log_filename = 'logs/' + log_filename.replace(' ', '_') + '.jsonl'
-    os.makedirs('logs/', exist_ok=True)
+    if config.log_to_file:
+        log_filename = ' '.join(['event log', *metadata.values()])
+        log_filename = 'logs/' + log_filename.replace(' ', '_') + '.jsonl'
+        os.makedirs('logs/', exist_ok=True)
 
-    print(f'{log_filename=}')
+        print(f'{log_filename=}')
+    else:
+        log_filename = None
 
     runtime = robots.Runtime(config=config, log_filename=log_filename)
     # pr(robots.Estimates)
@@ -1177,12 +1188,12 @@ def runtime_with_logging(config: RuntimeConfig, metadata: dict[str, str]) -> Ite
         with runtime.timeit('experiment', metadata=metadata):
             yield runtime
 
-def execute_events_with_logging(config: RuntimeConfig, events: list[Event], metadata: dict[str, str]) -> Runtime:
+def execute_events(config: RuntimeConfig, events: list[Event], metadata: dict[str, str]) -> Runtime:
     with utils.timeit('constraints'):
         d = constraints(events)
     pr(d)
-    with runtime_with_logging(config, metadata) as runtime:
+    with make_runtime(config, metadata) as runtime:
         runtime.var_values.update(d)
-        execute_events(runtime, events)
+        execute_events_in_runtime(runtime, events)
         return runtime
 

@@ -114,6 +114,8 @@ class RuntimeConfig:
 
     env: Env
 
+    log_to_file: bool = True
+
     def name(self) -> str:
         for k, v in configs.items():
             if v is self:
@@ -126,13 +128,14 @@ simulated_no_wall  = lambda: SimulatedTime(include_wall_time=False)
 
 configs: dict[str, RuntimeConfig]
 configs = {
-    'live':          RuntimeConfig(wall_time,          disp_and_wash_mode='execute', incu_mode='execute', robotarm_mode='execute',            env=live_env),
-    'test-all':      RuntimeConfig(simulated_and_wall, disp_and_wash_mode='execute', incu_mode='execute', robotarm_mode='execute',            env=live_env),
-    'test-arm-incu': RuntimeConfig(simulated_and_wall, disp_and_wash_mode='noop',    incu_mode='execute', robotarm_mode='execute',            env=live_arm_incu),
-    'simulator':     RuntimeConfig(simulated_and_wall, disp_and_wash_mode='noop',    incu_mode='noop',    robotarm_mode='execute no gripper', env=simulator_env),
-    'forward':       RuntimeConfig(simulated_no_wall,  disp_and_wash_mode='noop',    incu_mode='noop',    robotarm_mode='execute',            env=forward_env),
-    'dry-wall':      RuntimeConfig(wall_time,          disp_and_wash_mode='noop',    incu_mode='noop',    robotarm_mode='noop',               env=dry_env),
-    'dry-run':       RuntimeConfig(simulated_no_wall,  disp_and_wash_mode='noop',    incu_mode='noop',    robotarm_mode='noop',               env=dry_env),
+    'live':           RuntimeConfig(wall_time,          disp_and_wash_mode='execute', incu_mode='execute', robotarm_mode='execute',            env=live_env),
+    'test-all':       RuntimeConfig(simulated_and_wall, disp_and_wash_mode='execute', incu_mode='execute', robotarm_mode='execute',            env=live_env),
+    'test-arm-incu':  RuntimeConfig(simulated_and_wall, disp_and_wash_mode='noop',    incu_mode='execute', robotarm_mode='execute',            env=live_arm_incu),
+    'simulator':      RuntimeConfig(simulated_and_wall, disp_and_wash_mode='noop',    incu_mode='noop',    robotarm_mode='execute no gripper', env=simulator_env),
+    'forward':        RuntimeConfig(simulated_no_wall,  disp_and_wash_mode='noop',    incu_mode='noop',    robotarm_mode='execute',            env=forward_env),
+    'dry-wall':       RuntimeConfig(wall_time,          disp_and_wash_mode='noop',    incu_mode='noop',    robotarm_mode='noop',               env=dry_env),
+    'dry-run':        RuntimeConfig(simulated_no_wall,  disp_and_wash_mode='noop',    incu_mode='noop',    robotarm_mode='noop',               env=dry_env),
+    'dry-run-no-log': RuntimeConfig(simulated_no_wall,  disp_and_wash_mode='noop',    incu_mode='noop',    robotarm_mode='noop',               env=dry_env, log_to_file=False),
 }
 
 def curl(url: str, print_result: bool = False) -> Any:
@@ -323,6 +326,7 @@ class Runtime:
     config: RuntimeConfig
     var_values: dict[str, float] = field(default_factory=dict)
     log_filename: str | None = None
+    log_entries: list[dict[str, Any]] = field(default_factory=list)
     wash: Biotek     = field(default_factory=lambda: Biotek('wash'))
     disp: Biotek     = field(default_factory=lambda: Biotek('disp'))
     incu: Incubator  = field(default_factory=lambda: Incubator())
@@ -411,7 +415,7 @@ class Runtime:
         }
         if source == 'checkpoint' and kind == 'end' and duration is not None:
             self.times[str(arg)].append(duration)
-        if 1:
+        if self.log_filename:
             # if 1 or kind == 'end': # and source in {'time', 'wait'}: # not in {'robotarm', 'wait', 'wash_delay', 'disp_delay', 'experiment'}:
             # if source == 'time':
             with self.log_lock:
@@ -437,6 +441,8 @@ class Runtime:
                 with open(self.log_filename, 'a') as fp:
                     json.dump(entry, fp)
                     fp.write('\n')
+        else:
+            self.log_entries.append(entry)
         return t
 
     def timeit(self, source: str, arg: str | int | None = None, metadata: dict[str, Any] = {}) -> ContextManager[None]:
