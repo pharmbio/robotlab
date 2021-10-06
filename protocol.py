@@ -636,7 +636,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig, short_test_
                     IncuFork('get', plate.incu_loc),
                     *RobotarmCmds('incu get', before_pick = [
                         WaitForResource('incu'),
-                        Duration(f'{plate_desc} 37C', opt_weight=1),
+                        Duration(f'{plate_desc} 37C', opt_weight=10),
                     ]),
                     *lid_off,
                 ]
@@ -704,7 +704,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig, short_test_
                 Early(1),
                 WaitForResource('wash'),
                 RobotarmCmd('wash_to_disp transfer'),
-                Duration(f'{plate_desc} transfer {i}', opt_weight=-1),
+                Duration(f'{plate_desc} transfer {i}', opt_weight=-1000),
                 pre_disp_wait,
                 Fork([
                     DispCmd(p.disp[i]),
