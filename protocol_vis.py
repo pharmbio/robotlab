@@ -94,7 +94,7 @@ def index() -> Iterator[Tag | dict[str, str]]:
     with utils.timeit('eventlist'):
         events = protocol.eventlist(batch_sizes=[batch_size], protocol_config=protocol.v3)
     with utils.timeit('runtime'):
-        runtime = protocol.execute_events(configs['dry-run-no-log'], events, {})
+        runtime = protocol.execute_events(configs['dry-run'], events, {}, log_to_file=False)
 
     entries = runtime.log_entries
 
@@ -114,8 +114,6 @@ def index() -> Iterator[Tag | dict[str, str]]:
                 t       = e['t']
                 source  = e['source']
                 arg     = e['arg']
-                if 'idle_cmd' in arg:
-                    source = 'idle'
                 origin  = e.get('origin', '').removeprefix('before ').removeprefix('after ')
                 if origin:
                     origin = origin.strip(' #0123456789')
@@ -127,7 +125,7 @@ def index() -> Iterator[Tag | dict[str, str]]:
                 # continue
             color_map = {
                 'wait': 'color3',
-                'idle': 'color7',
+                'idle': 'color3',
                 'robotarm': 'color4',
                 'wash': 'color6',
                 'disp': 'color5',

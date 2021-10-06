@@ -35,8 +35,6 @@ def optimize(cmds: list[Command]) -> tuple[dict[str, float], dict[int, float]]:
         for c in cmds
         for v in c.vars_of()
     }
-    if not variables:
-        return {}, {}
     ids = Ids()
 
     C: list[
@@ -79,13 +77,13 @@ def optimize(cmds: list[Command]) -> tuple[dict[str, float], dict[int, float]]:
             checkpoints_referenced.add(cmd.name)
             point = checkpoints[cmd.name] # Symbolic.var(cmd.name)
             C.append((cmd.plus_seconds, '>=', 0))
-            if cmd.strict:
-                C.append((point + cmd.plus_seconds, '>=', begin))
-                return point + cmd.plus_seconds
-            else:
+            if cmd.flexible:
                 wait_to = Symbolic.var(ids.next('wait_to'))
                 C.append((wait_to, '== max', point + cmd.plus_seconds, begin))
                 return wait_to
+            else:
+                C.append((point + cmd.plus_seconds, '>=', begin))
+                return point + cmd.plus_seconds
         elif isinstance(cmd, Duration):
             # checkpoint must have happened
             checkpoints_referenced.add(cmd.name)
@@ -138,12 +136,12 @@ def optimize(cmds: list[Command]) -> tuple[dict[str, float], dict[int, float]]:
 
     s: Any = Optimize()
 
-    R = 100
+    R = 2
 
     def to_expr(x: Symbolic | float | int) -> Any:
         x = Symbolic.wrap(x)
         return Sum(
-            round(float(x.offset), 2),
+            round(float(x.offset), R),
             *[Real(v) for v in x.var_names]
             # int(x.offset * R),
             # *[Int(v) for v in x.var_names]
@@ -174,29 +172,26 @@ def optimize(cmds: list[Command]) -> tuple[dict[str, float], dict[int, float]]:
             else:
                 raise ValueError(op)
 
-    # maxi += [(-1, a) for a in vs if 'duration' in a and 'lid off' in a]
-    # maxi += [(10, a) for a in vs if 'duration' in a and 'incubator' in a]
-    # maxi += [(-100, a) for a in vs if 'duration' in a and 'transfer' in a]
-    # maxi += [(-0.1, a) for a in vs if 'duration' in a and 'batch' in a]
-
-    # maxi += [(-1, a) for a in vs if 'duration' in a and 'batch sep' in a]
-
-    # utils.pr(maxi)
-
     # batch_sep = 120 # for v3 jump
     # s.add(Real('batch sep') == batch_sep * 60)
 
-    # maxi = maxi[::-1][:1]
     # maxi = maxi[:1]
 
-    s.maximize(Sum(*[m * to_expr(v) for m, v in maxi]))
+    max_v = Sum(*[m * to_expr(v) for m, v in maxi])
+
+    if isinstance(max_v, (int, float)):
+        pass
+    else:
+        s.maximize(max_v)
 
     for m in maxi:
         print(m)
 
     print(len(C))
 
-    print(s.check())
+    check = str(s.check())
+    print(check)
+    assert check == 'sat'
 
     M = s.model()
 
@@ -206,11 +201,11 @@ def optimize(cmds: list[Command]) -> tuple[dict[str, float], dict[int, float]]:
         if isinstance(e, (float, int)):
             return float(e)
         else:
-            return float(M.eval(e).as_decimal(2).strip('?'))
+            return float(M.eval(e).as_decimal(R).strip('?'))
 
     res = {
         a: get(a)
-        for a in variables
+        for a in sorted(variables)
     }
 
     utils.pr(res)

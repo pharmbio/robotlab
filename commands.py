@@ -46,10 +46,12 @@ class Idle(Command):
         return Symbolic.wrap(self.secs)
 
     def execute(self, runtime: Runtime, metadata: dict[str, Any]) -> None:
+        if self.only_for_scheduling and not runtime.execute_scheduling_idles:
+            return
         seconds = self.seconds.resolve(runtime.var_values)
-        if self.only_for_scheduling:
-            seconds = 0.0
-        with runtime.timeit('wait', str(self), metadata):
+        if seconds == 0.0:
+            return
+        with runtime.timeit('idle', str(self.secs), metadata):
             runtime.sleep(seconds)
 
     def __add__(self, other: float | int | str | Symbolic) -> Idle:
@@ -68,14 +70,13 @@ class Checkpoint(Command):
 class WaitForCheckpoint(Command):
     name: str
     plus_seconds: Symbolic = Symbolic.const(0)
-    strict: bool = False
+    flexible: bool = False
 
     def execute(self, runtime: Runtime, metadata: dict[str, Any]) -> None:
         arg = f'{Symbolic.var(str(self.name)) + self.plus_seconds}'
         with runtime.timeit('wait', arg, metadata):
             t0 = runtime.wait_for_checkpoint(self.name)
             plus_seconds = self.plus_seconds.resolve(runtime.var_values)
-            runtime.log('info', 'wait', f'{plus_seconds=}', metadata)
             desired_point_in_time = t0 + plus_seconds
             delay = desired_point_in_time - runtime.monotonic()
             runtime.log('info', 'wait', f'sleeping for {round(delay, 2)}s', metadata)
@@ -85,7 +86,7 @@ class WaitForCheckpoint(Command):
         return WaitForCheckpoint(
             name=self.name,
             plus_seconds=self.plus_seconds + other,
-            strict=self.strict,
+            flexible=self.flexible,
         )
 
     def vars_of(self) -> set[str]:
@@ -200,14 +201,16 @@ def DispCmd(
 def WashFork(
     protocol_path: str | None,
     sub_cmd: Literal['LHC_RunProtocol', 'LHC_TestCommunications'] = 'LHC_RunProtocol',
+    flexible: bool = False,
 ):
-    return Fork([WashCmd(protocol_path, sub_cmd)], resource='wash')
+    return Fork([WashCmd(protocol_path, sub_cmd)], resource='wash', flexible=flexible)
 
 def DispFork(
     protocol_path: str | None,
     sub_cmd: Literal['LHC_RunProtocol', 'LHC_TestCommunications'] = 'LHC_RunProtocol',
+    flexible: bool = False,
 ):
-    return Fork([DispCmd(protocol_path, sub_cmd)], resource='disp')
+    return Fork([DispCmd(protocol_path, sub_cmd)], resource='disp', flexible=flexible)
 
 @dataclass(frozen=True)
 class IncuCmd(Command):
@@ -225,8 +228,9 @@ class IncuCmd(Command):
 def IncuFork(
     action: Literal['put', 'get', 'get_climate'],
     incu_loc: str | None,
+    flexible: bool = False,
 ):
-    return Fork([IncuCmd(action, incu_loc)], resource='incu')
+    return Fork([IncuCmd(action, incu_loc)], resource='incu', flexible=flexible)
 
 def test_comm(config: RuntimeConfig):
     '''

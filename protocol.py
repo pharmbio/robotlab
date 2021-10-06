@@ -136,45 +136,60 @@ class Steps(Generic[A]):
 
 @dataclass(frozen=True)
 class ProtocolConfig:
-    wash:  Steps[str]
-    prime: Steps[str]
-    disp:  Steps[str]
-    incu:  Steps[int]
+    wash:      Steps[str]
+    prime:     Steps[str]
+    pre_disp:  Steps[str]
+    disp:      Steps[str]
+    post_disp: Steps[str]
+    incu:      Steps[float | Symbolic]
     prep_wash: str | None = None
     prep_disp: str | None = None
 
 v3 = ProtocolConfig(
-    prep_wash='automation_v3/0_W_D_PRIME.LHC',
+    prep_wash='automation_v3.1/0_W_D_PRIME.LHC',
     prep_disp=None,
     wash = Steps(
-        'automation_v3/1_W-1X_beforeMito_leaves20ul.LHC',
-        'automation_v3/3_W-3X_beforeFixation_leaves20ul.LHC',
-        'automation_v3/5_W-3X_beforeTriton.LHC',
-        'automation_v3/7_W-3X_beforeStains.LHC',
-        'automation_v3/9_W-5X_NoFinalAspirate.LHC',
+        'automation_v3.1/1_W-1X_beforeMito_leaves20ul.LHC',
+        'automation_v3.1/3_W-3X_beforeFixation_leaves20ul.LHC',
+        'automation_v3.1/5_W-3X_beforeTriton.LHC',
+        'automation_v3.1/7_W-3X_beforeStains.LHC',
+        'automation_v3.1/9_W-4X_NoFinalAspirate.LHC',
     ),
     prime = Steps(
-        'automation_v3/1_D_P1_MIX_PRIME.LHC',
-        'automation_v3/3_D_SA_PRIME.LHC',
-        'automation_v3/5_D_SB_PRIME.LHC',
-        'automation_v3/7_D_P2_MIX_PRIME.LHC',
+        'automation_v3.1/1_D_P1_MIX_PRIME.LHC',
+        'automation_v3.1/3_D_SA_PRIME.LHC',
+        'automation_v3.1/5_D_SB_PRIME.LHC',
+        'automation_v3.1/7_D_P2_MIX_PRIME.LHC',
+        '',
+    ),
+    pre_disp = Steps(
+        'automation_v3.1/2_D_P1_purge.LHC',
+        '',
+        '',
+        'automation_v3.1/8_D_P2_purge.LHC',
         '',
     ),
     disp = Steps(
-        'automation_v3/2_D_P1_40ul_purge_mito.LHC',
-        'automation_v3/4_D_SA_384_80ul_PFA.LHC',
-        'automation_v3/6_D_SB_384_80ul_TRITON.LHC',
-        'automation_v3/8_D_P2_20ul_purge_stains.LHC',
+        'automation_v3.1/2_D_P1_40ul_mito.LHC',
+        'automation_v3.1/4_D_SA_384_80ul_PFA.LHC',
+        'automation_v3.1/6_D_SB_384_80ul_TRITON.LHC',
+        'automation_v3.1/8_D_P2_20ul_stains.LHC',
+        '',
+    ),
+    post_disp = Steps(
+        '',
+        '',
+        '',
+        '',
         '',
     ),
     incu = Steps(
-        1230 / 60,
-        1200 / 60,
-        1200 / 60,
-        1200 / 60,
-        0
+        1210,
+        1200,
+        1200,
+        1200,
+        0,
     ),
-    # incu = Steps(1250 / 60, 1210 / 60, 1210 / 60, 1210 / 60, 0),
 )
 
 def time_bioteks(config: RuntimeConfig, protocol_config: ProtocolConfig):
@@ -197,18 +212,31 @@ def time_bioteks(config: RuntimeConfig, protocol_config: ProtocolConfig):
        10. hotel A:                 not used
        11. hotel C:                 not used
     '''
-    protocol_config = replace(protocol_config, incu = Steps(0,0,0,0,0))
+    protocol_config = replace(
+        protocol_config,
+        incu=Steps(
+            Symbolic.var('incu 1'),
+            Symbolic.var('incu 2'),
+            Symbolic.var('incu 3'),
+            Symbolic.var('incu 4'),
+            Symbolic.var('incu 5'),
+        )
+    )
     events = eventlist([1], protocol_config=protocol_config, short_test_paint=False, sleek=True)
     events = [
         e
         for e in events
         for c in [e.command]
-        if not isinstance(c, commands.IncuCmd)
-        if not isinstance(c, commands.RobotarmCmd) or any(
+        if not isinstance(c, IncuCmd)
+        if not isinstance(c, Fork) or c.resource != 'incu'
+        if not isinstance(c, WaitForResource) or c.resource != 'incu'
+        if not isinstance(c, Duration) or '37C' not in c.name
+        if not isinstance(c, RobotarmCmd) or any(
             needle in c.program_name
             for needle in ['wash', 'disp']
         )
     ]
+    pr(events)
     ATTENTION(time_bioteks.__doc__ or '')
     execute_events(config, events, metadata={'options': 'time_bioteks'})
 
@@ -227,9 +255,10 @@ def time_arm_incu(config: RuntimeConfig):
         8. robotarm:                in neutral position by B hotel
         9. gripper:                 sufficiently open to grab a plate
     '''
-    N = 4
+    IncuLocs = 16
+    N = 8
     incu: list[Command] = []
-    for loc in incu_locs[:N]:
+    for loc in incu_locs[:IncuLocs]:
         incu += [
             commands.IncuCmd('put', loc),
             commands.IncuCmd('get', loc),
@@ -268,26 +297,14 @@ def time_arm_incu(config: RuntimeConfig):
         *RobotarmCmds('incu put'),
         *RobotarmCmds(plate.rt_get),
     ]
-    with make_runtime(config, {'options': 'time_arm_incu'}) as runtime:
-        ATTENTION(time_arm_incu.__doc__ or '')
-        def execute(name: str, cmds: list[Command]):
-            runtime.register_thread(f'{name} last_main')
-            execute_commands_in_runtime(runtime, cmds)
-            runtime.thread_idle()
-
-        threads = [
-            threading.Thread(target=lambda: execute('incu', incu), daemon=True),
-            threading.Thread(target=lambda: execute('arm', arm), daemon=True),
-        ]
-
-        runtime.thread_idle()
-
-        for t in threads:
-            t.start()
-        for t in threads:
-            t.join()
-
-        execute_commands_in_runtime(runtime, arm2)
+    ATTENTION(time_arm_incu.__doc__ or '')
+    cmds: list[Command] = [
+        Fork(incu, resource='incu'),
+        *arm,
+        WaitForResource('incu'),
+        *arm2,
+    ]
+    execute_commands(config, cmds, metadata={'options': 'time_arm_incu'})
 
 def lid_stress_test(config: RuntimeConfig):
     '''
@@ -407,19 +424,12 @@ class Event:
     subpart: str
     command: commands.Command
 
-    def machine(self) -> str:
-        return self.command.__class__.__name__.rstrip('cmd').strip('_')
-
     def desc(self):
         return {
             'event_plate_id': self.plate_id,
             'event_part': self.part,
             'event_subpart': self.subpart,
-            'event_machine': self.machine(),
         }
-
-def execute_commands_in_runtime(runtime: Runtime, cmds: list[Command]) -> None:
-    execute_events_in_runtime(runtime, [Event('', '', '', cmd) for cmd in cmds])
 
 def execute_events_in_runtime(runtime: Runtime, events: list[Event]) -> None:
     for i, event in enumerate(events):
@@ -441,7 +451,7 @@ def RobotarmCmds(s: str, before_pick: list[Command] = [], after_drop: list[Comma
     ]
 
 def Early(secs: float):
-    return Idle(secs=secs) # , only_for_scheduling=True)
+    return Idle(secs=secs, only_for_scheduling=True)
 
 @dataclass(frozen=True)
 class Interleaving:
@@ -587,22 +597,22 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig, short_test_
             incu_delay: list[Command]
             if part == 'Mito':
                 incu_delay = [
-                    WaitForCheckpoint(f'batch {batch_index}', strict=True) + f'{plate_desc} incu delay {i}'
+                    WaitForCheckpoint(f'batch {batch_index}') + f'{plate_desc} incu delay {i}'
                 ]
             else:
                 incu_delay = [
-                    WaitForCheckpoint(f'{plate_desc} active {i-1}', strict=True) + f'{plate_desc} incu delay {i}'
+                    WaitForCheckpoint(f'{plate_desc} active {i-1}') + f'{plate_desc} incu delay {i}'
                 ]
 
             wash_delay: list[Command]
             if part == 'Mito':
                 wash_delay = [
-                    WaitForCheckpoint(f'batch {batch_index}', strict=True) + f'{plate_desc} wash delay'
+                    WaitForCheckpoint(f'batch {batch_index}') + f'{plate_desc} first wash delay'
                 ]
             else:
                 wash_delay = [
                     Early(2),
-                    WaitForCheckpoint(f'{plate_desc} active {i-1}', strict=True) + (p.incu[i-1] * 60)
+                    WaitForCheckpoint(f'{plate_desc} active {i-1}') + p.incu[i-1]
                 ]
 
             lid_off = [
@@ -656,13 +666,18 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig, short_test_
                     *RobotarmCmds(plate.rt_put),
                 ]
 
-            pre_disp = Fork([
-                WaitForCheckpoint(f'{plate_desc} pre disp {i}'),
-                Idle() + f'{plate_desc} pre disp {i} delay',
-                DispCmd(p.disp.Stains),
-                Early(2),
-                Checkpoint(f'{plate_desc} pre disp {i} done'),
-            ], resource='disp', flexible=True)
+            if p.pre_disp[i]:
+                pre_disp = Fork([
+                    WaitForCheckpoint(f'{plate_desc} pre disp {i}', flexible=True),
+                    Idle() + f'{plate_desc} pre disp {i} delay',
+                    DispCmd(p.pre_disp[i]),
+                    Early(3),
+                    Checkpoint(f'{plate_desc} pre disp done {i}'),
+                ], resource='disp', flexible=True)
+                pre_disp_wait = Duration(f'{plate_desc} pre disp done {i}', opt_weight=-1)
+            else:
+                pre_disp = Idle()
+                pre_disp_wait = Idle()
 
             wash = [
                 RobotarmCmd('wash put prep'),
@@ -690,21 +705,19 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig, short_test_
                 WaitForResource('wash'),
                 RobotarmCmd('wash_to_disp transfer'),
                 Duration(f'{plate_desc} transfer {i}', opt_weight=-1),
-                Duration(f'{plate_desc} pre disp {i} done', opt_weight=-1),
+                pre_disp_wait,
                 Fork([
                     DispCmd(p.disp[i]),
                     Checkpoint(f'{plate_desc} disp {i} done'),
                     Checkpoint(f'{plate_desc} active {i}'),
                 ], resource='disp'),
-                Fork([
-                    DispCmd(p.disp.Stains),
-                ], resource='disp', flexible=True),
+                DispFork(p.post_disp[i], flexible=True) if p.post_disp[i] else Idle(),
                 RobotarmCmd('wash_to_disp return'),
             ]
 
             disp_to_B21 = [
                 RobotarmCmd('disp get prep'),
-                WaitForCheckpoint(f'{plate_desc} disp {i} done'),
+                WaitForCheckpoint(f'{plate_desc} disp {i} done', flexible=True),
                 # WaitForResource('disp'),
                 # Duration(f'{plate_desc} disp {i} done', opt_weight=0.0),
                 # DispFork(p.disp.Stains),
@@ -934,19 +947,21 @@ def cell_paint(config: RuntimeConfig, protocol_config: ProtocolConfig, *, batch_
         ''')
 
     runtime = execute_events(config, events, metadata)
-    for k, v in sorted(runtime.times.items(), key=lambda s: ' '.join(s[0].split(' ')[2:] + s[0].split(' ')[:2])):
-        print(k, v)
+    times = runtime.times
+    groups = utils.group_by(list(times.items()), key=lambda s: s[0].rstrip(' 0123456789'))
+    for k, vs in sorted(groups.items(), key=lambda s: ' '.join(s[0].split(' ')[2:] + s[0].split(' ')[:2])):
+        print(k, [v for _, [v] in vs])
 
 import contextlib
 
 @contextlib.contextmanager
-def make_runtime(config: RuntimeConfig, metadata: dict[str, str]) -> Iterator[Runtime]:
+def make_runtime(config: RuntimeConfig, metadata: dict[str, str], *, log_to_file: bool=True, execute_scheduling_idles: bool=False) -> Iterator[Runtime]:
     metadata = {
         'start_time': str(datetime.now()).split('.')[0],
         **metadata,
         'config_name': config.name(),
     }
-    if config.log_to_file:
+    if log_to_file:
         log_filename = ' '.join(['event log', *metadata.values()])
         log_filename = 'logs/' + log_filename.replace(' ', '_') + '.jsonl'
         os.makedirs('logs/', exist_ok=True)
@@ -955,7 +970,7 @@ def make_runtime(config: RuntimeConfig, metadata: dict[str, str]) -> Iterator[Ru
     else:
         log_filename = None
 
-    runtime = Runtime(config=config, log_filename=log_filename)
+    runtime = Runtime(config=config, log_filename=log_filename, execute_scheduling_idles=execute_scheduling_idles)
     # pr(commands.Estimates)
 
     metadata['git_HEAD'] = utils.git_HEAD() or ''
@@ -966,16 +981,16 @@ def make_runtime(config: RuntimeConfig, metadata: dict[str, str]) -> Iterator[Ru
 
 import constraints
 
-def execute_events(config: RuntimeConfig, events: list[Event], metadata: dict[str, str]) -> Runtime:
+def execute_events(config: RuntimeConfig, events: list[Event], metadata: dict[str, str], log_to_file: bool = True) -> Runtime:
     with utils.timeit('constraints'):
         d, ends = constraints.optimize([e.command for e in events])
 
-    with make_runtime(config, metadata) as runtime:
+    with make_runtime(config, metadata, log_to_file=log_to_file) as runtime:
         runtime.var_values.update(d)
         execute_events_in_runtime(runtime, events)
         ret = runtime
 
-    with make_runtime(configs['dry-run-no-log'], {}) as runtime:
+    with make_runtime(configs['dry-run'], {}, log_to_file=False, execute_scheduling_idles=True) as runtime:
         runtime.var_values.update(d)
         execute_events_in_runtime(runtime, events)
         entries = runtime.log_entries
@@ -999,4 +1014,7 @@ def execute_events(config: RuntimeConfig, events: list[Event], metadata: dict[st
     utils.pr(d)
 
     return runtime
+
+def execute_commands(config: RuntimeConfig, cmds: list[Command], metadata: dict[str, Any]={}) -> None:
+    execute_events(config, [Event('', '', '', cmd) for cmd in cmds], metadata=metadata)
 

@@ -90,10 +90,11 @@ class SimulatedTime(Timelike):
         out: list[str] = [f' {self.monotonic():.2f}']
         for v in list(self.threads.values()):
             out += [
-                f'{v.name}: {v.state} to {v.sleep_until:.1f}'
+                f'{v.name}: {v.state} to {v.sleep_until:.2f}'
                 if v.sleep_until != float('inf') else
                 f'{v.name}: {v.state}'
             ]
+        out += [f'{self.pending_spawns=}']
         print(' | '.join(out))
 
     def monotonic(self):
@@ -168,6 +169,8 @@ class SimulatedTime(Timelike):
             thread_data.sleep_until = self.monotonic() + seconds
             self.wake_up()
 
+        self.log()
+
         if self.include_wall_time:
             def wait():
                 time.sleep(seconds)
@@ -186,8 +189,8 @@ class SimulatedTime(Timelike):
 
     def wake_up(self):
         assert self.lock.locked()
-        if self.pending_spawns > 0:
-            return
+        # if self.pending_spawns > 0:
+            # return
         # Wake up next thread if all are sleeping or blocked
         self.log()
         states = {v.state for v in self.threads.values()}
@@ -212,7 +215,7 @@ class SimulatedTime(Timelike):
                 now += skip_time
             # print(f'... {now} | {skip_time=}')
         for v in self.threads.values():
-            if now >= v.sleep_until:
+            if v.sleep_until - now < 1e-4:
                 v.state = 'busy'
                 v.sleep_until = float('inf')
                 v.inbox.put_nowait(None)

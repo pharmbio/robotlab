@@ -61,8 +61,6 @@ class RuntimeConfig:
 
     env: Env
 
-    log_to_file: bool = True
-
     def name(self) -> str:
         for k, v in configs.items():
             if v is self:
@@ -78,11 +76,9 @@ configs = {
     'live':           RuntimeConfig(wall_time,          disp_and_wash_mode='execute', incu_mode='execute', robotarm_mode='execute',            env=live_env),
     'test-all':       RuntimeConfig(simulated_and_wall, disp_and_wash_mode='execute', incu_mode='execute', robotarm_mode='execute',            env=live_env),
     'test-arm-incu':  RuntimeConfig(simulated_and_wall, disp_and_wash_mode='noop',    incu_mode='execute', robotarm_mode='execute',            env=live_arm_incu),
-    'simulator':      RuntimeConfig(simulated_and_wall, disp_and_wash_mode='noop',    incu_mode='noop',    robotarm_mode='execute no gripper', env=simulator_env),
+    'simulator':      RuntimeConfig(simulated_no_wall, disp_and_wash_mode='noop',    incu_mode='noop',    robotarm_mode='execute no gripper', env=simulator_env),
     'forward':        RuntimeConfig(simulated_no_wall,  disp_and_wash_mode='noop',    incu_mode='noop',    robotarm_mode='execute',            env=forward_env),
-    'dry-wall':       RuntimeConfig(wall_time,          disp_and_wash_mode='noop',    incu_mode='noop',    robotarm_mode='noop',               env=dry_env),
     'dry-run':        RuntimeConfig(simulated_no_wall,  disp_and_wash_mode='noop',    incu_mode='noop',    robotarm_mode='noop',               env=dry_env),
-    'dry-run-no-log': RuntimeConfig(simulated_no_wall,  disp_and_wash_mode='noop',    incu_mode='noop',    robotarm_mode='noop',               env=dry_env, log_to_file=False),
 }
 
 def curl(url: str, print_result: bool = False) -> Any:
@@ -93,6 +89,12 @@ def curl(url: str, print_result: bool = False) -> Any:
     if 'is_ready' not in url:
         print_result and print('curl', url, '=', utils.show(res))
     return res
+
+def unfilename(s: str) -> str:
+    if s.endswith('.LHC'):
+        return s.split('/')[-1]
+    else:
+        return s
 
 def get_robotarm(config: RuntimeConfig, quiet: bool = False) -> Robotarm:
     if config.robotarm_mode == 'noop':
@@ -107,6 +109,7 @@ A = TypeVar('A')
 class Runtime:
     config: RuntimeConfig
     var_values: dict[str, float] = field(default_factory=dict)
+    execute_scheduling_idles: bool = False
     log_filename: str | None = None
     log_entries: list[dict[str, Any]] = field(default_factory=list)
     log_lock: RLock  = field(default_factory=RLock)
@@ -203,7 +206,7 @@ class Runtime:
                 print(' | '.join(
                     ' ' * 8
                     if v is None else
-                    f'{str(v).removeprefix("automation_v3/"): <64}'
+                    f'{unfilename(str(v)): <50}'
                     if k == 'arg' else
                     f'{str(v): <10}'
                     if k == 'source' else
@@ -212,7 +215,7 @@ class Runtime:
                     f'{str(v): <8}'
 
                     for k, v in entry.items()
-                    if k not in {'log_time', 't0', 'event_machine', 'event_id'}
+                    if k not in {'log_time', 't0', 'event_id'}
                     if (v is not None and v != '') or k in 'duration'
                 ))
         if 0:
