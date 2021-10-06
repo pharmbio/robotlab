@@ -11,28 +11,36 @@ import os
 import platform
 import protocol
 import re
-import textwrap
 import sys
+import textwrap
+import threading
 import traceback
 
+from commands import (
+    Command,
+    Fork,
+    Checkpoint,
+    Duration,
+    Idle,
+    WashCmd,
+    DispCmd,
+    IncuCmd,
+    WashFork,
+    DispFork,
+    IncuFork,
+    RobotarmCmd,
+    WaitForCheckpoint,
+    WaitForResource,
+)
 from moves import movelists
-from robots import RuntimeConfig, Command, Runtime
-from robots import wait_for_ready_cmd
-from utils import pr, show, Mutable
-import robots
-import utils
+from runtime import RuntimeConfig, Runtime, configs
+import commands
 import moves
-import threading
 
-if 0:
-    'wash -> disp'
-    'disp -> A21'
-    'wash -> B21'
-    'lid B21 -> B21'
+from utils import pr, show, Mutable
+import utils
 
-    'B21 -> incu, prep'
-    'B21 -> incu, transfer'
-    'B21 -> incu, return'
+from symbolic import Symbolic
 
 def ATTENTION(s: str):
     color = utils.Color()
@@ -195,8 +203,8 @@ def time_bioteks(config: RuntimeConfig, protocol_config: ProtocolConfig):
         e
         for e in events
         for c in [e.command]
-        if not isinstance(c, robots.incu_cmd)
-        if not isinstance(c, robots.robotarm_cmd) or any(
+        if not isinstance(c, commands.IncuCmd)
+        if not isinstance(c, commands.RobotarmCmd) or any(
             needle in c.program_name
             for needle in ['wash', 'disp']
         )
@@ -223,44 +231,42 @@ def time_arm_incu(config: RuntimeConfig):
     incu: list[Command] = []
     for loc in incu_locs[:N]:
         incu += [
-            robots.incu_cmd('put', loc),
-            robots.wait_for_ready_cmd('incu'),
-            robots.incu_cmd('get', loc),
-            robots.wait_for_ready_cmd('incu'),
+            commands.IncuCmd('put', loc),
+            commands.IncuCmd('get', loc),
         ]
     arm: list[Command] = []
     plate = Plate('', '', '', '', '', 1)
     for lid_loc in lid_locs[:N]:
         plate = replace(plate, lid_loc=lid_loc)
         arm += [
-            *robotarm_cmds(plate.lid_put),
-            *robotarm_cmds(plate.lid_get),
+            *RobotarmCmds(plate.lid_put),
+            *RobotarmCmds(plate.lid_get),
         ]
     for rt_loc in rt_locs[:N]:
         plate = replace(plate, rt_loc=rt_loc)
         arm += [
-            *robotarm_cmds(plate.rt_put),
-            *robotarm_cmds(plate.rt_get),
+            *RobotarmCmds(plate.rt_put),
+            *RobotarmCmds(plate.rt_get),
         ]
     for out_loc in out_locs[:N]:
         plate = replace(plate, out_loc=out_loc)
         arm += [
-            *robotarm_cmds(plate.out_put),
-            *robotarm_cmds(plate.out_get),
+            *RobotarmCmds(plate.out_put),
+            *RobotarmCmds(plate.out_get),
         ]
     plate = replace(plate, lid_loc=lid_locs[0], rt_loc=rt_locs[0])
     arm2: list[Command] = [
-        *robotarm_cmds(plate.rt_put),
-        *robotarm_cmds('incu get'),
-        *robotarm_cmds(plate.lid_put),
-        *robotarm_cmds('wash put'),
-        *robotarm_cmds('wash_to_disp'),
-        *robotarm_cmds('disp get'),
-        *robotarm_cmds('wash put'),
-        *robotarm_cmds('wash get'),
-        *robotarm_cmds(plate.lid_get),
-        *robotarm_cmds('incu put'),
-        *robotarm_cmds(plate.rt_get),
+        *RobotarmCmds(plate.rt_put),
+        *RobotarmCmds('incu get'),
+        *RobotarmCmds(plate.lid_put),
+        *RobotarmCmds('wash put'),
+        *RobotarmCmds('wash_to_disp'),
+        *RobotarmCmds('disp get'),
+        *RobotarmCmds('wash put'),
+        *RobotarmCmds('wash get'),
+        *RobotarmCmds(plate.lid_get),
+        *RobotarmCmds('incu put'),
+        *RobotarmCmds(plate.rt_get),
     ]
     with make_runtime(config, {'options': 'time_arm_incu'}) as runtime:
         ATTENTION(time_arm_incu.__doc__ or '')
@@ -299,14 +305,14 @@ def lid_stress_test(config: RuntimeConfig):
     for i, (lid, A, C) in enumerate(zip(lid_locs, A_locs, C_locs)):
         p = Plate('p', incu_loc='', rt_loc=C, lid_loc=lid, out_loc=A, batch_index=1)
         commands: list[Command] = [
-            *robotarm_cmds(p.lid_put),
-            *robotarm_cmds(p.lid_get),
-            *robotarm_cmds(p.rt_put),
-            *robotarm_cmds(p.rt_get),
-            *robotarm_cmds(p.lid_put),
-            *robotarm_cmds(p.lid_get),
-            *robotarm_cmds(p.out_put),
-            *robotarm_cmds(p.out_get),
+            *RobotarmCmds(p.lid_put),
+            *RobotarmCmds(p.lid_get),
+            *RobotarmCmds(p.rt_put),
+            *RobotarmCmds(p.rt_get),
+            *RobotarmCmds(p.lid_put),
+            *RobotarmCmds(p.lid_get),
+            *RobotarmCmds(p.out_put),
+            *RobotarmCmds(p.out_get),
         ]
         events += [
             Event(p.id, str(i), '', cmd)
@@ -341,22 +347,22 @@ def load_incu(config: RuntimeConfig, num_plates: int):
         )
         assert p.out_loc.startswith('out')
         pos = p.out_loc.removeprefix('out')
-        commands = [
-            robots.robotarm_cmd(f'incu_A{pos} put prep'),
-            robots.robotarm_cmd(f'incu_A{pos} put transfer to drop neu'),
-            robots.wait_for_ready_cmd('incu'),
-            robots.robotarm_cmd(f'incu_A{pos} put transfer from drop neu'),
-            robots.incu_cmd('put', p.incu_loc),
-            robots.robotarm_cmd(f'incu_A{pos} put return'),
+        cmds = [
+            RobotarmCmd(f'incu_A{pos} put prep'),
+            RobotarmCmd(f'incu_A{pos} put transfer to drop neu'),
+            WaitForResource('incu'),
+            RobotarmCmd(f'incu_A{pos} put transfer from drop neu'),
+            IncuFork('put', p.incu_loc),
+            RobotarmCmd(f'incu_A{pos} put return'),
         ]
         events += [
             Event(p.id, 'incu load', '', cmd)
-            for cmd in commands
+            for cmd in cmds
         ]
     events = [
-        Event('', 'load incu', 'prep', robots.robotarm_cmd('incu_A21 put-prep')),
+        Event('', 'load incu', 'prep', RobotarmCmd('incu_A21 put-prep')),
         *events,
-        Event('', 'load incu', 'return', robots.robotarm_cmd('incu_A21 put-return'))
+        Event('', 'load incu', 'return', RobotarmCmd('incu_A21 put-return'))
     ]
     ATTENTION(load_incu.__doc__ or '')
     execute_events(config, events, {'options': 'load_incu'})
@@ -377,17 +383,16 @@ def unload_incu(config: RuntimeConfig, num_plates: int):
     for p in plates:
         assert p.out_loc.startswith('out')
         pos = p.out_loc.removeprefix('out')
-        commands = [
-            robots.wait_for_ready_cmd('incu'),
-            robots.incu_cmd('get', p.incu_loc),
-            robots.robotarm_cmd(f'incu_A{pos} get prep'),
-            robots.wait_for_ready_cmd('incu'),
-            robots.robotarm_cmd(f'incu_A{pos} get transfer'),
-            robots.robotarm_cmd(f'incu_A{pos} get return'),
+        cmds = [
+            IncuFork('put', p.incu_loc),
+            RobotarmCmd(f'incu_A{pos} get prep'),
+            WaitForResource('incu'),
+            RobotarmCmd(f'incu_A{pos} get transfer'),
+            RobotarmCmd(f'incu_A{pos} get return'),
         ]
         events += [
             Event(p.id, 'unload', '', cmd)
-            for cmd in commands
+            for cmd in cmds
         ]
     events = [
         *events,
@@ -400,7 +405,7 @@ class Event:
     plate_id: str
     part: str
     subpart: str
-    command: robots.Command
+    command: commands.Command
 
     def machine(self) -> str:
         return self.command.__class__.__name__.rstrip('cmd').strip('_')
@@ -417,24 +422,26 @@ def execute_commands_in_runtime(runtime: Runtime, cmds: list[Command]) -> None:
     execute_events_in_runtime(runtime, [Event('', '', '', cmd) for cmd in cmds])
 
 def execute_events_in_runtime(runtime: Runtime, events: list[Event]) -> None:
-    for i, event in enumerate(events, start=1):
-        # print(f'=== event {i}/{len(events)} | {" | ".join(event.desc().values())} ===')
+    for i, event in enumerate(events):
         metadata: dict[str, str | int] = {
-            'event_id': i,
+            'event_index': i,
             **event.desc(),
         }
         event.command.execute(runtime, metadata)
 
 Desc = tuple[Plate, str, str]
 
-def robotarm_cmds(s: str, before_pick: list[robots.Command] = [], after_drop: list[robots.Command] = []) -> list[robots.Command]:
+def RobotarmCmds(s: str, before_pick: list[Command] = [], after_drop: list[Command] = []) -> list[Command]:
     return [
-        robots.robotarm_cmd(s + ' prep'),
+        commands.RobotarmCmd(s + ' prep'),
         *before_pick,
-        robots.robotarm_cmd(s + ' transfer'),
+        commands.RobotarmCmd(s + ' transfer'),
         *after_drop,
-        robots.robotarm_cmd(s + ' return'),
+        commands.RobotarmCmd(s + ' return'),
     ]
+
+def Early(secs: float):
+    return Idle(secs=secs) # , only_for_scheduling=True)
 
 @dataclass(frozen=True)
 class Interleaving:
@@ -545,203 +552,179 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig, short_test_
 
     p = protocol_config
 
-    if p.prep_wash and p.prep_disp:
-        prep_cmds: list[Command] = [
-            robots.wash_cmd(p.prep_wash),
-            robots.disp_cmd(p.prep_disp, before=[robots.idle_cmd() + 5]),
-            robots.wait_for_ready_cmd('disp'),
-            robots.wait_for_ready_cmd('wash'),
-        ]
-    elif p.prep_wash and not p.prep_disp:
-        prep_cmds: list[Command] = [
-            robots.wash_cmd(p.prep_wash),
-            robots.wait_for_ready_cmd('wash'),
-        ]
-    elif not p.prep_wash and p.prep_disp:
-        prep_cmds: list[Command] = [
-            robots.disp_cmd(p.prep_disp),
-            robots.wait_for_ready_cmd('disp'),
-        ]
-    elif not p.prep_wash and not p.prep_disp:
-        prep_cmds: list[Command] = []
-    else:
-        assert False
+    prep_wash = WashFork(p.prep_wash) if p.prep_wash else Idle()
+    prep_disp = Fork([Idle(secs=5), DispCmd(p.prep_disp)], resource='disp') if p.prep_disp else Idle()
+    prep_cmds: list[Command] = [
+        prep_wash,
+        prep_disp,
+        WaitForResource('wash'),
+        WaitForResource('disp'),
+    ]
 
     first_plate = batch[0]
     last_plate = batch[-1]
-    first_batch = first_plate.batch_index == 0
+    batch_index = first_plate.batch_index
+    first_batch = batch_index == 0
 
     if not first_batch:
         prep_cmds += [
-            robots.wait_for_checkpoint_cmd('batch start', or_now=True) + Symbolic.var('batch sep'),
+            WaitForCheckpoint(f'batch {batch_index-1}') + Symbolic.var('batch sep'),
         ]
 
     prep_cmds += [
-        robots.checkpoint_cmd('info', 'batch start'),
-        robots.checkpoint_cmd('begin', 'batch'),
+        Checkpoint(f'batch {batch_index}'),
     ]
 
     post_cmds = [
-        robots.checkpoint_cmd('end', 'batch'),
+        Duration(f'batch {batch_index}', opt_weight=-1),
     ]
 
+    parts: list[str] = ['Mito', 'PFA', 'Triton', 'Stains', 'Final']
     chunks: dict[Desc, Iterable[Command]] = {}
-    for i, plate in enumerate(batch):
-        lid_on = [
-            *robotarm_cmds(plate.lid_get, after_drop=[robots.checkpoint_cmd('begin', f'plate {plate.id} lid on')]),
-        ]
-
-        lid_off = [
-            *robotarm_cmds(plate.lid_put, before_pick=[robots.checkpoint_cmd('end', f'plate {plate.id} lid on', strict=False)]),
-        ]
-
-        incu_get = [
-            robots.incu_cmd('get', plate.incu_loc,
-                after=[robots.checkpoint_cmd('end', f'plate {plate.id} incubator', strict=False)]),
-            *robotarm_cmds('incu get',
-                before_pick = [robots.wait_for_ready_cmd('incu')]),
-            *lid_off,
-        ]
-
-        B21_to_incu = [
-            *robotarm_cmds('incu put',
-                after_drop = [
-                    robots.incu_cmd('put', plate.incu_loc,
-                        after=[robots.checkpoint_cmd('begin', f'plate {plate.id} incubator')])]),
-            robots.wait_for_ready_cmd('incu'),
-                # todo: this is required by 'lin' ilv but makes 'mix' w->d transfer worse
-        ]
-
-        incu_put = [
-            *lid_on,
-            *B21_to_incu,
-        ]
-
-        RT_get = [
-            *robotarm_cmds(plate.rt_get),
-            *lid_off,
-        ]
-
-        RT_put = [
-            *lid_on,
-            *robotarm_cmds(plate.rt_put),
-        ]
-
-        B21_to_RT = [
-            *robotarm_cmds(plate.rt_put),
-        ]
-
-        def wash(wash_wait: list[robots.wait_for_checkpoint_cmd], wash_path: str, disp_prime_path: str | None=None):
-            if plate is first_plate and disp_prime_path is not None:
-                disp_prime = [robots.disp_cmd(disp_prime_path, before=[robots.idle_cmd() + 5])]
+    for plate in batch:
+        for i, part in enumerate(parts, start=1):
+            plate_desc = f'plate {plate.id}'
+            incu_delay: list[Command]
+            if part == 'Mito':
+                incu_delay = [
+                    WaitForCheckpoint(f'batch {batch_index}', strict=True) + f'{plate_desc} incu delay {i}'
+                ]
             else:
-                disp_prime = []
-            return [
-                robots.robotarm_cmd('wash put prep'),
-                robots.robotarm_cmd('wash put transfer'),
-                robots.wash_cmd(
-                    wash_path,
-                    before=[*wash_wait, robots.checkpoint_cmd('end', f'plate {plate.id} active', strict=False)],
-                    after=[robots.checkpoint_cmd('begin', f'plate {plate.id} transfer')],
-                ),
-                *disp_prime,
-                robots.robotarm_cmd('wash put return'),
+                incu_delay = [
+                    WaitForCheckpoint(f'{plate_desc} active {i-1}', strict=True) + f'{plate_desc} incu delay {i}'
+                ]
+
+            wash_delay: list[Command]
+            if part == 'Mito':
+                wash_delay = [
+                    WaitForCheckpoint(f'batch {batch_index}', strict=True) + f'{plate_desc} wash delay'
+                ]
+            else:
+                wash_delay = [
+                    Early(2),
+                    WaitForCheckpoint(f'{plate_desc} active {i-1}', strict=True) + (p.incu[i-1] * 60)
+                ]
+
+            lid_off = [
+                *RobotarmCmds(plate.lid_put, before_pick=[Checkpoint(f'{plate_desc} lid off {i}')]),
             ]
 
-        def disp(disp_path: str):
-            return [
-                robots.robotarm_cmd('wash_to_disp prep'),
-                robots.wait_for_ready_cmd('wash'),
-                robots.robotarm_cmd('wash_to_disp transfer'),
-                robots.wait_for_ready_cmd('disp'),  # ensure dispenser priming is done
-                robots.disp_cmd(
-                    disp_path,
-                    before=[robots.checkpoint_cmd('end', f'plate {plate.id} transfer')],
-                    after=[
-                        robots.checkpoint_cmd('begin', f'plate {plate.id} disp done'),
-                        robots.checkpoint_cmd('begin', f'plate {plate.id} active')
-                    ],
-                ),
-                robots.robotarm_cmd('wash_to_disp return'),
+            lid_on = [
+                *RobotarmCmds(plate.lid_get, after_drop=[Duration(f'{plate_desc} lid off {i}', opt_weight=-1)]),
             ]
 
-        disp_to_incu = [
-            robots.robotarm_cmd('disp get prep'),
-            robots.wait_for_ready_cmd('disp'),
-            robots.checkpoint_cmd('end', f'plate {plate.id} disp done'),
-            robots.robotarm_cmd('disp get transfer'),
-            robots.robotarm_cmd('disp get return'),
-            *incu_put,
-        ]
+            if part == 'Mito':
+                incu_get = [
+                    IncuFork('get', plate.incu_loc),
+                    *RobotarmCmds('incu get', before_pick = [
+                        WaitForResource('incu'),
+                    ]),
+                    *lid_off,
+                ]
+            elif part == 'PFA':
+                incu_get = [
+                    IncuFork('get', plate.incu_loc),
+                    *RobotarmCmds('incu get', before_pick = [
+                        WaitForResource('incu'),
+                        Duration(f'{plate_desc} 37C', opt_weight=1),
+                    ]),
+                    *lid_off,
+                ]
+            else:
+                incu_get = [
+                    *RobotarmCmds(plate.rt_get),
+                    *lid_off,
+                ]
 
-        disp_to_B21 = [
-            robots.robotarm_cmd('disp get prep'),
-            robots.wait_for_ready_cmd('disp'),
-            robots.checkpoint_cmd('end', f'plate {plate.id} disp done'),
-            robots.robotarm_cmd('disp get transfer'),
-            robots.robotarm_cmd('disp get return'),
-            *lid_on,
-        ]
+            if part == 'Mito':
+                B21_to_incu = [
+                    *RobotarmCmds('incu put',
+                        before_pick = [
+                            WaitForResource('incu'),
+                        ],
+                        after_drop = [
+                            Fork([
+                                IncuCmd('put', plate.incu_loc),
+                                Checkpoint(f'{plate_desc} 37C'),
+                            ], resource='incu')
+                        ]
+                    ),
+                    # WaitForResource('incu'),
+                ]
+            else:
+                B21_to_incu = [
+                    *RobotarmCmds(plate.rt_put),
+                ]
 
-        disp_to_RT = [
-            robots.robotarm_cmd('disp get prep'),
-            robots.wait_for_ready_cmd('disp'),
-            robots.checkpoint_cmd('end', f'plate {plate.id} disp done'),
-            robots.robotarm_cmd('disp get transfer'),
-            robots.robotarm_cmd('disp get return'),
-            *RT_put,
-        ]
+            pre_disp = Fork([
+                WaitForCheckpoint(f'{plate_desc} pre disp {i}'),
+                Idle() + f'{plate_desc} pre disp {i} delay',
+                DispCmd(p.disp.Stains),
+                Early(2),
+                Checkpoint(f'{plate_desc} pre disp {i} done'),
+            ], resource='disp', flexible=True)
 
-        var = robots.Symbolic.var
+            wash = [
+                RobotarmCmd('wash put prep'),
+                RobotarmCmd('wash put transfer'),
+                # WaitForResource('wash'),
+                Fork([
+                    *wash_delay,
+                    Duration(f'{plate_desc} active {i-1}') if i-1 else Idle(),
+                    Checkpoint(f'{plate_desc} pre disp {i}'),
+                    WashCmd(p.wash[i]),
+                    Checkpoint(f'{plate_desc} transfer {i}'),
+                ], resource='wash'),
+                pre_disp,
+                RobotarmCmd('wash put return'),
+            ]
 
-        wait_before_incu_get: dict[int, list[robots.wait_for_checkpoint_cmd]] = {
-            1: [robots.wait_for_checkpoint_cmd(f'batch')                   + var(f'plate {plate.id} incu get delay 1')],
-            2: [robots.wait_for_checkpoint_cmd(f'plate {plate.id} active') + var(f'plate {plate.id} incu get delay 2')],
-            3: [robots.wait_for_checkpoint_cmd(f'plate {plate.id} active') + var(f'plate {plate.id} incu get delay 3')],
-            4: [robots.wait_for_checkpoint_cmd(f'plate {plate.id} active') + var(f'plate {plate.id} incu get delay 4')],
-            5: [robots.wait_for_checkpoint_cmd(f'plate {plate.id} active') + var(f'plate {plate.id} incu get delay 5')],
-        }
+            if p.prime[i] and plate is first_plate:
+                disp_prime = DispFork(p.prime[i])
+            else:
+                disp_prime = Idle()
 
-        wait_before_wash_start: dict[int, list[robots.wait_for_checkpoint_cmd]] = {
-            1: [robots.wait_for_checkpoint_cmd(f'batch')                                + var(f'plate {plate.id} first wash delay')],
-            2: [robots.wait_for_checkpoint_cmd(f'plate {plate.id} active', strict=True) + (p.incu[1] * 60 - d) for d in [2,0]], # be there 2s early
-            3: [robots.wait_for_checkpoint_cmd(f'plate {plate.id} active', strict=True) + (p.incu[2] * 60 - d) for d in [2,0]], # be there 2s early
-            4: [robots.wait_for_checkpoint_cmd(f'plate {plate.id} active', strict=True) + (p.incu[3] * 60 - d) for d in [2,0]], # be there 2s early
-            5: [robots.wait_for_checkpoint_cmd(f'plate {plate.id} active', strict=True) + (p.incu[4] * 60 - d) for d in [2,0]], # be there 2s early
-        }
+            disp = [
+                RobotarmCmd('wash_to_disp prep'),
+                Early(1),
+                WaitForResource('wash'),
+                RobotarmCmd('wash_to_disp transfer'),
+                Duration(f'{plate_desc} transfer {i}', opt_weight=-1),
+                Duration(f'{plate_desc} pre disp {i} done', opt_weight=-1),
+                Fork([
+                    DispCmd(p.disp[i]),
+                    Checkpoint(f'{plate_desc} disp {i} done'),
+                    Checkpoint(f'{plate_desc} active {i}'),
+                ], resource='disp'),
+                Fork([
+                    DispCmd(p.disp.Stains),
+                ], resource='disp', flexible=True),
+                RobotarmCmd('wash_to_disp return'),
+            ]
 
-        parts = chunks
+            disp_to_B21 = [
+                RobotarmCmd('disp get prep'),
+                WaitForCheckpoint(f'{plate_desc} disp {i} done'),
+                # WaitForResource('disp'),
+                # Duration(f'{plate_desc} disp {i} done', opt_weight=0.0),
+                # DispFork(p.disp.Stains),
+                RobotarmCmd('disp get transfer'),
+                RobotarmCmd('disp get return'),
+                *lid_on,
+            ]
 
-        parts[plate, 'Mito',   'incu -> B21' ] = [*wait_before_incu_get[1], *incu_get]
-        parts[plate, 'Mito',    'B21 -> wash'] = wash(wait_before_wash_start[1], p.wash[1], p.prime[1])
-        parts[plate, 'Mito',   'wash -> disp'] = disp(p.disp[1])
-        parts[plate, 'Mito',   'disp -> B21' ] = disp_to_B21
-        parts[plate, 'Mito',    'B21 -> incu'] = B21_to_incu
+            if part != 'Final':
+                chunks[plate, part, 'incu -> B21' ] = [*incu_delay, disp_prime, *incu_get]
+                chunks[plate, part,  'B21 -> wash'] = wash
+                chunks[plate, part, 'wash -> disp'] = disp
+                chunks[plate, part, 'disp -> B21' ] = disp_to_B21
+                chunks[plate, part,  'B21 -> incu'] = B21_to_incu
+            else:
+                chunks[plate, 'Final', 'incu -> B21' ] = [*incu_delay, *incu_get]
+                chunks[plate, 'Final',  'B21 -> wash'] = wash
+                chunks[plate, 'Final', 'wash -> B21' ] = RobotarmCmds('wash get', before_pick=[WaitForResource('wash')])
+                chunks[plate, 'Final',  'B21 -> out' ] = [*lid_on, *RobotarmCmds(plate.out_put)]
 
-        parts[plate, 'PFA',    'incu -> B21' ] = [*wait_before_incu_get[2], *incu_get]
-        parts[plate, 'PFA',     'B21 -> wash'] = wash(wait_before_wash_start[2], p.wash[2], p.prime[2])
-        parts[plate, 'PFA',    'wash -> disp'] = disp(p.disp[2])
-        parts[plate, 'PFA',    'disp -> B21' ] = disp_to_B21
-        parts[plate, 'PFA',     'B21 -> incu'] = B21_to_RT
-
-        parts[plate, 'Triton', 'incu -> B21' ] = [*wait_before_incu_get[3], *RT_get]
-        parts[plate, 'Triton',  'B21 -> wash'] = wash(wait_before_wash_start[3], p.wash[3], p.prime[3])
-        parts[plate, 'Triton', 'wash -> disp'] = disp(p.disp[3])
-        parts[plate, 'Triton', 'disp -> B21' ] = disp_to_B21
-        parts[plate, 'Triton',  'B21 -> incu'] = B21_to_RT
-
-        parts[plate, 'Stains', 'incu -> B21' ] = [*wait_before_incu_get[4], *RT_get]
-        parts[plate, 'Stains',  'B21 -> wash'] = wash(wait_before_wash_start[4], p.wash[4], p.prime[4])
-        parts[plate, 'Stains', 'wash -> disp'] = disp(p.disp[4])
-        parts[plate, 'Stains', 'disp -> B21' ] = disp_to_B21
-        parts[plate, 'Stains',  'B21 -> incu'] = B21_to_RT
-
-        parts[plate, 'Final', 'incu -> B21' ] = [*wait_before_incu_get[5], *RT_get]
-        parts[plate, 'Final',  'B21 -> wash'] = wash(wait_before_wash_start[5], p.wash[5])
-        parts[plate, 'Final', 'wash -> B21' ] = robotarm_cmds('wash get', before_pick=[robots.wait_for_ready_cmd('wash')])
-        parts[plate, 'Final',  'B21 -> out' ] = [*lid_on, *robotarm_cmds(plate.out_put)]
-
-    from collections import defaultdict
     adjacent: dict[Desc, set[Desc]] = defaultdict(set)
 
     def seq(descs: list[Desc | None]):
@@ -756,7 +739,6 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig, short_test_
         else:
             return p, part, subpart
 
-    parts = ['Mito', 'PFA', 'Triton', 'Stains', 'Final']
     # parts = ['Mito', 'PFA']
 
     if short_test_paint:
@@ -783,6 +765,15 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig, short_test_
         'Stains': 'june',
         'Final':  'finjune',
     }
+
+    if 0:
+        ilvs = {
+            'Mito':   'lin',
+            'PFA':    'lin',
+            'Triton': 'lin',
+            'Stains': 'lin',
+            'Final':  'finlin',
+        }
 
     for part in parts:
         ilv = Interleavings[ilvs[part]]
@@ -826,8 +817,8 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig, short_test_
         for command in chunks[desc]
     ]
 
-    for e in plate_events:
-        print(e)
+    # for e in plate_events:
+    #     print(e)
 
     prep_events: list[Event] = [ Event('', 'prep', '', cmd) for cmd in prep_cmds ]
     post_events: list[Event] = [ Event('', 'post', '', cmd) for cmd in post_cmds ]
@@ -872,7 +863,7 @@ def group_by_batch(plates: list[Plate]) -> list[list[Plate]]:
 
 def sleek_events(events: list[Event]) -> list[Event]:
     def get_movelist(event: Event) -> moves.MoveList | None:
-        if isinstance(event.command, robots.robotarm_cmd):
+        if isinstance(event.command, commands.RobotarmCmd):
             return movelists[event.command.program_name]
         else:
             return None
@@ -900,9 +891,9 @@ def test_circuit(config: RuntimeConfig) -> None:
     events = [
         event
         for event in events
-        if isinstance(event.command, robots.robotarm_cmd)
+        if isinstance(event.command, commands.RobotarmCmd)
     ] + [
-        Event(plate.id, 'return', name, robots.robotarm_cmd(name))
+        Event(plate.id, 'return', name, commands.RobotarmCmd(name))
         for name in [
             plate.out_get,
             'incu put'
@@ -937,7 +928,7 @@ def cell_paint(config: RuntimeConfig, protocol_config: ProtocolConfig, *, batch_
             **metadata,
             'options': 'short_test_paint'
         }
-        robots.test_comm(config)
+        commands.test_comm(config)
         ATTENTION('''
             Short test paint mode, NOT real cell painting
         ''')
@@ -945,221 +936,6 @@ def cell_paint(config: RuntimeConfig, protocol_config: ProtocolConfig, *, batch_
     runtime = execute_events(config, events, metadata)
     for k, v in sorted(runtime.times.items(), key=lambda s: ' '.join(s[0].split(' ')[2:] + s[0].split(' ')[:2])):
         print(k, v)
-
-from collections import defaultdict
-
-@dataclass(frozen=True)
-class Ids:
-    counts: dict[str, int] = field(default_factory=lambda: defaultdict[str, int](int))
-
-    def next(self, prefix: str = ''):
-        self.counts[prefix] += 1
-        return prefix + str(self.counts[prefix])
-
-from robots import Symbolic
-from z3 import * # type: ignore
-
-def constraints(events: list[Event]) -> dict[str, float]:
-    variables: set[str] = {
-        v
-        for e in events
-        for v in robots.vars_of(e.command)
-    }
-    if not variables:
-        return {}
-    ids = Ids()
-
-    var = Symbolic.var
-    const = Symbolic.const
-
-    last_main: Symbolic = const(0)
-    last_wash: Symbolic = const(0)
-    last_disp: Symbolic = const(0)
-    last_incu: Symbolic = const(0)
-    checkpoints: dict[str, Symbolic] = {}
-
-    C: list[
-        tuple[Symbolic, Literal['>', '>=', '=='], Symbolic] |
-        tuple[Symbolic, Literal['== max'], Symbolic, Symbolic]
-    ] = []
-
-    def tag(cmd: robots.checkpoint_cmd | robots.wait_for_checkpoint_cmd | robots.idle_cmd, base: Symbolic) -> Symbolic:
-        if isinstance(cmd, robots.checkpoint_cmd):
-            if cmd.kind == 'info':
-                v = checkpoints[cmd.name] = var(ids.next(cmd.name + ' '))
-                C.append((v, '==', base))
-                return v
-            elif cmd.kind == 'begin':
-                if cmd.strict:
-                    assert cmd.name not in checkpoints, utils.pr((cmd.name, checkpoints, cmd, base))
-                v = checkpoints[cmd.name] = var(ids.next(cmd.name + ' '))
-                C.append((v, '==', base))
-                return v
-            elif cmd.kind == 'end':
-                try:
-                    v = checkpoints.pop(cmd.name)
-                    vd = var(ids.next(cmd.name + ' duration '))
-                    C.append((v + vd, '==', base))
-                except KeyError:
-                    if cmd.strict:
-                        raise
-                return base
-            else:
-                raise ValueError(cmd.kind)
-        elif isinstance(cmd, robots.wait_for_checkpoint_cmd):
-            if cmd.name not in checkpoints:
-                assert cmd.or_now
-                return base
-            else:
-                C.append((checkpoints[cmd.name] + cmd.plus_seconds, '>=', base))
-                if cmd.strict:
-                    C.append((checkpoints[cmd.name] + cmd.plus_seconds, '==', base))
-                return checkpoints[cmd.name] + cmd.plus_seconds
-        else:
-            assert isinstance(cmd, robots.idle_cmd)
-            return base + cmd.seconds
-
-    for e in events:
-        cmd = e.command
-        if isinstance(cmd, robots.robotarm_cmd):
-            last_main = last_main + cmd.est()
-        elif isinstance(cmd, robots.wait_for_ready_cmd):
-            v: Symbolic
-            if cmd.machine == 'incu':
-                v = last_incu
-            elif cmd.machine == 'disp':
-                v = last_disp
-            elif cmd.machine == 'wash':
-                v = last_wash
-            else:
-                raise ValueError
-            wait = var(ids.next(f'{cmd.machine} wait '))
-            C.append((wait, '== max', last_main, v))
-            last_main = wait
-        elif isinstance(cmd, robots.wash_cmd):
-            base = last_main
-            for c in cmd.before:
-                base = tag(c, base)
-            C.append((base, '>=', last_wash))
-            base = base + cmd.est()
-            for c in cmd.after:
-                base = tag(c, base)
-            last_wash = base
-        elif isinstance(cmd, robots.disp_cmd):
-            base = last_main
-            for c in cmd.before:
-                base = tag(c, base)
-            C.append((base, '>=', last_disp))
-            base = base + cmd.est()
-            for c in cmd.after:
-                base = tag(c, base)
-            last_disp = base
-        elif isinstance(cmd, robots.incu_cmd):
-            base = last_main
-            C.append((base, '>=', last_incu))
-            base = base + cmd.est()
-            for c in cmd.after:
-                base = tag(c, base)
-            last_incu = base
-        elif isinstance(cmd, (robots.checkpoint_cmd, robots.wait_for_checkpoint_cmd, robots.idle_cmd)):
-            last_main = tag(cmd, last_main)
-        else:
-            raise ValueError
-
-    s: Any = Optimize()
-
-    vs: set[str] = set()
-
-    R = 1
-
-    def to_expr(x: Symbolic) -> Any:
-        for v in x.var_names:
-            vs.add(v)
-            # s.add(Real(v) >= 0)
-        return Sum(
-            int(x.offset * R),
-            *[Real(v) for v in x.var_names]
-        )
-
-    with utils.timeit('constrs'):
-        for i, (lhs, op, *rhss) in enumerate(C):
-            # print(i, lhs, op, *rhss)
-            rhs, *_ = rhss
-            if op == '==':
-                s.add(to_expr(lhs) == to_expr(rhs))
-            elif op == '>':
-                s.add(to_expr(lhs) > to_expr(rhs))
-            elif op == '>=':
-                s.add(to_expr(lhs) >= to_expr(rhs))
-            elif op == '== max':
-                a, b = rhss
-                s.add(to_expr(lhs) == If(to_expr(a) > to_expr(b), to_expr(a), to_expr(b)))
-            else:
-                raise ValueError(op)
-
-    maxi: list[tuple[float, str]] = []
-    maxi += [(1, a) for a in vs if 'duration' in a and 'lid on' in a]
-    maxi += [(10, a) for a in vs if 'duration' in a and 'incubator' in a]
-    maxi += [(-100, a) for a in vs if 'duration' in a and 'transfer' in a]
-    maxi += [(-0.1, a) for a in vs if 'duration' in a and 'batch' in a]
-
-    # maxi += [(-1, a) for a in vs if 'duration' in a and 'batch sep' in a]
-
-    utils.pr(maxi)
-
-    transfers = [
-        a
-        for a in vs
-        if 'transfer' in a and 'duration' in a
-    ]
-
-    batch_sep = 120 # for v3 jump
-    s.add(Real('batch sep') == batch_sep * 60 * R)
-
-    s.maximize(Sum(*[m * Real(v) for m, v in maxi]))
-
-    print(s.check())
-
-    M = s.model()
-
-    def get(a: str) -> float:
-        return float(M.eval(Real(a)).as_decimal(3).strip('?')) / R
-
-    us = [
-        (a, get(a))
-        for a in vs
-        if 'delay' in a or 'batch' in a
-    ]
-    for a, v in sorted(us):
-        print(a, v, sep='\t')
-    print()
-    us = [
-        (a, get(a))
-        for a in maxi
-        if 'lid' in a
-    ]
-    for a, v in sorted(us):
-        print(a, v, sep='\t')
-    print()
-    us = [
-        (a, get(a))
-        for a in maxi
-        if 'incubator' in a
-    ]
-    for a, v in sorted(us):
-        print(a, v, sep='\t')
-
-    res = {
-        **{
-            a: get(a)
-            for a in variables & vs
-        },
-        **{
-            a: 0
-            for a in variables - vs
-        }
-    }
-    return res
 
 import contextlib
 
@@ -1179,8 +955,8 @@ def make_runtime(config: RuntimeConfig, metadata: dict[str, str]) -> Iterator[Ru
     else:
         log_filename = None
 
-    runtime = robots.Runtime(config=config, log_filename=log_filename)
-    # pr(robots.Estimates)
+    runtime = Runtime(config=config, log_filename=log_filename)
+    # pr(commands.Estimates)
 
     metadata['git_HEAD'] = utils.git_HEAD() or ''
     metadata['host']     = platform.node()
@@ -1188,12 +964,39 @@ def make_runtime(config: RuntimeConfig, metadata: dict[str, str]) -> Iterator[Ru
         with runtime.timeit('experiment', metadata=metadata):
             yield runtime
 
+import constraints
+
 def execute_events(config: RuntimeConfig, events: list[Event], metadata: dict[str, str]) -> Runtime:
     with utils.timeit('constraints'):
-        d = constraints(events)
-    pr(d)
+        d, ends = constraints.optimize([e.command for e in events])
+
     with make_runtime(config, metadata) as runtime:
         runtime.var_values.update(d)
         execute_events_in_runtime(runtime, events)
-        return runtime
+        ret = runtime
+
+    with make_runtime(configs['dry-run-no-log'], {}) as runtime:
+        runtime.var_values.update(d)
+        execute_events_in_runtime(runtime, events)
+        entries = runtime.log_entries
+        matches = 0
+        mismatches = 0
+        for e in entries:
+            i = e.get('event_index')
+            if 'idle_cmd' in str(e.get('arg',  '')):
+                continue
+            if e.get('origin'):
+                continue
+            if e['kind'] == 'end' and i:
+                if abs(e['t'] - ends[i]) > 0.1:
+                    utils.pr(('no match!', i, e, ends[i]))
+                    mismatches += 1
+                else:
+                    matches += 1
+                # utils.pr((f'{matches=}', i, e, ends[i]))
+        print(f'{matches=} {mismatches=} {len(ends)=}')
+
+    utils.pr(d)
+
+    return runtime
 

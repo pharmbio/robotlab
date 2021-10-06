@@ -3,10 +3,10 @@ from typing import *
 
 import argparse
 
-from robots import RuntimeConfig, configs
+from runtime import RuntimeConfig, configs, get_robotarm, Runtime
 from utils import show
 
-import robots
+import commands
 import moves
 from moves import movelists
 
@@ -20,7 +20,7 @@ def main():
     for k, v in configs.items():
         parser.add_argument('--' + k, dest="config", action="store_const", const=k, help='Run with config ' + k)
 
-    parser.add_argument('--test-comm', action='store_true', help=(robots.test_comm.__doc__ or '').strip())
+    parser.add_argument('--test-comm', action='store_true', help=(commands.test_comm.__doc__ or '').strip())
 
     parser.add_argument('--cell-paint', metavar='BS', type=str, default=None, help='Cell paint with batch sizes of BS, separated by comma (such as 6,6 for 2x6). Plates start stored in incubator L1, L2, ..')
     parser.add_argument('--short-test-paint', metavar='BS', type=str, default=None, help='Run a shorter test version of the cell painting protocol with batch sizes of BS')
@@ -62,7 +62,7 @@ def main():
             int(bs.strip())
             for bs in (args.cell_paint or args.short_test_paint).split(',')
         ]
-        robots.get_robotarm(config).set_speed(args.robotarm_speed).close()
+        get_robotarm(config).set_speed(args.robotarm_speed).close()
         protocol.cell_paint(
             config=config,
             batch_sizes=batch_sizes,
@@ -71,43 +71,43 @@ def main():
         )
 
     elif args.test_circuit:
-        robots.get_robotarm(config).set_speed(args.robotarm_speed).close()
+        get_robotarm(config).set_speed(args.robotarm_speed).close()
         protocol.test_circuit(config=config)
 
     elif args.time_bioteks:
-        robots.get_robotarm(config).set_speed(args.robotarm_speed).close()
+        get_robotarm(config).set_speed(args.robotarm_speed).close()
         protocol.time_bioteks(config=config, protocol_config=protocol.v3)
 
     elif args.time_arm_incu:
-        robots.get_robotarm(config).set_speed(args.robotarm_speed).close()
+        get_robotarm(config).set_speed(args.robotarm_speed).close()
         protocol.time_arm_incu(config=config)
 
     elif args.load_incu:
-        robots.get_robotarm(config).set_speed(args.robotarm_speed).close()
+        get_robotarm(config).set_speed(args.robotarm_speed).close()
         protocol.load_incu(config=config, num_plates=args.load_incu)
 
     elif args.unload_incu:
-        robots.get_robotarm(config).set_speed(args.robotarm_speed).close()
+        get_robotarm(config).set_speed(args.robotarm_speed).close()
         protocol.unload_incu(config=config, num_plates=args.unload_incu)
 
     elif args.lid_stress_test:
-        robots.get_robotarm(config).set_speed(args.robotarm_speed).close()
+        get_robotarm(config).set_speed(args.robotarm_speed).close()
         protocol.lid_stress_test(config=config)
 
     elif args.test_comm:
-        robots.test_comm(config)
+        commands.test_comm(config)
 
     elif args.robotarm:
-        runtime = robots.Runtime(config)
-        robots.get_robotarm(config).set_speed(args.robotarm_speed).close()
+        runtime = Runtime(config)
+        runtime.get_robotarm().set_speed(args.robotarm_speed).close()
         for name in args.program_name:
             if name in movelists:
-                robots.robotarm_cmd(name).execute(runtime, {})
+                commands.RobotarmCmd(name).execute(runtime, {})
             else:
                 raise ValueError(f'Unknown program: {name}')
 
     elif args.robotarm_send:
-        arm = robots.get_robotarm(config)
+        arm = get_robotarm(config)
         arm.set_speed(args.robotarm_speed)
         arm.execute_moves([moves.RawCode(args.robotarm_send)], name='raw')
         arm.close()
@@ -128,35 +128,30 @@ def main():
                 print(k + ':\n' + textwrap.indent(v.describe(), '  '))
 
     elif args.wash:
-        runtime = robots.Runtime(config)
+        runtime = Runtime(config)
         path = getattr(protocol.v3.wash, args.wash, None)
         assert path, utils.pr(protocol.v3.wash)
-        robots.wash_cmd(path).execute(runtime, {})
-        robots.wait_for_ready_cmd('wash').execute(runtime, {})
+        commands.WashCmd(path).execute(runtime, {})
 
     elif args.disp:
-        runtime = robots.Runtime(config)
+        runtime = Runtime(config)
         path = getattr(protocol.v3.disp, args.disp, None)
         assert path, utils.pr(protocol.v3.disp)
-        robots.disp_cmd(path).execute(runtime, {})
-        robots.wait_for_ready_cmd('disp').execute(runtime, {})
+        commands.DispCmd(path).execute(runtime, {})
 
     elif args.prime:
-        runtime = robots.Runtime(config)
+        runtime = Runtime(config)
         path = getattr(protocol.v3.prime, args.prime, None)
         assert path, utils.pr(protocol.v3.prime)
-        robots.disp_cmd(path).execute(runtime, {})
-        robots.wait_for_ready_cmd('disp').execute(runtime, {})
+        commands.DispCmd(path).execute(runtime, {})
 
     elif args.incu_put:
-        runtime = robots.Runtime(config)
-        robots.incu_cmd('put', args.incu_put).execute(runtime, {})
-        robots.wait_for_ready_cmd('incu').execute(runtime, {})
+        runtime = Runtime(config)
+        commands.IncuCmd('put', args.incu_put).execute(runtime, {})
 
     elif args.incu_get:
-        runtime = robots.Runtime(config)
-        robots.incu_cmd('get', args.incu_get).execute(runtime, {})
-        robots.wait_for_ready_cmd('incu').execute(runtime, {})
+        runtime = Runtime(config)
+        commands.IncuCmd('get', args.incu_get).execute(runtime, {})
 
     else:
         parser.print_help()

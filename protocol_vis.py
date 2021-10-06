@@ -14,7 +14,7 @@ import utils
 
 from protocol import Event
 import protocol
-from robots import RuntimeConfig, configs
+from runtime import RuntimeConfig, configs
 
 colors = dict(
     background = '#fff',
@@ -106,44 +106,86 @@ def index() -> Iterator[Tag | dict[str, str]]:
             position: relative;
         ''')
         for e in entries:
-            t0 = e.get('t0')
-            t = e.get('t')
-            if t0 is None or t is None:
+            try:
+                part    = e.get('event_part', '')
+                subpart = e.get('event_subpart', '')
+                plate   = utils.catch(lambda: int(e.get('event_plate_id', 0)), 0)
+                t0      = e['t0']
+                t       = e['t']
+                source  = e['source']
+                arg     = e['arg']
+                if 'idle_cmd' in arg:
+                    source = 'idle'
+                origin  = e.get('origin', '').removeprefix('before ').removeprefix('after ')
+                if origin:
+                    origin = origin.strip(' #0123456789')
+            except:
                 continue
-            if 'idle' in str(e.get('source')):
+            if t0 is None:
                 continue
-            # if 'wait' in str(e.get('source')):
+            # if 'idle' in str(e.get('arg')):
                 # continue
-            # part    = e.get('event_part', '')
-            # subpart = e.get('event_subpart', '')
-            # plate   = e.get('event_plate_id', '')
-            slots = {
-                'incu': 1,
-                'wait': 2,
-                'robotarm': 3,
-                'wash': 4,
-                'disp': 5,
-                'checkpoint': 6,
-            }
             color_map = {
                 'wait': 'color3',
-                'idle': 'color3',
+                'idle': 'color7',
                 'robotarm': 'color4',
                 'wash': 'color6',
                 'disp': 'color5',
                 'incu': 'color2',
                 'timer': 'color3',
             }
-            slot = slots.get(e.get('source', ''), 0)
-            slot += (1 + max(slots.values())) * utils.catch(lambda: int(e['event_plate_id']), 0)
+            fields = {
+                'incu -> B21':  1,
+                'B21 -> wash':  3,
+                'wash -> disp': 5,
+                'disp -> B21':  7,
+                'B21 -> incu':  7,
+                'wash -> B21':  5,
+                'B21 -> out':   7,
+            }
+            field = fields.get(subpart, 0)
+            slots = {
+                'incu': 2 if field < 4 else 8,
+                'wait': field ,
+                'robotarm': field,
+                'idle': field,
+                'wash': 4,
+                'disp': 6,
+                'duration': 10 + plate,
+            }
+            slot = slots.get(source, 0)
+            if origin and source != 'duration':
+                slot = slots.get(origin, 0)
+            # slot = slots.get(e.get('source', ''), 0)
+            # slot += (1 + max(slots.values())) * utils.catch(lambda: int(e['event_plate_id']), 0)
             # slot += batch_size * slot + utils.catch(lambda: int(e['event_plate_id']), 0)
             # slot = utils.catch(lambda: int(e['event_plate_id']), 0)
-            color = colors.get(color_map.get(e.get('source', ''), ''), '#ccc')
+            color = colors.get(color_map.get(source, ''), '#ccc')
             width = 14
             my_width = 14
-            if e.get('source') == 'checkpoint':
+            my_offset = 0
+            z_index = 0
+            if source == 'duration':
+                my_width = 4
+                z_index = 1
+                if 'transfer' in arg:
+                    color = colors.get('color1')
+                    z_index = 2
+                if 'lid' in arg:
+                    my_offset += 4
+                if 'pre disp' in arg:
+                    my_offset += 8
+                if '37C' in arg:
+                    my_offset += 4
+                    color = colors.get(color_map['incu'])
+            if source == 'wait':
                 my_width = 7
-                # continue
+                z_index = 1
+            if source == 'idle':
+                my_width = 7
+                z_index = 2
+            if source == 'experiment':
+                continue
             area += div(
                 css='''
                     position: absolute;
@@ -151,13 +193,14 @@ def index() -> Iterator[Tag | dict[str, str]]:
                     border: 1px #0005 solid;
                 ''',
                 style=trim(f'''
-                    left: {slot * width:.1f}px;
+                    left: {slot * width + my_offset:.1f}px;
                     width: {my_width - 2:.1f}px;
                     top: {zoom * t0:.1f}px;
-                    height: {zoom * (t - t0):.1f}px;
+                    height: {zoom * (t - t0) - 1:.1f}px;
                     background: {color};
+                    z-index: {z_index};
                 '''),
-                data_info=utils.show(e, use_color=False)
+                data_info=utils.show((e, source), use_color=False)
             )
 
     area.onmouseover += """
@@ -188,12 +231,12 @@ def index() -> Iterator[Tag | dict[str, str]]:
         id="info",
         css='''
             position: fixed;
-            right: 0;
+            left: 0;
             bottom: 0;
             margin: 0;
             padding: 10px;
             background: #fff;
-            z-index: 1;
+            z-index: 10;
             position: fixed;
             border-radius: 5px;
             border: 1px #0005 solid;

@@ -16,7 +16,6 @@ from contextlib import contextmanager
 from threading import Lock
 
 from moves import movelists
-from robotarm import Robotarm
 import utils
 from utils import Mutable
 
@@ -40,11 +39,23 @@ class Timelike(abc.ABC):
         pass
 
     @abc.abstractmethod
+    def queue_put_nowait(self, queue: Queue[A], a: A) -> None:
+        pass
+
+    @abc.abstractmethod
     def sleep(self, seconds: float):
         pass
 
     @abc.abstractmethod
     def thread_idle(self):
+        pass
+
+    @abc.abstractmethod
+    def thread_done(self):
+        pass
+
+    @abc.abstractmethod
+    def spawning(self) -> ContextManager[None]:
         pass
 
 from threading import Thread
@@ -66,6 +77,13 @@ class SimulatedTime(Timelike):
     skipped_time: float = 0.0
     lock: Lock = field(default_factory=Lock)
     qsize: dict[int, int] = field(default_factory=lambda: defaultdict[int, int](int))
+    pending_spawns: int = 0
+
+    @contextmanager
+    def spawning(self):
+        with self.lock:
+            self.pending_spawns += 1
+        yield
 
     def log(self):
         return
@@ -86,6 +104,8 @@ class SimulatedTime(Timelike):
 
     def register_thread(self, name: str):
         with self.lock:
+            assert self.pending_spawns > 0
+            self.pending_spawns -= 1
             tid = threading.current_thread()
             self.threads[tid] = ThreadData(name)
 
@@ -93,13 +113,32 @@ class SimulatedTime(Timelike):
         tid = threading.current_thread()
         return self.threads[tid]
 
+    def thread_idle(self):
+        with self.lock:
+            self.current_thread_data().state = 'idle'
+            self.wake_up()
+
+    def thread_done(self):
+        with self.lock:
+            tid = threading.current_thread()
+            del self.threads[tid]
+            self.wake_up()
+
     def queue_put(self, queue: Queue[A], a: A) -> None:
+        thread_data = self.current_thread_data()
         with self.lock:
             i = id(queue)
             self.qsize[i] += 1
         queue.put(a)
         with self.lock:
             self.wake_up()
+
+    def queue_put_nowait(self, queue: Queue[A], a: A) -> None:
+        thread_data = self.current_thread_data()
+        with self.lock:
+            i = id(queue)
+            self.qsize[i] += 1
+        queue.put_nowait(a)
 
     def queue_get(self, queue: Queue[A]) -> A:
         thread_data = self.current_thread_data()
@@ -145,13 +184,10 @@ class SimulatedTime(Timelike):
             # before proceeding (possibly started by some other thread)
             pass
 
-    def thread_idle(self):
-        with self.lock:
-            self.current_thread_data().state = 'idle'
-            self.wake_up()
-
     def wake_up(self):
         assert self.lock.locked()
+        if self.pending_spawns > 0:
+            return
         # Wake up next thread if all are sleeping or blocked
         self.log()
         states = {v.state for v in self.threads.values()}
@@ -187,6 +223,10 @@ class SimulatedTime(Timelike):
 class WallTime(Timelike):
     start_time: float = field(default_factory=time.monotonic)
 
+    @contextmanager
+    def spawning(self):
+        yield
+
     def monotonic(self):
         return time.monotonic() - self.start_time
 
@@ -199,6 +239,9 @@ class WallTime(Timelike):
     def queue_put(self, queue: Queue[A], a: A) -> None:
         queue.put(a)
 
+    def queue_put_nowait(self, queue: Queue[A], a: A) -> None:
+        queue.put_nowait(a)
+
     def sleep(self, seconds: float):
         if seconds < 0:
             print('Behind time:', fmt(-seconds), '!')
@@ -207,6 +250,9 @@ class WallTime(Timelike):
             time.sleep(seconds)
 
     def thread_idle(self):
+        pass
+
+    def thread_done(self):
         pass
 
 def fmt(s: float) -> str:
