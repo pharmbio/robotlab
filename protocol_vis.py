@@ -140,6 +140,8 @@ def index() -> Iterator[Tag | dict[str, str]]:
                 'B21 -> incu':  7,
                 'wash -> B21':  5,
                 'B21 -> out':   7,
+                'wash -> B15':  5,
+                'B15 -> out':   7,
             }
             field = fields.get(subpart, 0)
             slots = {

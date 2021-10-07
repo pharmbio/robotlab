@@ -163,10 +163,10 @@ v3 = ProtocolConfig(
         '',
     ),
     pre_disp = Steps(
-        'automation_v3.1/2_D_P1_purge.LHC',
+        'automation_v3.1/2_D_P1_purge_then_prime.LHC',
         '',
         '',
-        'automation_v3.1/8_D_P2_purge.LHC',
+        'automation_v3.1/8_D_P2_purge_then_prime.LHC',
         '',
     ),
     disp = Steps(
@@ -184,10 +184,10 @@ v3 = ProtocolConfig(
         '',
     ),
     incu = Steps(
-        1210,
-        1200,
-        1200,
-        1200,
+        1200, # Symbolic.wrap('incu 1'),
+        1200, # Symbolic.wrap('incu 4'),
+        1200, # Symbolic.wrap('incu 2'),
+        1200, # Symbolic.wrap('incu 3'),
         0,
     ),
 )
@@ -293,6 +293,10 @@ def time_arm_incu(config: RuntimeConfig):
         *RobotarmCmds('disp get'),
         *RobotarmCmds('wash put'),
         *RobotarmCmds('wash get'),
+        *RobotarmCmds('B15 put'),
+        *RobotarmCmds('wash15 put'),
+        *RobotarmCmds('wash15 get'),
+        *RobotarmCmds('B15 get'),
         *RobotarmCmds(plate.lid_get),
         *RobotarmCmds('incu put'),
         *RobotarmCmds(plate.rt_get),
@@ -302,6 +306,7 @@ def time_arm_incu(config: RuntimeConfig):
         Fork(incu, resource='incu'),
         *arm,
         WaitForResource('incu'),
+        *sleek_commands(arm2),
         *arm2,
     ]
     execute_commands(config, cmds, metadata={'options': 'time_arm_incu'})
@@ -545,15 +550,18 @@ finlin = Interleaving.init('''
 ''')
 
 finjune = Interleaving.init('''
-    incu -> B21 -> wash
-                   wash -> B21
-    incu -> B21 -> wash
-                           B21 -> out
-                   wash -> B21
-    incu -> B21 -> wash
-                           B21 -> out
-                   wash -> B21
-                           B21 -> out
+    incu -> B21
+            B21 -> wash
+    incu -> B21
+                   wash -> B15
+            B21 -> wash
+                           B15 -> out
+    incu -> B21
+                   wash -> B15
+            B21 -> wash
+                           B15 -> out
+                   wash -> B15
+                           B15 -> out
 ''')
 
 Interleavings = {k: v for k, v in globals().items() if isinstance(v, Interleaving)}
@@ -563,12 +571,12 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig, short_test_
     p = protocol_config
 
     prep_wash = WashFork(p.prep_wash) if p.prep_wash else Idle()
-    prep_disp = Fork([Idle(secs=5), DispCmd(p.prep_disp)], resource='disp') if p.prep_disp else Idle()
+    prep_disp = Fork([Idle(secs=2), DispCmd(p.prep_disp)], resource='disp') if p.prep_disp else Idle()
     prep_cmds: list[Command] = [
         prep_wash,
         prep_disp,
-        WaitForResource('wash'),
-        WaitForResource('disp'),
+        # WaitForResource('wash'),
+        # WaitForResource('disp'),
     ]
 
     first_plate = batch[0]
@@ -695,7 +703,10 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig, short_test_
             ]
 
             if p.prime[i] and plate is first_plate:
-                disp_prime = DispFork(p.prime[i])
+                disp_prime = Fork([
+                    Idle(2),
+                    DispCmd(p.prime[i]),
+                ], resource='disp')
             else:
                 disp_prime = Idle()
 
@@ -737,6 +748,8 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig, short_test_
                 chunks[plate, 'Final',  'B21 -> wash'] = wash
                 chunks[plate, 'Final', 'wash -> B21' ] = RobotarmCmds('wash get', before_pick=[WaitForResource('wash')])
                 chunks[plate, 'Final',  'B21 -> out' ] = [*lid_on, *RobotarmCmds(plate.out_put)]
+                chunks[plate, 'Final', 'wash -> B15' ] = RobotarmCmds('wash15 get', before_pick=[WaitForResource('wash')])
+                chunks[plate, 'Final',  'B15 -> out' ] = [*RobotarmCmds('B15 get'), *lid_on, *RobotarmCmds(plate.out_put)]
 
     adjacent: dict[Desc, set[Desc]] = defaultdict(set)
 
@@ -881,6 +894,14 @@ def sleek_events(events: list[Event]) -> list[Event]:
         else:
             return None
     return moves.sleek_movements(events, get_movelist)
+
+def sleek_commands(cmds: list[Command]) -> list[Command]:
+    def get_movelist(cmd: Command) -> moves.MoveList | None:
+        if isinstance(cmd, commands.RobotarmCmd):
+            return movelists[cmd.program_name]
+        else:
+            return None
+    return moves.sleek_movements(cmds, get_movelist)
 
 def eventlist(batch_sizes: list[int], protocol_config: ProtocolConfig, short_test_paint: bool = False, sleek: bool = True) -> list[Event]:
     all_events: list[Event] = []
