@@ -708,7 +708,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig, short_test_
             ]
 
             if p.prime[i] and plate is first_plate:
-                disp_prime = DispFork(p.prime[i], flexible=True) + 2
+                disp_prime = DispFork(p.prime[i], flexible=True)
             else:
                 disp_prime = Idle()
 
@@ -746,7 +746,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig, short_test_
                 chunks[plate, part, 'disp -> B21' ] = disp_to_B21
                 chunks[plate, part,  'B21 -> incu'] = B21_to_incu
             else:
-                chunks[plate, 'Final', 'incu -> B21' ] = [*incu_delay, *incu_get]
+                chunks[plate, 'Final', 'incu -> B21' ] = [*incu_delay, wash_prime, *incu_get]
                 chunks[plate, 'Final',  'B21 -> wash'] = wash
                 chunks[plate, 'Final', 'wash -> B21' ] = RobotarmCmds('wash get', before_pick=[WaitForResource('wash')])
                 chunks[plate, 'Final',  'B21 -> out' ] = [*lid_on, *RobotarmCmds(plate.out_put)]
