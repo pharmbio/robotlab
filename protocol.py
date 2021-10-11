@@ -183,13 +183,8 @@ v3 = ProtocolConfig(
         '',
         '',
     ),
-    incu = Steps(
-        1200, # Symbolic.wrap('incu 1'),
-        1200, # Symbolic.wrap('incu 4'),
-        1200, # Symbolic.wrap('incu 2'),
-        1200, # Symbolic.wrap('incu 3'),
-        0,
-    ),
+    incu = Steps(1230, 1200, 1200, 1200, 0),
+    # incu = Steps(Symbolic.var('seconds incu 1'), Symbolic.var('seconds incu 2'), Symbolic.var('seconds incu 3'), Symbolic.var('seconds incu 4'), 0),
 )
 
 def time_bioteks(config: RuntimeConfig, protocol_config: ProtocolConfig):
@@ -571,7 +566,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig, short_test_
     p = protocol_config
 
     prep_wash = WashFork(p.prep_wash) if p.prep_wash else Idle()
-    prep_disp = Fork([Idle(secs=2), DispCmd(p.prep_disp)], resource='disp') if p.prep_disp else Idle()
+    prep_disp = DispFork(p.prep_disp) + 2 if p.prep_disp else Idle()
     prep_cmds: list[Command] = [
         prep_wash,
         prep_disp,
@@ -594,7 +589,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig, short_test_
     ]
 
     post_cmds = [
-        Duration(f'batch {batch_index}', opt_weight=-1),
+        Duration(f'batch {batch_index}', opt_weight=-10),
     ]
 
     parts: list[str] = ['Mito', 'PFA', 'Triton', 'Stains', 'Final']
@@ -644,7 +639,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig, short_test_
                     IncuFork('get', plate.incu_loc),
                     *RobotarmCmds('incu get', before_pick = [
                         WaitForResource('incu'),
-                        Duration(f'{plate_desc} 37C', opt_weight=10),
+                        Duration(f'{plate_desc} 37C', opt_weight=1),
                     ]),
                     *lid_off,
                 ]
@@ -674,18 +669,28 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig, short_test_
                     *RobotarmCmds(plate.rt_put),
                 ]
 
-            if p.pre_disp[i]:
-                pre_disp = Fork([
-                    WaitForCheckpoint(f'{plate_desc} pre disp {i}', flexible=True),
-                    Idle() + f'{plate_desc} pre disp {i} delay',
-                    DispCmd(p.pre_disp[i]),
-                    Early(3),
-                    Checkpoint(f'{plate_desc} pre disp done {i}'),
-                ], resource='disp', flexible=True)
+            if p.disp[i]:
+                pre_disp = Fork(
+                    [
+                        WaitForCheckpoint(f'{plate_desc} pre disp {i}', flexible=True),
+                        Idle() + f'{plate_desc} pre disp {i} delay',
+                        DispCmd(p.pre_disp[i]) if p.pre_disp[i] else Idle(),
+                        DispCmd(p.disp[i], cmd='ValidateProtocol'),
+                        Early(3),
+                        Checkpoint(f'{plate_desc} pre disp done {i}'),
+                    ],
+                    resource='disp',
+                    flexible=True
+                )
                 pre_disp_wait = Duration(f'{plate_desc} pre disp done {i}', opt_weight=-1)
             else:
                 pre_disp = Idle()
                 pre_disp_wait = Idle()
+
+            if plate is first_plate:
+                wash_prime = WashFork(p.wash[i], cmd='ValidateProtocol', flexible=True) + 2
+            else:
+                wash_prime = Idle()
 
             wash = [
                 RobotarmCmd('wash put prep'),
@@ -695,7 +700,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig, short_test_
                     *wash_delay,
                     Duration(f'{plate_desc} active {i-1}') if i-1 else Idle(),
                     Checkpoint(f'{plate_desc} pre disp {i}'),
-                    WashCmd(p.wash[i]),
+                    WashCmd(p.wash[i], cmd='RunLastValidatedProtocol'),
                     Checkpoint(f'{plate_desc} transfer {i}'),
                 ], resource='wash'),
                 pre_disp,
@@ -703,10 +708,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig, short_test_
             ]
 
             if p.prime[i] and plate is first_plate:
-                disp_prime = Fork([
-                    Idle(2),
-                    DispCmd(p.prime[i]),
-                ], resource='disp')
+                disp_prime = DispFork(p.prime[i], flexible=True) + 2
             else:
                 disp_prime = Idle()
 
@@ -718,7 +720,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig, short_test_
                 Duration(f'{plate_desc} transfer {i}', opt_weight=-1000),
                 pre_disp_wait,
                 Fork([
-                    DispCmd(p.disp[i]),
+                    DispCmd(p.disp[i], cmd='RunLastValidatedProtocol'),
                     Checkpoint(f'{plate_desc} disp {i} done'),
                     Checkpoint(f'{plate_desc} active {i}'),
                 ], resource='disp'),
@@ -738,7 +740,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig, short_test_
             ]
 
             if part != 'Final':
-                chunks[plate, part, 'incu -> B21' ] = [*incu_delay, disp_prime, *incu_get]
+                chunks[plate, part, 'incu -> B21' ] = [*incu_delay, disp_prime, wash_prime, *incu_get]
                 chunks[plate, part,  'B21 -> wash'] = wash
                 chunks[plate, part, 'wash -> disp'] = disp
                 chunks[plate, part, 'disp -> B21' ] = disp_to_B21

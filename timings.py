@@ -1,13 +1,13 @@
 from __future__ import annotations
 from dataclasses import *
 from typing import *
+from typing_extensions import TypeAlias
 
 import utils
 
 from collections import defaultdict
 
 Estimated = tuple[Literal['wash', 'disp', 'robotarm', 'incu'], str]
-
 def estimates_from(path: str) -> dict[Estimated, float]:
     ests: dict[Estimated, list[float]] = defaultdict(list)
     sources = {
@@ -28,9 +28,11 @@ Estimates: dict[Estimated, float] = {
     **estimates_from('timings_v3.1.jsonl')
 }
 
-# for (m, a), v in list(Estimates.items()):
-#     if 'automation_v3/' in a:
-#         Estimates[m, a.replace('automation_v3/', 'automation_v3.1/')] = v
+for (m, a), v in list(Estimates.items()):
+    if m == 'wash' or m == 'disp':
+        Estimates[(m, 'RunProtocol ' + a)] = v
+        Estimates[(m, 'ValidateProtocol ' + a)] = 2.0
+        Estimates[(m, 'RunLastValidatedProtocol ' + a)] = v - 2.0
 
 overrides: dict[Estimated, float] = {
     ('robotarm', 'noop'): 0.5,
@@ -50,8 +52,10 @@ overrides: dict[Estimated, float] = {
     # ('robotarm', 'r11 get prep'): 3.0,
     # ('robotarm', 'r9 get prep'): 3.0,
     ('robotarm', 'r7 get prep'): 3.0,
-    ('robotarm', 'r5 get prep'): 3.0,
-    ('robotarm', 'r3 get prep'): 3.0,
+    ('robotarm', 'r5 get prep'): 4.0,
+    ('robotarm', 'r3 get prep'): 5.0,
+    ('robotarm', 'r1 get prep'): 6.0,
+    ('robotarm', 'r1 get transfer'): 6.0,
     # ('robotarm', 'r1 put transfer'): 6.0,
     # ('robotarm', 'r1 put return'): 6.0,
     # ('robotarm', 'out21 put return'): 6.0,
@@ -61,7 +65,7 @@ overrides: dict[Estimated, float] = {
     # ('robotarm', 'out13 put return'): 6.0,
     # ('robotarm', 'out11 put return'): 6.0,
     # ('robotarm', 'out9 put return'): 6.0,0.8 *
-    # ('wash', 'automation_v3.1/9_W-4X_NoFinalAspirate.LHC'): 95.0, #3X
+    # ('wash', 'RunLastValidatedProtocol automation_v3.1/9_W-4X_NoFinalAspirate.LHC'): 95.0, #3X
     # ('disp', 'automation_v3.1/2_D_P1_40ul_mito.LHC'): 31.6,
     # ('disp', 'automation_v3.1/8_D_P2_20ul_stains.LHC'): 21.3,
     # ('disp', 'automation_v3.1/2_D_P1_purge_then_prime.LHC'): 20.0,

@@ -14,6 +14,7 @@ from utils import Mutable
 from symbolic import Symbolic
 from runtime import Runtime, RuntimeConfig, get_robotarm
 import bioteks
+from bioteks import BiotekCommand
 import incubator
 import timings
 
@@ -141,6 +142,13 @@ class Fork(Command):
             for v in c.vars_of()
         }
 
+    def __add__(self, other: float | int | str | Symbolic) -> Fork:
+        return Fork(
+            [Idle(Symbolic.wrap(other)), *self.commands],
+            resource=self.resource,
+            flexible=self.flexible,
+        )
+
 @dataclass(frozen=True)
 class WaitForResource(Command):
     '''
@@ -173,12 +181,17 @@ class RobotarmCmd(Command):
 class BiotekCmd(Command):
     machine: Literal['wash', 'disp']
     protocol_path: str | None
-    sub_cmd: Literal['LHC_RunProtocol', 'LHC_TestCommunications'] = 'LHC_RunProtocol'
+    cmd: BiotekCommand = 'RunProtocol'
     def execute(self, runtime: Runtime, metadata: dict[str, Any]) -> None:
-        bioteks.execute(runtime, self.machine, self.protocol_path, self.sub_cmd, metadata)
+        bioteks.execute(runtime, self.machine, self.protocol_path, self.cmd, metadata)
 
     def est(self):
-        return timings.estimate(self.machine, self.protocol_path or self.sub_cmd)
+        if self.cmd == 'TestCommunications':
+            log_arg: str = self.cmd
+        else:
+            assert self.protocol_path, self
+            log_arg: str = self.cmd + ' ' + self.protocol_path
+        return timings.estimate(self.machine, log_arg)
 
     def source(self) -> str:
         return self.machine
@@ -188,29 +201,29 @@ class BiotekCmd(Command):
 
 def WashCmd(
     protocol_path: str | None,
-    sub_cmd: Literal['LHC_RunProtocol', 'LHC_TestCommunications'] = 'LHC_RunProtocol',
+    cmd: BiotekCommand = 'RunProtocol',
 ):
-    return BiotekCmd('wash', protocol_path, sub_cmd)
+    return BiotekCmd('wash', protocol_path, cmd)
 
 def DispCmd(
     protocol_path: str | None,
-    sub_cmd: Literal['LHC_RunProtocol', 'LHC_TestCommunications'] = 'LHC_RunProtocol',
+    cmd: BiotekCommand = 'RunProtocol',
 ):
-    return BiotekCmd('disp', protocol_path, sub_cmd)
+    return BiotekCmd('disp', protocol_path, cmd)
 
 def WashFork(
     protocol_path: str | None,
-    sub_cmd: Literal['LHC_RunProtocol', 'LHC_TestCommunications'] = 'LHC_RunProtocol',
+    cmd: BiotekCommand = 'RunProtocol',
     flexible: bool = False,
 ):
-    return Fork([WashCmd(protocol_path, sub_cmd)], resource='wash', flexible=flexible)
+    return Fork([WashCmd(protocol_path, cmd)], resource='wash', flexible=flexible)
 
 def DispFork(
     protocol_path: str | None,
-    sub_cmd: Literal['LHC_RunProtocol', 'LHC_TestCommunications'] = 'LHC_RunProtocol',
+    cmd: BiotekCommand = 'RunProtocol',
     flexible: bool = False,
 ):
-    return Fork([DispCmd(protocol_path, sub_cmd)], resource='disp', flexible=flexible)
+    return Fork([DispCmd(protocol_path, cmd)], resource='disp', flexible=flexible)
 
 @dataclass(frozen=True)
 class IncuCmd(Command):
@@ -239,11 +252,11 @@ def test_comm(config: RuntimeConfig):
     print('Testing communication with robotarm, washer, dispenser and incubator.')
     runtime = Runtime(config=config)
     cmds = [
-        DispFork(sub_cmd='LHC_TestCommunications', protocol_path=None),
+        DispFork(cmd='TestCommunications', protocol_path=None),
         IncuFork(action='get_climate', incu_loc=None),
         RobotarmCmd('noop'),
         WaitForResource('disp'),
-        WashCmd(sub_cmd='LHC_TestCommunications', protocol_path=None),
+        WashCmd(cmd='TestCommunications', protocol_path=None),
         WaitForResource('incu'),
     ]
     for cmd in cmds:
