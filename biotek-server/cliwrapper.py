@@ -42,7 +42,7 @@ def machine(name: str, args: List[str]):
             assert stdout
 
             def read_to_ready(t0: float):
-                lines: List[Tuple[float, str]] = []
+                lines: List[str] = []
                 while True:
                     exc = p.poll()
                     if exc is not None:
@@ -55,7 +55,7 @@ def machine(name: str, args: List[str]):
                     if line.startswith('ready'):
                         return lines
                     else:
-                        lines += [(t, line)]
+                        lines += [line]
 
             lines = read_to_ready(time.monotonic())
             while True:
@@ -66,7 +66,7 @@ def machine(name: str, args: List[str]):
                 stdin.write(cmd + ' ' + arg + '\n')
                 stdin.flush()
                 lines = read_to_ready(t0)
-                success = any(line.startswith('success') for _, line in lines)
+                success = any(line.startswith('success') for line in lines)
                 reply_queue.put_nowait(dict(success=success, lines=lines))
 
     def message(cmd: str, arg: str=""):
@@ -75,7 +75,7 @@ def machine(name: str, args: List[str]):
             input_queue.put((cmd, arg, reply_queue))
             return reply_queue.get()
         else:
-            return dict(success=False, lines=[(0.0, str("not ready"))])
+            return dict(success=False, lines=["not ready"])
 
     return message
 
@@ -114,6 +114,8 @@ def main(test: bool):
         }
 
     app = Flask(__name__)
+    app.config['JSONIFY_PRETTYPRINT_REGULAR'] = True
+
     @app.route('/<machine>/<cmd>')             # type: ignore
     @app.route('/<machine>/<cmd>/<path:arg>')  # type: ignore
     def execute(machine: str, cmd: str, arg: str=""):
