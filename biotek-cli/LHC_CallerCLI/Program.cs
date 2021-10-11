@@ -88,23 +88,25 @@ namespace LHCCallerCLI
                 LHC_SetProductName(args[0]);
                 LHC_SetCommunications(args[1]);
 
-                string path_prefix = ""
+                string path_prefix = "";
                 if (args.Length == 3) {
-                    path_prefix = args[2]
+                    path_prefix = args[2];
                 }
                 Loop(path_prefix);
             } catch (Exception e) {
-                Console.WriteLine($"[Exception] {e}");
+                Console.WriteLine($"error {e}");
+                Console.WriteLine("panic");
             }
         }
 
+        private static string last_validated_protocol = " ";
+
         static void Loop(string path_prefix)
         {
-            string last_validated_protocol = " ";
             while (true) {
                 Console.WriteLine("ready");
                 string line = Console.ReadLine().Trim();
-                string[] parts = line.split(' ');
+                string[] parts = line.Split(' ');
                 string cmd = "";
                 string arg = "";
                 if (parts.Length == 1) {
@@ -117,64 +119,67 @@ namespace LHCCallerCLI
                     continue;
                 }
                 try {
-                    HandleMessage(cmd, arg, path_prefix, out last_validated_protocol);
+                    HandleMessage(cmd, arg, path_prefix);
                 } catch (Exception e) {
                     Console.WriteLine($"error {e}");
                 }
             }
         }
 
-        static void HandleMessage(string cmd, string arg, string path_prefix, out string last_validated_protocol)
+        static void HandleMessage(string cmd, string arg, string path_prefix)
         {
             if (cmd == "TestCommunications") {
-                short runnerCode = LHC_TestCommunications();
+                short status = LHC_TestCommunications();
                 string details = getRunMessageFromStatusCode(status);
-                Console.WriteLine("status", status);
-                Console.WriteLine("message", details);
-            } else if (cmd == "RunProtocol") {
+                Console.WriteLine($"status {status}");
+                Console.WriteLine($"message {details}");
+            } else if (cmd == "Run") {
                 if (arg == "") {
-                    Console.WriteLine("error protocol name argument required");
-                    continue;
+                    Console.WriteLine("error protocol path argument required");
+                    return;
                 }
                 last_validated_protocol = " ";
-                RunProtocol(path_prefix + arg);
+                Run(path_prefix + arg);
                 Console.WriteLine("success");
-            } else if (cmd == "ValidateProtocol") {
+            } else if (cmd == "Validate") {
                 if (arg == "") {
-                    Console.WriteLine("error protocol name argument required");
-                    continue;
+                    Console.WriteLine("error protocol path argument required");
+                    return;
                 }
                 last_validated_protocol = " ";
-                ValidateProtocol(path_prefix + arg);
+                Validate(path_prefix + arg);
                 last_validated_protocol = arg;
                 Console.WriteLine("success");
-            } else if (cmd == "RunLastValidatedProtocol") {
+            } else if (cmd == "RunValidated") {
                 if (arg == "") {
-                    Console.WriteLine("error protocol name argument required");
-                    continue;
+                    Console.WriteLine("error protocol path argument required");
+                    return;
                 }
                 if (last_validated_protocol != arg) {
                     Console.WriteLine("error last validated protocol and argument does not match");
-                    continue;
+                    return;
                 }
-                string protocolFile = args[3];
-                RunLastValidatedProtocol();
+                RunValidated();
                 Console.WriteLine("success");
             } else {
                 Console.WriteLine("error unknown command");
             }
         }
 
-        static private void RunProtocol(string protocolFile)
+        static private void Run(string protocolFile)
         {
-            ValidateProtocol(protocolFile);
-            RunLastValidatedProtocol();
+            Validate(protocolFile);
+            RunValidated();
         }
 
-        static private void ValidateProtocol(string protocolFile)
+        static private void Validate(string protocolFile)
         {
             Console.WriteLine("message validation begin");
-            Console.WriteLine(f"message protocol: {protocolFile}");
+            Console.WriteLine($"message protocol file: {protocolFile}");
+            if (!File.Exists(protocolFile)) {
+                Console.WriteLine($"error protocol file {protocolFile} does not exist");
+                throw new Exception($"error protocol file {protocolFile} does not exist");
+            }
             short nRetCode = cLHC.LHC_SetRunnerThreading(1);
             handleRetCodeErrors(nRetCode, "LHC_SetRunnerThreading");
 
@@ -184,23 +189,23 @@ namespace LHCCallerCLI
             nRetCode = cLHC.LHC_ValidateProtocol(true);
             handleRetCodeErrors(nRetCode, "LHC_ValidateProtocol");
 
-            nRetCode = LHC_OverrideValidation(1);
+            nRetCode = cLHC.LHC_OverrideValidation(1);
             handleRetCodeErrors(nRetCode, "LHC_OverrideValidation");
             Console.WriteLine("message validation done");
         }
 
-        static private void RunLastValidatedProtocol(string protocolFile)
+        static private void RunValidated()
         {
             Console.WriteLine("message protocol begin");
             Thread tRun = new Thread(ThreadRunProtocol);
             tRun.Start();
             tRun.Join();
             Console.WriteLine("message protocol done");
-            short status = cLHC.LHC_GetProtocolStatus()
-            Console.WriteLine("status", status);
-            handleStatusCodeErrors(status, "RunLastValidatedProtocol");
+            short status = cLHC.LHC_GetProtocolStatus();
+            Console.WriteLine($"status {status}");
+            handleStatusCodeErrors(status, "RunValidated");
             string details = getRunMessageFromStatusCode(status);
-            Console.WriteLine("message", details);
+            Console.WriteLine($"message {details}");
         }
 
         static void ThreadRunProtocol()
@@ -235,13 +240,6 @@ namespace LHCCallerCLI
             return nRetCode;
         }
 
-        static private short LHC_SetProductType(short productType)
-        {
-            short nRetCode = cLHC.LHC_SetProductType(productType);
-            handleRetCodeErrors(nRetCode, "LHC_SetProductType");
-            return nRetCode;
-        }
-
         static private short LHC_TestCommunications()
         {
             short nRetCode = cLHC.LHC_TestCommunications();
@@ -249,26 +247,12 @@ namespace LHCCallerCLI
             return nRetCode;
         }
 
-        static private int LHC_GetProtocolStatus()
-        {
-            int statusCode = cLHC.LHC_GetProtocolStatus();
-            handleStatusCodeErrors(statusCode, "LHC_GetProtocolStatus");
-            return statusCode;
-        }
-
-        static private int LHC_GetVerifyManifoldRunStatus()
-        {
-            int statusCode = cLHC.LHC_GetVerifyManifoldRunStatus();
-            handleStatusCodeErrors(statusCode, "LHC_GetVerifyManifoldRunStatus");
-            return statusCode;
-        }
-
         static void handleRetCodeErrors(short retCode, string calledMethod)
         {
             if (retCode != 1) // 1 = OK
             {
                 string errorMessage = getLastError();
-                Console.WriteLine("message", errorMessage);
+                Console.WriteLine($"message {errorMessage}");
                 throw new Exception("Exception calling cLHC method: " + calledMethod + ", " + errorMessage);
             }
         }
@@ -278,7 +262,7 @@ namespace LHCCallerCLI
             if (statusCode == 4) // 4 = Error
             {
                 string errorMessage = getLastError();
-                Console.WriteLine("message", errorMessage);
+                Console.WriteLine($"message {errorMessage}");
                 throw new Exception("Exception calling cLHC method: " + calledMethod + ", " + errorMessage);
             }
         }
@@ -301,16 +285,17 @@ namespace LHCCallerCLI
                 "\tLHC_CallerCLI.exe \"MultiFloFX\" \"USB MultiFloFX sn:19041612\"\n" +
                 "\tLHC_CallerCLI.exe \"MultiFloFX\" \"USB MultiFloFX sn:19041612\" \"c:\\protocols\\\"\n" +
                 "\tLHC_CallerCLI.exe \"405 TS/LS\" \"USB 405 TS/LS sn:191107F\"\n" +
-                "\n"
-                "This starts a REPL where you can issue these commands:\n"
+                "\n" +
+                "This starts a REPL where you can issue these commands:\n" +
                 "\n" +
                 "\tTestCommunications\n" +
-                "\tRunProtocol <protocol-path>\n" +
-                "\tValidateProtocol <protocol-path>\n" +
-                "\tRunLastValidatedProtocol <protocol-path>\n" +
+                "\tRun <protocol-path>\n" +
+                "\tValidate <protocol-path>\n" +
+                "\tRunValidated <protocol-path>\n" +
                 "\n" +
                 "Please read the source code for more details."
             );
         }
     }
 }
+
