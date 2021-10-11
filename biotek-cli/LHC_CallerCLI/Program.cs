@@ -13,11 +13,11 @@ using System.Diagnostics;
 
 //
 // This is a cli used to call the LHC Runner. The LHC Runner allows developers to
-// run LHC protocol files to control an instrument. This Console App calls each of the 
+// run LHC protocol files to control an instrument. This Console App calls each of the
 // methods provided by the LHC Runner.
 //
 // Test run in PowerShell:
-// 
+//
 // & "C:\Program Files (x86)\BioTek\Liquid Handling Control 2.22\LHC_CallerCLI.exe" "MultiFloFX" "USB MultiFloFX sn:19041612" LHC_TestCommunications
 // & "C:\Program Files (x86)\BioTek\Liquid Handling Control 2.22\LHC_CallerCLI.exe" "405 TS/LS" "USB 405 TS/LS sn:191107F" LHC_TestCommunications
 //
@@ -26,395 +26,306 @@ using System.Diagnostics;
 namespace LHCCallerCLI
 {
 
-	public class Response
-	{
-		public string status{ get; set; }
-		public string value{ get; set; }
-		public string details{ get; set; }
+    public class Response
+    {
+        public string status{ get; set; }
+        public string value{ get; set; }
+        public string details{ get; set; }
 
-		public string toJson()
-		{
-			return "{" +
-				    "\"status\": \"" + status + "\"" + "," +
-				    "\"value\": \"" + value + "\"" + "," +
-				    "\"details\": \"" + details + "\"" + 
-					"}";
-		}
-	}
+        public string toJson()
+        {
+            return "{" +
+                    "\"status\": \"" + status + "\"" + "," +
+                    "\"value\": \"" + value + "\"" + "," +
+                    "\"details\": \"" + details + "\"" +
+                    "}";
+        }
+    }
 
-	public class Program
-	{
-		#region Data Declarations
-	
-		static ClassLHCRunner cLHC = new ClassLHCRunner();
+    public class Program
+    {
+        static String getRunMessageFromStatusCode(int statusCode)
+        {
+            return RUN_STATUS[statusCode];
+        }
 
-		static String[] RUN_STATUS = new String[]{
-				"0 - eUninitialized - should never be encountered",
-				"1 - eReady - the run completed successfully: stop polling for status",
-				"2 - eBusy - failed to run a new step: stop polling for status, the run has failed",
-				"3 - eNotReady -  busy running current step: the run is still active, keep polling for further status",
-				"4 - eError - this run has an error: stop polling for status, the run has failed. Call LHC_GetLastErrorCode to get the error code and then LHC_GetErrorString to get the error description",
-				"5 - eDone - the current step is done, the next step will be started automatically: the run is still active, keep polling for further status",
-				"6 - eIncomplete - (not used)",
-				"7 - ePaused - the run is paused by user: the run is still active, keep polling for further status",
-				"8 - eStopRequested - a Stop is requested by user: the run is still active, keep polling for further status",
-				"9 - eStopping - the run is stopping per request: the run is still active, keep polling for further status",
-				"10 - eNotRequired - (not used)"
-				};
+        static String getMessageFromReturnCode(int returnCode)
+        {
+            return RUNNER_RETURN_CODES[returnCode];
+        }
 
-		static String[] RUNNER_RETURN_CODES = new String[]{
-				"0 - eError",
-				"1 - eOK",
-				"2 - eRegistration_Failure",
-				"3 - eInterface_Failure",
-				"4 - eInvalid_Product_Type",
-				"5 - eOpen_File_Error",
-				"6 - ePre_Run_Error"
-				};
+        #region Data Declarations
+        static ClassLHCRunner cLHC = new ClassLHCRunner();
 
-		#endregion
+        static String[] RUN_STATUS = new String[]{
+                "0 - eUninitialized - should never be encountered",
+                "1 - eReady - the run completed successfully: stop polling for status",
+                "2 - eBusy - failed to run a new step: stop polling for status, the run has failed",
+                "3 - eNotReady -  busy running current step: the run is still active, keep polling for further status",
+                "4 - eError - this run has an error: stop polling for status, the run has failed. Call LHC_GetLastErrorCode to get the error code and then LHC_GetErrorString to get the error description",
+                "5 - eDone - the current step is done, the next step will be started automatically: the run is still active, keep polling for further status",
+                "6 - eIncomplete - (not used)",
+                "7 - ePaused - the run is paused by user: the run is still active, keep polling for further status",
+                "8 - eStopRequested - a Stop is requested by user: the run is still active, keep polling for further status",
+                "9 - eStopping - the run is stopping per request: the run is still active, keep polling for further status",
+                "10 - eNotRequired - (not used)"
+                };
 
-		/*
-		*	Example test calls (from powerscript):
-		*	
-		*	& "C:\Program Files (x86)\BioTek\Liquid Handling Control 2.22\LHC_CallerCLI.exe" "405 TS/LS" "USB 405 TS/LS sn:191107F" "LHC_TestCommunications"
-		*
-		*	& "C:\Program Files (x86)\BioTek\Liquid Handling Control 2.22\LHC_CallerCLI.exe" "MultiFloFX" "USB MultiFloFX sn:19041612" "LHC_TestCommunications"
-		*
-		*	& "C:\Program Files (x86)\BioTek\Liquid Handling Control 2.22\LHC_CallerCLI.exe" "405 TS/LS" "USB 405 TS/LS sn:191107F" "LHC_RunProtocol" "C:\ProgramData\BioTek\Liquid Handling Control 2.22\Protocols\test-protocols\washer_prime_buffers_A_B_C_D_25ml.LHC"
-		* 
-		*/
-		static void Main(string[] args)
-		{
+        static String[] RUNNER_RETURN_CODES = new String[]{
+                "0 - eError",
+                "1 - eOK",
+                "2 - eRegistration_Failure",
+                "3 - eInterface_Failure",
+                "4 - eInvalid_Product_Type",
+                "5 - eOpen_File_Error",
+                "6 - ePre_Run_Error"
+                };
 
-			try   
-			{
-				//Trace.Listeners.Add(new System.Diagnostics.ConsoleTraceListener());
-				Trace.Listeners.Add(new TextWriterTraceListener("LHC_CallerCLI.log"));
-				Trace.AutoFlush = true;
-				
-				runCommand(args);
+        #endregion
 
-			}
-			catch(Exception e)
-			{
-				Console.WriteLine($"[Exception] {e}");	
-			}
-			finally
-			{
-            
-			}
-		}
+        /*
 
-		static void runCommand(string[] args)
-		{
+            Example test calls (from powerscript):
 
-			Response response = new Response();
+                & "C:\Program Files (x86)\BioTek\Liquid Handling Control 2.22\LHC_CallerCLI.exe" "405 TS/LS" "USB 405 TS/LS sn:191107F"
+                & "C:\Program Files (x86)\BioTek\Liquid Handling Control 2.22\LHC_CallerCLI.exe" "405 TS/LS" "USB 405 TS/LS sn:191107F" "C:\ProgramData\BioTek\Liquid Handling Control 2.22\Protocols\"
+                & "C:\Program Files (x86)\BioTek\Liquid Handling Control 2.22\LHC_CallerCLI.exe" "MultiFloFX" "USB MultiFloFX sn:19041612"
+                & "C:\Program Files (x86)\BioTek\Liquid Handling Control 2.22\LHC_CallerCLI.exe" "MultiFloFX" "USB MultiFloFX sn:19041612" "C:\ProgramData\BioTek\Liquid Handling Control 2.22\Protocols\"
 
-			try   
-			{
-				// Trace.TraceInformation("Start runCommand()");
-           
-				if (args.Length < 3)
-				{
-					printHelp();
-					return;
-				}
+        */
+        static void Main(string[] args)
+        {
+            try {
+                if (args.Length < 2) {
+                    printHelp();
+                    return;
+                }
 
-				string productName = args[0];
-				//LHC_SetProductType(6);
-				LHC_SetProductName(productName);
+                LHC_SetProductName(args[0]);
+                LHC_SetCommunications(args[1]);
 
-				string comString = args[1];
-				LHC_SetCommunications(comString);
+                string path_prefix = ""
+                if (args.Length == 3) {
+                    path_prefix = args[2]
+                }
+                Loop(path_prefix);
+            } catch (Exception e) {
+                Console.WriteLine($"[Exception] {e}");
+            }
+        }
 
-				string command = args[2];
+        static void Loop(string path_prefix)
+        {
+            string last_validated_protocol = " ";
+            while (true) {
+                Console.WriteLine("ready");
+                string line = Console.ReadLine().Trim();
+                string[] parts = line.split(' ');
+                string cmd = "";
+                string arg = "";
+                if (parts.Length == 1) {
+                    cmd = parts[0];
+                } else if (parts.Length == 2) {
+                    cmd = parts[0];
+                    arg = parts[1];
+                } else if (parts.Length > 2) {
+                    Console.WriteLine("error too many arguments");
+                    continue;
+                }
+                try {
+                    HandleMessage(cmd, arg, path_prefix, out last_validated_protocol);
+                } catch (Exception e) {
+                    Console.WriteLine($"error {e}");
+                }
+            }
+        }
 
-				switch (command)
-				{
-					case "LHC_TestCommunications":
-						short comStatus = LHC_TestCommunications();
-						response.status = comStatus.ToString();
-						response.details = getMessageFromReturnCode(comStatus);
-						break;
+        static void HandleMessage(string cmd, string arg, string path_prefix, out string last_validated_protocol)
+        {
+            if (cmd == "TestCommunications") {
+                short runnerCode = LHC_TestCommunications();
+                string details = getMessageFromReturnCode(status);
+                Console.WriteLine("status", status);
+                Console.WriteLine("message", details);
+            } else if (cmd == "RunProtocol") {
+                if (arg == "") {
+                    Console.WriteLine("error protocol name argument required");
+                    continue;
+                }
+                last_validated_protocol = " ";
+                RunProtocol(arg);
+                Console.WriteLine("success");
+            } else if (cmd == "ValidateProtocol") {
+                if (arg == "") {
+                    Console.WriteLine("error protocol name argument required");
+                    continue;
+                }
+                last_validated_protocol = " ";
+                ValidateProtocol(arg);
+                last_validated_protocol = arg;
+                Console.WriteLine("success");
+            } else if (cmd == "RunLastValidatedProtocol") {
+                if (arg == "") {
+                    Console.WriteLine("error protocol name argument required");
+                    continue;
+                }
+                if (last_validated_protocol != arg) {
+                    Console.WriteLine("error last validated protocol and argument does not match");
+                    continue;
+                }
+                string protocolFile = args[3];
+                RunLastValidatedProtocol();
+                Console.WriteLine("success");
+            } else {
+                Console.WriteLine("error unknown command");
+            }
+        }
 
-					case "LHC_GetProductName":
-						string prodName = LHC_GetProductName();
-						response.status = "OK";
-						response.value = prodName;
-						break;
+        static private void RunProtocol(string protocolFile)
+        {
+            ValidateProtocol(protocolFile);
+            RunLastValidatedProtocol();
+        }
 
-					case "LHC_GetProductSerialNumber":
-						string serial = LHC_GetProductSerialNumber();
-						response.status = "OK";
-						response.value = serial;
-						break;
+        static private void ValidateProtocol(string protocolFile)
+        {
+            Console.WriteLine("message validation begin");
+            short nRetCode = cLHC.LHC_SetRunnerThreading(1);
+            handleRetCodeErrors(nRetCode, "LHC_SetRunnerThreading");
 
-					// OBS LHC_RunProtocol returns "3 - busy" when it starts running OK
-					case "LHC_RunProtocol":
-						string protocolFile = args[3];
-						int runStatus = LHC_RunProtocol(protocolFile);
-						response.status = runStatus.ToString();
-						response.details = getRunMessageFromStatusCode(runStatus);
-						break;
+            nRetCode = cLHC.LHC_LoadProtocolFromFile(protocolFile);
+            handleRetCodeErrors(nRetCode, "LHC_LoadProtocolFromFile");
 
-					case "LHC_GetProtocolStatus":
-						int protocolStatus = LHC_GetProtocolStatus();
-						response.status = protocolStatus.ToString();
-						response.details = getRunMessageFromStatusCode(protocolStatus);
-						break;
+            nRetCode = cLHC.LHC_ValidateProtocol(true);
+            handleRetCodeErrors(nRetCode, "LHC_ValidateProtocol");
 
-					// OBS LHC_RunVerifyManifoldTest returns "3 - busy" when it starts running OK
-					case "LHC_RunVerifyManifoldTest":
-						int runTestStatus = LHC_RunVerifyManifoldTest();
-						response.status = runTestStatus.ToString();
-						response.details = getRunMessageFromStatusCode(runTestStatus);
-						break;
+            nRetCode = LHC_OverrideValidation(1);
+            handleRetCodeErrors(nRetCode, "LHC_OverrideValidation");
+            Console.WriteLine("message validation done");
+        }
 
-					case "LHC_GetVerifyManifoldRunStatus":
-						int testStatus = LHC_GetVerifyManifoldRunStatus();
-						response.status = testStatus.ToString();
-						response.details = getRunMessageFromStatusCode(testStatus);
-						break;
+        static private void RunLastValidatedProtocol(string protocolFile)
+        {
+            Console.WriteLine("message protocol begin");
+            Thread tRun = new Thread(ThreadRunProtocol);
+            tRun.Start();
+            tRun.Join();
+            Console.WriteLine("message protocol done");
+            short status = cLHC.LHC_GetProtocolStatus()
+            Console.WriteLine("status", status);
+            handleStatusCodeErrors(status, "RunLastValidatedProtocol");
+            string details = getMessageFromReturnCode(status);
+            Console.WriteLine("message", details);
+        }
 
-					case "LHC_GetVerifyManifoldTestResults":
-						string testResults = LHC_GetVerifyManifoldTestResults();
-						response.status = "OK";
-						response.value = testResults;
-						break;
+        static void ThreadRunProtocol()
+        {
+            // Start to run the protocol
+            int nRunStatus = cLHC.LHC_RunProtocol();
 
-//					case "LHC_PerformSelfCheck":
-//						string testResults = LHC_PerformSelfCheck();
-//						response.status = "OK";
-//						response.value = testResults;
-//						break;
+            // Need to stay in the thread (this function) until the protocol is done otherwise
+            // the protocol stops because the thread itself is gone once the function exits.
+            int statusError = 4;
+            int statusReady = 1;
+            while ((nRunStatus != statusError) && (nRunStatus != statusReady)) {
+                nRunStatus = cLHC.LHC_GetProtocolStatus();
+                // A sleep here will cause this thread only to sleep. The UI thread will still be active.
+                Thread.Sleep(100);
+            }
+            // Done!
+        }
 
-					default:
-						response.value = "WARNING";
-						response.details = "No Command Specified";
-						break;
-				}
-			}
+        static private short LHC_SetCommunications(string comPort)
+        {
+            short nRetCode = cLHC.LHC_SetCommunications(comPort);
+            handleRetCodeErrors(nRetCode, "LHC_SetCommunications");
+            return nRetCode;
 
-			catch(Exception ex)
-			{
-				string value = "EXCEPTION";
-				string errorString = "Message - {0} - " + 
-									 "Source - {1} - " +
-									 "StackTrace - {2} - " +
-									 "TargetSite - {3} - ";
-									 
-				errorString = String.Format(errorString,
-											ex.Message,
-											ex.Source,
-											ex.StackTrace,
-				                            ex.TargetSite );
+        }
 
-				response.status = "99";
-				response.value = value;
-				response.details = errorString;
-			}
+        static private short LHC_SetProductName(string productName)
+        {
+            short nRetCode = cLHC.LHC_SetProductName(productName);
+            handleRetCodeErrors(nRetCode, "Set Product Name");
+            return nRetCode;
+        }
 
-			Console.WriteLine(response.toJson());
-		}
+        static private short LHC_SetProductType(short productType)
+        {
+            short nRetCode = cLHC.LHC_SetProductType(productType);
+            handleRetCodeErrors(nRetCode, "LHC_SetProductType");
+            return nRetCode;
+        }
 
-		static private void printHelp()
-		{
-			Console.WriteLine(	"Help:\n" + 
-								"LHC_CallerCLI.exe <product> <com-port> <command> <parameters>\n" +
-				                "\n" + 
-								"Examples: \n" + 
-								"LHC_CallerCLI.exe \"MultiFloFX\" \"USB MultiFloFX sn:19041612\" LHC_GetVerifyManifoldRunStatus\n" +
-								"LHC_CallerCLI.exe \"MultiFloFX\" \"USB MultiFloFX sn:19041612\" LHC_RunProtocol \"c:\\protocols\\my-testprotocol\"\n" +
-								"LHC_CallerCLI.exe \"MultiFloFX\" \"USB MultiFloFX sn:19041612\" LHC_TestCommunications\"\n" +
-								"LHC_CallerCLI.exe \"405 TS/LS\" \"USB 405 TS/LS sn:191107F\" \"LHC_TestCommunications\"\n" +
+        static private short LHC_TestCommunications()
+        {
+            short nRetCode = cLHC.LHC_TestCommunications();
+            handleRetCodeErrors(nRetCode, "LHC_TestCommunications");
+            return nRetCode;
+        }
 
-								"\n" + 
-								"Some commands implemented:\n" +
-								"LHC_TestCommunications\n" + 
-								"LHC_GetProductName\n" + 
-								"LHC_GetProductSerialNumber\n" + 
-								"LHC_RunProtocol\n" + 
-								"LHC_GetProtocolStatus\n" + 
-								"LHC_RunVerifyManifoldTest\n" + 
-								"LHC_GetVerifyManifoldRunStatus\n" + 
-								"LHC_GetVerifyManifoldTestResults\n" + 
-								"\n" + 
-							    "Please check GitHub for more details."
-							 );
-		}
+        static private int LHC_GetProtocolStatus()
+        {
+            int statusCode = cLHC.LHC_GetProtocolStatus();
+            handleStatusCodeErrors(statusCode, "LHC_GetProtocolStatus");
+            return statusCode;
+        }
 
-		static String getRunMessageFromStatusCode(int statusCode)
-		{
-			return RUN_STATUS[statusCode];
-		}
+        static private int LHC_GetVerifyManifoldRunStatus()
+        {
+            int statusCode = cLHC.LHC_GetVerifyManifoldRunStatus();
+            handleStatusCodeErrors(statusCode, "LHC_GetVerifyManifoldRunStatus");
+            return statusCode;
+        }
 
-		static String getMessageFromReturnCode(int returnCode)
-		{
-			return RUNNER_RETURN_CODES[returnCode];
-		}	
+        static void handleRetCodeErrors(short retCode, string calledMethod)
+        {
+            if (retCode != 1) // 1 = OK
+            {
+                string errorMessage = getLastError();
+                Console.WriteLine("message", errorMessage);
+                throw new Exception("Exception calling cLHC method: " + calledMethod + ", " + errorMessage);
+            }
+        }
 
-		static private int LHC_RunProtocol(string protocolFile)
-		{
-			short nRetCode = cLHC.LHC_SetRunnerThreading(1);
-			handleRetCodeErrors(nRetCode, "LHC_SetRunnerThreading");
+        static void handleStatusCodeErrors(int statusCode, string calledMethod)
+        {
+            if (statusCode == 4) // 4 = Error
+            {
+                string errorMessage = getLastError();
+                Console.WriteLine("message", errorMessage);
+                throw new Exception("Exception calling cLHC method: " + calledMethod + ", " + errorMessage);
+            }
+        }
 
-			nRetCode = cLHC.LHC_LoadProtocolFromFile(protocolFile);
-			handleRetCodeErrors(nRetCode, "LHC_LoadProtocolFromFile");
+        static string getLastError()
+        {
+            short errorCode = cLHC.LHC_GetLastErrorCode();
+            string errorString =  cLHC.LHC_GetErrorString(errorCode);
+            string errorMessage = "ErrorCode: " + errorCode + ", ErrorString: " + errorString;
+            return errorMessage;
+        }
 
-			// LHC_SetFirstStrip (); // optional call to set first strip to process (50 TS washer only)
-
-			// LHC_SetNumberOfStrips (); // optional call to set number of strips to process (50 TS washer only)
-		    
-			// Trace.TraceInformation("Before validate");
-
-			nRetCode = cLHC.LHC_ValidateProtocol(true); // optional call to force immediate validation
-			handleRetCodeErrors(nRetCode, "LHC_ValidateProtocol");
-		    
-			// LHC_OverrideValidation(); // optional call to bypass validation
-
-			// LHC_LeaveVacuumPumpOn(); // optional call to leave pump on when run is complete
-
-			// int nRunStatus = cLHC.LHC_RunProtocol();
-			// handleStatusCodeErrors(nRunStatus, "LHC_RunProtocol");
-
-			// Trace.TraceInformation("Before start thread");
-
-			Thread tRun = new Thread(ThreadRunProtocol);
-			// Start running the protocol
-			tRun.Start();
-
-			// Trace.TraceInformation("After start thread");
-
-			int nRunStatus = cLHC.LHC_GetProtocolStatus();
-
-			// Trace.TraceInformation("nRunStatus=" + nRunStatus);
-
-
-			return nRunStatus;
-		}
-
-		static void ThreadRunProtocol()
-		{
-			// This is the function that gets run in its own thread by the thread examples 1-3.
-
-			// Start to run the protocol
-			int nRunStatus = cLHC.LHC_RunProtocol();
-
-			// Need to stay in the thread (this function) until the protocol is done otherwise
-			// the protocol stops because the thread itself is gone once the function exits.
-			int statusError = 4;
-			int statusReady = 1;
-			while ((nRunStatus != statusError) && (nRunStatus != statusReady))
-			{
-				nRunStatus = cLHC.LHC_GetProtocolStatus();
-				// A sleep here will cause this thread only to sleep. The UI thread will still be active.
-				Thread.Sleep(100);
-			}
-
-			// Done!
-
-		}
-
-
-		static private int LHC_RunVerifyManifoldTest()
-		{
-			short nRetCode = cLHC.LHC_SetRunnerThreading(1);
-			handleRetCodeErrors(nRetCode, "LHC_SetRunnerThreading");
-
-			int nRunStatus = cLHC.LHC_RunVerifyManifoldTest();
-			handleStatusCodeErrors(nRunStatus, "LHC_RunProtocol");
-			
-			return nRunStatus;
-		}
-
-		static private string LHC_GetVerifyManifoldTestResults()
-		{
-			string testResult = cLHC.LHC_GetVerifyManifoldTestResults();
-			return testResult;
-		}		
-
-		static private short LHC_SetProductName(string productName)
-		{
-			short nRetCode = cLHC.LHC_SetProductName(productName);
-			handleRetCodeErrors(nRetCode, "Set Product Name");
-			return nRetCode;
-		}
-		
-		static private short LHC_SetProductType(short productType)
-		{
-			short nRetCode = cLHC.LHC_SetProductType(productType);
-			handleRetCodeErrors(nRetCode, "LHC_SetProductType");
-			return nRetCode;
-		}
-
-		static private short LHC_SetCommunications(string comPort)
-		{
-			short nRetCode = cLHC.LHC_SetCommunications(comPort);
-			handleRetCodeErrors(nRetCode, "LHC_SetCommunications");
-			return nRetCode;
-
-		}
-		static private short LHC_TestCommunications()
-		{
-			short nRetCode = cLHC.LHC_TestCommunications();
-			handleRetCodeErrors(nRetCode, "LHC_TestCommunications");
-			return nRetCode;
-		} 
-		static private string LHC_GetProductName()
-		{
-			string prodName = "na";
-			short nRetCode = cLHC.LHC_GetProductName(ref prodName);
-			handleRetCodeErrors(nRetCode, "LHC_GetProductName");
-			return prodName;
-		}
-		static private string LHC_GetProductSerialNumber()
-		{
-			string serialNumber = "na";
-			short nRetCode = cLHC.LHC_GetProductSerialNumber(ref serialNumber);
-			handleRetCodeErrors(nRetCode, "LHC_GetProductSerialNumber");
-			return serialNumber;
-		}
-
-		static private int LHC_GetProtocolStatus()
-		{
-			int statusCode = cLHC.LHC_GetProtocolStatus();
-			handleStatusCodeErrors(statusCode, "LHC_GetProtocolStatus");
-			return statusCode;
-		}
-
-		static private int LHC_GetVerifyManifoldRunStatus()
-		{
-			int statusCode = cLHC.LHC_GetVerifyManifoldRunStatus();
-			handleStatusCodeErrors(statusCode, "LHC_GetVerifyManifoldRunStatus");
-			return statusCode;
-		}
-		
-		static void handleRetCodeErrors(short retCode, string calledMethod)
-		{
-			if (retCode != 1) // 1 = OK
-			{
-				string errorMessage = getLastError();		
-				throw new Exception("Exception calling cLHC method: " + calledMethod + ", " + errorMessage);
-			}
-		}
-
-		static void handleStatusCodeErrors(int statusCode, string calledMethod)
-		{
-			if (statusCode == 4) // 4 = Error
-			{
-				string errorMessage = getLastError();		
-				throw new Exception("Exception calling cLHC method: " + calledMethod + ", " + errorMessage);
-			}
-		}
-
-		static string getLastError()
-		{
-			short errorCode = cLHC.LHC_GetLastErrorCode();
-			string errorString =  cLHC.LHC_GetErrorString(errorCode);
-			string errorMessage = "ErrorCode: " + errorCode + ", ErrorString: " + errorString;
-			return errorMessage;
-		}
-
-	}
+        static private void printHelp()
+        {
+            Console.WriteLine(
+                "Help:\n" +
+                "\tLHC_CallerCLI.exe <product> <com-port> [path-prefix]\n" +
+                "\n" +
+                "Examples: \n" +
+                "\tLHC_CallerCLI.exe \"MultiFloFX\" \"USB MultiFloFX sn:19041612\"\n" +
+                "\tLHC_CallerCLI.exe \"MultiFloFX\" \"USB MultiFloFX sn:19041612\" \"c:\\protocols\\\"\n" +
+                "\tLHC_CallerCLI.exe \"405 TS/LS\" \"USB 405 TS/LS sn:191107F\"\n" +
+                "\n"
+                "This starts a REPL where you can issue these commands:\n"
+                "\n" +
+                "\tTestCommunications\n" +
+                "\tRunProtocol <protocol-path>\n" +
+                "\tValidateProtocol <protocol-path>\n" +
+                "\tRunLastValidatedProtocol <protocol-path>\n" +
+                "\n" +
+                "Please read the source code for more details."
+            );
+        }
+    }
 }
