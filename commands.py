@@ -181,7 +181,7 @@ class RobotarmCmd(Command):
 class BiotekCmd(Command):
     machine: Literal['wash', 'disp']
     protocol_path: str | None
-    cmd: BiotekCommand = 'RunProtocol'
+    cmd: BiotekCommand = 'Run'
     def execute(self, runtime: Runtime, metadata: dict[str, Any]) -> None:
         bioteks.execute(runtime, self.machine, self.protocol_path, self.cmd, metadata)
 
@@ -201,26 +201,26 @@ class BiotekCmd(Command):
 
 def WashCmd(
     protocol_path: str | None,
-    cmd: BiotekCommand = 'RunProtocol',
+    cmd: BiotekCommand = 'Run',
 ):
     return BiotekCmd('wash', protocol_path, cmd)
 
 def DispCmd(
     protocol_path: str | None,
-    cmd: BiotekCommand = 'RunProtocol',
+    cmd: BiotekCommand = 'Run',
 ):
     return BiotekCmd('disp', protocol_path, cmd)
 
 def WashFork(
     protocol_path: str | None,
-    cmd: BiotekCommand = 'RunProtocol',
+    cmd: BiotekCommand = 'Run',
     flexible: bool = False,
 ):
     return Fork([WashCmd(protocol_path, cmd)], resource='wash', flexible=flexible)
 
 def DispFork(
     protocol_path: str | None,
-    cmd: BiotekCommand = 'RunProtocol',
+    cmd: BiotekCommand = 'Run',
     flexible: bool = False,
 ):
     return Fork([DispCmd(protocol_path, cmd)], resource='disp', flexible=flexible)

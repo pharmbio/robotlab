@@ -29,10 +29,14 @@ Estimates: dict[Estimated, float] = {
 }
 
 for (m, a), v in list(Estimates.items()):
-    if m == 'wash' or m == 'disp':
-        Estimates[(m, 'RunProtocol ' + a)] = v
-        Estimates[(m, 'ValidateProtocol ' + a)] = 2.0
-        Estimates[(m, 'RunLastValidatedProtocol ' + a)] = v - 2.0
+    if m == 'wash':
+        Estimates[(m, 'Run ' + a)] = v
+        Estimates[(m, 'Validated ' + a)] = 1.2
+        Estimates[(m, 'RunValidated ' + a)] = v - 1.2
+    if m == 'disp':
+        Estimates[(m, 'Run ' + a)] = v
+        Estimates[(m, 'Validated ' + a)] = 4.3
+        Estimates[(m, 'RunValidated ' + a)] = v - 4.3
 
 overrides: dict[Estimated, float] = {
     ('robotarm', 'noop'): 0.5,
@@ -65,7 +69,7 @@ overrides: dict[Estimated, float] = {
     # ('robotarm', 'out13 put return'): 6.0,
     # ('robotarm', 'out11 put return'): 6.0,
     # ('robotarm', 'out9 put return'): 6.0,0.8 *
-    # ('wash', 'RunLastValidatedProtocol automation_v3.1/9_W-4X_NoFinalAspirate.LHC'): 95.0, #3X
+    # ('wash', 'RunValidated automation_v3.1/9_W-4X_NoFinalAspirate.LHC'): 95.0, #3X
     # ('disp', 'automation_v3.1/2_D_P1_40ul_mito.LHC'): 31.6,
     # ('disp', 'automation_v3.1/8_D_P2_20ul_stains.LHC'): 21.3,
     # ('disp', 'automation_v3.1/2_D_P1_purge_then_prime.LHC'): 20.0,

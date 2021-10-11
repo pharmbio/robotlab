@@ -675,7 +675,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig, short_test_
                         WaitForCheckpoint(f'{plate_desc} pre disp {i}', flexible=True),
                         Idle() + f'{plate_desc} pre disp {i} delay',
                         DispCmd(p.pre_disp[i]) if p.pre_disp[i] else Idle(),
-                        DispCmd(p.disp[i], cmd='ValidateProtocol'),
+                        DispCmd(p.disp[i], cmd='Validate'),
                         Early(3),
                         Checkpoint(f'{plate_desc} pre disp done {i}'),
                     ],
@@ -688,7 +688,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig, short_test_
                 pre_disp_wait = Idle()
 
             if plate is first_plate:
-                wash_prime = WashFork(p.wash[i], cmd='ValidateProtocol', flexible=True) + 2
+                wash_prime = WashFork(p.wash[i], cmd='Validate', flexible=True) + 2
             else:
                 wash_prime = Idle()
 
@@ -700,7 +700,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig, short_test_
                     *wash_delay,
                     Duration(f'{plate_desc} active {i-1}') if i-1 else Idle(),
                     Checkpoint(f'{plate_desc} pre disp {i}'),
-                    WashCmd(p.wash[i], cmd='RunLastValidatedProtocol'),
+                    WashCmd(p.wash[i], cmd='RunValidated'),
                     Checkpoint(f'{plate_desc} transfer {i}'),
                 ], resource='wash'),
                 pre_disp,
@@ -720,7 +720,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig, short_test_
                 Duration(f'{plate_desc} transfer {i}', opt_weight=-1000),
                 pre_disp_wait,
                 Fork([
-                    DispCmd(p.disp[i], cmd='RunLastValidatedProtocol'),
+                    DispCmd(p.disp[i], cmd='RunValidated'),
                     Checkpoint(f'{plate_desc} disp {i} done'),
                     Checkpoint(f'{plate_desc} active {i}'),
                 ], resource='disp'),

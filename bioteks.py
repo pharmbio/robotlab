@@ -7,9 +7,9 @@ from runtime import Runtime, RuntimeConfig, curl
 import timings
 
 BiotekCommand: TypeAlias = Literal[
-    'RunProtocol',
-    'ValidateProtocol',
-    'RunLastValidatedProtocol',
+    'Run',
+    'Validate',
+    'RunValidated',
     'TestCommunications',
 ]
 
@@ -17,7 +17,7 @@ def execute(
     runtime: Runtime,
     machine: Literal['wash', 'disp'],
     protocol_path: str | None,
-    cmd: BiotekCommand = 'RunProtocol',
+    cmd: BiotekCommand = 'Run',
     metadata: dict[str, Any] = {},
 ):
     '''
@@ -25,19 +25,42 @@ def execute(
 
     Success looks like this:
 
-        {"success": True, "lines": []}
+        {
+          "lines": [
+            "message protocol begin",
+            "message protocol done",
+            "status 1",
+            "message 1 - eOK",
+            "success"
+          ],
+          "success": True
+        }
 
     Acceptable failure looks like this:
 
-        {"success": False, "lines": [
-            [1.234, "Message - Exception calling cLHC method:"]
-            [1.234, "LHC_TestCommunications, ErrorCode: 24673, ErrorString: Error code: 6061"
-            [1.234, "Port is no longer available - ..."]
-        ]}
+        {
+          "lines": [
+            "message ErrorCode: 24673, ErrorString: Error code: 6061",
+            "Port is no longer available",
+            "error System.Exception: Exception calling cLHC method: LHC_TestCommunications, ErrorCode: 24673, ErrorString: Error code: 6061",
+            "Port is no longer available",
+            "at LHCCallerCLI.Program.handleRetCodeErrors(Int16 retCode, String calledMethod) in C:\\pharmbio\\robotlab-labrobots\\biotek-cli\\LHC_CallerCLI\\Program.cs:line 273",
+            "at LHCCallerCLI.Program.LHC_TestCommunications() in C:\\pharmbio\\robotlab-labrobots\\biotek-cli\\LHC_CallerCLI\\Program.cs:line 263",
+            "at LHCCallerCLI.Program.HandleMessage(String cmd, String arg, String path_prefix) in C:\\pharmbio\\robotlab-labrobots\\biotek-cli\\LHC_CallerCLI\\Program.cs:line 148",
+            "at LHCCallerCLI.Program.Loop(String path_prefix) in C:\\pharmbio\\robotlab-labrobots\\biotek-cli\\LHC_CallerCLI\\Program.cs:line 138"
+          ],
+          "success": False
+        }
 
     Failure looks like this:
 
-        {"success": False, "lines": []}
+        {
+          "lines": [
+            "error last validated protocol and argument does not match"
+          ],
+          "success": False
+        }
+
     '''
     if cmd == 'TestCommunications':
         log_arg: str = cmd
@@ -61,8 +84,8 @@ def execute(
                 url = url.rstrip('/')
                 res: Any = curl(url)
             success: bool = res.get('success', False)
-            lines: list[tuple[float, str]] = res.get('lines', [])
-            details = '\n'.join(line for _, line in lines)
+            lines: list[str] = res.get('lines', [])
+            details = '\n'.join(lines)
             if success:
                 break
             elif 'Error code: 6061' in details and 'Port is no longer available' in details:
