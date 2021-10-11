@@ -153,7 +153,7 @@ namespace LHCCallerCLI
                     continue;
                 }
                 last_validated_protocol = " ";
-                RunProtocol(arg);
+                RunProtocol(path_prefix + arg);
                 Console.WriteLine("success");
             } else if (cmd == "ValidateProtocol") {
                 if (arg == "") {
@@ -161,7 +161,7 @@ namespace LHCCallerCLI
                     continue;
                 }
                 last_validated_protocol = " ";
-                ValidateProtocol(arg);
+                ValidateProtocol(path_prefix + arg);
                 last_validated_protocol = arg;
                 Console.WriteLine("success");
             } else if (cmd == "RunLastValidatedProtocol") {
@@ -190,6 +190,7 @@ namespace LHCCallerCLI
         static private void ValidateProtocol(string protocolFile)
         {
             Console.WriteLine("message validation begin");
+            Console.WriteLine(f"message protocol: {protocolFile}");
             short nRetCode = cLHC.LHC_SetRunnerThreading(1);
             handleRetCodeErrors(nRetCode, "LHC_SetRunnerThreading");
 
