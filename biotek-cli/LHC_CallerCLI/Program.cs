@@ -26,22 +26,6 @@ using System.Diagnostics;
 namespace LHCCallerCLI
 {
 
-    public class Response
-    {
-        public string status{ get; set; }
-        public string value{ get; set; }
-        public string details{ get; set; }
-
-        public string toJson()
-        {
-            return "{" +
-                    "\"status\": \"" + status + "\"" + "," +
-                    "\"value\": \"" + value + "\"" + "," +
-                    "\"details\": \"" + details + "\"" +
-                    "}";
-        }
-    }
-
     public class Program
     {
         static String getRunMessageFromStatusCode(int statusCode)
@@ -144,7 +128,7 @@ namespace LHCCallerCLI
         {
             if (cmd == "TestCommunications") {
                 short runnerCode = LHC_TestCommunications();
-                string details = getMessageFromReturnCode(status);
+                string details = getRunMessageFromStatusCode(status);
                 Console.WriteLine("status", status);
                 Console.WriteLine("message", details);
             } else if (cmd == "RunProtocol") {
@@ -215,7 +199,7 @@ namespace LHCCallerCLI
             short status = cLHC.LHC_GetProtocolStatus()
             Console.WriteLine("status", status);
             handleStatusCodeErrors(status, "RunLastValidatedProtocol");
-            string details = getMessageFromReturnCode(status);
+            string details = getRunMessageFromStatusCode(status);
             Console.WriteLine("message", details);
         }
 
