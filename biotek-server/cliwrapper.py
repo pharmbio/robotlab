@@ -6,7 +6,7 @@ import json
 from flask import Flask, jsonify
 from subprocess import Popen, PIPE, STDOUT
 from queue import Queue
-from typing import Callable, Any
+from typing import Callable, Any, List, Tuple
 import threading
 import time
 
@@ -18,9 +18,9 @@ HOST = os.environ.get('HOST', '10.10.0.56')
 def spawn(f: Callable[[], None]) -> None:
     threading.Thread(target=f, daemon=True).start()
 
-def machine(name: str, args: list[str]):
+def machine(name: str, args: List[str]):
 
-    input_queue: Queue[tuple[str, str, Queue[Any]]] = Queue()
+    input_queue: Queue[Tuple[str, str, Queue[Any]]] = Queue()
     is_ready: bool = False
 
     @spawn
@@ -42,7 +42,7 @@ def machine(name: str, args: list[str]):
             assert stdout
 
             def read_to_ready(t0: float):
-                lines: list[tuple[float, str]] = []
+                lines: List[Tuple[float, str]] = []
                 while True:
                     exc = p.poll()
                     if exc is not None:
