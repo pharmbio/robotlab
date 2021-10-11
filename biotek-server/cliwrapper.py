@@ -30,13 +30,11 @@ def machine(name: str, args: list[str]):
             args,
             stdin=PIPE,
             stdout=PIPE,
-            # stderr=STDOUT,
-            stderr=PIPE,
-            # bufsize=1,  # line buffered
-            # universal_newlines=True,
+            stderr=STDOUT,
+            bufsize=1,  # line buffered
+            universal_newlines=True,
             encoding='utf-8',
-            # errors='replace',
-            # capture_output=True,
+            errors='replace',
         ) as p:
             stdin = p.stdin
             stdout = p.stdout
@@ -60,7 +58,7 @@ def machine(name: str, args: list[str]):
                         lines += [(t, line)]
 
             lines = read_to_ready(time.monotonic())
-            print(f"{lines = }")
+            print(*lines[-1])
             while True:
                 is_ready = True
                 cmd, arg, reply_queue = input_queue.get()
