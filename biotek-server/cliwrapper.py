@@ -105,11 +105,11 @@ def main(test: bool):
             ),
             'wash': machine(
                 'wash',
-                args=[LHC_CALLER_CLI_PATH, "405 TS/LS", "USB 405 TS/LS sn:191107F"],
+                args=[LHC_CALLER_CLI_PATH, "405 TS/LS", "USB 405 TS/LS sn:191107F", PROTOCOLS_ROOT],
             ),
             'disp': machine(
                 'disp',
-                args=[LHC_CALLER_CLI_PATH, "MultiFloFX", "USB MultiFloFX sn:19041612"],
+                args=[LHC_CALLER_CLI_PATH, "MultiFloFX", "USB MultiFloFX sn:19041612", PROTOCOLS_ROOT],
             ),
         }
 
