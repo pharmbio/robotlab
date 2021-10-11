@@ -58,7 +58,6 @@ def machine(name: str, args: List[str]):
                         lines += [(t, line)]
 
             lines = read_to_ready(time.monotonic())
-            print(*lines[-1])
             while True:
                 is_ready = True
                 cmd, arg, reply_queue = input_queue.get()
