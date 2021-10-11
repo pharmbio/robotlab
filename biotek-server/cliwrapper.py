@@ -117,6 +117,7 @@ def main(test: bool):
     @app.route('/<machine>/<cmd>')             # type: ignore
     @app.route('/<machine>/<cmd>/<path:arg>')  # type: ignore
     def execute(machine: str, cmd: str, arg: str=""):
+        arg = arg.replace('/', '\\')
         return jsonify(machines[machine](cmd, arg))
 
     app.run(host=HOST, port=PORT, threaded=True, processes=1)
