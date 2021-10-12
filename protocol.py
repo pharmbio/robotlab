@@ -217,7 +217,7 @@ def time_bioteks(config: RuntimeConfig, protocol_config: ProtocolConfig):
             Symbolic.var('incu 5'),
         )
     )
-    events = eventlist([1], protocol_config=protocol_config, short_test_paint=False, sleek=True)
+    events = eventlist([1], protocol_config=protocol_config, sleek=True)
     events = [
         e
         for e in events
@@ -233,7 +233,7 @@ def time_bioteks(config: RuntimeConfig, protocol_config: ProtocolConfig):
     ]
     pr(events)
     ATTENTION(time_bioteks.__doc__ or '')
-    execute_events(config, events, metadata={'options': 'time_bioteks'})
+    execute_events(config, events, metadata={'program': 'time_bioteks'})
 
 def time_arm_incu(config: RuntimeConfig):
     '''
@@ -304,7 +304,7 @@ def time_arm_incu(config: RuntimeConfig):
         *sleek_commands(arm2),
         *arm2,
     ]
-    execute_commands(config, cmds, metadata={'options': 'time_arm_incu'})
+    execute_commands(config, cmds, metadata={'program': 'time_arm_incu'})
 
 def lid_stress_test(config: RuntimeConfig):
     '''
@@ -337,7 +337,7 @@ def lid_stress_test(config: RuntimeConfig):
         ]
     events = sleek_events(events)
     ATTENTION(lid_stress_test.__doc__ or '')
-    execute_events(config, events, {'options': 'lid_stress_test'})
+    execute_events(config, events, {'program': 'lid_stress_test'})
 
 def load_incu(config: RuntimeConfig, num_plates: int):
     '''
@@ -382,7 +382,7 @@ def load_incu(config: RuntimeConfig, num_plates: int):
         Event('', 'load incu', 'return', RobotarmCmd('incu_A21 put-return'))
     ]
     ATTENTION(load_incu.__doc__ or '')
-    execute_events(config, events, {'options': 'load_incu'})
+    execute_events(config, events, {'program': 'load_incu'})
 
 def unload_incu(config: RuntimeConfig, num_plates: int):
     '''
@@ -415,7 +415,7 @@ def unload_incu(config: RuntimeConfig, num_plates: int):
         *events,
     ]
     ATTENTION(unload_incu.__doc__ or '')
-    execute_events(config, events, {'options': 'unload_incu'})
+    execute_events(config, events, {'program': 'unload_incu'})
 
 @dataclass(frozen=True)
 class Event:
@@ -430,6 +430,12 @@ class Event:
             'event_part': self.part,
             'event_subpart': self.subpart,
         }
+
+    @staticmethod
+    def wrap(commands: Command | list[Command], plate_id: str='', part: str='', subpart: str=''):
+        if isinstance(commands, Command):
+            commands = [commands]
+        return [Event(plate_id, part, subpart, command) for command in commands]
 
 def execute_events_in_runtime(runtime: Runtime, events: list[Event]) -> None:
     for i, event in enumerate(events):
@@ -561,7 +567,7 @@ finjune = Interleaving.init('''
 
 Interleavings = {k: v for k, v in globals().items() if isinstance(v, Interleaving)}
 
-def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig, short_test_paint: bool=False):
+def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig):
 
     p = protocol_config
 
@@ -767,18 +773,6 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig, short_test_
         else:
             return p, part, subpart
 
-    # parts = ['Mito', 'PFA']
-
-    if short_test_paint:
-        skip = ['Triton', 'Stains']
-        parts = [part for part in parts if part not in skip]
-        chunks = {
-            desc: cmd
-            for desc, cmd in chunks.items()
-            for _, part, _ in [desc]
-            if part not in skip
-        }
-
     for part, next_part in utils.iterate_with_next(parts):
         if next_part:
             seq([
@@ -905,13 +899,14 @@ def sleek_commands(cmds: list[Command]) -> list[Command]:
             return None
     return moves.sleek_movements(cmds, get_movelist)
 
-def eventlist(batch_sizes: list[int], protocol_config: ProtocolConfig, short_test_paint: bool = False, sleek: bool = True) -> list[Event]:
-    all_events: list[Event] = []
+def eventlist(batch_sizes: list[int], protocol_config: ProtocolConfig, sleek: bool = True) -> list[Event]:
+    all_events: list[Event] = [
+        Event('', 'prep', '', RobotarmCmd('gripper check'))
+    ]
     for batch in group_by_batch(define_plates(batch_sizes)):
         events = paint_batch(
             batch,
             protocol_config=protocol_config,
-            short_test_paint=short_test_paint,
         )
         if sleek:
             events = sleek_events(events)
@@ -923,19 +918,20 @@ def test_circuit(config: RuntimeConfig) -> None:
     Test circuit: Short test paint on one plate, without incubator
     '''
     plate, = define_plates([1])
-    events = eventlist([1], protocol_config=v3, short_test_paint=True)
+    events = eventlist([1], protocol_config=v3)
     events = [
         event
         for event in events
         if isinstance(event.command, commands.RobotarmCmd)
-    ] + [
-        Event(plate.id, 'return', name, commands.RobotarmCmd(name))
-        for name in [
-            plate.out_get,
-            'incu put'
-        ]
-
-    ]
+        if event.part not in {'Triton', 'Stains'}
+    ] + Event.wrap([
+            *RobotarmCmds(plate.out_get),
+            *RobotarmCmds('incu put')
+        ],
+        plate_id=plate.id,
+        part='return'
+    )
+    events = sleek_events(events)
     ATTENTION('''
         Test circuit using one plate.
 
@@ -949,25 +945,36 @@ def test_circuit(config: RuntimeConfig) -> None:
             7. robotarm:                in neutral position by lid hotel
             8. gripper:                 sufficiently open to grab a plate
     ''')
-    execute_events(config, events, metadata={'options': 'test_circuit'})
+    execute_events(config, events, metadata={'program': 'test_circuit'})
 
+test_comm_cmds: list[Command] = [
+    DispFork(cmd='TestCommunications', protocol_path=None),
+    IncuFork(action='get_climate', incu_loc=None),
+    RobotarmCmd('gripper check'),
+    WaitForResource('disp'),
+    WashFork(cmd='TestCommunications', protocol_path=None),
+    WaitForResource('incu'),
+    WaitForResource('wash'),
+]
 
-def cell_paint(config: RuntimeConfig, protocol_config: ProtocolConfig, *, batch_sizes: list[int], short_test_paint: bool = False) -> None:
-    events = eventlist(batch_sizes, protocol_config=protocol_config, short_test_paint=short_test_paint)
+test_comm_events = Event.wrap(test_comm_cmds, part='test comm')
+
+def test_comm(config: RuntimeConfig):
+    '''
+    Test communication with robotarm, washer, dispenser and incubator.
+    '''
+    print('Testing communication with robotarm, washer, dispenser and incubator.')
+    execute_events(config, test_comm_events, {'program': 'test_comm'})
+    print('Communication tests ok.')
+
+def cell_paint(config: RuntimeConfig, protocol_config: ProtocolConfig, *, batch_sizes: list[int]) -> None:
+    events = eventlist(batch_sizes, protocol_config=protocol_config)
+    events = test_comm_events + events
     # pr(events)
     metadata: dict[str, str] = {
+        'program': 'cell_paint',
         'batch_sizes': ','.join(str(bs) for bs in batch_sizes),
     }
-
-    if short_test_paint:
-        metadata = {
-            **metadata,
-            'options': 'short_test_paint'
-        }
-        commands.test_comm(config)
-        ATTENTION('''
-            Short test paint mode, NOT real cell painting
-        ''')
 
     runtime = execute_events(config, events, metadata)
     times = runtime.times

@@ -246,21 +246,4 @@ def IncuFork(
 ):
     return Fork([IncuCmd(action, incu_loc)], resource='incu', flexible=flexible)
 
-def test_comm(config: RuntimeConfig):
-    '''
-    Test communication with robotarm, washer, dispenser and incubator.
-    '''
-    print('Testing communication with robotarm, washer, dispenser and incubator.')
-    runtime = Runtime(config=config)
-    cmds = [
-        DispFork(cmd='TestCommunications', protocol_path=None),
-        IncuFork(action='get_climate', incu_loc=None),
-        RobotarmCmd('noop'),
-        WaitForResource('disp'),
-        WashCmd(cmd='TestCommunications', protocol_path=None),
-        WaitForResource('incu'),
-    ]
-    for cmd in cmds:
-        cmd.execute(runtime, {})
-    print('Communication tests ok.')
 

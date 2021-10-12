@@ -20,10 +20,9 @@ def main():
     for k, v in configs.items():
         parser.add_argument('--' + k, dest="config", action="store_const", const=k, help='Run with config ' + k)
 
-    parser.add_argument('--test-comm', action='store_true', help=(commands.test_comm.__doc__ or '').strip())
+    parser.add_argument('--test-comm', action='store_true', help=(protocol.test_comm.__doc__ or '').strip())
 
     parser.add_argument('--cell-paint', metavar='BS', type=str, default=None, help='Cell paint with batch sizes of BS, separated by comma (such as 6,6 for 2x6). Plates start stored in incubator L1, L2, ..')
-    parser.add_argument('--short-test-paint', metavar='BS', type=str, default=None, help='Run a shorter test version of the cell painting protocol with batch sizes of BS')
     parser.add_argument('--test-circuit', action='store_true', help='Test circuit: start with one plate with lid on incubator transfer door, and all other positions empty!')
     parser.add_argument('--time-bioteks', action='store_true', help=(protocol.time_bioteks.__doc__ or '').strip().splitlines()[0])
     parser.add_argument('--time-arm-incu', action='store_true', help=(protocol.time_arm_incu.__doc__ or '').strip().splitlines()[0])
@@ -57,49 +56,52 @@ def main():
     print(f'Using', config.name(), 'config =', show(config))
     print(f'{args.robotarm_speed = }')
 
-    if args.cell_paint or args.short_test_paint:
+    def set_robotarm_speed():
+        arm = get_robotarm(config, include_gripper=False)
+        arm.set_speed(args.robotarm_speed)
+        arm.close()
+
+    if args.cell_paint:
         batch_sizes: list[int] = [
             int(bs.strip())
-            for bs in (args.cell_paint or args.short_test_paint).split(',')
+            for bs in args.cell_paint
         ]
-        get_robotarm(config).set_speed(args.robotarm_speed).close()
+        set_robotarm_speed()
         protocol.cell_paint(
             config=config,
             batch_sizes=batch_sizes,
             protocol_config=protocol.v3,
-            short_test_paint=bool(args.short_test_paint),
         )
 
     elif args.test_circuit:
-        get_robotarm(config).set_speed(args.robotarm_speed).close()
+        set_robotarm_speed()
         protocol.test_circuit(config=config)
 
     elif args.time_bioteks:
-        get_robotarm(config).set_speed(args.robotarm_speed).close()
+        set_robotarm_speed()
         protocol.time_bioteks(config=config, protocol_config=protocol.v3)
 
     elif args.time_arm_incu:
-        get_robotarm(config).set_speed(args.robotarm_speed).close()
         protocol.time_arm_incu(config=config)
 
     elif args.load_incu:
-        get_robotarm(config).set_speed(args.robotarm_speed).close()
+        set_robotarm_speed()
         protocol.load_incu(config=config, num_plates=args.load_incu)
 
     elif args.unload_incu:
-        get_robotarm(config).set_speed(args.robotarm_speed).close()
+        set_robotarm_speed()
         protocol.unload_incu(config=config, num_plates=args.unload_incu)
 
     elif args.lid_stress_test:
-        get_robotarm(config).set_speed(args.robotarm_speed).close()
+        set_robotarm_speed()
         protocol.lid_stress_test(config=config)
 
     elif args.test_comm:
-        commands.test_comm(config)
+        protocol.test_comm(config)
 
     elif args.robotarm:
+        set_robotarm_speed()
         runtime = Runtime(config)
-        runtime.get_robotarm().set_speed(args.robotarm_speed).close()
         for name in args.program_name:
             if name in movelists:
                 commands.RobotarmCmd(name).execute(runtime, {})
@@ -107,8 +109,8 @@ def main():
                 raise ValueError(f'Unknown program: {name}')
 
     elif args.robotarm_send:
+        set_robotarm_speed()
         arm = get_robotarm(config)
-        arm.set_speed(args.robotarm_speed)
         arm.execute_moves([moves.RawCode(args.robotarm_send)], name='raw')
         arm.close()
 

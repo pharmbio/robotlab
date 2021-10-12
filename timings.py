@@ -40,9 +40,10 @@ for (m, a), v in list(Estimates.items()):
 
 overrides: dict[Estimated, float] = {
     ('robotarm', 'noop'): 0.5,
+    ('robotarm', 'gripper check'): 2.0,
     ('incu', 'get_climate'): 1.1,
-    ('disp', 'LHC_TestCommunications'): 1.2,
-    ('wash', 'LHC_TestCommunications'): 1.3,
+    ('disp', 'TestCommunications'): 1.2,
+    ('wash', 'TestCommunications'): 1.3,
     ('robotarm', 'wash_to_disp prep'): 11.7,
     ('robotarm', 'wash_to_disp return'): 8.5,
     ('robotarm', 'wash put return'): 8.02,
@@ -67,8 +68,9 @@ overrides: dict[Estimated, float] = {
     # ('robotarm', 'out17 put return'): 6.0,
     # ('robotarm', 'out15 put return'): 6.0,
     # ('robotarm', 'out13 put return'): 6.0,
-    # ('robotarm', 'out11 put return'): 6.0,
-    # ('robotarm', 'out9 put return'): 6.0,0.8 *
+    # ('robotarm', 'out9 put return'): 6.0,
+    ('robotarm', 'out1 get prep'): 10.0,
+    ('robotarm', 'out1 get transfer'): 10.0,
     # ('wash', 'RunValidated automation_v3.1/9_W-4X_NoFinalAspirate.LHC'): 94.0, #3X
     # ('disp', 'automation_v3.1/2_D_P1_40ul_mito.LHC'): 31.6,
     # ('disp', 'automation_v3.1/8_D_P2_20ul_stains.LHC'): 21.3,
