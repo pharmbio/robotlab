@@ -1,7 +1,6 @@
 from __future__ import annotations
 from dataclasses import *
 from typing import *
-from typing_extensions import TypeAlias
 
 import utils
 

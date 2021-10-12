@@ -24,6 +24,9 @@ import timelike
 from timelike import Timelike, WallTime, SimulatedTime
 from collections import defaultdict
 
+import os
+import signal
+
 @dataclass(frozen=True)
 class Env:
     robotarm_host: str = 'http://[100::]' # RFC 6666: A Discard Prefix for IPv6
@@ -91,8 +94,14 @@ def curl(url: str, print_result: bool = False) -> Any:
     return res
 
 def unfilename(s: str) -> str:
-    if s.endswith('.LHC'):
-        return s.split('/')[-1]
+    if '.LHC' in s:
+        parts = s.split(' ')
+        return ' '.join(
+            part.split('/')[-1]
+            if part.endswith('.LHC') else
+            part
+            for part in parts
+        )
     else:
         return s
 
@@ -145,6 +154,13 @@ class Runtime:
                     if c == '7': speed = 70
                     if c == '8': speed = 80
                     if c == '9': speed = 90
+                    if c == '0': speed = 100
+                    if c == 'Q':
+                        arm = self.get_robotarm(quiet=False, include_gripper=False)
+                        arm.send('textmsg("log quit")\n')
+                        arm.recv_until('quit')
+                        arm.close()
+                        os.kill(os.getpid(), signal.SIGINT)
                     if speed:
                         arm = self.get_robotarm(quiet=False, include_gripper=False)
                         arm.set_speed(speed)

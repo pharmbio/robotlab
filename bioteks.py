@@ -1,12 +1,11 @@
 from __future__ import annotations
 from dataclasses import *
 from typing import *
-from typing_extensions import TypeAlias
 
 from runtime import Runtime, RuntimeConfig, curl
 import timings
 
-BiotekCommand: TypeAlias = Literal[
+BiotekCommand = Literal[
     'Run',
     'Validate',
     'RunValidated',

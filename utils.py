@@ -311,6 +311,8 @@ def pretty_seconds(seconds: int | float):
     s = s.lstrip('0:')
     if not s:
         s = '0'
+    if s.startswith('.'):
+        s = '0' + s
     if '.' in s:
         pre, post = s.split('.')
         return pre + '.' + post[:2]
