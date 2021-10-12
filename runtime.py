@@ -206,9 +206,11 @@ class Runtime:
             # if source == 'time':
             with self.log_lock:
                 print(' | '.join(
+                    f'{utils.pretty_seconds(v): >10}'
+                    if k == 't' and isinstance(v, (int, float)) else
                     ' ' * 8
                     if v is None else
-                    f'{unfilename(str(v)): <50}'
+                    f'{unfilename(str(v)): <47}'
                     if k == 'arg' else
                     f'{str(v): <10}'
                     if k == 'source' else
@@ -217,7 +219,7 @@ class Runtime:
                     f'{str(v): <8}'
 
                     for k, v in entry.items()
-                    if k not in {'log_time', 't0', 'event_id'}
+                    if k not in {'log_time', 't0', 'event_id', 'event_index'}
                     if (v is not None and v != '') or k in 'duration'
                 ))
         if 0:

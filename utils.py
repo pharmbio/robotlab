@@ -303,3 +303,16 @@ def getchar():
         atexit.unregister(cleanup)
         cleanup()
     return ch
+
+from datetime import timedelta
+
+def pretty_seconds(seconds: int | float):
+    s = str(timedelta(seconds=float(seconds)))
+    s = s.lstrip('0:')
+    if not s:
+        s = '0'
+    if '.' in s:
+        pre, post = s.split('.')
+        return pre + '.' + post[:2]
+    else:
+        return s + '.00'
