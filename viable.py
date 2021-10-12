@@ -312,12 +312,23 @@ class Serve:
             self.run()
         return inner
 
+    def saveas(self, path: str):
+        def inner(f: Callable[..., Iterable[Tag | str | dict[str, str]]]):
+            with app.test_request_context():
+                with open(path, 'w') as fp:
+                    fp.write(self.view_callable(f, include_hot=False))
+                print(path, 'written')
+            return f
+        return inner
+
     def reload(self) -> None:
         self.notify_reload.set()
         self.notify_reload.clear()
 
     def view(self, rule: str, *args: Any) -> str:
-        f = self.routes[rule]
+        return self.view_callable(self.routes[rule], *args)
+
+    def view_callable(self, f: Callable[..., Iterable[Tag | str | dict[str, str]]], *args: Any, include_hot: bool=True) -> str:
         try:
             parts = f(*args)
             body_node = body(*cast(Any, parts))
@@ -342,9 +353,11 @@ class Serve:
             body_node += pre(traceback.format_exc())
 
         head_node = head()
-        for node in body_node.children:
+        for i, node in enumerate(body_node.children):
             if isinstance(node, head):
                 head_node = node
+                body_node.children.pop(i)
+                break
 
         has_title = False
         has_charset = False
@@ -371,9 +384,11 @@ class Serve:
         newline = '\n' if minify else ''
 
         classes = body_node.make_classes({}, minify=minify)
+
         head_node += style(*[raw(inst) for name, inst in classes.values()])
 
-        head_node += script(src="/hot.js", defer=True)
+        if include_hot:
+            head_node += script(src="/hot.js", defer=True)
 
         return (
             f'<!doctype html>{newline}' +
