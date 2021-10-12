@@ -13,12 +13,10 @@ import threading
 import time
 
 from moves import Move, MoveList
-from protocol import Event
-from robots import RuntimeConfig, configs
+from runtime import RuntimeConfig, configs
 import moves
-import protocol
 import robotarm
-import robots
+import runtime
 import utils
 from utils import catch
 
@@ -51,7 +49,7 @@ def spawn(f: Callable[[], None]) -> None:
 
 @spawn
 def poll() -> None:
-    arm = robots.get_robotarm(config, quiet=False)
+    arm = runtime.get_robotarm(config, quiet=False)
     while True:
         arm.send(robotarm.reindent('''
             sec poll():
@@ -84,13 +82,13 @@ def poll() -> None:
 
 @serve.expose
 def arm_do(*ms: Move):
-    arm = robots.get_robotarm(config)
+    arm = runtime.get_robotarm(config)
     arm.execute_moves(list(ms), name='gui', allow_partial_completion=True)
     arm.close()
 
 @serve.expose
 def arm_set_speed(value: int) -> None:
-    arm = robots.get_robotarm(config, quiet=False)
+    arm = runtime.get_robotarm(config, quiet=False)
     arm.set_speed(value)
     arm.close()
 
@@ -491,7 +489,7 @@ def index() -> Iterator[Tag | dict[str, str]]:
             button('stop robot',    tabindex='-1', onclick=f'''call({ arm_do.url()                                              })''', css='flex-grow: 1; color: red; font-size: 48px'),
             button('gripper open',  tabindex='-1', onclick=f'''call({ arm_do.url(moves.RawCode("GripperMove(88)"))              })'''),
             button('gripper close', tabindex='-1', onclick=f'''call({ arm_do.url(moves.RawCode("GripperMove(255)"))             })'''),
-            button('grip test',     tabindex='-1', onclick=f'''call({ arm_do.url(moves.RawCode("EnsureRelPos() GripperTest()")) })'''),
+            button('grip test',     tabindex='-1', onclick=f'''call({ arm_do.url(moves.RawCode("GripperTest()"))               })'''),
     )
 
     foot = div(css='''

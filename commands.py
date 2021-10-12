@@ -6,13 +6,13 @@ from datetime import datetime, timedelta
 from urllib.request import urlopen
 
 import abc
-from moves import movelists
+from moves import movelists, MoveList
 from robotarm import Robotarm
 import utils
 from utils import Mutable
 
 from symbolic import Symbolic
-from runtime import Runtime, RuntimeConfig, get_robotarm
+from runtime import Runtime, RuntimeConfig
 import bioteks
 from bioteks import BiotekCommand
 import incubator
@@ -167,8 +167,9 @@ class RobotarmCmd(Command):
             if runtime.config.robotarm_mode == 'noop':
                 runtime.sleep(self.est())
             else:
-                arm = runtime.get_robotarm()
-                arm.execute_moves(movelists[self.program_name], name=self.program_name)
+                movelist = MoveList(movelists[self.program_name])
+                arm = runtime.get_robotarm(include_gripper=movelist.has_gripper())
+                arm.execute_moves(movelist, name=self.program_name)
                 arm.close()
 
     def est(self) -> float:

@@ -16,33 +16,11 @@ prelude = '''
     set_gravity([0.0, 0.0, 9.82])
     set_payload(0.1)
 
-    # Section copied from generated scripts
-    set_standard_analog_input_domain(0, 1)
-    set_standard_analog_input_domain(1, 1)
-    set_tool_analog_input_domain(0, 1)
-    set_tool_analog_input_domain(1, 1)
-    set_analog_outputdomain(0, 0)
-    set_analog_outputdomain(1, 0)
-    set_input_actions_to_default()
-    set_tool_communication(False, 115200, 0, 1, 1.5, 3.5)
-    set_tool_output_mode(0)
-    set_tool_digital_output_mode(0, 1)
-    set_tool_digital_output_mode(1, 1)
-    set_tool_voltage(0)
-    set_safety_mode_transition_hardness(1)
-
-    global last_xyz = [read_output_float_register(0), read_output_float_register(1), read_output_float_register(2)]
-    global last_rpy = [read_output_float_register(3), read_output_float_register(4), read_output_float_register(5)]
-    global last_lin = read_output_boolean_register(0)
+    global last_xyz = [0.0, 0.0, 0.0]
+    global last_rpy = [0.0, 0.0, 0.0]
+    global last_lin = False
 
     def set_last(x, y, z, r, p, yaw, flag):
-        write_output_float_register(0, x)
-        write_output_float_register(1, y)
-        write_output_float_register(2, z)
-        write_output_float_register(3, r)
-        write_output_float_register(4, p)
-        write_output_float_register(5, yaw)
-        write_output_boolean_register(0, flag)
         last_xyz = [x, y, z]
         last_rpy = [r, p, yaw]
         last_lin = flag
@@ -73,17 +51,15 @@ prelude = '''
     end
 
     def EnsureRelPos():
-        # if not last_lin:
-            while not is_steady():
-                sync()
-            end
-            p = get_actual_tcp_pose()
-            rpy = rotvec2rpy([p[3], p[4], p[5]])
-            rpy = [r2d(rpy[0]), r2d(rpy[1]), r2d(rpy[2])]
-            xyz = [p[0]*1000, p[1]*1000, p[2]*1000]
-            set_last(xyz[0], xyz[1], xyz[2], rpy[0], rpy[1], rpy[2], True)
-            textmsg("log set reference pos to " + to_str(xyz) + " " + to_str(rpy))
-        # end
+        while not is_steady():
+            sync()
+        end
+        p = get_actual_tcp_pose()
+        rpy = rotvec2rpy([p[3], p[4], p[5]])
+        rpy = [r2d(rpy[0]), r2d(rpy[1]), r2d(rpy[2])]
+        xyz = [p[0]*1000, p[1]*1000, p[2]*1000]
+        set_last(xyz[0], xyz[1], xyz[2], rpy[0], rpy[1], rpy[2], True)
+        textmsg("log set reference pos to " + to_str(xyz) + " " + to_str(rpy))
     end
 
     def MoveJoint(q1, q2, q3, q4, q5, q6, slow=False):
@@ -137,11 +113,18 @@ def gripper_code(with_gripper: bool=False) -> str:
         end
 
         def GripperTest():
+            EnsureRelPos()
             start_pos = read_output_integer_register(0)
             d = 14.0
             GripperMove(255, soft=True)       MoveRel(0, 0,  d,       0, 0, 0)
-            Shake()                MoveRel(0, 0, -d + 0.5, 0, 0, 0)
+            Shake()                           MoveRel(0, 0, -d + 0.5, 0, 0, 0)
             GripperMove(start_pos, soft=True) MoveRel(0, 0,     -0.5, 0, 0, 0)
+        end
+
+        def GripperCheck():
+            sleep(1.5)
+            GripperMove(95)
+            GripperMove(88)
         end
     '''
 

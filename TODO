@@ -1,6 +1,7 @@
 [ ] prio 3. [moves] Raise disp put to be a bit above B21
 
 [ ] prio 2. Add test comm before starting cell paint
+[ ] prio 2. Validate all protocols before starting cell paint
 
 [ ] prio 1. Rename all occurrences to h21, r21, out21 to B21, C21, A21 and so on
 

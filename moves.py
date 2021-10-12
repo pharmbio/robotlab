@@ -43,7 +43,7 @@ class Move(abc.ABC):
             return ""
 
     def is_gripper(self) -> bool:
-        return isinstance(self, GripperMove)
+        return isinstance(self, (GripperMove, GripperCheck))
 
     def is_close(self) -> bool:
         if isinstance(self, GripperMove):
@@ -128,6 +128,11 @@ class GripperMove(Move):
     soft: bool = False
     def to_script(self) -> str:
         return call('GripperMove', self.pos, **keep_true(soft=self.soft))
+
+@dataclass(frozen=True)
+class GripperCheck(Move):
+    def to_script(self) -> str:
+        return call('GripperCheck')
 
 @dataclass(frozen=True)
 class Section(Move):
@@ -272,7 +277,7 @@ class MoveList(list[Move]):
         return any(m.is_close() for m in self)
 
     def has_gripper(self) -> bool:
-        return self.has_open() or self.has_close()
+        return any(m.is_gripper() for m in self)
 
     def split_on(self, pred: Callable[[Move], bool]) -> tuple[MoveList, Move, MoveList]:
         for i, move in enumerate(self):
@@ -382,6 +387,7 @@ def read_movelists() -> dict[str, MoveList]:
                 grand_out = grand_out | out
 
     grand_out['noop'] = MoveList()
+    grand_out['gripper check'] = MoveList([GripperCheck()])
 
     return grand_out
 

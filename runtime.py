@@ -96,11 +96,13 @@ def unfilename(s: str) -> str:
     else:
         return s
 
-def get_robotarm(config: RuntimeConfig, quiet: bool = False) -> Robotarm:
+def get_robotarm(config: RuntimeConfig, quiet: bool = False, include_gripper: bool = True) -> Robotarm:
     if config.robotarm_mode == 'noop':
-        return Robotarm.init_noop(with_gripper=True, quiet=quiet)
+        return Robotarm.init_noop(with_gripper=include_gripper, quiet=quiet)
     assert config.robotarm_mode == 'execute' or config.robotarm_mode == 'execute no gripper'
     with_gripper = config.robotarm_mode == 'execute'
+    if not include_gripper:
+        with_gripper = False
     return Robotarm.init(config.env.robotarm_host, config.env.robotarm_port, with_gripper, quiet=quiet)
 
 A = TypeVar('A')
@@ -144,12 +146,12 @@ class Runtime:
                     if c == '8': speed = 80
                     if c == '9': speed = 90
                     if speed:
-                        arm = self.get_robotarm(quiet=False)
+                        arm = self.get_robotarm(quiet=False, include_gripper=False)
                         arm.set_speed(speed)
                         arm.close()
 
-    def get_robotarm(self, quiet: bool = True) -> Robotarm:
-        return get_robotarm(self.config, quiet=quiet)
+    def get_robotarm(self, quiet: bool = True, include_gripper: bool = True) -> Robotarm:
+        return get_robotarm(self.config, quiet=quiet, include_gripper=include_gripper)
 
     def spawn(self, f: Callable[[], None]) -> None:
         def F():

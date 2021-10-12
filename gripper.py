@@ -1,4 +1,19 @@
 gripper_code = str('''
+  # Section copied from generated scripts
+  set_standard_analog_input_domain(0, 1)
+  set_standard_analog_input_domain(1, 1)
+  set_tool_analog_input_domain(0, 1)
+  set_tool_analog_input_domain(1, 1)
+  set_analog_outputdomain(0, 0)
+  set_analog_outputdomain(1, 0)
+  set_input_actions_to_default()
+  set_tool_communication(False, 115200, 0, 1, 1.5, 3.5)
+  set_tool_output_mode(0)
+  set_tool_digital_output_mode(0, 1)
+  set_tool_digital_output_mode(1, 1)
+  set_tool_voltage(0)
+  set_safety_mode_transition_hardness(1)
+
   # begin: URCap Installation Node
   #   Source: Robotiq_Grippers, 1.7.1.2, Robotiq Inc.
   #   Type: Gripper
@@ -1397,7 +1412,6 @@ gripper_code = str('''
       return scale(value, range, range)
   end
 
-
   rq_obj_detect = 0
   set_tool_voltage(24)
   set_tool_communication(True, 115200, 0, 1, 1.5, 3.5)
@@ -1471,6 +1485,6 @@ gripper_code = str('''
     gripper_3_used = False
     gripper_4_used = False
     pos = rq_current_pos()
-    write_output_integer_register(0, pos)  # save position for pharmbio GUI
+    write_output_integer_register(0, pos)  # save gripper position for pharmbio GUI
   end
 ''')
