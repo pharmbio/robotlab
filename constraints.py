@@ -191,7 +191,8 @@ def optimize(cmds: list[Command]) -> tuple[dict[str, float], dict[int, float]]:
 
     check = str(s.check())
     # print(check)
-    assert check == 'sat'
+    import timings
+    assert check == 'sat', timings.Guesses
 
     M = s.model()
 

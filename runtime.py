@@ -264,8 +264,16 @@ class Runtime:
                     part = f'{"`" + str(v) + "` = " + utils.pp_secs(secs): <50}'
                 elif k == 'arg' and (incu_loc := entry.get("incu_loc")):
                     part = f'{str(v) + " " + str(incu_loc): <50}'
+                elif k == 'arg' and entry.get('source') in {'wash', 'disp'}:
+                    s = str(v)
+                    if 'Validate ' in s and entry.get('kind') == 'end':
+                        write = False
+                    s = s.replace('RunValidated ', '')
+                    s = s.replace('Run ', '')
+                    s = trim_LHC_filenames(s)
+                    part = f'{s: <50}'
                 elif k == 'arg':
-                    part = f'{trim_LHC_filenames(str(v)): <50}'
+                    part = f'{str(v): <50}'
                 elif k == 't' and isinstance(v, (int, float)):
                     part = self.pp_time_offset(v)
                 elif k in {'t', 'duration'} and isinstance(v, (int, float)):
@@ -289,13 +297,14 @@ class Runtime:
                 parts += [part]
             # color =
             # parts += [str(entry)]
-            with self.log_lock:
-                line = ' | '.join(parts)
-                if entry.get('source') == 'wash':
-                    line = color.cyan(line)
-                elif entry.get('source') == 'disp':
-                    line = color.lightred(line)
-                print(line)
+            if write:
+                with self.log_lock:
+                    line = ' | '.join(parts)
+                    if entry.get('source') == 'wash':
+                        line = color.cyan(line)
+                    elif entry.get('source') == 'disp':
+                        line = color.lightred(line)
+                    print(line)
 
         if 0:
             utils.pr(entry)

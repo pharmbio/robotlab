@@ -9,6 +9,7 @@ from utils import show
 import commands
 import moves
 from moves import movelists
+import timings
 
 import utils
 
@@ -126,7 +127,10 @@ def main():
         runtime = Runtime(config)
         path = getattr(v3.wash, args.wash, None)
         assert path, utils.pr(v3.wash)
-        commands.WashCmd(path).execute(runtime, {})
+        protocol.execute_commands(config, [
+            commands.WashCmd(path, cmd='Validate'),
+            commands.WashCmd(path, cmd='RunValidated'),
+        ], {'program': 'wash'})
 
     elif args.disp:
         runtime = Runtime(config)
@@ -150,6 +154,10 @@ def main():
 
     else:
         parser.print_help()
+
+    if timings.Guesses:
+        print('Guessed these times:')
+        utils.pr(timings.Guesses)
 
 if __name__ == '__main__':
     main()

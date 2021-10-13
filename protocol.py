@@ -166,11 +166,11 @@ proto_v3 = ProtocolConfig(
     prep_wash='automation_v3.1/0_W_D_PRIME.LHC',
     prep_disp=None,
     wash = Steps(
-        'automation_v3.1/1_W-1X_beforeMito_leaves20ul.LHC',
+        'automation_v3.1/1_W-2X_beforeMito_leaves20ul.LHC',
         'automation_v3.1/3_W-3X_beforeFixation_leaves20ul.LHC',
         'automation_v3.1/5_W-3X_beforeTriton.LHC',
         'automation_v3.1/7_W-3X_beforeStains.LHC',
-        'automation_v3.1/9_W-4X_NoFinalAspirate.LHC',
+        'automation_v3.1/9_W-5X_NoFinalAspirate.LHC',
     ),
     prime = Steps(
         'automation_v3.1/1_D_P1_MIX_PRIME.LHC',
