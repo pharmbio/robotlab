@@ -136,16 +136,33 @@ class Steps(Generic[A]):
 
 @dataclass(frozen=True)
 class ProtocolConfig:
-    wash:      Steps[str]
-    prime:     Steps[str]
-    pre_disp:  Steps[str]
-    disp:      Steps[str]
-    post_disp: Steps[str]
-    incu:      Steps[float | Symbolic]
-    prep_wash: str | None = None
-    prep_disp: str | None = None
+    wash:          Steps[str]
+    prime:         Steps[str]
+    pre_disp:      Steps[str]
+    disp:          Steps[str]
+    post_disp:     Steps[str]
+    incu:          Steps[float | Symbolic]
+    interleavings: Steps[str]
+    prep_wash:     str | None = None
+    prep_disp:     str | None = None
 
-v3 = ProtocolConfig(
+linear_interleavings = Steps(
+    Mito   = 'lin',
+    PFA    = 'lin',
+    Triton = 'lin',
+    Stains = 'lin',
+    Final  = 'finlin',
+)
+
+june_interleavings = Steps(
+    Mito   = 'june',
+    PFA    = 'june',
+    Triton = 'june',
+    Stains = 'june',
+    Final  = 'finjune',
+)
+
+proto_v3 = ProtocolConfig(
     prep_wash='automation_v3.1/0_W_D_PRIME.LHC',
     prep_disp=None,
     wash = Steps(
@@ -183,9 +200,26 @@ v3 = ProtocolConfig(
         '',
         '',
     ),
-    incu = Steps(1230, 1200, 1200, 1200, 0),
+    incu = Steps(1200, 1200, 1200, 1200, 0),
     # incu = Steps(Symbolic.var('seconds incu 1'), Symbolic.var('seconds incu 2'), Symbolic.var('seconds incu 3'), Symbolic.var('seconds incu 4'), 0),
+    interleavings = linear_interleavings,
+    # interleavings = june_interleavings,
 )
+
+def make_v3(incu_csv: str, linear: bool) -> ProtocolConfig:
+    incu = [
+        Symbolic.wrap(
+            float(s) if re.match(r'\d', s) else s
+        )
+        for s in incu_csv.split(',')
+    ]
+    incu = incu + [incu[-1]] * 4
+    incu = incu[:4] + [Symbolic.wrap(0)]
+    return replace(
+        proto_v3,
+        incu = Steps(*incu),
+        interleavings = linear_interleavings if linear else june_interleavings
+    )
 
 def time_bioteks(config: RuntimeConfig, protocol_config: ProtocolConfig):
     '''
@@ -231,7 +265,6 @@ def time_bioteks(config: RuntimeConfig, protocol_config: ProtocolConfig):
             for needle in ['wash', 'disp']
         )
     ]
-    pr(events)
     ATTENTION(time_bioteks.__doc__ or '')
     execute_events(config, events, metadata={'program': 'time_bioteks'})
 
@@ -610,7 +643,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig):
                 ]
             else:
                 incu_delay = [
-                    WaitForCheckpoint(f'{plate_desc} active {i-1}') + f'{plate_desc} incu delay {i}'
+                    WaitForCheckpoint(f'{plate_desc} incubation {i-1}') + f'{plate_desc} incu delay {i}'
                 ]
 
             wash_delay: list[Command]
@@ -621,7 +654,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig):
             else:
                 wash_delay = [
                     Early(2),
-                    WaitForCheckpoint(f'{plate_desc} active {i-1}') + p.incu[i-1]
+                    WaitForCheckpoint(f'{plate_desc} incubation {i-1}') + p.incu[i-1]
                 ]
 
             lid_off = [
@@ -704,7 +737,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig):
                 # WaitForResource('wash'),
                 Fork([
                     *wash_delay,
-                    Duration(f'{plate_desc} active {i-1}') if i-1 else Idle(),
+                    Duration(f'{plate_desc} incubation {i-1}') if i-1 else Idle(),
                     Checkpoint(f'{plate_desc} pre disp {i}'),
                     WashCmd(p.wash[i], cmd='RunValidated'),
                     Checkpoint(f'{plate_desc} transfer {i}'),
@@ -728,7 +761,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig):
                 Fork([
                     DispCmd(p.disp[i], cmd='RunValidated'),
                     Checkpoint(f'{plate_desc} disp {i} done'),
-                    Checkpoint(f'{plate_desc} active {i}'),
+                    Checkpoint(f'{plate_desc} incubation {i}'),
                 ], resource='disp'),
                 DispFork(p.post_disp[i], flexible=True) if p.post_disp[i] else Idle(),
                 RobotarmCmd('wash_to_disp return'),
@@ -736,7 +769,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig):
 
             disp_to_B21 = [
                 RobotarmCmd('disp get prep'),
-                WaitForCheckpoint(f'{plate_desc} disp {i} done', flexible=True),
+                WaitForCheckpoint(f'{plate_desc} disp {i} done', flexible=True, report_behind_time=False),
                 # WaitForResource('disp'),
                 # Duration(f'{plate_desc} disp {i} done', opt_weight=0.0),
                 # DispFork(p.disp.Stains),
@@ -780,14 +813,6 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig):
                 desc(first_plate, next_part, 'incu -> B21'),
             ])
 
-    ilvs = {
-        'Mito':   'june',
-        'PFA':    'june',
-        'Triton': 'june',
-        'Stains': 'june',
-        'Final':  'finjune',
-    }
-
     if 0:
         ilvs = {
             'Mito':   'lin',
@@ -796,6 +821,8 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig):
             'Stains': 'lin',
             'Final':  'finlin',
         }
+
+    ilvs = p.interleavings.asdict()
 
     for part in parts:
         ilv = Interleavings[ilvs[part]]
@@ -811,17 +838,18 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig):
         for next in nexts:
             deps[next] |= {node}
 
-    for d, ds in deps.items():
-        for x in ds:
-            print(
-                ', '.join((x[1], x[0].id, x[2])),
-                '<',
-                ', '.join((d[1], d[0].id, d[2]))
-            )
+    if 0:
+        for d, ds in deps.items():
+            for x in ds:
+                print(
+                    ', '.join((x[1], x[0].id, x[2])),
+                    '<',
+                    ', '.join((d[1], d[0].id, d[2]))
+                )
 
     linear = list(graphlib.TopologicalSorter(deps).static_order())
 
-    if 1:
+    if 0:
         pr([
             ', '.join((desc[1], desc[0].id, desc[2]))
             for desc in linear
@@ -901,7 +929,8 @@ def sleek_commands(cmds: list[Command]) -> list[Command]:
 
 def eventlist(batch_sizes: list[int], protocol_config: ProtocolConfig, sleek: bool = True) -> list[Event]:
     all_events: list[Event] = [
-        Event('', 'prep', '', RobotarmCmd('gripper check'))
+        Event('', 'prep', '', Checkpoint('run')),
+        Event('', 'prep', '', RobotarmCmd('gripper check')),
     ]
     for batch in group_by_batch(define_plates(batch_sizes)):
         events = paint_batch(
@@ -911,6 +940,9 @@ def eventlist(batch_sizes: list[int], protocol_config: ProtocolConfig, sleek: bo
         if sleek:
             events = sleek_events(events)
         all_events += events
+    all_events += [
+        Event('', 'post', '', Duration('run')),
+    ]
     return all_events
 
 def test_circuit(config: RuntimeConfig) -> None:
@@ -918,7 +950,7 @@ def test_circuit(config: RuntimeConfig) -> None:
     Test circuit: Short test paint on one plate, without incubator
     '''
     plate, = define_plates([1])
-    events = eventlist([1], protocol_config=v3)
+    events = eventlist([1], protocol_config=make_v3('secs', linear=False))
     events = [
         event
         for event in events
@@ -977,10 +1009,22 @@ def cell_paint(config: RuntimeConfig, protocol_config: ProtocolConfig, *, batch_
     }
 
     runtime = execute_events(config, events, metadata)
-    times = runtime.times
+    for k, vs in group_times(runtime.times).items():
+        print(k, '[' + ', '.join(vs) + ']')
+
+def group_times(times: dict[str, list[float]]):
     groups = utils.group_by(list(times.items()), key=lambda s: s[0].rstrip(' 0123456789'))
-    for k, vs in sorted(groups.items(), key=lambda s: ' '.join(s[0].split(' ')[2:] + s[0].split(' ')[:2])):
-        print(k, [v for _, [v] in vs])
+    out: dict[str, list[str]] = {}
+    def key(kv):
+        s, _ = kv
+        if s.startswith('plate'):
+            plate, i, *what = s.split(' ')
+            return f' plate {" ".join(what)} {int(i):03}'
+        else:
+            return s
+    for k, vs in sorted(groups.items(), key=key):
+        out[k] = [utils.pp_secs(v) for _, [v] in vs]
+    return out
 
 import contextlib
 
@@ -1006,7 +1050,7 @@ def make_runtime(config: RuntimeConfig, metadata: dict[str, str], *, log_to_file
     metadata['git_HEAD'] = utils.git_HEAD() or ''
     metadata['host']     = platform.node()
     with runtime.excepthook():
-        with runtime.timeit('experiment', metadata=metadata):
+        with runtime.timeit('run', metadata=metadata):
             yield runtime
 
 import constraints
@@ -1020,30 +1064,32 @@ def execute_events(config: RuntimeConfig, events: list[Event], metadata: dict[st
         execute_events_in_runtime(runtime, events)
         ret = runtime
 
-    with make_runtime(configs['dry-run'], {}, log_to_file=False, execute_scheduling_idles=True) as runtime:
-        runtime.var_values.update(d)
-        execute_events_in_runtime(runtime, events)
-        entries = runtime.log_entries
-        matches = 0
-        mismatches = 0
-        for e in entries:
-            i = e.get('event_index')
-            if 'idle_cmd' in str(e.get('arg',  '')):
-                continue
-            if e.get('origin'):
-                continue
-            if e['kind'] == 'end' and i:
-                if abs(e['t'] - ends[i]) > 0.1:
-                    utils.pr(('no match!', i, e, ends[i]))
-                    mismatches += 1
-                else:
-                    matches += 1
-                # utils.pr((f'{matches=}', i, e, ends[i]))
-        print(f'{matches=} {mismatches=} {len(ends)=}')
+    if config.name() != 'live':
+        with make_runtime(configs['dry-run'], {}, log_to_file=False, execute_scheduling_idles=True) as runtime:
+            runtime.var_values.update(d)
+            execute_events_in_runtime(runtime, events)
+            entries = runtime.log_entries
+            matches = 0
+            mismatches = 0
+            for e in entries:
+                i = e.get('event_index')
+                if 'idle_cmd' in str(e.get('arg',  '')):
+                    continue
+                if e.get('origin'):
+                    continue
+                if e['kind'] == 'end' and i:
+                    if abs(e['t'] - ends[i]) > 0.1:
+                        utils.pr(('no match!', i, e, ends[i]))
+                        mismatches += 1
+                    else:
+                        matches += 1
+                    # utils.pr((f'{matches=}', i, e, ends[i]))
+            if mismatches or not matches:
+                print(f'{matches=} {mismatches=} {len(ends)=}')
 
-    utils.pr(d)
+    # utils.pr(d)
 
-    return runtime
+    return ret
 
 def execute_commands(config: RuntimeConfig, cmds: list[Command], metadata: dict[str, Any]={}) -> None:
     execute_events(config, [Event('', '', '', cmd) for cmd in cmds], metadata=metadata)

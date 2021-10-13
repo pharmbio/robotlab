@@ -267,20 +267,6 @@ def group_by(xs: list[A], key: Callable[[A], B]) -> dict[B, list[A]]:
         d[key(x)] += [x]
     return d
 
-from contextlib import contextmanager
-import time
-def timeit(desc: str='') -> ContextManager[None]:
-    # The inferred type for the decorated function is wrong hence this wrapper to get the correct type
-
-    @contextmanager
-    def worker():
-        t0 = time.monotonic()
-        yield
-        T = time.monotonic() - t0
-        print(f'{T:.3f} {desc}')
-
-    return worker()
-
 import tty
 import termios
 import atexit
@@ -306,7 +292,45 @@ def getchar():
 
 from datetime import timedelta
 
-def pretty_seconds(seconds: int | float):
+def pp_secs(seconds: int | float) -> str:
+    '''
+    Pretty-print seconds.
+
+    >>> pp_secs(0)
+    '0.0'
+    >>> pp_secs(0.1)
+    '0.1'
+    >>> pp_secs(0.09)
+    '0.0'
+    >>> pp_secs(60)
+    '1:00.0'
+    >>> pp_secs(3600)
+    '1:00:00.0'
+    >>> pp_secs(3600 + 60 * 2 + 3 + 0.4)
+    '1:02:03.4'
+    >>> pp_secs(3600 * 24 - 0.1)
+    '23:59:59.9'
+    >>> pp_secs(3600 * 24)
+    '1 day, 0:00:00.0'
+    >>> pp_secs(-0)
+    '0.0'
+    >>> pp_secs(-0.1)
+    '-0.1'
+    >>> pp_secs(-0.09)
+    '-0.0'
+    >>> pp_secs(-60)
+    '-1:00.0'
+    >>> pp_secs(-3600)
+    '-1:00:00.0'
+    >>> pp_secs(-(3600 + 60 * 2 + 3 + 0.4))
+    '-1:02:03.4'
+    >>> pp_secs(-(3600 * 24 - 0.1))
+    '-23:59:59.9'
+    >>> pp_secs(-(3600 * 24))
+    '-1 day, 0:00:00.0'
+    '''
+    if seconds < 0:
+        return '-' + pp_secs(-seconds)
     s = str(timedelta(seconds=float(seconds)))
     s = s.lstrip('0:')
     if not s:
@@ -315,6 +339,21 @@ def pretty_seconds(seconds: int | float):
         s = '0' + s
     if '.' in s:
         pre, post = s.split('.')
-        return pre + '.' + post[:2]
+        return pre + '.' + post[:1]
     else:
-        return s + '.00'
+        return s + '.0'
+
+from contextlib import contextmanager
+import time
+def timeit(desc: str='') -> ContextManager[None]:
+    # The inferred type for the decorated function is wrong hence this wrapper to get the correct type
+
+    @contextmanager
+    def worker():
+        t0 = time.monotonic()
+        yield
+        T = time.monotonic() - t0
+        print(pp_secs(T), desc)
+
+    return worker()
+

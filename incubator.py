@@ -18,7 +18,7 @@ def execute(
     metadata: dict[str, Any] = {},
 ):
     if incu_loc is not None:
-        metadata = {**metadata, 'loc': incu_loc}
+        metadata = {**metadata, 'incu_loc': incu_loc}
         arg = action # + ' ' + incu_loc
         time_tuple = incu_loc, 'incubator'
     else:
@@ -27,7 +27,7 @@ def execute(
         assert action in {'put', 'get', 'get_climate'}
         if runtime.config.incu_mode == 'noop':
             est = timings.estimate('incu', arg)
-            runtime.sleep(est)
+            runtime.sleep(est, {**metadata, 'silent': True})
         elif runtime.config.incu_mode == 'execute':
             if action == 'put':
                 assert incu_loc is not None

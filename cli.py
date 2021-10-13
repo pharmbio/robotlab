@@ -23,6 +23,8 @@ def main():
     parser.add_argument('--test-comm', action='store_true', help=(protocol.test_comm.__doc__ or '').strip())
 
     parser.add_argument('--cell-paint', metavar='BS', type=str, default=None, help='Cell paint with batch sizes of BS, separated by comma (such as 6,6 for 2x6). Plates start stored in incubator L1, L2, ..')
+    parser.add_argument('--incu', metavar='IS', type=str, default='1200,1200,1200,1200', help='Incubation times in seconds, separated by comma')
+    parser.add_argument('--interleave', action='store_true', help='Interleave plates, required for batch sizes of more than 6 plates')
     parser.add_argument('--test-circuit', action='store_true', help='Test circuit: start with one plate with lid on incubator transfer door, and all other positions empty!')
     parser.add_argument('--time-bioteks', action='store_true', help=(protocol.time_bioteks.__doc__ or '').strip().splitlines()[0])
     parser.add_argument('--time-arm-incu', action='store_true', help=(protocol.time_arm_incu.__doc__ or '').strip().splitlines()[0])
@@ -53,54 +55,45 @@ def main():
     except KeyError:
         raise ValueError(f'Unknown {config_name = }. Available: {show(configs.keys())}')
 
-    print(f'Using', config.name(), 'config =', show(config))
-    print(f'{args.robotarm_speed = }')
+    config = config.with_speed(args.robotarm_speed)
 
-    def set_robotarm_speed():
-        arm = get_robotarm(config, include_gripper=False)
-        arm.set_speed(args.robotarm_speed)
-        arm.close()
+    print(f'Using', config.name(), 'config =', show(config))
+
+    v3 = protocol.make_v3(incu_csv=args.incu, linear=not args.interleave)
 
     if args.cell_paint:
         batch_sizes: list[int] = [
             int(bs.strip())
-            for bs in args.cell_paint
+            for bs in args.cell_paint.split(',')
         ]
-        set_robotarm_speed()
         protocol.cell_paint(
             config=config,
             batch_sizes=batch_sizes,
-            protocol_config=protocol.v3,
+            protocol_config=v3,
         )
 
     elif args.test_circuit:
-        set_robotarm_speed()
         protocol.test_circuit(config=config)
 
     elif args.time_bioteks:
-        set_robotarm_speed()
-        protocol.time_bioteks(config=config, protocol_config=protocol.v3)
+        protocol.time_bioteks(config=config, protocol_config=v3)
 
     elif args.time_arm_incu:
         protocol.time_arm_incu(config=config)
 
     elif args.load_incu:
-        set_robotarm_speed()
         protocol.load_incu(config=config, num_plates=args.load_incu)
 
     elif args.unload_incu:
-        set_robotarm_speed()
         protocol.unload_incu(config=config, num_plates=args.unload_incu)
 
     elif args.lid_stress_test:
-        set_robotarm_speed()
         protocol.lid_stress_test(config=config)
 
     elif args.test_comm:
         protocol.test_comm(config)
 
     elif args.robotarm:
-        set_robotarm_speed()
         runtime = Runtime(config)
         for name in args.program_name:
             if name in movelists:
@@ -109,8 +102,8 @@ def main():
                 raise ValueError(f'Unknown program: {name}')
 
     elif args.robotarm_send:
-        set_robotarm_speed()
-        arm = get_robotarm(config)
+        runtime = Runtime(config)
+        arm = runtime.get_robotarm()
         arm.execute_moves([moves.RawCode(args.robotarm_send)], name='raw')
         arm.close()
 
@@ -119,7 +112,7 @@ def main():
             print(name)
 
     elif args.inspect_robotarm_programs:
-        events = protocol.paint_batch(protocol.define_plates([6, 6]), protocol_config=protocol.v3)
+        events = protocol.paint_batch(protocol.define_plates([6, 6]), protocol_config=v3)
 
         for k, v in movelists.items():
             import re
@@ -131,20 +124,20 @@ def main():
 
     elif args.wash:
         runtime = Runtime(config)
-        path = getattr(protocol.v3.wash, args.wash, None)
-        assert path, utils.pr(protocol.v3.wash)
+        path = getattr(v3.wash, args.wash, None)
+        assert path, utils.pr(v3.wash)
         commands.WashCmd(path).execute(runtime, {})
 
     elif args.disp:
         runtime = Runtime(config)
-        path = getattr(protocol.v3.disp, args.disp, None)
-        assert path, utils.pr(protocol.v3.disp)
+        path = getattr(v3.disp, args.disp, None)
+        assert path, utils.pr(v3.disp)
         commands.DispCmd(path).execute(runtime, {})
 
     elif args.prime:
         runtime = Runtime(config)
-        path = getattr(protocol.v3.prime, args.prime, None)
-        assert path, utils.pr(protocol.v3.prime)
+        path = getattr(v3.prime, args.prime, None)
+        assert path, utils.pr(v3.prime)
         commands.DispCmd(path).execute(runtime, {})
 
     elif args.incu_put:

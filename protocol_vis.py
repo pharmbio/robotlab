@@ -91,12 +91,30 @@ def index() -> Iterator[Tag | dict[str, str]]:
     zoom = utils.catch(lambda: float(store['zoom']), 1)
     batch_size = utils.catch(lambda: int(store['batch_size']), 6)
 
+    v3 = protocol.make_v3(incu_csv='1200', linear=True)
+
     with utils.timeit('eventlist'):
-        events = protocol.eventlist(batch_sizes=[batch_size], protocol_config=protocol.v3)
+        events = protocol.eventlist(batch_sizes=[batch_size], protocol_config=v3)
     with utils.timeit('runtime'):
         runtime = protocol.execute_events(configs['dry-run'], events, {}, log_to_file=False)
 
     entries = runtime.log_entries
+
+    txt: list[str] = []
+
+    for k, vs in protocol.group_times(runtime.times).items():
+        if '37C' in k:
+            txt += [' '.join((k, *vs))]
+        if 'active' in k:
+            txt += [' '.join((k, *vs))]
+        if 'transfer' in k:
+            txt += [' '.join((k, *vs))]
+        if 'lid' in k:
+            txt += [' '.join((k, *vs))]
+        if 'batch' in k:
+            txt += [' '.join((k, *vs))]
+
+    yield pre('\n'.join(txt))
 
     with utils.timeit('area'):
         area = div(style=f'''
@@ -200,7 +218,10 @@ def index() -> Iterator[Tag | dict[str, str]]:
                     background: {color};
                     z-index: {z_index};
                 '''),
-                data_info=utils.show((e, source), use_color=False)
+                data_info=utils.show({
+                    k: utils.pp_secs(v) if k in 't t0 duration'.split() else v
+                    for k, v in e.items()
+                }, use_color=False)
             )
 
     area.onmouseover += """

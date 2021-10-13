@@ -19,6 +19,7 @@ from moves import movelists
 from robotarm import Robotarm
 import utils
 from utils import Mutable
+from utils import pp_secs
 
 import timelike
 from timelike import Timelike, WallTime, SimulatedTime
@@ -64,11 +65,23 @@ class RuntimeConfig:
 
     env: Env
 
+    robotarm_speed: int = 100
+
     def name(self) -> str:
         for k, v in configs.items():
             if v is self:
                 return k
         raise ValueError(f'unknown config {self}')
+
+    def with_speed(self, robotarm_speed: int) -> RuntimeConfig:
+        if robotarm_speed == self.robotarm_speed:
+            return self
+        else:
+            conf = replace(self, robotarm_speed=robotarm_speed)
+            # have to make up a name (this is a bit silly)
+            name = f'{self.name()}({robotarm_speed=})'
+            configs[name] = conf
+            return conf
 
 wall_time          = lambda: WallTime()
 simulated_and_wall = lambda: SimulatedTime(include_wall_time=True)
@@ -79,7 +92,7 @@ configs = {
     'live':           RuntimeConfig(wall_time,          disp_and_wash_mode='execute', incu_mode='execute', robotarm_mode='execute',            env=live_env),
     'test-all':       RuntimeConfig(simulated_and_wall, disp_and_wash_mode='execute', incu_mode='execute', robotarm_mode='execute',            env=live_env),
     'test-arm-incu':  RuntimeConfig(simulated_and_wall, disp_and_wash_mode='noop',    incu_mode='execute', robotarm_mode='execute',            env=live_arm_incu),
-    'simulator':      RuntimeConfig(simulated_no_wall, disp_and_wash_mode='noop',    incu_mode='noop',    robotarm_mode='execute no gripper', env=simulator_env),
+    'simulator':      RuntimeConfig(simulated_no_wall,  disp_and_wash_mode='noop',    incu_mode='noop',    robotarm_mode='execute no gripper', env=simulator_env),
     'forward':        RuntimeConfig(simulated_no_wall,  disp_and_wash_mode='noop',    incu_mode='noop',    robotarm_mode='execute',            env=forward_env),
     'dry-run':        RuntimeConfig(simulated_no_wall,  disp_and_wash_mode='noop',    incu_mode='noop',    robotarm_mode='noop',               env=dry_env),
 }
@@ -93,7 +106,7 @@ def curl(url: str, print_result: bool = False) -> Any:
         print_result and print('curl', url, '=', utils.show(res))
     return res
 
-def unfilename(s: str) -> str:
+def trim_LHC_filenames(s: str) -> str:
     if '.LHC' in s:
         parts = s.split(' ')
         return ' '.join(
@@ -134,6 +147,7 @@ class Runtime:
             self.register_thread('main')
 
         if self.config.robotarm_mode != 'noop':
+            self.set_robotarm_speed(self.config.robotarm_speed)
             @self.spawn
             def change_robotarm_speed():
                 while True:
@@ -162,12 +176,15 @@ class Runtime:
                         arm.close()
                         os.kill(os.getpid(), signal.SIGINT)
                     if speed:
-                        arm = self.get_robotarm(quiet=False, include_gripper=False)
-                        arm.set_speed(speed)
-                        arm.close()
+                        self.set_robotarm_speed(speed)
 
     def get_robotarm(self, quiet: bool = True, include_gripper: bool = True) -> Robotarm:
         return get_robotarm(self.config, quiet=quiet, include_gripper=include_gripper)
+
+    def set_robotarm_speed(self, speed: int):
+        arm = self.get_robotarm(quiet=False, include_gripper=False)
+        arm.set_speed(speed)
+        arm.close()
 
     def spawn(self, f: Callable[[], None]) -> None:
         def F():
@@ -213,31 +230,75 @@ class Runtime:
             'kind': kind,
             'source': source,
             'arg': arg,
-            **metadata
+            **metadata,
         }
         if source == 'duration' and kind == 'end' and duration is not None:
             self.times[str(arg)].append(duration)
-        if self.log_filename:
+        write: bool = True
+        if not self.log_filename:
+            write = False
+        if entry.get('silent'):
+            write = False
+        if entry.get('source') == 'robotarm' and entry.get('kind') == 'end':
+            write = False
             # if 1 or kind == 'end': # and source in {'time', 'wait'}: # not in {'robotarm', 'wait', 'wash_delay', 'disp_delay', 'experiment'}:
             # if source == 'time':
+        # if entry.get('source') == 'wait' and entry.get('kind') != 'info' and entry.get('arg') not in "wash disp incu".split():
+            # write = False
+        if entry.get('source') in {'wait', 'idle'} and (entry.get('kind') == 'end' or entry.get('origin') is not None):
+            write = False
+        if entry.get('source') == 'checkpoint':
+            write = False
+        if write:
+            parts: list[str] = []
+            color = utils.Color()
+            for k, v in entry.items():
+                if k in {'log_time', 't0', 'event_id', 'event_index', 'secs', 'duration', 'incu_loc', 'origin'}:
+                    continue
+                elif (v is None or v == '') and k != 'duration':
+                    continue
+                elif entry.get('source') == 'run' and len(parts) >= 4:
+                    continue
+                elif k == 'arg' and entry.get('source') == 'duration' and entry.get('kind') == 'end':
+                    secs = float(entry.get("duration", 0.0) or 0.0)
+                    part = f'{"`" + str(v) + "` = " + utils.pp_secs(secs): <50}'
+                elif k == 'arg' and (incu_loc := entry.get("incu_loc")):
+                    part = f'{str(v) + " " + str(incu_loc): <50}'
+                elif k == 'arg':
+                    part = f'{trim_LHC_filenames(str(v)): <50}'
+                elif k == 't' and isinstance(v, (int, float)):
+                    part = self.pp_time_offset(v)
+                elif k in {'t', 'duration'} and isinstance(v, (int, float)):
+                    part = f'{pp_secs(v): >9}'
+                elif k == 'source':
+                    part = f'{str(v): <8}'
+                elif isinstance(v, float):
+                    part = f'{v:8.2f}'
+                elif k == 'kind':
+                    part = f'{str(v): <5}'
+                elif k == 'event_plate_id':
+                    part = f'{str(v): >2}'
+                elif k == 'event_part':
+                    part = f'{str(v): <6}'
+                elif k == 'event_subpart':
+                    continue
+                else:
+                    part = f'{str(v): <8}'
+                if entry.get('source') in {'wash', 'disp'} and k in {'arg', 'source'}:
+                    part = re.sub('(?<= ) ', '-', part)
+                parts += [part]
+            # color =
+            # parts += [str(entry)]
             with self.log_lock:
-                print(' | '.join(
-                    f'{utils.pretty_seconds(v): >10}'
-                    if k == 't' and isinstance(v, (int, float)) else
-                    ' ' * 8
-                    if v is None else
-                    f'{unfilename(str(v)): <47}'
-                    if k == 'arg' else
-                    f'{str(v): <10}'
-                    if k == 'source' else
-                    f'{v:8.2f}'
-                    if isinstance(v, float) else
-                    f'{str(v): <8}'
+                line = ' | '.join(parts)
+                if entry.get('source') == 'wash':
+                    line = color.cyan(line)
+                elif entry.get('source') == 'disp':
+                    line = color.orange(line)
+                elif entry.get('source') == 'incu':
+                    line = color.green(line)
+                print(line)
 
-                    for k, v in entry.items()
-                    if k not in {'log_time', 't0', 'event_id', 'event_index'}
-                    if (v is not None and v != '') or k in 'duration'
-                ))
         if 0:
             utils.pr(entry)
         if self.log_filename:
@@ -262,13 +323,24 @@ class Runtime:
 
     start_time: datetime = field(default_factory=datetime.now)
 
+    def pp_time_offset(self, secs: int | float):
+        dt = self.start_time + timedelta(seconds=secs)
+        return dt.strftime('%H:%M:%S') # + dt.strftime('.%f')[:3]
+
     def now(self) -> datetime:
         return self.start_time + timedelta(seconds=self.monotonic())
 
     def monotonic(self) -> float:
         return self.timelike.value.monotonic()
 
-    def sleep(self, secs: float):
+    def sleep(self, secs: float, metadata: dict[str, Any]):
+        if abs(secs) < 0.1:
+            self.log('info', 'wait', f'on time {pp_secs(secs)}s', metadata={**metadata, 'secs': secs})
+        elif secs < 0:
+            self.log('info', 'wait', f'behind time {pp_secs(secs)}s', metadata={**metadata, 'secs': secs})
+        else:
+            to = self.pp_time_offset(self.monotonic() + secs)
+            self.log('info', 'wait', f'sleeping to {to} ({pp_secs(secs)}s)', metadata={**metadata, 'secs': secs})
         return self.timelike.value.sleep(secs)
 
     def queue_get(self, queue: Queue[A]) -> A:

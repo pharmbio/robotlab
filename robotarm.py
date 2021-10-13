@@ -223,6 +223,7 @@ class Robotarm:
                 socket_open("127.0.0.1", 30003)
                 socket_send_line("set speed {value/100}")
                 socket_close()
+                textmsg("log speed changed to {value}")
             end
         '''))
         return self

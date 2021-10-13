@@ -27,15 +27,16 @@ Estimates: dict[Estimated, float] = {
     **estimates_from('timings_v3.1.jsonl')
 }
 
-for (m, a), v in list(Estimates.items()):
-    if m == 'wash':
-        Estimates[(m, 'Run ' + a)] = v
-        Estimates[(m, 'Validate ' + a)] = 1.2
-        Estimates[(m, 'RunValidated ' + a)] = v - 1.2
-    if m == 'disp':
-        Estimates[(m, 'Run ' + a)] = v
-        Estimates[(m, 'Validate ' + a)] = 4.3
-        Estimates[(m, 'RunValidated ' + a)] = v - 4.3
+if 0:
+    for (m, a), v in list(Estimates.items()):
+        if m == 'wash':
+            Estimates[(m, 'Run ' + a)] = v
+            Estimates[(m, 'Validate ' + a)] = 1.2
+            Estimates[(m, 'RunValidated ' + a)] = v - 1.2
+        if m == 'disp':
+            Estimates[(m, 'Run ' + a)] = v
+            Estimates[(m, 'Validate ' + a)] = 4.3
+            Estimates[(m, 'RunValidated ' + a)] = v - 4.3
 
 overrides: dict[Estimated, float] = {
     ('robotarm', 'noop'): 0.5,

@@ -70,8 +70,7 @@ def execute(
         while True:
             if runtime.config.disp_and_wash_mode == 'noop':
                 est = timings.estimate(machine, log_arg)
-                runtime.log('info', machine, f'pretending to run for {round(est, 2)}s', metadata)
-                runtime.sleep(est)
+                runtime.sleep(est, {**metadata, 'silent': True})
                 res: Any = {"success":True,"lines":[]}
             else:
                 url = (

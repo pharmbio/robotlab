@@ -53,7 +53,7 @@ class Idle(Command):
         if seconds == 0.0:
             return
         with runtime.timeit('idle', str(self.secs), metadata):
-            runtime.sleep(seconds)
+            runtime.sleep(seconds, metadata)
 
     def __add__(self, other: float | int | str | Symbolic) -> Idle:
         return Idle(self.seconds + other, only_for_scheduling=self.only_for_scheduling)
@@ -72,6 +72,7 @@ class WaitForCheckpoint(Command):
     name: str
     plus_seconds: Symbolic = Symbolic.const(0)
     flexible: bool = False
+    report_behind_time: bool = True
 
     def execute(self, runtime: Runtime, metadata: dict[str, Any]) -> None:
         arg = f'{Symbolic.var(str(self.name)) + self.plus_seconds}'
@@ -80,8 +81,9 @@ class WaitForCheckpoint(Command):
             plus_seconds = self.plus_seconds.resolve(runtime.var_values)
             desired_point_in_time = t0 + plus_seconds
             delay = desired_point_in_time - runtime.monotonic()
-            runtime.log('info', 'wait', f'sleeping for {round(delay, 2)}s', metadata)
-            runtime.sleep(delay)
+            if delay < 0 and not self.report_behind_time:
+                metadata = {**metadata, 'silent': True}
+            runtime.sleep(delay, metadata) # if plus seconds = 0 don't report behind time ... ?
 
     def __add__(self, other: float | int | str | Symbolic) -> WaitForCheckpoint:
         return WaitForCheckpoint(
@@ -165,7 +167,7 @@ class RobotarmCmd(Command):
     def execute(self, runtime: Runtime, metadata: dict[str, Any]) -> None:
         with runtime.timeit('robotarm', self.program_name, metadata):
             if runtime.config.robotarm_mode == 'noop':
-                runtime.sleep(self.est())
+                runtime.sleep(self.est(), {**metadata, 'silent': True})
             else:
                 movelist = MoveList(movelists[self.program_name])
                 arm = runtime.get_robotarm(include_gripper=movelist.has_gripper())

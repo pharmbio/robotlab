@@ -19,6 +19,8 @@ from moves import movelists
 import utils
 from utils import Mutable
 
+from utils import pp_secs as pp_secs
+
 A = TypeVar('A')
 
 class Timelike(abc.ABC):
@@ -87,10 +89,10 @@ class SimulatedTime(Timelike):
 
     def log(self):
         return
-        out: list[str] = [f' {self.monotonic():.2f}']
+        out: list[str] = [f' {pp_secs(self.monotonic())}']
         for v in list(self.threads.values()):
             out += [
-                f'{v.name}: {v.state} to {v.sleep_until:.2f}'
+                f'{v.name}: {v.state} to {pp_secs(v.sleep_until)}'
                 if v.sleep_until != float('inf') else
                 f'{v.name}: {v.state}'
             ]
@@ -213,7 +215,7 @@ class SimulatedTime(Timelike):
             if skip_time > 0:
                 self.skipped_time += skip_time
                 now += skip_time
-            # print(f'... {now} | {skip_time=}')
+            # print(f'... {pp_secs(now)} | skip_time={pp_secs(skip_time)}')
         for v in self.threads.values():
             if v.sleep_until - now < 1e-4:
                 v.state = 'busy'
@@ -246,10 +248,7 @@ class WallTime(Timelike):
         queue.put_nowait(a)
 
     def sleep(self, seconds: float):
-        if seconds < 0:
-            print('Behind time:', fmt(-seconds), '!')
-        else:
-            print('Sleeping for', fmt(seconds), '...')
+        if seconds > 0:
             time.sleep(seconds)
 
     def thread_idle(self):
@@ -257,8 +256,4 @@ class WallTime(Timelike):
 
     def thread_done(self):
         pass
-
-def fmt(s: float) -> str:
-    m = int(s // 60)
-    return f'{s:7.1f}s ({m}min {s - 60 * m:4.1f}s)'
 

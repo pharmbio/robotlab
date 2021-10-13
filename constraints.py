@@ -127,7 +127,8 @@ def optimize(cmds: list[Command]) -> tuple[dict[str, float], dict[int, float]]:
         last_main = cmd_ends[i] = run(cmd, last_main, is_main=True)
 
     unused_checkpoints = checkpoints.keys() - checkpoints_referenced
-    print(f'{unused_checkpoints = }')
+    if 0 and unused_checkpoints:
+        print(f'{unused_checkpoints = }')
 
     dangling_checkpoints = checkpoints_referenced - checkpoints.keys()
     assert not dangling_checkpoints, f'{dangling_checkpoints = }'
@@ -148,29 +149,27 @@ def optimize(cmds: list[Command]) -> tuple[dict[str, float], dict[int, float]]:
         ) # type: ignore
 
     lc = f'{len(C)=}'
-    # C = C[0:285]
 
-    for c in C:
-        print(*c)
+    if 0:
+        for c in C:
+            print(*c)
 
-    print(lc)
+        print(lc)
 
-
-    with utils.timeit('constrs'):
-        for i, (lhs, op, *rhss) in enumerate(C):
-            # print(i, lhs, op, *rhss)
-            rhs, *_ = rhss
-            if op == '==':
-                s.add(to_expr(lhs) == to_expr(rhs))
-            elif op == '>':
-                s.add(to_expr(lhs) > to_expr(rhs))
-            elif op == '>=':
-                s.add(to_expr(lhs) >= to_expr(rhs))
-            elif op == '== max':
-                a, b = rhss
-                s.add(to_expr(lhs) == If(to_expr(a) > to_expr(b), to_expr(a), to_expr(b)))
-            else:
-                raise ValueError(op)
+    for i, (lhs, op, *rhss) in enumerate(C):
+        # print(i, lhs, op, *rhss)
+        rhs, *_ = rhss
+        if op == '==':
+            s.add(to_expr(lhs) == to_expr(rhs))
+        elif op == '>':
+            s.add(to_expr(lhs) > to_expr(rhs))
+        elif op == '>=':
+            s.add(to_expr(lhs) >= to_expr(rhs))
+        elif op == '== max':
+            a, b = rhss
+            s.add(to_expr(lhs) == If(to_expr(a) > to_expr(b), to_expr(a), to_expr(b)))
+        else:
+            raise ValueError(op)
 
     # batch_sep = 120 # for v3 jump
     # s.add(Real('batch sep') == batch_sep * 60)
@@ -184,13 +183,14 @@ def optimize(cmds: list[Command]) -> tuple[dict[str, float], dict[int, float]]:
     else:
         s.maximize(max_v)
 
-    for m in maxi:
-        print(m)
+    if 0:
+        for m in maxi:
+            print(m)
 
-    print(len(C))
+        print(len(C))
 
     check = str(s.check())
-    print(check)
+    # print(check)
     assert check == 'sat'
 
     M = s.model()
@@ -208,7 +208,7 @@ def optimize(cmds: list[Command]) -> tuple[dict[str, float], dict[int, float]]:
         for a in sorted(variables)
     }
 
-    utils.pr(res)
+    # utils.pr(res)
 
     ends: dict[int, float] = {
         i: get(e)
