@@ -284,7 +284,7 @@ class Runtime:
                     continue
                 else:
                     part = f'{str(v): <8}'
-                if entry.get('source') in {'wash', 'disp'} and k in {'arg', 'source'}:
+                if entry.get('source') in {'wash', 'disp', 'incu'} and k in {'arg', 'source'}:
                     part = re.sub('(?<= ) ', '-', part)
                 parts += [part]
             # color =
@@ -294,9 +294,7 @@ class Runtime:
                 if entry.get('source') == 'wash':
                     line = color.cyan(line)
                 elif entry.get('source') == 'disp':
-                    line = color.orange(line)
-                elif entry.get('source') == 'incu':
-                    line = color.green(line)
+                    line = color.lightred(line)
                 print(line)
 
         if 0:
