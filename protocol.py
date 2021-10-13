@@ -871,7 +871,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig):
     #     print(e)
 
     prep_events: list[Event] = [ Event('', 'prep', '', cmd) for cmd in prep_cmds ]
-    post_events: list[Event] = [ Event('', 'post', '', cmd) for cmd in post_cmds ]
+    post_events: list[Event] = [ Event('', '', '', cmd) for cmd in post_cmds ]
 
     return prep_events + plate_events + post_events
 
@@ -930,8 +930,8 @@ def sleek_commands(cmds: list[Command]) -> list[Command]:
 def eventlist(batch_sizes: list[int], protocol_config: ProtocolConfig, sleek: bool = True) -> list[Event]:
     all_events: list[Event] = [
         Event('', 'prep', '', Checkpoint('run')),
-        Event('', 'prep', '', RobotarmCmd('gripper check')),
     ]
+    all_events += test_comm_events
     for batch in group_by_batch(define_plates(batch_sizes)):
         events = paint_batch(
             batch,
@@ -941,7 +941,7 @@ def eventlist(batch_sizes: list[int], protocol_config: ProtocolConfig, sleek: bo
             events = sleek_events(events)
         all_events += events
     all_events += [
-        Event('', 'post', '', Duration('run')),
+        Event('', '', '', Duration('run')),
     ]
     return all_events
 
@@ -1001,7 +1001,6 @@ def test_comm(config: RuntimeConfig):
 
 def cell_paint(config: RuntimeConfig, protocol_config: ProtocolConfig, *, batch_sizes: list[int]) -> None:
     events = eventlist(batch_sizes, protocol_config=protocol_config)
-    events = test_comm_events + events
     # pr(events)
     metadata: dict[str, str] = {
         'program': 'cell_paint',
