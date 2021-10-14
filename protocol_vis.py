@@ -91,7 +91,7 @@ def index() -> Iterator[Tag | dict[str, str]]:
     zoom = utils.catch(lambda: float(store['zoom']), 1)
     batch_size = utils.catch(lambda: int(store['batch_size']), 6)
 
-    v3 = protocol.make_v3(incu_csv='1200', linear=True)
+    v3 = protocol.make_v3(incu_csv='1200', linear=False)
 
     with utils.timeit('eventlist'):
         events = protocol.eventlist(batch_sizes=[batch_size], protocol_config=v3)
