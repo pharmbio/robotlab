@@ -133,6 +133,7 @@ namespace LHCCallerCLI
                 string details = getRunMessageFromStatusCode(status);
                 Console.WriteLine($"status {status}");
                 Console.WriteLine($"message {details}");
+                Console.WriteLine("success");
             } else if (cmd == "Run") {
                 if (arg == "") {
                     Console.WriteLine("error protocol path argument required");
