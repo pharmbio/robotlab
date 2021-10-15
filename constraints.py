@@ -3,6 +3,7 @@ from typing import *
 from dataclasses import *
 
 from symbolic import Symbolic
+import commands
 from commands import (
     Command,
     Fork,
@@ -15,7 +16,7 @@ from commands import (
     WaitForCheckpoint,
     WaitForResource,
 )
-from z3 import Sum, If, Optimize, Real, Int # type: ignore
+from z3 import Sum, If, Optimize, Real, Int, Or # type: ignore
 
 from collections import defaultdict
 
@@ -25,22 +26,48 @@ import utils
 class Ids:
     counts: dict[str, int] = field(default_factory=lambda: defaultdict[str, int](int))
 
-    def next(self, prefix: str = ''):
+    def assign(self, prefix: str = ''):
         self.counts[prefix] += 1
         return prefix + str(self.counts[prefix])
 
 def optimize(cmds: list[Command]) -> tuple[dict[str, float], dict[int, float]]:
-    variables: set[str] = {
-        v
-        for c in cmds
-        for v in c.vars_of()
-    }
+    variables = commands.FreeVars(cmds)
     ids = Ids()
 
-    C: list[
-        tuple[Symbolic, Literal['>', '>=', '=='], Symbolic | float | int] |
-        tuple[Symbolic, Literal['== max'], Symbolic, Symbolic]
-    ] = []
+    R = 2
+    def to_expr(x: Symbolic | float | int) -> Any:
+        x = Symbolic.wrap(x)
+        return Sum(
+            round(float(x.offset), R),
+            *[Real(v) for v in x.var_names]
+            # int(x.offset * R),
+            # *[Int(v) for v in x.var_names]
+        ) # type: ignore
+
+    s: Any = Optimize()
+
+    C: list[Any] = []
+
+    def Max(a: Symbolic | float | int, b: Symbolic | float | int):
+        m = Symbolic.var(ids.assign('max'))
+        max_a_b, a, b = map(to_expr, (m, a, b))
+        s.add(max_a_b >= a)
+        s.add(max_a_b >= b)
+        s.add(Or(max_a_b == a, max_a_b == b))
+        return m
+
+    def constrain(lhs: Symbolic, op: Literal['>', '>=', '==', '== max'], rhs: Symbolic | float | int, rhs2: Symbolic | None = None):
+        match op:
+            case '>':
+                s.add(to_expr(lhs) > to_expr(rhs))
+            case '>=':
+                s.add(to_expr(lhs) >= to_expr(rhs))
+            case '==':
+                s.add(to_expr(lhs) == to_expr(rhs))
+            case _:
+                raise ValueError(f'{op=} not a valid operator')
+
+        C.append((lhs, op, rhs))
 
     resource_counters: dict[str, int] = defaultdict(int)
     checkpoints: dict[str, Symbolic] = {}
@@ -76,40 +103,36 @@ def optimize(cmds: list[Command]) -> tuple[dict[str, float], dict[int, float]]:
         elif isinstance(cmd, WaitForCheckpoint):
             checkpoints_referenced.add(cmd.name)
             point = checkpoints[cmd.name] # Symbolic.var(cmd.name)
-            C.append((cmd.plus_seconds, '>=', 0))
-            if cmd.flexible:
-                wait_to = Symbolic.var(ids.next('wait_to'))
-                C.append((wait_to, '== max', point + cmd.plus_seconds, begin))
-                return wait_to
-            else:
-                C.append((point + cmd.plus_seconds, '>=', begin))
-                return point + cmd.plus_seconds
+            constrain(cmd.plus_seconds, '>=', 0)
+            wait_to = Symbolic.var(ids.assign('wait_to'))
+            if not cmd.flexible:
+                constrain(wait_to, '==', point + cmd.plus_seconds)
+            constrain(wait_to, '==', Max(point + cmd.plus_seconds, begin))
+            return wait_to
         elif isinstance(cmd, Duration):
             # checkpoint must have happened
             checkpoints_referenced.add(cmd.name)
             point = checkpoints[cmd.name]
-            duration = Symbolic.var(ids.next(cmd.name + ' duration '))
-            C.append((point + duration, '==', begin))
-            C.append((duration, '>=', 0))
+            duration = Symbolic.var(ids.assign(cmd.name + ' duration '))
+            constrain(point + duration, '==', begin)
+            constrain(duration, '>=', 0)
             if cmd.opt_weight:
                 maxi.append((cmd.opt_weight, duration))
             return begin
         elif isinstance(cmd, WaitForResource):
             assert is_main
-            wait_to = Symbolic.var(ids.next(f'wait_{cmd.resource}'))
-            C.append((wait_to, '== max', last_of_resource[cmd.resource], begin))
+            wait_to = Symbolic.var(ids.assign(f'wait_{cmd.resource}'))
+            constrain(wait_to, '==', Max(last_of_resource[cmd.resource], begin))
             end = wait_to
             return end
         elif isinstance(cmd, Fork):
             assert is_main, 'can only fork from the main thread'
 
-            if cmd.flexible:
-                wait_to = Symbolic.var(ids.next(f'wait_{cmd.resource}'))
-                C.append((wait_to, '== max', last_of_resource[cmd.resource], begin))
-                end = wait_to
-            else:
-                C.append((begin, '>=', last_of_resource[cmd.resource]))
-                end = begin
+            wait_to = Symbolic.var(ids.assign(f'wait_{cmd.resource}'))
+            if not cmd.flexible:
+                constrain(wait_to, '==', begin)
+            constrain(wait_to, '==', Max(last_of_resource[cmd.resource], begin))
+            end = wait_to
             for c in cmd.commands:
                 end = run(c, end, is_main=False)
             last_of_resource[cmd.resource] = end
@@ -133,21 +156,6 @@ def optimize(cmds: list[Command]) -> tuple[dict[str, float], dict[int, float]]:
     dangling_checkpoints = checkpoints_referenced - checkpoints.keys()
     assert not dangling_checkpoints, f'{dangling_checkpoints = }'
 
-
-
-    s: Any = Optimize()
-
-    R = 2
-
-    def to_expr(x: Symbolic | float | int) -> Any:
-        x = Symbolic.wrap(x)
-        return Sum(
-            round(float(x.offset), R),
-            *[Real(v) for v in x.var_names]
-            # int(x.offset * R),
-            # *[Int(v) for v in x.var_names]
-        ) # type: ignore
-
     lc = f'{len(C)=}'
 
     if 0:
@@ -155,21 +163,6 @@ def optimize(cmds: list[Command]) -> tuple[dict[str, float], dict[int, float]]:
             print(*c)
 
         print(lc)
-
-    for i, (lhs, op, *rhss) in enumerate(C):
-        # print(i, lhs, op, *rhss)
-        rhs, *_ = rhss
-        if op == '==':
-            s.add(to_expr(lhs) == to_expr(rhs))
-        elif op == '>':
-            s.add(to_expr(lhs) > to_expr(rhs))
-        elif op == '>=':
-            s.add(to_expr(lhs) >= to_expr(rhs))
-        elif op == '== max':
-            a, b = rhss
-            s.add(to_expr(lhs) == If(to_expr(a) > to_expr(b), to_expr(a), to_expr(b)))
-        else:
-            raise ValueError(op)
 
     # batch_sep = 120 # for v3 jump
     # s.add(Real('batch sep') == batch_sep * 60)

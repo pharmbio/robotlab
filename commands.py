@@ -28,9 +28,6 @@ class Command(abc.ABC):
     def est(self) -> float:
         raise ValueError(self.__class__)
 
-    def source(self) -> str:
-        return self.__class__.__name__.removesuffix('_cmd')
-
     def required_resource(self) -> str | None:
         return None
 
@@ -46,20 +43,22 @@ class Idle(Command):
     def seconds(self) -> Symbolic:
         return Symbolic.wrap(self.secs)
 
+    def replace(self, secs: Symbolic | float | int) -> Idle:
+        return replace(self, secs=secs)
+
     def execute(self, runtime: Runtime, metadata: dict[str, Any]) -> None:
         if self.only_for_scheduling and not runtime.execute_scheduling_idles:
             return
-        seconds = self.seconds.resolve(runtime.var_values)
-        if seconds == 0.0:
-            return
-        with runtime.timeit('idle', str(self.secs), metadata):
-            runtime.sleep(seconds, metadata)
+        secs = self.secs
+        assert isinstance(secs, (float, int))
+        with runtime.timeit('idle', str(secs), metadata):
+            runtime.sleep(secs, metadata)
 
     def __add__(self, other: float | int | str | Symbolic) -> Idle:
-        return Idle(self.seconds + other, only_for_scheduling=self.only_for_scheduling)
+        return self.replace(secs = self.seconds + other)
 
     def vars_of(self) -> set[str]:
-        return set(self.seconds.var_names)
+        return self.seconds.vars_of()
 
 @dataclass(frozen=True)
 class Checkpoint(Command):
@@ -70,31 +69,34 @@ class Checkpoint(Command):
 @dataclass(frozen=True)
 class WaitForCheckpoint(Command):
     name: str
-    plus_seconds: Symbolic = Symbolic.const(0)
+    plus_secs: Symbolic | float | int = 0.0
     flexible: bool = False
     report_behind_time: bool = True
 
+    @property
+    def plus_seconds(self) -> Symbolic:
+        return Symbolic.wrap(self.plus_secs)
+
+    def replace(self, plus_secs: Symbolic | float | int) -> WaitForCheckpoint:
+        return replace(self, plus_secs=plus_secs)
+
     def execute(self, runtime: Runtime, metadata: dict[str, Any]) -> None:
-        arg = f'{Symbolic.var(str(self.name)) + self.plus_seconds}'
+        plus_secs = self.plus_secs
+        assert isinstance(plus_secs, (float, int))
+        arg = f'{Symbolic.var(str(self.name)) + plus_secs}'
         with runtime.timeit('wait', arg, metadata):
             t0 = runtime.wait_for_checkpoint(self.name)
-            plus_seconds = self.plus_seconds.resolve(runtime.var_values)
-            desired_point_in_time = t0 + plus_seconds
+            desired_point_in_time = t0 + plus_secs
             delay = desired_point_in_time - runtime.monotonic()
             if delay < 0 and not self.report_behind_time:
                 metadata = {**metadata, 'silent': True}
             runtime.sleep(delay, metadata) # if plus seconds = 0 don't report behind time ... ?
 
     def __add__(self, other: float | int | str | Symbolic) -> WaitForCheckpoint:
-        return WaitForCheckpoint(
-            name=self.name,
-            plus_seconds=self.plus_seconds + other,
-            flexible=self.flexible,
-        )
+        return self.replace(self.plus_seconds + other)
 
     def vars_of(self) -> set[str]:
-        return set(self.plus_seconds.var_names)
-
+        return self.plus_seconds.vars_of()
 
 @dataclass(frozen=True)
 class Duration(Command):
@@ -113,6 +115,7 @@ class Fork(Command):
     commands: list[Command]
     resource: str
     flexible: bool = False
+    thread_name: str | None = None
 
     def __post_init__(self):
         for cmd in self.commands:
@@ -120,18 +123,22 @@ class Fork(Command):
             if self.resource is not None:
                 assert cmd.required_resource() in {None, self.resource}
 
+    def replace(self, commands: list[Command], thread_name: str | None = None) -> Fork:
+        if thread_name is not None:
+            return replace(self, commands=commands, thread_name=thread_name)
+        else:
+            return replace(self, commands=commands)
+
     def execute(self, runtime: Runtime, metadata: dict[str, Any]) -> None:
-        q, name = runtime.enqueue_for_resource_production(self.resource)
-        fork_metadata = {**metadata, 'origin': name}
+        thread_name = self.thread_name
+        assert thread_name
+        fork_metadata = {**metadata, 'thread': thread_name}
         @runtime.spawn
         def fork():
-            runtime.register_thread(name)
-            with runtime.timeit('wait', self.resource, metadata=fork_metadata):
-                runtime.queue_get(q)
+            runtime.register_thread(thread_name)
             for cmd in self.commands:
                 assert not isinstance(cmd, RobotarmCmd)
                 cmd.execute(runtime, metadata=fork_metadata)
-            runtime.checkpoint(name, metadata=fork_metadata)
             runtime.thread_done()
 
     def est(self) -> float:
@@ -196,9 +203,6 @@ class BiotekCmd(Command):
             log_arg: str = self.cmd + ' ' + self.protocol_path
         return timings.estimate(self.machine, log_arg)
 
-    def source(self) -> str:
-        return self.machine
-
     def required_resource(self):
         return self.machine
 
@@ -248,4 +252,74 @@ def IncuFork(
 ):
     return Fork([IncuCmd(action, incu_loc)], resource='incu', flexible=flexible)
 
+from collections import defaultdict
 
+def Resolve(cmds: list[Command], env: dict[str, float]) -> list[Command]:
+    out: list[Command] = []
+    for cmd in cmds:
+        match cmd:
+            case Idle():
+                out += [cmd.replace(secs=cmd.seconds.resolve(env))]
+            case WaitForCheckpoint():
+                out += [cmd.replace(plus_secs=cmd.plus_seconds.resolve(env))]
+            case Fork(commands):
+                out += [cmd.replace(commands=Resolve(commands, env))]
+            case _:
+                out += [cmd]
+    return out
+
+def MakeResourceCheckpoints(cmds: list[Command], counts: dict[str, int] | None = None) -> list[Command]:
+    if counts is None:
+        counts = defaultdict(int)
+    out: list[Command] = []
+    for cmd in cmds:
+        match cmd:
+            case WaitForResource(resource):
+                this = counts[resource]
+                this_name = f'{resource} #{counts[resource]}'
+                if this:
+                    out += [WaitForCheckpoint(name=this_name, flexible=False)]
+            case Fork(commands, resource, flexible):
+                prev_wait = MakeResourceCheckpoints([WaitForResource(resource)], counts)
+                counts[resource] += 1
+                this = counts[resource]
+                this_name = f'{resource} #{counts[resource]}'
+                out += [
+                    cmd.replace(
+                        commands=[
+                            *prev_wait,
+                            *MakeResourceCheckpoints(commands, counts),
+                            Checkpoint(this_name),
+                        ],
+                        thread_name=this_name,
+                    )
+                ]
+            case _:
+                out += [cmd]
+    return out
+
+def RemoveNoopIdles(cmds: list[Command]) -> list[Command]:
+    out: list[Command] = []
+    for cmd in cmds:
+        match cmd:
+            case Idle(only_for_scheduling=True):
+                continue
+            case Idle() if not cmd.seconds.resolve():
+                continue
+            case Fork(commands):
+                out += [cmd.replace(commands=RemoveNoopIdles(commands))]
+            case _:
+                out += [cmd]
+    return out
+
+def FreeVars(cmds: list[Command]) -> set[str]:
+    out: set[str] = set()
+    for cmd in cmds:
+        match cmd:
+            case Idle():
+                out |= cmd.seconds.vars_of()
+            case WaitForCheckpoint():
+                out |= cmd.plus_seconds.vars_of()
+            case Fork():
+                out |= FreeVars(cmd.commands)
+    return out

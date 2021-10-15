@@ -51,8 +51,12 @@ class Symbolic:
             float(self.offset + other.offset),
         )
 
-    def resolve(self, var_values: dict[str, float]) -> float:
-        return sum(var_values[x] for x in self.var_names) + self.offset
+    def resolve(self, env: dict[str, float] = {}) -> float:
+        return sum(env[x] for x in self.var_names) + self.offset
+
+
+    def vars_of(self) -> set[str]:
+        return set(self.var_names)
 
     @staticmethod
     def var(name: str) -> Symbolic:

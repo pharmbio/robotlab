@@ -70,7 +70,7 @@ overrides: dict[Estimated, float] = {
     # ('robotarm', 'out9 put return'): 6.0,
     ('robotarm', 'out1 get prep'): 10.0,
     ('robotarm', 'out1 get transfer'): 10.0,
-    # ('wash', 'RunValidated automation_v3.1/9_W-4X_NoFinalAspirate.LHC'): 94.0, #3X
+    # ('wash', 'RunValidated automation_v3.1/9_W-5X_NoFinalAspirate.LHC'): 94.0, #3X
     # ('disp', 'automation_v3.1/2_D_P1_40ul_mito.LHC'): 31.6,
     # ('disp', 'automation_v3.1/8_D_P2_20ul_stains.LHC'): 21.3,
     # ('disp', 'automation_v3.1/2_D_P1_purge_then_prime.LHC'): 20.0,

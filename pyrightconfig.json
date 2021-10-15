@@ -1,5 +1,5 @@
 {
-    "pythonVersion": "3.9",
+    "pythonVersion": "3.10",
     "typeCheckingMode": "strict",
     "reportWildcardImportFromLibrary": "none",
     "reportMissingTypeStubs": "warning",
