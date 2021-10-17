@@ -54,8 +54,7 @@ class Symbolic:
     def resolve(self, env: dict[str, float] = {}) -> float:
         return sum(env[x] for x in self.var_names) + self.offset
 
-
-    def vars_of(self) -> set[str]:
+    def var_set(self) -> set[str]:
         return set(self.var_names)
 
     @staticmethod

@@ -18,12 +18,12 @@ from bioteks import BiotekCommand
 import incubator
 import timings
 
-from queue import Queue
+from collections import defaultdict
 
 class Command(abc.ABC):
     @abc.abstractmethod
     def execute(self, runtime: Runtime, metadata: dict[str, Any]) -> None:
-        return NotImplementedError
+        raise NotImplementedError
 
     def est(self) -> float:
         raise ValueError(self.__class__)
@@ -31,8 +31,153 @@ class Command(abc.ABC):
     def required_resource(self) -> str | None:
         return None
 
-    def vars_of(self) -> set[str]:
-        return set()
+    def with_metadata(self, metadata: dict[str, Any]={}, **metadata_kws: Any):
+        return Sequence(self, metadata=metadata, **metadata_kws)
+
+    def collect(self: Command) -> list[tuple[Command, dict[str, Any]]]:
+        match self:
+            case Seq():
+                return [
+                    (collected_cmd, {**self.metadata, **collected_metadata})
+                    for cmd in self.commands
+                    for collected_cmd, collected_metadata in cmd.collect()
+                ]
+            case _:
+                return [(self, {})]
+
+    def free_vars(self: Command) -> set[str]:
+        match self:
+            case Idle():
+                return self.seconds.var_set()
+            case WaitForCheckpoint():
+                return self.plus_seconds.var_set()
+            case Seq():
+                return {
+                    v
+                    for cmd in self.commands
+                    for v in cmd.free_vars()
+                }
+            case Fork():
+                return self.command.free_vars()
+            case _:
+                return set()
+
+    def resolve(self: Command, env: dict[str, float]) -> Command:
+        match self:
+            case Idle():
+                return self.replace(secs=self.seconds.resolve(env))
+            case WaitForCheckpoint():
+                return self.replace(plus_secs=self.plus_seconds.resolve(env))
+            case Fork():
+                return self.replace(command=self.command.resolve(env))
+            case Seq():
+                return self.replace(commands=[cmd.resolve(env) for cmd in self.commands])
+            case _:
+                return self
+
+    def make_resource_checkpoints(self: Command, counts: dict[str, int] | None = None) -> Command:
+        if counts is None:
+            counts = defaultdict(int)
+        match self:
+            case WaitForResource(resource=resource):
+                this = counts[resource]
+                this_name = f'{resource} #{counts[resource]}'
+                if this:
+                    return WaitForCheckpoint(name=this_name, assume=self.assume)
+                else:
+                    return Sequence()
+            case Fork(resource=resource):
+                prev_wait = WaitForResource(resource).make_resource_checkpoints(counts)
+                assume = 'nothing'
+                match self.assume:
+                    case 'busy':
+                        assume = 'will wait'
+                    case 'idle':
+                        assume = 'no wait'
+                match prev_wait:
+                    case WaitForCheckpoint():
+                        prev_wait = prev_wait.replace(assume=assume)
+                counts[resource] += 1
+                this = counts[resource]
+                this_name = f'{resource} #{counts[resource]}'
+                return self.replace(
+                    command=Sequence(
+                        prev_wait,
+                        self.command.make_resource_checkpoints(counts),
+                        Checkpoint(this_name),
+                    ),
+                    thread_name=this_name,
+                )
+            case Seq():
+                return Sequence(
+                    *(cmd.make_resource_checkpoints(counts) for cmd in self.commands),
+                    metadata=self.metadata
+                )
+            case _:
+                return self
+
+    def remove_scheduling_idles(self: Command) -> Command:
+        match self:
+            case Idle(only_for_scheduling=True):
+                return Sequence()
+            case Fork():
+                return self.replace(command=self.command.remove_scheduling_idles())
+            case Seq():
+                return Sequence(
+                    *(cmd.remove_scheduling_idles() for cmd in self.commands),
+                    metadata=self.metadata
+                )
+            case _:
+                return Sequence(self)
+
+    def is_noop(self: Command) -> bool:
+        match self:
+            case Idle():
+                try:
+                    return not self.seconds.resolve()
+                except KeyError:
+                    return False
+            case Seq():
+                return not self.metadata and all(cmd.is_noop() for cmd in self.commands)
+            case _:
+                return False
+
+@dataclass(frozen=True)
+class Seq(Command):
+    commands: list[Command]
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def replace(self, commands: list[Command] | None = None, metadata: dict[str, Any] | None = None):
+        next = self
+        if commands is not None:
+            next = replace(next, commands=commands)
+        if metadata is not None:
+            next = replace(next, metadata=metadata)
+        return next
+
+    def est(self) -> float:
+        return sum((cmd.est() for cmd in self.commands), 0.0)
+
+    def execute(self, runtime: Runtime, metadata: dict[str, Any]) -> None:
+        for cmd in self.commands:
+            cmd.execute(runtime, {**metadata, **self.metadata})
+
+def Sequence(*commands: Command, metadata: dict[str, Any]={}, **metadata_kws: Any) -> Command:
+    metadata = {**metadata, **metadata_kws}
+    flat: list[Command] = []
+    cmds: list[Command] = [cmd for cmd in commands if not cmd.is_noop()]
+    for cmd in cmds:
+        match cmd:
+            case Seq() if cmd.metadata:
+                # bail out: throw away flat and just wrap with Seq
+                return Seq(cmds, metadata)
+            case Seq():
+                flat += cmd.commands
+            case _:
+                flat += [cmd]
+    if len(flat) == 1 and not metadata:
+        return flat[0]
+    return Seq(flat, metadata)
 
 @dataclass(frozen=True)
 class Idle(Command):
@@ -57,28 +202,32 @@ class Idle(Command):
     def __add__(self, other: float | int | str | Symbolic) -> Idle:
         return self.replace(secs = self.seconds + other)
 
-    def vars_of(self) -> set[str]:
-        return self.seconds.vars_of()
-
 @dataclass(frozen=True)
 class Checkpoint(Command):
     name: str
     def execute(self, runtime: Runtime, metadata: dict[str, Any]) -> None:
         runtime.checkpoint(self.name, metadata=metadata)
 
+WaitAssumption = Literal['nothing', 'will wait', 'no wait']
+
 @dataclass(frozen=True)
 class WaitForCheckpoint(Command):
     name: str
     plus_secs: Symbolic | float | int = 0.0
-    flexible: bool = False
     report_behind_time: bool = True
+    assume: WaitAssumption = 'will wait'
 
     @property
     def plus_seconds(self) -> Symbolic:
         return Symbolic.wrap(self.plus_secs)
 
-    def replace(self, plus_secs: Symbolic | float | int) -> WaitForCheckpoint:
-        return replace(self, plus_secs=plus_secs)
+    def replace(self, plus_secs: Symbolic | float | int | None = None, assume: WaitAssumption | None = None) -> WaitForCheckpoint:
+        next = self
+        if plus_secs is not None:
+            next = replace(next, plus_secs=plus_secs)
+        if assume is not None:
+            next = replace(next, assume=assume)
+        return next
 
     def execute(self, runtime: Runtime, metadata: dict[str, Any]) -> None:
         plus_secs = self.plus_secs
@@ -93,41 +242,41 @@ class WaitForCheckpoint(Command):
             runtime.sleep(delay, metadata) # if plus seconds = 0 don't report behind time ... ?
 
     def __add__(self, other: float | int | str | Symbolic) -> WaitForCheckpoint:
-        return self.replace(self.plus_seconds + other)
-
-    def vars_of(self) -> set[str]:
-        return self.plus_seconds.vars_of()
+        return self.replace(plus_secs=self.plus_seconds + other)
 
 @dataclass(frozen=True)
 class Duration(Command):
     name: str
     opt_weight: float = 0.0
+    exactly: Symbolic | float | None = None
 
     def execute(self, runtime: Runtime, metadata: dict[str, Any]) -> None:
         t0 = runtime.wait_for_checkpoint(self.name)
         runtime.log('end', 'duration', self.name, t0=t0, metadata=metadata)
+
+ForkAssumption = Literal['nothing', 'busy', 'idle']
 
 @dataclass(frozen=True)
 class Fork(Command):
     '''
     if flexible the resource may be occupied and it will wait until it's free
     '''
-    commands: list[Command]
+    command: Command
     resource: str
-    flexible: bool = False
     thread_name: str | None = None
+    assume: ForkAssumption = 'idle'
 
     def __post_init__(self):
-        for cmd in self.commands:
+        for cmd, _ in self.command.collect():
             assert not isinstance(cmd, WaitForResource) # only the main thread can wait for resources
             if self.resource is not None:
                 assert cmd.required_resource() in {None, self.resource}
 
-    def replace(self, commands: list[Command], thread_name: str | None = None) -> Fork:
+    def replace(self, command: Command, thread_name: str | None = None) -> Fork:
         if thread_name is not None:
-            return replace(self, commands=commands, thread_name=thread_name)
+            return replace(self, command=command, thread_name=thread_name)
         else:
-            return replace(self, commands=commands)
+            return replace(self, command=command)
 
     def execute(self, runtime: Runtime, metadata: dict[str, Any]) -> None:
         thread_name = self.thread_name
@@ -136,26 +285,18 @@ class Fork(Command):
         @runtime.spawn
         def fork():
             runtime.register_thread(thread_name)
-            for cmd in self.commands:
-                assert not isinstance(cmd, RobotarmCmd)
-                cmd.execute(runtime, metadata=fork_metadata)
+            self.command.execute(runtime, metadata=fork_metadata)
             runtime.thread_done()
 
     def est(self) -> float:
         raise ValueError('Fork.est')
 
-    def vars_of(self) -> set[str]:
-        return {
-            v
-            for c in self.commands
-            for v in c.vars_of()
-        }
-
     def __add__(self, other: float | int | str | Symbolic) -> Fork:
-        return Fork(
-            [Idle(Symbolic.wrap(other)), *self.commands],
-            resource=self.resource,
-            flexible=self.flexible,
+        return self.replace(
+            command = Sequence(
+                Idle(Symbolic.wrap(other)),
+                self.command,
+            )
         )
 
 @dataclass(frozen=True)
@@ -164,6 +305,8 @@ class WaitForResource(Command):
     only the main thread can wait for resources
     '''
     resource: str
+    assume: WaitAssumption = 'nothing'
+
     def execute(self, runtime: Runtime, metadata: dict[str, Any]) -> None:
         with runtime.timeit('wait', self.resource, metadata=metadata):
             runtime.wait_for_resource(self.resource)
@@ -221,16 +364,16 @@ def DispCmd(
 def WashFork(
     protocol_path: str | None,
     cmd: BiotekCommand = 'Run',
-    flexible: bool = False,
+    assume: ForkAssumption = 'nothing',
 ):
-    return Fork([WashCmd(protocol_path, cmd)], resource='wash', flexible=flexible)
+    return Fork(WashCmd(protocol_path, cmd), resource='wash', assume=assume)
 
 def DispFork(
     protocol_path: str | None,
     cmd: BiotekCommand = 'Run',
-    flexible: bool = False,
+    assume: ForkAssumption = 'nothing',
 ):
-    return Fork([DispCmd(protocol_path, cmd)], resource='disp', flexible=flexible)
+    return Fork(DispCmd(protocol_path, cmd), resource='disp', assume=assume)
 
 @dataclass(frozen=True)
 class IncuCmd(Command):
@@ -248,78 +391,7 @@ class IncuCmd(Command):
 def IncuFork(
     action: Literal['put', 'get', 'get_climate'],
     incu_loc: str | None,
-    flexible: bool = False,
+    assume: ForkAssumption = 'nothing',
 ):
-    return Fork([IncuCmd(action, incu_loc)], resource='incu', flexible=flexible)
+    return Fork(IncuCmd(action, incu_loc), resource='incu', assume=assume)
 
-from collections import defaultdict
-
-def Resolve(cmds: list[Command], env: dict[str, float]) -> list[Command]:
-    out: list[Command] = []
-    for cmd in cmds:
-        match cmd:
-            case Idle():
-                out += [cmd.replace(secs=cmd.seconds.resolve(env))]
-            case WaitForCheckpoint():
-                out += [cmd.replace(plus_secs=cmd.plus_seconds.resolve(env))]
-            case Fork(commands):
-                out += [cmd.replace(commands=Resolve(commands, env))]
-            case _:
-                out += [cmd]
-    return out
-
-def MakeResourceCheckpoints(cmds: list[Command], counts: dict[str, int] | None = None) -> list[Command]:
-    if counts is None:
-        counts = defaultdict(int)
-    out: list[Command] = []
-    for cmd in cmds:
-        match cmd:
-            case WaitForResource(resource):
-                this = counts[resource]
-                this_name = f'{resource} #{counts[resource]}'
-                if this:
-                    out += [WaitForCheckpoint(name=this_name, flexible=False)]
-            case Fork(commands, resource, flexible):
-                prev_wait = MakeResourceCheckpoints([WaitForResource(resource)], counts)
-                counts[resource] += 1
-                this = counts[resource]
-                this_name = f'{resource} #{counts[resource]}'
-                out += [
-                    cmd.replace(
-                        commands=[
-                            *prev_wait,
-                            *MakeResourceCheckpoints(commands, counts),
-                            Checkpoint(this_name),
-                        ],
-                        thread_name=this_name,
-                    )
-                ]
-            case _:
-                out += [cmd]
-    return out
-
-def RemoveNoopIdles(cmds: list[Command]) -> list[Command]:
-    out: list[Command] = []
-    for cmd in cmds:
-        match cmd:
-            case Idle(only_for_scheduling=True):
-                continue
-            case Idle() if not cmd.seconds.resolve():
-                continue
-            case Fork(commands):
-                out += [cmd.replace(commands=RemoveNoopIdles(commands))]
-            case _:
-                out += [cmd]
-    return out
-
-def FreeVars(cmds: list[Command]) -> set[str]:
-    out: set[str] = set()
-    for cmd in cmds:
-        match cmd:
-            case Idle():
-                out |= cmd.seconds.vars_of()
-            case WaitForCheckpoint():
-                out |= cmd.plus_seconds.vars_of()
-            case Fork():
-                out |= FreeVars(cmd.commands)
-    return out

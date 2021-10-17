@@ -1,9 +1,9 @@
 from __future__ import annotations
-from typing import *
+from typing import Any, Generic, TypeVar, Iterable, Iterator
 from dataclasses import *
 
 from datetime import datetime, timedelta
-from collections import defaultdict
+from collections import defaultdict, Counter
 
 import graphlib
 import json
@@ -22,6 +22,7 @@ from commands import (
     Checkpoint,
     Duration,
     Idle,
+    Sequence,
     WashCmd,
     DispCmd,
     IncuCmd,
@@ -331,7 +332,7 @@ def time_arm_incu(config: RuntimeConfig):
     ]
     ATTENTION(time_arm_incu.__doc__ or '')
     cmds: list[Command] = [
-        Fork(incu, resource='incu'),
+        Fork(Sequence(*incu), resource='incu'),
         *arm,
         WaitForResource('incu'),
         *sleek_commands(arm2),
@@ -669,7 +670,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig):
                 incu_get = [
                     IncuFork('get', plate.incu_loc),
                     *RobotarmCmds('incu get', before_pick = [
-                        WaitForResource('incu'),
+                        WaitForResource('incu', assume='will wait'),
                     ]),
                     *lid_off,
                 ]
@@ -677,7 +678,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig):
                 incu_get = [
                     IncuFork('get', plate.incu_loc),
                     *RobotarmCmds('incu get', before_pick = [
-                        WaitForResource('incu'),
+                        WaitForResource('incu', assume='will wait'),
                         Duration(f'{plate_desc} 37C', opt_weight=1),
                     ]),
                     *lid_off,
@@ -692,13 +693,16 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig):
                 B21_to_incu = [
                     *RobotarmCmds('incu put',
                         before_pick = [
-                            WaitForResource('incu'),
+                            WaitForResource('incu', assume='nothing'),
                         ],
                         after_drop = [
-                            Fork([
-                                IncuCmd('put', plate.incu_loc),
-                                Checkpoint(f'{plate_desc} 37C'),
-                            ], resource='incu')
+                            Fork(
+                                Sequence(
+                                    IncuCmd('put', plate.incu_loc),
+                                    Checkpoint(f'{plate_desc} 37C'),
+                                ),
+                                resource='incu',
+                            )
                         ]
                     ),
                     # WaitForResource('incu'),
@@ -710,16 +714,16 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig):
 
             if p.disp[i]:
                 pre_disp = Fork(
-                    [
-                        WaitForCheckpoint(f'{plate_desc} pre disp {i}', flexible=True),
+                    Sequence(
+                        WaitForCheckpoint(f'{plate_desc} pre disp {i}', assume='nothing'),
                         Idle() + f'{plate_desc} pre disp {i} delay',
                         DispCmd(p.pre_disp[i]) if p.pre_disp[i] else Idle(),
                         DispCmd(p.disp[i], cmd='Validate'),
                         Early(3),
                         Checkpoint(f'{plate_desc} pre disp done {i}'),
-                    ],
+                    ),
                     resource='disp',
-                    flexible=True
+                    assume='nothing',
                 )
                 pre_disp_wait = Duration(f'{plate_desc} pre disp done {i}', opt_weight=-1)
             else:
@@ -727,7 +731,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig):
                 pre_disp_wait = Idle()
 
             if plate is first_plate:
-                wash_prime = WashFork(p.wash[i], cmd='Validate', flexible=True) + 2
+                wash_prime = WashFork(p.wash[i], cmd='Validate', assume='nothing') + 2
             else:
                 wash_prime = Idle()
 
@@ -735,41 +739,51 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig):
                 RobotarmCmd('wash put prep'),
                 RobotarmCmd('wash put transfer'),
                 # WaitForResource('wash'),
-                Fork([
-                    *wash_delay,
-                    Duration(f'{plate_desc} incubation {i-1}') if i-1 else Idle(),
-                    Checkpoint(f'{plate_desc} pre disp {i}'),
-                    WashCmd(p.wash[i], cmd='RunValidated'),
-                    Checkpoint(f'{plate_desc} transfer {i}'),
-                ], resource='wash'),
+                Fork(
+                    Sequence(
+                        *wash_delay,
+                        Duration(f'{plate_desc} incubation {i-1}', exactly=p.incu[i-1]) if 2 <= i <= 5 else Idle(),
+                        Checkpoint(f'{plate_desc} pre disp {i}'),
+                        WashCmd(p.wash[i], cmd='RunValidated'),
+                        Checkpoint(f'{plate_desc} transfer {i}'),
+                    ),
+                    resource='wash',
+                    assume='nothing',
+                ),
                 pre_disp,
                 RobotarmCmd('wash put return'),
             ]
 
             if p.prime[i] and plate is first_plate:
-                disp_prime = DispFork(p.prime[i], flexible=True)
+                disp_prime = DispFork(
+                    p.prime[i],
+                    assume='nothing',
+                )
             else:
                 disp_prime = Idle()
 
             disp = [
                 RobotarmCmd('wash_to_disp prep'),
                 Early(1),
-                WaitForResource('wash'),
+                WaitForResource('wash', assume='will wait'),
                 RobotarmCmd('wash_to_disp transfer'),
                 Duration(f'{plate_desc} transfer {i}', opt_weight=-1000),
                 pre_disp_wait,
-                Fork([
-                    DispCmd(p.disp[i], cmd='RunValidated'),
-                    Checkpoint(f'{plate_desc} disp {i} done'),
-                    Checkpoint(f'{plate_desc} incubation {i}'),
-                ], resource='disp'),
-                DispFork(p.post_disp[i], flexible=True) if p.post_disp[i] else Idle(),
+                Fork(
+                    Sequence(
+                        DispCmd(p.disp[i], cmd='RunValidated'),
+                        Checkpoint(f'{plate_desc} disp {i} done'),
+                        Checkpoint(f'{plate_desc} incubation {i}'),
+                    ),
+                    resource='disp',
+                ),
+                DispFork(p.post_disp[i]) if p.post_disp[i] else Idle(),
                 RobotarmCmd('wash_to_disp return'),
             ]
 
             disp_to_B21 = [
                 RobotarmCmd('disp get prep'),
-                WaitForCheckpoint(f'{plate_desc} disp {i} done', flexible=True, report_behind_time=False),
+                WaitForCheckpoint(f'{plate_desc} disp {i} done', report_behind_time=False, assume='nothing'),
                 # WaitForResource('disp'),
                 # Duration(f'{plate_desc} disp {i} done', opt_weight=0.0),
                 # DispFork(p.disp.Stains),
@@ -1014,7 +1028,7 @@ def cell_paint(config: RuntimeConfig, protocol_config: ProtocolConfig, *, batch_
 def group_times(times: dict[str, list[float]]):
     groups = utils.group_by(list(times.items()), key=lambda s: s[0].rstrip(' 0123456789'))
     out: dict[str, list[str]] = {}
-    def key(kv):
+    def key(kv: tuple[str, Any]):
         s, _ = kv
         if s.startswith('plate'):
             plate, i, *what = s.split(' ')
@@ -1056,14 +1070,14 @@ import constraints
 
 def execute_events(config: RuntimeConfig, events: list[Event], metadata: dict[str, str], log_to_file: bool = True) -> Runtime:
     with utils.timeit('constraints'):
-        d, ends = constraints.optimize([e.command for e in events])
+        cmd = constraints.optimize(Sequence(*[e.command for e in events]))
 
     with make_runtime(config, metadata, log_to_file=log_to_file) as runtime:
-        runtime.var_values.update(d)
-        execute_events_in_runtime(runtime, events)
+        cmd.execute(runtime, {})
+        # execute_command_in_runtime(runtime, cmd)
         ret = runtime
 
-    if config.name() != 'live':
+    if 0 and config.name() != 'live':
         with make_runtime(configs['dry-run'], {}, log_to_file=False, execute_scheduling_idles=True) as runtime:
             runtime.var_values.update(d)
             execute_events_in_runtime(runtime, events)

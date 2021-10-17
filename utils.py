@@ -121,6 +121,10 @@ class Mutable(Generic[A]):
     def factory(cls, x: A):
         return field(default_factory=lambda: cls(x))
 
+    @classmethod
+    def init(cls, f: Callable[[], A]):
+        return field(default_factory=lambda: cls(f()))
+
 @dataclass
 class Color:
     enabled: bool = True

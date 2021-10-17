@@ -6,6 +6,7 @@ from symbolic import Symbolic
 import commands
 from commands import (
     Command,
+    Seq,
     Fork,
     Checkpoint,
     Duration,
@@ -22,6 +23,12 @@ from collections import defaultdict
 
 import utils
 
+def optimize(cmd: Command) -> Command:
+    cmd = cmd.make_resource_checkpoints()
+    env = optimal_env(cmd)
+    cmd = cmd.resolve(env)
+    return cmd
+
 @dataclass(frozen=True)
 class Ids:
     counts: dict[str, int] = field(default_factory=lambda: defaultdict[str, int](int))
@@ -30,8 +37,8 @@ class Ids:
         self.counts[prefix] += 1
         return prefix + str(self.counts[prefix])
 
-def optimize(cmds: list[Command]) -> tuple[dict[str, float], dict[int, float]]:
-    variables = commands.FreeVars(cmds)
+def optimal_env(cmd: Command) -> dict[str, float]:
+    variables = cmd.free_vars()
     ids = Ids()
 
     R = 2
@@ -56,7 +63,7 @@ def optimize(cmds: list[Command]) -> tuple[dict[str, float], dict[int, float]]:
         s.add(Or(max_a_b == a, max_a_b == b))
         return m
 
-    def constrain(lhs: Symbolic, op: Literal['>', '>=', '==', '== max'], rhs: Symbolic | float | int, rhs2: Symbolic | None = None):
+    def constrain(lhs: Symbolic, op: Literal['>', '>=', '=='], rhs: Symbolic | float | int):
         match op:
             case '>':
                 s.add(to_expr(lhs) > to_expr(rhs))
@@ -69,85 +76,70 @@ def optimize(cmds: list[Command]) -> tuple[dict[str, float], dict[int, float]]:
 
         C.append((lhs, op, rhs))
 
-    resource_counters: dict[str, int] = defaultdict(int)
     checkpoints: dict[str, Symbolic] = {}
     checkpoints_referenced: set[str] = set()
 
     maxi: list[tuple[float, Symbolic]] = []
-    last_of_resource: dict[str, Symbolic] = defaultdict(lambda: Symbolic.const(0))
 
     def run(cmd: Command, begin: Symbolic, *, is_main: bool) -> Symbolic:
         '''
         returns end
         '''
-        if isinstance(cmd, RobotarmCmd):
-            assert is_main
-            return begin + cmd.est()
-        elif isinstance(cmd, (BiotekCmd, IncuCmd)):
-            if not is_main:
-                end = begin + cmd.est()
-                return end
-            else:
-                resource = cmd.required_resource()
+        match cmd:
+            case Idle():
+                C.append((cmd.seconds, '>=', 0))
+                return begin + cmd.seconds
+            case RobotarmCmd():
+                assert is_main
+                return begin + cmd.est()
+            case BiotekCmd() | IncuCmd():
+                assert not is_main
+                return begin + cmd.est()
+            case Checkpoint():
+                assert cmd.name not in checkpoints
+                checkpoints[cmd.name] = Symbolic.var(cmd.name)
+                constrain(begin, '==', checkpoints[cmd.name])
+                return begin
+            case WaitForCheckpoint():
+                checkpoints_referenced.add(cmd.name)
+                point = checkpoints[cmd.name]
+                constrain(cmd.plus_seconds, '>=', 0)
+                match cmd.assume:
+                    case 'will wait':
+                        constrain(point + cmd.plus_seconds, '>=', begin)
+                        return point + cmd.plus_seconds
+                    case 'no wait':
+                        constrain(begin, '>=', point + cmd.plus_seconds)
+                        return begin
+                    case 'nothing':
+                        wait_to = Symbolic.var(ids.assign('wait_to'))
+                        constrain(wait_to, '==', Max(point + cmd.plus_seconds, begin))
+                        return wait_to
+            case Duration():
+                # checkpoint must have happened
+                checkpoints_referenced.add(cmd.name)
+                point = checkpoints[cmd.name]
+                duration = Symbolic.var(ids.assign(cmd.name + ' duration '))
+                constrain(point + duration, '==', begin)
+                constrain(duration, '>=', 0)
+                if cmd.exactly is not None:
+                    constrain(duration, '==', cmd.exactly)
+                if cmd.opt_weight:
+                    maxi.append((cmd.opt_weight, duration))
+                return begin
+            case Seq():
                 end = begin
-                for c in [
-                    Fork([cmd], resource=resource),
-                    WaitForResource(resource),
-                ]:
-                    end = run(c, end, is_main=True)
+                for c in cmd.commands:
+                    end = run(c, end, is_main=is_main)
                 return end
-        elif isinstance(cmd, Checkpoint):
-            assert cmd.name not in checkpoints
-            checkpoints[cmd.name] = begin
-            return begin
-        elif isinstance(cmd, WaitForCheckpoint):
-            checkpoints_referenced.add(cmd.name)
-            point = checkpoints[cmd.name] # Symbolic.var(cmd.name)
-            constrain(cmd.plus_seconds, '>=', 0)
-            wait_to = Symbolic.var(ids.assign('wait_to'))
-            if not cmd.flexible:
-                constrain(wait_to, '==', point + cmd.plus_seconds)
-            constrain(wait_to, '==', Max(point + cmd.plus_seconds, begin))
-            return wait_to
-        elif isinstance(cmd, Duration):
-            # checkpoint must have happened
-            checkpoints_referenced.add(cmd.name)
-            point = checkpoints[cmd.name]
-            duration = Symbolic.var(ids.assign(cmd.name + ' duration '))
-            constrain(point + duration, '==', begin)
-            constrain(duration, '>=', 0)
-            if cmd.opt_weight:
-                maxi.append((cmd.opt_weight, duration))
-            return begin
-        elif isinstance(cmd, WaitForResource):
-            assert is_main
-            wait_to = Symbolic.var(ids.assign(f'wait_{cmd.resource}'))
-            constrain(wait_to, '==', Max(last_of_resource[cmd.resource], begin))
-            end = wait_to
-            return end
-        elif isinstance(cmd, Fork):
-            assert is_main, 'can only fork from the main thread'
+            case Fork():
+                assert is_main, 'can only fork from the main thread'
+                _ = run(cmd.command, begin, is_main=False)
+                return begin
+            case _:
+                raise ValueError(type(cmd))
 
-            wait_to = Symbolic.var(ids.assign(f'wait_{cmd.resource}'))
-            if not cmd.flexible:
-                constrain(wait_to, '==', begin)
-            constrain(wait_to, '==', Max(last_of_resource[cmd.resource], begin))
-            end = wait_to
-            for c in cmd.commands:
-                end = run(c, end, is_main=False)
-            last_of_resource[cmd.resource] = end
-
-            return begin
-        else:
-            assert isinstance(cmd, Idle)
-            C.append((cmd.seconds, '>=', 0))
-            return begin + cmd.seconds
-
-    last_main = Symbolic.const(0)
-
-    cmd_ends: dict[int, Symbolic] = {}
-    for i, cmd in enumerate(cmds):
-        last_main = cmd_ends[i] = run(cmd, last_main, is_main=True)
+    run(cmd, Symbolic.const(0), is_main=True)
 
     unused_checkpoints = checkpoints.keys() - checkpoints_referenced
     if 0 and unused_checkpoints:
@@ -182,6 +174,7 @@ def optimize(cmds: list[Command]) -> tuple[dict[str, float], dict[int, float]]:
 
         print(len(C))
 
+    print(s)
     check = str(s.check())
     # print(check)
     import timings
@@ -204,11 +197,11 @@ def optimize(cmds: list[Command]) -> tuple[dict[str, float], dict[int, float]]:
 
     # utils.pr(res)
 
-    ends: dict[int, float] = {
-        i: get(e)
-        for i, e in cmd_ends.items()
-    }
+    # ends: dict[int, float] = {
+    #     i: get(e)
+    #     for i, e in cmd_ends.items()
+    # }
 
-    return res, ends
+    return res # , ends
 
 
