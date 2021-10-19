@@ -142,6 +142,19 @@ class Command(abc.ABC):
             case _:
                 return False
 
+    def assign_ids(self: Command, counter: Mutable[int] | None = None) -> Command:
+        if counter is None:
+            counter = Mutable(0)
+        match self:
+            case Seq():
+                return self.replace(commands=[cmd.assign_ids(counter) for cmd in self.commands])
+            case Fork():
+                return self.replace(command=self.command.assign_ids(counter))
+            case _:
+                my_id = counter.value
+                counter.value += 1
+                return self.with_metadata(id=str(my_id))
+
 @dataclass(frozen=True)
 class Seq(Command):
     commands: list[Command]
@@ -192,8 +205,6 @@ class Idle(Command):
         return replace(self, secs=secs)
 
     def execute(self, runtime: Runtime, metadata: dict[str, Any]) -> None:
-        if self.only_for_scheduling and not runtime.execute_scheduling_idles:
-            return
         secs = self.secs
         assert isinstance(secs, (float, int))
         with runtime.timeit('idle', str(secs), metadata):

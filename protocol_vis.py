@@ -94,9 +94,9 @@ def index() -> Iterator[Tag | dict[str, str]]:
     v3 = protocol.make_v3(incu_csv='1200', linear=False)
 
     with utils.timeit('eventlist'):
-        events = protocol.eventlist(batch_sizes=[batch_size], protocol_config=v3)
+        program = protocol.cell_paint_program(batch_sizes=[batch_size], protocol_config=v3)
     with utils.timeit('runtime'):
-        runtime = protocol.execute_events(configs['dry-run'], events, {}, log_to_file=False)
+        runtime = protocol.execute_program(configs['dry-run'], program, {}, log_to_file=False)
 
     entries = runtime.log_entries
 
@@ -132,9 +132,9 @@ def index() -> Iterator[Tag | dict[str, str]]:
                 t       = e['t']
                 source  = e['source']
                 arg     = e['arg']
-                origin  = e.get('origin', '').removeprefix('before ').removeprefix('after ')
-                if origin:
-                    origin = origin.strip(' #0123456789')
+                thread  = e.get('thread', '').removeprefix('before ').removeprefix('after ')
+                if thread:
+                    thread = thread.strip(' #0123456789')
             except:
                 continue
             if t0 is None:
@@ -172,8 +172,8 @@ def index() -> Iterator[Tag | dict[str, str]]:
                 'duration': 10 + plate,
             }
             slot = slots.get(source, 0)
-            if origin and source != 'duration':
-                slot = slots.get(origin, 0)
+            if thread and source != 'duration':
+                slot = slots.get(thread, 0)
             # slot = slots.get(e.get('source', ''), 0)
             # slot += (1 + max(slots.values())) * utils.catch(lambda: int(e['event_plate_id']), 0)
             # slot += batch_size * slot + utils.catch(lambda: int(e['event_plate_id']), 0)
@@ -202,7 +202,7 @@ def index() -> Iterator[Tag | dict[str, str]]:
             if source == 'idle':
                 my_width = 7
                 z_index = 2
-            if source == 'experiment':
+            if source == 'run':
                 continue
             area += div(
                 css='''

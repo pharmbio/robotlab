@@ -252,22 +252,23 @@ def time_bioteks(config: RuntimeConfig, protocol_config: ProtocolConfig):
             Symbolic.var('incu 5'),
         )
     )
-    events = eventlist([1], protocol_config=protocol_config, sleek=True)
-    events = [
-        e
-        for e in events
-        for c in [e.command]
-        if not isinstance(c, IncuCmd)
-        if not isinstance(c, Fork) or c.resource != 'incu'
-        if not isinstance(c, WaitForResource) or c.resource != 'incu'
-        if not isinstance(c, Duration) or '37C' not in c.name
-        if not isinstance(c, RobotarmCmd) or any(
-            needle in c.program_name
-            for needle in ['wash', 'disp']
+    program = cell_paint_program([1], protocol_config=protocol_config, sleek=True)
+    program = Sequence(
+        *(
+            cmd.with_metadata(metadata)
+            for cmd, metadata in program.collect()
+            if not isinstance(cmd, IncuCmd)
+            if not isinstance(cmd, Fork) or cmd.resource != 'incu'
+            if not isinstance(cmd, WaitForResource) or cmd.resource != 'incu'
+            if not isinstance(cmd, Duration) or '37C' not in cmd.name
+            if not isinstance(cmd, RobotarmCmd) or any(
+                needle in cmd.program_name
+                for needle in ['wash', 'disp']
+            )
         )
-    ]
+    )
     ATTENTION(time_bioteks.__doc__ or '')
-    execute_events(config, events, metadata={'program': 'time_bioteks'})
+    execute_program(config, program, metadata={'program': 'time_bioteks'})
 
 def time_arm_incu(config: RuntimeConfig):
     '''
@@ -335,10 +336,11 @@ def time_arm_incu(config: RuntimeConfig):
         Fork(Sequence(*incu), resource='incu'),
         *arm,
         WaitForResource('incu'),
-        *sleek_commands(arm2),
+        sleek_program(Sequence(*arm2)),
         *arm2,
     ]
-    execute_commands(config, cmds, metadata={'program': 'time_arm_incu'})
+    program = Sequence(*cmds)
+    execute_program(config, program, metadata={'program': 'time_arm_incu'})
 
 def lid_stress_test(config: RuntimeConfig):
     '''
@@ -352,10 +354,10 @@ def lid_stress_test(config: RuntimeConfig):
         4. robotarm:    in neutral position by B hotel
         5. gripper:     sufficiently open to grab a plate
     '''
-    events: list[Event] = []
+    cmds: list[Command] = []
     for i, (lid, A, C) in enumerate(zip(lid_locs, A_locs, C_locs)):
         p = Plate('p', incu_loc='', rt_loc=C, lid_loc=lid, out_loc=A, batch_index=1)
-        commands: list[Command] = [
+        cmds += [
             *RobotarmCmds(p.lid_put),
             *RobotarmCmds(p.lid_get),
             *RobotarmCmds(p.rt_put),
@@ -365,13 +367,9 @@ def lid_stress_test(config: RuntimeConfig):
             *RobotarmCmds(p.out_put),
             *RobotarmCmds(p.out_get),
         ]
-        events += [
-            Event(p.id, str(i), '', cmd)
-            for cmd in commands
-        ]
-    events = sleek_events(events)
+    program = sleek_program(Sequence(*cmds))
     ATTENTION(lid_stress_test.__doc__ or '')
-    execute_events(config, events, {'program': 'lid_stress_test'})
+    execute_program(config, program, {'program': 'lid_stress_test'})
 
 def load_incu(config: RuntimeConfig, num_plates: int):
     '''
@@ -384,7 +382,7 @@ def load_incu(config: RuntimeConfig, num_plates: int):
         4. robotarm:                in neutral position by B hotel
         5. gripper:                 sufficiently open to grab a plate
     '''
-    events: list[Event] = []
+    cmds: list[Command] = []
     for i, (incu_loc, a_loc) in enumerate(zip(incu_locs, reversed(A_locs)), start=1):
         if i > num_plates:
             break
@@ -398,25 +396,23 @@ def load_incu(config: RuntimeConfig, num_plates: int):
         )
         assert p.out_loc.startswith('out')
         pos = p.out_loc.removeprefix('out')
-        cmds = [
-            RobotarmCmd(f'incu_A{pos} put prep'),
-            RobotarmCmd(f'incu_A{pos} put transfer to drop neu'),
-            WaitForResource('incu'),
-            RobotarmCmd(f'incu_A{pos} put transfer from drop neu'),
-            IncuFork('put', p.incu_loc),
-            RobotarmCmd(f'incu_A{pos} put return'),
+        cmds += [
+            Sequence(*[
+                RobotarmCmd(f'incu_A{pos} put prep'),
+                RobotarmCmd(f'incu_A{pos} put transfer to drop neu'),
+                WaitForResource('incu'),
+                RobotarmCmd(f'incu_A{pos} put transfer from drop neu'),
+                IncuFork('put', p.incu_loc),
+                RobotarmCmd(f'incu_A{pos} put return'),
+            ], plate_id=p.id)
         ]
-        events += [
-            Event(p.id, 'incu load', '', cmd)
-            for cmd in cmds
-        ]
-    events = [
-        Event('', 'load incu', 'prep', RobotarmCmd('incu_A21 put-prep')),
-        *events,
-        Event('', 'load incu', 'return', RobotarmCmd('incu_A21 put-return'))
-    ]
+    program = Sequence(*[
+        RobotarmCmd('incu_A21 put-prep'),
+        *cmds,
+        RobotarmCmd('incu_A21 put-return')
+    ])
     ATTENTION(load_incu.__doc__ or '')
-    execute_events(config, events, {'program': 'load_incu'})
+    execute_program(config, program, {'program': 'load_incu'})
 
 def unload_incu(config: RuntimeConfig, num_plates: int):
     '''
@@ -430,54 +426,20 @@ def unload_incu(config: RuntimeConfig, num_plates: int):
         5. gripper:                 sufficiently open to grab a plate
     '''
     plates = define_plates([num_plates])
-    events: list[Event] = []
+    cmds: list[Command] = []
     for p in plates:
         assert p.out_loc.startswith('out')
         pos = p.out_loc.removeprefix('out')
-        cmds = [
+        cmds += [
             IncuFork('put', p.incu_loc),
             RobotarmCmd(f'incu_A{pos} get prep'),
             WaitForResource('incu'),
             RobotarmCmd(f'incu_A{pos} get transfer'),
             RobotarmCmd(f'incu_A{pos} get return'),
         ]
-        events += [
-            Event(p.id, 'unload', '', cmd)
-            for cmd in cmds
-        ]
-    events = [
-        *events,
-    ]
+    program = Sequence(*cmds)
     ATTENTION(unload_incu.__doc__ or '')
-    execute_events(config, events, {'program': 'unload_incu'})
-
-@dataclass(frozen=True)
-class Event:
-    plate_id: str
-    part: str
-    subpart: str
-    command: commands.Command
-
-    def desc(self):
-        return {
-            'event_plate_id': self.plate_id,
-            'event_part': self.part,
-            'event_subpart': self.subpart,
-        }
-
-    @staticmethod
-    def wrap(commands: Command | list[Command], plate_id: str='', part: str='', subpart: str=''):
-        if isinstance(commands, Command):
-            commands = [commands]
-        return [Event(plate_id, part, subpart, command) for command in commands]
-
-def execute_events_in_runtime(runtime: Runtime, events: list[Event]) -> None:
-    for i, event in enumerate(events):
-        metadata: dict[str, str | int] = {
-            'event_index': i,
-            **event.desc(),
-        }
-        event.command.execute(runtime, metadata)
+    execute_program(config, program, {'program': 'unload_incu'})
 
 Desc = tuple[Plate, str, str]
 
@@ -601,7 +563,7 @@ finjune = Interleaving.init('''
 
 Interleavings = {k: v for k, v in globals().items() if isinstance(v, Interleaving)}
 
-def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig):
+def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
 
     p = protocol_config
 
@@ -869,12 +831,11 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig):
             for desc in linear
         ])
 
-    plate_events = [
-        Event(
-            plate_id=plate.id,
-            part=part,
-            subpart=subpart,
-            command=command,
+    plate_cmds = [
+        command.with_metadata(
+            event_plate_id=plate.id,
+            event_part=part,
+            event_subpart=subpart,
         )
         for desc in linear
         for plate, part, subpart in [desc]
@@ -884,10 +845,11 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig):
     # for e in plate_events:
     #     print(e)
 
-    prep_events: list[Event] = [ Event('', 'prep', '', cmd) for cmd in prep_cmds ]
-    post_events: list[Event] = [ Event('', '', '', cmd) for cmd in post_cmds ]
-
-    return prep_events + plate_events + post_events
+    return Sequence(
+        Sequence(*prep_cmds, part='prep'),
+        *plate_cmds,
+        Sequence(*post_cmds)
+    )
 
 def define_plates(batch_sizes: list[int]) -> list[Plate]:
     plates: list[Plate] = []
@@ -925,59 +887,57 @@ def group_by_batch(plates: list[Plate]) -> list[list[Plate]]:
         d[plate.batch_index] += [plate]
     return sorted(d.values(), key=lambda plates: plates[0].batch_index)
 
-def sleek_events(events: list[Event]) -> list[Event]:
-    def get_movelist(event: Event) -> moves.MoveList | None:
-        if isinstance(event.command, commands.RobotarmCmd):
-            return movelists[event.command.program_name]
-        else:
-            return None
-    return moves.sleek_movements(events, get_movelist)
-
-def sleek_commands(cmds: list[Command]) -> list[Command]:
-    def get_movelist(cmd: Command) -> moves.MoveList | None:
-        if isinstance(cmd, commands.RobotarmCmd):
+def sleek_program(program: Command) -> Command:
+    def get_movelist(cmd_and_metadata: tuple[Command, Any]) -> moves.MoveList | None:
+        cmd, _ = cmd_and_metadata
+        if isinstance(cmd, RobotarmCmd):
             return movelists[cmd.program_name]
         else:
             return None
-    return moves.sleek_movements(cmds, get_movelist)
+    return Sequence(
+        *[
+            cmd.with_metadata(metadata)
+            for cmd, metadata in moves.sleek_movements(
+                program.collect(),
+                get_movelist,
+            )
+        ]
+    )
 
-def eventlist(batch_sizes: list[int], protocol_config: ProtocolConfig, sleek: bool = True) -> list[Event]:
-    all_events: list[Event] = [
-        Event('', 'prep', '', Checkpoint('run')),
-    ]
-    all_events += test_comm_events
+def cell_paint_program(batch_sizes: list[int], protocol_config: ProtocolConfig, sleek: bool = True) -> Command:
+    cmds: list[Command] = []
     for batch in group_by_batch(define_plates(batch_sizes)):
-        events = paint_batch(
+        batch_cmds = paint_batch(
             batch,
             protocol_config=protocol_config,
         )
         if sleek:
-            events = sleek_events(events)
-        all_events += events
-    all_events += [
-        Event('', '', '', Duration('run')),
-    ]
-    return all_events
+            batch_cmds = sleek_program(batch_cmds)
+        cmds += [batch_cmds]
+    return Sequence(
+        Checkpoint('run'),
+        test_comm_program,
+        *cmds,
+        Duration('run')
+    )
 
 def test_circuit(config: RuntimeConfig) -> None:
     '''
     Test circuit: Short test paint on one plate, without incubator
     '''
     plate, = define_plates([1])
-    events = eventlist([1], protocol_config=make_v3('secs', linear=False))
-    events = [
-        event
-        for event in events
-        if isinstance(event.command, commands.RobotarmCmd)
-        if event.part not in {'Triton', 'Stains'}
-    ] + Event.wrap([
-            *RobotarmCmds(plate.out_get),
-            *RobotarmCmds('incu put')
+    program = cell_paint_program([1], protocol_config=make_v3('secs', linear=False))
+    program = Sequence(
+        *[
+            cmd.with_metadata(metadata)
+            for cmd, metadata in program.collect()
+            if isinstance(cmd, RobotarmCmd)
+            if metadata.get('part') not in {'Triton', 'Stains'}
         ],
-        plate_id=plate.id,
-        part='return'
+        *RobotarmCmds(plate.out_get),
+        *RobotarmCmds('incu put'),
     )
-    events = sleek_events(events)
+    program = sleek_program(program)
     ATTENTION('''
         Test circuit using one plate.
 
@@ -991,9 +951,9 @@ def test_circuit(config: RuntimeConfig) -> None:
             7. robotarm:                in neutral position by lid hotel
             8. gripper:                 sufficiently open to grab a plate
     ''')
-    execute_events(config, events, metadata={'program': 'test_circuit'})
+    execute_program(config, program, metadata={'program': 'test_circuit'})
 
-test_comm_cmds: list[Command] = [
+test_comm_program: Command = Sequence(
     DispFork(cmd='TestCommunications', protocol_path=None),
     IncuFork(action='get_climate', incu_loc=None),
     RobotarmCmd('gripper check'),
@@ -1001,27 +961,26 @@ test_comm_cmds: list[Command] = [
     WashFork(cmd='TestCommunications', protocol_path=None),
     WaitForResource('incu'),
     WaitForResource('wash'),
-]
-
-test_comm_events = Event.wrap(test_comm_cmds, part='test comm')
+    event_part='test comm'
+)
 
 def test_comm(config: RuntimeConfig):
     '''
     Test communication with robotarm, washer, dispenser and incubator.
     '''
     print('Testing communication with robotarm, washer, dispenser and incubator.')
-    execute_events(config, test_comm_events, {'program': 'test_comm'})
+    execute_program(config, test_comm_program, {'program': 'test_comm'})
     print('Communication tests ok.')
 
 def cell_paint(config: RuntimeConfig, protocol_config: ProtocolConfig, *, batch_sizes: list[int]) -> None:
-    events = eventlist(batch_sizes, protocol_config=protocol_config)
+    program = cell_paint_program(batch_sizes, protocol_config=protocol_config)
     # pr(events)
     metadata: dict[str, str] = {
         'program': 'cell_paint',
         'batch_sizes': ','.join(str(bs) for bs in batch_sizes),
     }
 
-    runtime = execute_events(config, events, metadata)
+    runtime = execute_program(config, program, metadata)
     for k, vs in group_times(runtime.times).items():
         print(k, '[' + ', '.join(vs) + ']')
 
@@ -1042,7 +1001,7 @@ def group_times(times: dict[str, list[float]]):
 import contextlib
 
 @contextlib.contextmanager
-def make_runtime(config: RuntimeConfig, metadata: dict[str, str], *, log_to_file: bool=True, execute_scheduling_idles: bool=False) -> Iterator[Runtime]:
+def make_runtime(config: RuntimeConfig, metadata: dict[str, str], *, log_to_file: bool=True) -> Iterator[Runtime]:
     metadata = {
         'start_time': str(datetime.now()).split('.')[0],
         **metadata,
@@ -1057,7 +1016,7 @@ def make_runtime(config: RuntimeConfig, metadata: dict[str, str], *, log_to_file
     else:
         log_filename = None
 
-    runtime = Runtime(config=config, log_filename=log_filename, execute_scheduling_idles=execute_scheduling_idles)
+    runtime = Runtime(config=config, log_filename=log_filename)
     # pr(commands.Estimates)
 
     metadata['git_HEAD'] = utils.git_HEAD() or ''
@@ -1068,42 +1027,53 @@ def make_runtime(config: RuntimeConfig, metadata: dict[str, str], *, log_to_file
 
 import constraints
 
-def execute_events(config: RuntimeConfig, events: list[Event], metadata: dict[str, str], log_to_file: bool = True) -> Runtime:
+def execute_program(config: RuntimeConfig, program: Command, metadata: dict[str, str], log_to_file: bool = True) -> Runtime:
+    program = program.assign_ids()
+
     with utils.timeit('constraints'):
-        cmd = constraints.optimize(Sequence(*[e.command for e in events]))
+        program, expected_ends = constraints.optimize(program)
 
     with make_runtime(config, metadata, log_to_file=log_to_file) as runtime:
-        cmd.execute(runtime, {})
-        # execute_command_in_runtime(runtime, cmd)
+        program.remove_scheduling_idles().execute(runtime, {})
         ret = runtime
 
-    if 0 and config.name() != 'live':
-        with make_runtime(configs['dry-run'], {}, log_to_file=False, execute_scheduling_idles=True) as runtime:
-            runtime.var_values.update(d)
-            execute_events_in_runtime(runtime, events)
+    if config.name() != 'live':
+        with make_runtime(configs['dry-run'], {}, log_to_file=False) as runtime:
+            program.execute(runtime, {})
             entries = runtime.log_entries
             matches = 0
             mismatches = 0
+            seen: set[str] = set()
             for e in entries:
-                i = e.get('event_index')
-                if 'idle_cmd' in str(e.get('arg',  '')):
-                    continue
-                if e.get('origin'):
-                    continue
-                if e['kind'] == 'end' and i:
-                    if abs(e['t'] - ends[i]) > 0.1:
-                        utils.pr(('no match!', i, e, ends[i]))
+                i = e.get('id')
+                if (e.get('kind') == 'end' or e.get('kind') == 'info' and e.get('source') == 'checkpoint') and i:
+                    seen.add(i)
+                    if abs(e['t'] - expected_ends[i]) > 0.1:
+                        utils.pr(('no match!', i, e, expected_ends[i]))
                         mismatches += 1
                     else:
                         matches += 1
                     # utils.pr((f'{matches=}', i, e, ends[i]))
-            if mismatches or not matches:
-                print(f'{matches=} {mismatches=} {len(ends)=}')
+            by_id: dict[str, Command] = {
+                i: c
+                for c, m in program.collect()
+                if (i := m.get('id')) and isinstance(i, str)
+            }
 
-    # utils.pr(d)
+            by_id |= {
+                i: c
+                for c1, _ in program.collect()
+                if isinstance(c1, Fork)
+                for c, m in c1.command.collect()
+                if (i := m.get('id')) and isinstance(i, str)
+            }
+
+            for i, e in expected_ends.items():
+                if i not in seen:
+                    print(i, e, by_id.get(i, '?'), sep='\t')
+
+            if mismatches or not matches:
+                print(f'{matches=} {mismatches=} {len(expected_ends)=}')
 
     return ret
-
-def execute_commands(config: RuntimeConfig, cmds: list[Command], metadata: dict[str, Any]={}) -> None:
-    execute_events(config, [Event('', '', '', cmd) for cmd in cmds], metadata=metadata)
 

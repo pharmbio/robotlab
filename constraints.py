@@ -23,11 +23,11 @@ from collections import defaultdict
 
 import utils
 
-def optimize(cmd: Command) -> Command:
+def optimize(cmd: Command) -> tuple[Command, dict[str, float]]:
     cmd = cmd.make_resource_checkpoints()
     env = optimal_env(cmd)
-    cmd = cmd.resolve(env)
-    return cmd
+    cmd = cmd.resolve(env.env)
+    return cmd, env.expected_ends
 
 @dataclass(frozen=True)
 class Ids:
@@ -37,19 +37,27 @@ class Ids:
         self.counts[prefix] += 1
         return prefix + str(self.counts[prefix])
 
-def optimal_env(cmd: Command) -> dict[str, float]:
+@dataclass(frozen=True)
+class OptimalResult:
+    env: dict[str, float]
+    expected_ends: dict[str, float]
+
+def optimal_env(cmd: Command) -> OptimalResult:
     variables = cmd.free_vars()
     ids = Ids()
 
     R = 2
-    def to_expr(x: Symbolic | float | int) -> Any:
+    def to_expr(x: Symbolic | float | int | str) -> Any:
         x = Symbolic.wrap(x)
-        return Sum(
-            round(float(x.offset), R),
-            *[Real(v) for v in x.var_names]
-            # int(x.offset * R),
-            # *[Int(v) for v in x.var_names]
-        ) # type: ignore
+        if x.offset:
+            return Sum(
+                round(float(x.offset), R),
+                *[Real(v) for v in x.var_names]
+                # int(x.offset * R),
+                # *[Int(v) for v in x.var_names]
+            ) # type: ignore
+        else:
+            return Sum(*[Real(v) for v in x.var_names]) # type: ignore
 
     s: Any = Optimize()
 
@@ -63,7 +71,7 @@ def optimal_env(cmd: Command) -> dict[str, float]:
         s.add(Or(max_a_b == a, max_a_b == b))
         return m
 
-    def constrain(lhs: Symbolic, op: Literal['>', '>=', '=='], rhs: Symbolic | float | int):
+    def constrain(lhs: Symbolic | str, op: Literal['>', '>=', '=='], rhs: Symbolic | float | int | str):
         match op:
             case '>':
                 s.add(to_expr(lhs) > to_expr(rhs))
@@ -80,8 +88,17 @@ def optimal_env(cmd: Command) -> dict[str, float]:
     checkpoints_referenced: set[str] = set()
 
     maxi: list[tuple[float, Symbolic]] = []
+    expected_ends: dict[str, Symbolic] = {}
 
     def run(cmd: Command, begin: Symbolic, *, is_main: bool) -> Symbolic:
+        end = run_inner(cmd, begin, is_main=is_main)
+        match cmd:
+            case Seq() if cmd_id := cmd.metadata.get('id'):
+                assert isinstance(cmd_id, str)
+                expected_ends[cmd_id] = end
+        return end
+
+    def run_inner(cmd: Command, begin: Symbolic, *, is_main: bool) -> Symbolic:
         '''
         returns end
         '''
@@ -101,23 +118,20 @@ def optimal_env(cmd: Command) -> dict[str, float]:
                 constrain(begin, '==', checkpoints[cmd.name])
                 return begin
             case WaitForCheckpoint():
-                checkpoints_referenced.add(cmd.name)
                 point = checkpoints[cmd.name]
                 constrain(cmd.plus_seconds, '>=', 0)
-                match cmd.assume:
-                    case 'will wait':
-                        constrain(point + cmd.plus_seconds, '>=', begin)
-                        return point + cmd.plus_seconds
-                    case 'no wait':
-                        constrain(begin, '>=', point + cmd.plus_seconds)
-                        return begin
-                    case 'nothing':
-                        wait_to = Symbolic.var(ids.assign('wait_to'))
-                        constrain(wait_to, '==', Max(point + cmd.plus_seconds, begin))
-                        return wait_to
+                if cmd.assume == 'will wait':
+                    constrain(point + cmd.plus_seconds, '>=', begin)
+                    return point + cmd.plus_seconds
+                elif cmd.assume == 'no wait':
+                    constrain(begin, '>=', point + cmd.plus_seconds)
+                    return begin
+                else:
+                    wait_to = Symbolic.var(ids.assign('wait_to'))
+                    constrain(wait_to, '==', Max(point + cmd.plus_seconds, begin))
+                    return wait_to
             case Duration():
                 # checkpoint must have happened
-                checkpoints_referenced.add(cmd.name)
                 point = checkpoints[cmd.name]
                 duration = Symbolic.var(ids.assign(cmd.name + ' duration '))
                 constrain(point + duration, '==', begin)
@@ -140,13 +154,6 @@ def optimal_env(cmd: Command) -> dict[str, float]:
                 raise ValueError(type(cmd))
 
     run(cmd, Symbolic.const(0), is_main=True)
-
-    unused_checkpoints = checkpoints.keys() - checkpoints_referenced
-    if 0 and unused_checkpoints:
-        print(f'{unused_checkpoints = }')
-
-    dangling_checkpoints = checkpoints_referenced - checkpoints.keys()
-    assert not dangling_checkpoints, f'{dangling_checkpoints = }'
 
     lc = f'{len(C)=}'
 
@@ -190,18 +197,18 @@ def optimal_env(cmd: Command) -> dict[str, float]:
         else:
             return float(M.eval(e).as_decimal(R).strip('?'))
 
-    res = {
+    env = {
         a: get(a)
         for a in sorted(variables)
     }
 
-    # utils.pr(res)
+    # utils.pr(env)
 
-    # ends: dict[int, float] = {
-    #     i: get(e)
-    #     for i, e in cmd_ends.items()
-    # }
+    ends: dict[str, float] = {
+        i: get(e)
+        for i, e in expected_ends.items()
+    }
 
-    return res # , ends
+    return OptimalResult(env=env, expected_ends=ends)
 
 
