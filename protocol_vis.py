@@ -88,7 +88,8 @@ def index() -> Iterator[Tag | dict[str, str]]:
     zoom = utils.catch(lambda: float(store['zoom']), 1)
     batch_size = utils.catch(lambda: int(store['batch_size']), 6)
 
-    v3 = protocol.make_v3(incu_csv='1200', linear=False)
+    # v3 = protocol.make_v3(incu_csv='t1, t2, t3, t4, t5', interleave=True, six=True)
+    v3 = protocol.make_v3(incu_csv='1200,1200,1200,1205,final', interleave=True, six=True, lockstep=True)
 
     with utils.timeit('eventlist'):
         program = protocol.cell_paint_program(batch_sizes=[batch_size], protocol_config=v3)
@@ -103,6 +104,8 @@ def index() -> Iterator[Tag | dict[str, str]]:
         if '37C' in k:
             txt += [' '.join((k, *vs))]
         if 'active' in k:
+            txt += [' '.join((k, *vs))]
+        if 'incubation' in k:
             txt += [' '.join((k, *vs))]
         if 'transfer' in k:
             txt += [' '.join((k, *vs))]
@@ -156,6 +159,7 @@ def index() -> Iterator[Tag | dict[str, str]]:
                 'wash -> B21':  5,
                 'B21 -> out':   7,
                 'wash -> B15':  5,
+                'B15 -> B21':   7,
                 'B15 -> out':   7,
             }
             field = fields.get(subpart, 0)

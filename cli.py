@@ -25,8 +25,10 @@ def main():
     parser.add_argument('--test-comm', action='store_true', help=(protocol.test_comm.__doc__ or '').strip())
 
     parser.add_argument('--cell-paint', metavar='BS', type=str, default=None, help='Cell paint with batch sizes of BS, separated by comma (such as 6,6 for 2x6). Plates start stored in incubator L1, L2, ..')
-    parser.add_argument('--incu', metavar='IS', type=str, default='1200,1200,1200,1200', help='Incubation times in seconds, separated by comma')
-    parser.add_argument('--interleave', action='store_true', help='Interleave plates, required for batch sizes of more than 6 plates')
+    parser.add_argument('--incu', metavar='IS', type=str, default='1200,1200,1200,1200,1200', help='Incubation times in seconds, separated by comma')
+    parser.add_argument('--interleave', action='store_true', help='Interleave plates, required for 7 plate batches')
+    parser.add_argument('--two-final-washes', action='store_true', help='Use two shorter final washes in the end, required for big batch sizes, required for 8 plate batches')
+    parser.add_argument('--lockstep', action='store_true', help='Allow steps to overlap: first plate PFA starts before last plate Mito finished and so on, required for 10 plate batches')
     parser.add_argument('--test-circuit', action='store_true', help='Test circuit: start with one plate with lid on incubator transfer door, and all other positions empty!')
     parser.add_argument('--time-bioteks', action='store_true', help=(protocol.time_bioteks.__doc__ or '').strip().splitlines()[0])
     parser.add_argument('--time-arm-incu', action='store_true', help=(protocol.time_arm_incu.__doc__ or '').strip().splitlines()[0])
@@ -71,7 +73,12 @@ def main():
 
     print(f'Using', config.name(), 'config =', show(config))
 
-    v3 = protocol.make_v3(incu_csv=args.incu, linear=not args.interleave)
+    v3 = protocol.make_v3(
+        incu_csv=args.incu,
+        interleave=args.interleave,
+        six=args.two_final_washes,
+        lockstep=args.lockstep
+    )
 
     if args.cell_paint:
         batch_sizes: list[int] = [
