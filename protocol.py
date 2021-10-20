@@ -921,12 +921,14 @@ def cell_paint_program(batch_sizes: list[int], protocol_config: ProtocolConfig, 
         if sleek:
             batch_cmds = sleek_program(batch_cmds)
         cmds += [batch_cmds]
-    return Sequence(
+    program = Sequence(
         Checkpoint('run'),
         test_comm_program,
         *cmds,
         Duration('run')
     )
+    return program
+
 
 def test_circuit(config: RuntimeConfig) -> None:
     '''
@@ -1037,6 +1039,17 @@ def execute_program(config: RuntimeConfig, program: Command, metadata: dict[str,
 
     with utils.timeit('constraints'):
         program, expected_ends = constraints.optimize(program)
+
+    if config.name() == 'test-arm-incu':
+        def Filter(cmd: Command) -> Command:
+            match cmd:
+                case commands.BiotekCmd() | commands.Idle():
+                    return Sequence()
+                case commands.WaitForCheckpoint() if 'incu #' not in cmd.name:
+                    return Sequence()
+                case _:
+                    return cmd
+        program = program.transform(Filter)
 
     with make_runtime(config, metadata, log_to_file=log_to_file) as runtime:
         program.remove_scheduling_idles().execute(runtime, {})

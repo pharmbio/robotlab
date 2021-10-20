@@ -41,36 +41,6 @@ class Command(abc.ABC):
             case _:
                 return [(self, {})]
 
-    def free_vars(self: Command) -> set[str]:
-        match self:
-            case Idle():
-                return self.seconds.var_set()
-            case WaitForCheckpoint():
-                return self.plus_seconds.var_set()
-            case Seq():
-                return {
-                    v
-                    for cmd in self.commands
-                    for v in cmd.free_vars()
-                }
-            case Fork():
-                return self.command.free_vars()
-            case _:
-                return set()
-
-    def resolve(self: Command, env: dict[str, float]) -> Command:
-        match self:
-            case Idle():
-                return self.replace(secs=self.seconds.resolve(env))
-            case WaitForCheckpoint():
-                return self.replace(plus_secs=self.plus_seconds.resolve(env))
-            case Fork():
-                return self.replace(command=self.command.resolve(env))
-            case Seq():
-                return self.replace(commands=[cmd.resolve(env) for cmd in self.commands])
-            case _:
-                return self
-
     def make_resource_checkpoints(self: Command, counts: dict[str, int] | None = None) -> Command:
         if counts is None:
             counts = defaultdict(int)
@@ -112,20 +82,6 @@ class Command(abc.ABC):
             case _:
                 return self
 
-    def remove_scheduling_idles(self: Command) -> Command:
-        match self:
-            case Idle(only_for_scheduling=True):
-                return Sequence()
-            case Fork():
-                return self.replace(command=self.command.remove_scheduling_idles())
-            case Seq():
-                return Sequence(
-                    *(cmd.remove_scheduling_idles() for cmd in self.commands),
-                    metadata=self.metadata
-                )
-            case _:
-                return Sequence(self)
-
     def is_noop(self: Command) -> bool:
         match self:
             case Idle():
@@ -138,18 +94,60 @@ class Command(abc.ABC):
             case _:
                 return False
 
-    def assign_ids(self: Command, counter: Mutable[int] | None = None) -> Command:
-        if counter is None:
-            counter = Mutable(0)
+    def transform(self: Command, f: Callable[[Command], Command]) -> Command:
         match self:
             case Seq():
-                return self.replace(commands=[cmd.assign_ids(counter) for cmd in self.commands])
+                return f(self.replace(commands=[cmd.transform(f) for cmd in self.commands]))
             case Fork():
-                return self.replace(command=self.command.assign_ids(counter))
+                return f(self.replace(command=self.command.transform(f)))
             case _:
-                my_id = counter.value
-                counter.value += 1
-                return self.with_metadata(id=str(my_id))
+                return f(self)
+
+    def assign_ids(self: Command, counter: Mutable[int] | None = None) -> Command:
+        count = 0
+        def F(cmd: Command) -> Command:
+            nonlocal count
+            match cmd:
+                case Seq() | Fork():
+                    return cmd
+                case _:
+                    id = str(count)
+                    count += 1
+                    return cmd.with_metadata(id=id)
+        return self.transform(F)
+
+    def remove_scheduling_idles(self: Command) -> Command:
+        def F(cmd: Command) -> Command:
+            match cmd:
+                case Idle(only_for_scheduling=True):
+                    return Sequence()
+                case _:
+                    return Sequence(cmd)
+        return self.transform(F)
+
+    def resolve(self: Command, env: dict[str, float]) -> Command:
+        def F(cmd: Command) -> Command:
+            match cmd:
+                case Idle():
+                    return cmd.replace(secs=cmd.seconds.resolve(env))
+                case WaitForCheckpoint():
+                    return cmd.replace(plus_secs=cmd.plus_seconds.resolve(env))
+                case _:
+                    return cmd
+        return self.transform(F)
+
+    def free_vars(self: Command) -> set[str]:
+        out: set[str] = set()
+        def F(cmd: Command) -> Command:
+            nonlocal out
+            match cmd:
+                case Idle():
+                    out |= cmd.seconds.var_set()
+                case WaitForCheckpoint():
+                    out |= cmd.plus_seconds.var_set()
+            return cmd
+        self.transform(F)
+        return out
 
 @dataclass(frozen=True)
 class Seq(Command):

@@ -249,7 +249,7 @@ class Runtime:
             parts: list[str] = []
             color = utils.Color()
             for k, v in entry.items():
-                if k in {'log_time', 't0', 'event_id', 'event_index', 'secs', 'duration', 'incu_loc', 'origin'}:
+                if k in {'log_time', 't0', 'event_id', 'event_index', 'secs', 'duration', 'incu_loc', 'origin', 'id'}:
                     continue
                 elif (v is None or v == '') and k != 'duration':
                     continue
