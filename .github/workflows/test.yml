@@ -1,5 +1,9 @@
 on:
   push:
+  pull_request:
+  schedule:
+    # Run it at 9:35 UTC the 20th of every month
+    - cron: '35 9 20 * *'
 
 jobs:
   build:
@@ -12,6 +16,6 @@ jobs:
           python-version: '3.10'
       - run: pip install pyright
       - run: pip install z3-solver
-      - run: python cli.py --list-imports | xargs pyright
+      - run: python cli.py --list-imports | tee | xargs pyright
       - run: python cli.py --cell-paint 5,5
       - run: python cli.py --cell-paint 7,7 --interleave
