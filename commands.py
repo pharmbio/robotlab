@@ -95,6 +95,10 @@ class Command(abc.ABC):
                 return False
 
     def transform(self: Command, f: Callable[[Command], Command]) -> Command:
+        '''
+        Bottom-up transformation a'la "Uniform boilerplate and list processing"
+        (Mitchell & Runciman, 2007) https://dl.acm.org/doi/10.1145/1291201.1291208
+        '''
         match self:
             case Seq():
                 return f(self.replace(commands=[cmd.transform(f) for cmd in self.commands]))
