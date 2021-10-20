@@ -141,7 +141,7 @@ def main():
 
     elif args.wash:
         runtime = Runtime(config)
-        path = getattr(v3.wash, args.wash, None)
+        path = v3.wash[int(args.wash)]
         assert path, utils.pr(v3.wash)
         protocol.execute_program(config, commands.Sequence(
             commands.WashCmd(path, cmd='Validate'),
@@ -150,13 +150,13 @@ def main():
 
     elif args.disp:
         runtime = Runtime(config)
-        path = getattr(v3.disp, args.disp, None)
+        path = v3.disp[int(args.disp)]
         assert path, utils.pr(v3.disp)
         commands.DispCmd(path).execute(runtime, {})
 
     elif args.prime:
         runtime = Runtime(config)
-        path = getattr(v3.prime, args.prime, None)
+        path = v3.prime[int(args.prime)]
         assert path, utils.pr(v3.prime)
         commands.DispCmd(path).execute(runtime, {})
 

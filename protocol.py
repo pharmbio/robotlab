@@ -91,7 +91,7 @@ r21 = 'r21'
 
 incu_locs: list[str] = [f'L{i}' for i in I] + [f'R{i}' for i in I]
 h_locs:    list[str] = [f'h{i}' for i in H]
-rt_locs:   list[str] = [f'r{i}' for i in H][1:]
+rt_locs:   list[str] = [f'r{i}' for i in H]
 out_locs:  list[str] = [f'out{i}' for i in reversed(H)] + list(reversed(rt_locs))
 lid_locs:  list[str] = [h for h in h_locs if h != h21]
 

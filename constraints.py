@@ -43,6 +43,8 @@ class OptimalResult:
 
 def optimal_env(cmd: Command) -> OptimalResult:
     variables = cmd.free_vars()
+    if not variables:
+        return OptimalResult({}, {})
     ids = Ids()
 
     Resolution = 2
