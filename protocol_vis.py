@@ -206,10 +206,14 @@ def index() -> Iterator[Tag | dict[str, str]]:
             if source == 'run':
                 continue
             area += div(
+                str(plate) if t - t0 > 9.0 and my_width > 4 else '',
                 css='''
                     position: absolute;
                     border-radius: 2px;
                     border: 1px #0005 solid;
+                    display: grid;
+                    place-items: center right;
+                    font-size: 0.8em;
                 ''',
                 style=trim(f'''
                     left: {slot * width + my_offset:.1f}px;

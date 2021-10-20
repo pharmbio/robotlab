@@ -676,11 +676,18 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                     *RobotarmCmds(plate.rt_put),
                 ]
 
-            if p.disp[i]:
+
+            if p.prime[i] and plate is first_plate:
+                disp_prime = p.prime[i]
+            else:
+                disp_prime = None
+
+            if p.disp[i] or disp_prime:
                 pre_disp = Fork(
                     Sequence(
                         WaitForCheckpoint(f'{plate_desc} pre disp {ix}', assume='nothing'),
                         Idle() + f'{plate_desc} pre disp {ix} delay',
+                        DispCmd(disp_prime) if disp_prime else Idle(),
                         DispCmd(p.pre_disp[i]) if p.pre_disp[i] else Idle(),
                         DispCmd(p.disp[i], cmd='Validate'),
                         Early(3),
@@ -720,14 +727,6 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                 RobotarmCmd('wash put return'),
             ]
 
-            if p.prime[i] and plate is first_plate:
-                disp_prime = DispFork(
-                    p.prime[i],
-                    assume='nothing',
-                )
-            else:
-                disp_prime = Idle()
-
             disp = [
                 RobotarmCmd('wash_to_disp prep'),
                 Early(1),
@@ -756,7 +755,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                 RobotarmCmd('disp get return'),
             ]
 
-            chunks[plate, step, 'incu -> B21' ] = [*incu_delay, disp_prime, wash_prime, *incu_get]
+            chunks[plate, step, 'incu -> B21' ] = [*incu_delay, wash_prime, *incu_get]
             chunks[plate, step,  'B21 -> wash'] = wash
             chunks[plate, step, 'wash -> disp'] = disp
             chunks[plate, step, 'disp -> B21' ] = [*disp_to_B21, *lid_on]
@@ -788,16 +787,19 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                 ilv = Interleavings[p.interleavings[i]]
                 next_ilv = Interleavings[p.interleavings[i+1]]
                 overlap = [
-                    (last_plate, step, {row_subpart for _, row_subpart in ilv.rows}),
-                    (first_plate, next_step, {row_subpart for _, row_subpart in next_ilv.rows}),
+                    (batch[-2], step, {row_subpart for _, row_subpart in ilv.rows}),
+                    (batch[-1], step, {row_subpart for _, row_subpart in ilv.rows}),
+                    (batch[0], next_step, {row_subpart for _, row_subpart in next_ilv.rows}),
+                    (batch[1], next_step, {row_subpart for _, row_subpart in next_ilv.rows}),
                 ]
-                seq([
-                    desc(p, step, subpart=subpart)
-                    for i, subpart in ilv.rows
-                    if i < len(overlap)
-                    for p, step, subparts in [overlap[i]]
-                    if subpart in subparts
-                ])
+                for offset, _ in enumerate(overlap):
+                    seq([
+                        desc(p, step, subpart=subpart)
+                        for i, subpart in ilv.rows
+                        if i + offset < len(overlap)
+                        for p, step, subparts in [overlap[i + offset]]
+                        if subpart in subparts
+                    ])
     else:
         for step, next_step in utils.iterate_with_next(p.step_names):
             if next_step:
