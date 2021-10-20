@@ -3,8 +3,11 @@
     "typeCheckingMode": "strict",
     "reportWildcardImportFromLibrary": "none",
     "reportMissingTypeStubs": "warning",
-    "reportUnusedImport": "none",
+    "reportUnusedImport": "warning",
+    "reportUnusedVariable": "warning",
     "reportUnusedClass": "none",
     "reportUnusedFunction": "none",
-    "reportUnusedVariable": "none"
+    "reportPrivateUsage": "warning",
+    "reportConstantRedefinition": "none",
+    "reportUnknownLambdaType": "warning"
 }

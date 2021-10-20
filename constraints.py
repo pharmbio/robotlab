@@ -3,7 +3,6 @@ from typing import *
 from dataclasses import *
 
 from symbolic import Symbolic
-import commands
 from commands import (
     Command,
     Seq,
@@ -15,19 +14,19 @@ from commands import (
     BiotekCmd,
     IncuCmd,
     WaitForCheckpoint,
-    WaitForResource,
 )
 from z3 import Sum, If, Optimize, Real, Int, Or # type: ignore
 
 from collections import defaultdict
+import timings
 
 import utils
 
 def optimize(cmd: Command) -> tuple[Command, dict[str, float]]:
     cmd = cmd.make_resource_checkpoints()
-    env = optimal_env(cmd)
-    cmd = cmd.resolve(env.env)
-    return cmd, env.expected_ends
+    opt = optimal_env(cmd)
+    cmd = cmd.resolve(opt.env)
+    return cmd, opt.expected_ends
 
 @dataclass(frozen=True)
 class Ids:
@@ -46,22 +45,18 @@ def optimal_env(cmd: Command) -> OptimalResult:
     variables = cmd.free_vars()
     ids = Ids()
 
-    R = 2
+    Resolution = 2
+
     def to_expr(x: Symbolic | float | int | str) -> Any:
         x = Symbolic.wrap(x)
+        s: Any = Sum(*[Real(v) for v in x.var_names]) # type: ignore
         if x.offset:
-            return Sum(
-                round(float(x.offset), R),
-                *[Real(v) for v in x.var_names]
-                # int(x.offset * R),
-                # *[Int(v) for v in x.var_names]
-            ) # type: ignore
+            offset = round(float(x.offset), Resolution)
+            return Sum(offset, s) # type: ignore
         else:
-            return Sum(*[Real(v) for v in x.var_names]) # type: ignore
+            return s
 
     s: Any = Optimize()
-
-    C: list[Any] = []
 
     def Max(a: Symbolic | float | int, b: Symbolic | float | int):
         m = Symbolic.var(ids.assign('max'))
@@ -71,7 +66,7 @@ def optimal_env(cmd: Command) -> OptimalResult:
         s.add(Or(max_a_b == a, max_a_b == b))
         return m
 
-    def constrain(lhs: Symbolic | str, op: Literal['>', '>=', '=='], rhs: Symbolic | float | int | str):
+    def constrain(lhs: Symbolic | float | int | str, op: Literal['>', '>=', '=='], rhs: Symbolic | float | int | str):
         match op:
             case '>':
                 s.add(to_expr(lhs) > to_expr(rhs))
@@ -82,20 +77,15 @@ def optimal_env(cmd: Command) -> OptimalResult:
             case _:
                 raise ValueError(f'{op=} not a valid operator')
 
-        C.append((lhs, op, rhs))
-
-    checkpoints: dict[str, Symbolic] = {}
-    checkpoints_referenced: set[str] = set()
-
-    maxi: list[tuple[float, Symbolic]] = []
-    expected_ends: dict[str, Symbolic] = {}
+    maximize_terms: list[tuple[float, Symbolic]] = []
+    ends: dict[str, Symbolic] = {}
 
     def run(cmd: Command, begin: Symbolic, *, is_main: bool) -> Symbolic:
         end = run_inner(cmd, begin, is_main=is_main)
         match cmd:
             case Seq() if cmd_id := cmd.metadata.get('id'):
                 assert isinstance(cmd_id, str)
-                expected_ends[cmd_id] = end
+                ends[cmd_id] = end
         return end
 
     def run_inner(cmd: Command, begin: Symbolic, *, is_main: bool) -> Symbolic:
@@ -104,7 +94,7 @@ def optimal_env(cmd: Command) -> OptimalResult:
         '''
         match cmd:
             case Idle():
-                C.append((cmd.seconds, '>=', 0))
+                constrain(cmd.seconds, '>=', 0)
                 return begin + cmd.seconds
             case RobotarmCmd():
                 assert is_main
@@ -113,33 +103,32 @@ def optimal_env(cmd: Command) -> OptimalResult:
                 assert not is_main
                 return begin + cmd.est()
             case Checkpoint():
-                assert cmd.name not in checkpoints
-                checkpoints[cmd.name] = Symbolic.var(cmd.name)
-                constrain(begin, '==', checkpoints[cmd.name])
+                checkpoint = Symbolic.var(cmd.name)
+                constrain(begin, '==', checkpoint)
                 return begin
             case WaitForCheckpoint():
-                point = checkpoints[cmd.name]
+                point = Symbolic.var(cmd.name) + cmd.plus_seconds
                 constrain(cmd.plus_seconds, '>=', 0)
                 if cmd.assume == 'will wait':
-                    constrain(point + cmd.plus_seconds, '>=', begin)
-                    return point + cmd.plus_seconds
+                    constrain(point, '>=', begin)
+                    return point
                 elif cmd.assume == 'no wait':
-                    constrain(begin, '>=', point + cmd.plus_seconds)
+                    constrain(begin, '>=', point)
                     return begin
                 else:
                     wait_to = Symbolic.var(ids.assign('wait_to'))
-                    constrain(wait_to, '==', Max(point + cmd.plus_seconds, begin))
+                    constrain(wait_to, '==', Max(point, begin))
                     return wait_to
             case Duration():
-                # checkpoint must have happened
-                point = checkpoints[cmd.name]
+                checkpoint = Symbolic.var(cmd.name)
+                constrain(begin, '>=', checkpoint) # checkpoint must have happened
                 duration = Symbolic.var(ids.assign(cmd.name + ' duration '))
-                constrain(point + duration, '==', begin)
+                constrain(checkpoint + duration, '==', begin)
                 constrain(duration, '>=', 0)
                 if cmd.exactly is not None:
                     constrain(duration, '==', cmd.exactly)
                 if cmd.opt_weight:
-                    maxi.append((cmd.opt_weight, duration))
+                    maximize_terms.append((cmd.opt_weight, duration))
                 return begin
             case Seq():
                 end = begin
@@ -155,60 +144,41 @@ def optimal_env(cmd: Command) -> OptimalResult:
 
     run(cmd, Symbolic.const(0), is_main=True)
 
-    lc = f'{len(C)=}'
-
-    if 0:
-        for c in C:
-            print(*c)
-
-        print(lc)
-
     # batch_sep = 120 # for v3 jump
-    # s.add(Real('batch sep') == batch_sep * 60)
+    # constrain('batch sep', '==', batch_sep * 60)
 
-    # maxi = maxi[:1]
+    maximize = Sum(*[  # type: ignore
+        coeff * to_expr(v) for coeff, v in maximize_terms
+    ])
 
-    max_v = Sum(*[m * to_expr(v) for m, v in maxi])
-
-    if isinstance(max_v, (int, float)):
+    if isinstance(maximize, (int, float)):
         pass
     else:
-        s.maximize(max_v)
+        s.maximize(maximize)
 
-    if 0:
-        for m in maxi:
-            print(m)
-
-        print(len(C))
-
-    print(s)
+    # print(s)
     check = str(s.check())
-    # print(check)
-    import timings
     assert check == 'sat', timings.Guesses
 
     M = s.model()
 
-    def get(a: Symbolic | str) -> float:
+    def model_value(a: Symbolic | str) -> float:
         s = Symbolic.wrap(a)
         e = to_expr(s)
         if isinstance(e, (float, int)):
             return float(e)
         else:
-            return float(M.eval(e).as_decimal(R).strip('?'))
+            # as_decimal result looks like '12.345?'
+            return float(M.eval(e).as_decimal(Resolution).strip('?'))
 
     env = {
-        a: get(a)
+        a: model_value(a)
         for a in sorted(variables)
     }
 
-    # utils.pr(env)
-
-    ends: dict[str, float] = {
-        i: get(e)
-        for i, e in expected_ends.items()
+    expected_ends = {
+        i: model_value(e)
+        for i, e in ends.items()
     }
 
-    return OptimalResult(env=env, expected_ends=ends)
-
-
+    return OptimalResult(env=env, expected_ends=expected_ends)

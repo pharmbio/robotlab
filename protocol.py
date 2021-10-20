@@ -2,19 +2,14 @@ from __future__ import annotations
 from typing import Any, Generic, TypeVar, Iterable, Iterator
 from dataclasses import *
 
-from datetime import datetime, timedelta
+from datetime import datetime
 from collections import defaultdict, Counter
 
 import graphlib
-import json
 import os
 import platform
-import protocol
 import re
-import sys
 import textwrap
-import threading
-import traceback
 
 from commands import (
     Command,
@@ -38,7 +33,6 @@ from runtime import RuntimeConfig, Runtime, configs
 import commands
 import moves
 
-from utils import pr, show, Mutable
 import utils
 
 from symbolic import Symbolic
@@ -826,7 +820,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
     linear = list(graphlib.TopologicalSorter(deps).static_order())
 
     if 0:
-        pr([
+        utils.pr([
             ', '.join((desc[1], desc[0].id, desc[2]))
             for desc in linear
         ])
@@ -974,7 +968,6 @@ def test_comm(config: RuntimeConfig):
 
 def cell_paint(config: RuntimeConfig, protocol_config: ProtocolConfig, *, batch_sizes: list[int]) -> None:
     program = cell_paint_program(batch_sizes, protocol_config=protocol_config)
-    # pr(events)
     metadata: dict[str, str] = {
         'program': 'cell_paint',
         'batch_sizes': ','.join(str(bs) for bs in batch_sizes),
@@ -1017,7 +1010,6 @@ def make_runtime(config: RuntimeConfig, metadata: dict[str, str], *, log_to_file
         log_filename = None
 
     runtime = Runtime(config=config, log_filename=log_filename)
-    # pr(commands.Estimates)
 
     metadata['git_HEAD'] = utils.git_HEAD() or ''
     metadata['host']     = platform.node()

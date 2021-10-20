@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import *
 from typing import *
 
-from moves import Move, MoveList, movelists
+from moves import Move
 
 import re
 import socket

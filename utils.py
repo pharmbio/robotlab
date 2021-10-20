@@ -55,6 +55,7 @@ def show(x: Any, show_key: Any=show_key, width: int=80, use_color: bool=sys.stdo
                     yield from go(indent, color.none(show_key(k)) + '=', v, ',')
                 yield dent + end + post
         elif isinstance(x, dict):
+            x = cast(dict[Any, Any], x)
             if len(x) == 0:
                 yield dent + pre + '{}' + post
             else:

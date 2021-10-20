@@ -8,9 +8,7 @@ from pathlib import Path
 import ast
 import math
 import re
-import textwrap
 import threading
-import time
 
 from moves import Move, MoveList
 from runtime import RuntimeConfig, configs
@@ -18,7 +16,6 @@ import moves
 import robotarm
 import runtime
 import utils
-from utils import catch
 
 from viable import head, serve, esc, css_esc, trim, button, pre
 from viable import Tag, div, span, label, img, raw, Input, input

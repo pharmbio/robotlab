@@ -2,7 +2,7 @@ from __future__ import annotations
 from dataclasses import *
 from typing import *
 
-from runtime import Runtime, RuntimeConfig, curl
+from runtime import Runtime, curl
 import timings
 
 BiotekCommand = Literal[

@@ -2,7 +2,7 @@ from __future__ import annotations
 from dataclasses import *
 from typing import *
 
-from runtime import Runtime, RuntimeConfig, curl
+from runtime import Runtime, curl
 import timings
 import time
 
@@ -20,7 +20,6 @@ def execute(
     if incu_loc is not None:
         metadata = {**metadata, 'incu_loc': incu_loc}
         arg = action # + ' ' + incu_loc
-        time_tuple = incu_loc, 'incubator'
     else:
         arg = action
     with runtime.timeit('incu', arg, metadata):

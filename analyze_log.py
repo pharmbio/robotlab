@@ -1,11 +1,9 @@
 from typing import *
 import json
 import sys
-from utils import show, pr
+from utils import pr
 import pandas as pd
-from datetime import datetime, timedelta
 
-import datetime
 import sqlite3
 
 def load(logfile: str):

@@ -2,18 +2,19 @@ from __future__ import annotations
 from typing import *
 
 import argparse
+import os
+import sys
 
-from runtime import RuntimeConfig, configs, get_robotarm, Runtime
+from runtime import RuntimeConfig, configs, Runtime
 from utils import show
 
 import commands
 import moves
 from moves import movelists
 import timings
+import protocol
 
 import utils
-
-import protocol
 
 def main():
     parser = argparse.ArgumentParser(description='Make the lab robots do things.', )
@@ -39,6 +40,8 @@ def main():
     parser.add_argument('--incu-put', metavar='POS', type=str, default=None, help='Put the plate in the transfer station to the argument position POS (L1, .., R1, ..).')
     parser.add_argument('--incu-get', metavar='POS', type=str, default=None, help='Get the plate in the argument position POS. It ends up in the transfer station.')
 
+    parser.add_argument('--list-imports', action='store_true', help='Print the imported python modules for type checking.')
+
     parser.add_argument('--list-robotarm-programs', action='store_true', help='List the robot arm programs')
     parser.add_argument('--inspect-robotarm-programs', action='store_true', help='Inspect steps of robotarm programs')
     parser.add_argument('--robotarm', action='store_true', help='Run robot arm')
@@ -49,6 +52,14 @@ def main():
     args = parser.parse_args()
     if 0:
         print(f'args =', show(args.__dict__))
+
+    if args.list_imports:
+        my_dir = os.path.dirname(__file__)
+        for m in sys.modules.values():
+            path = getattr(m, '__file__', '')
+            if path.startswith(my_dir):
+                print(path)
+        sys.exit(0)
 
     config_name = args.config
     try:
@@ -113,8 +124,6 @@ def main():
             print(name)
 
     elif args.inspect_robotarm_programs:
-        events = protocol.paint_batch(protocol.define_plates([6, 6]), protocol_config=v3)
-
         for k, v in movelists.items():
             import re
             m = re.search(r'\d+', k)
@@ -127,10 +136,10 @@ def main():
         runtime = Runtime(config)
         path = getattr(v3.wash, args.wash, None)
         assert path, utils.pr(v3.wash)
-        protocol.execute_commands(config, [
+        protocol.execute_program(config, commands.Sequence(
             commands.WashCmd(path, cmd='Validate'),
             commands.WashCmd(path, cmd='RunValidated'),
-        ], {'program': 'wash'})
+        ), {'program': 'wash'})
 
     elif args.disp:
         runtime = Runtime(config)

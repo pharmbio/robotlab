@@ -4,9 +4,7 @@ from typing import *
 from contextlib import contextmanager
 from dataclasses import *
 from threading import Event
-from types import ModuleType
 import abc
-import importlib
 import os
 import pickle
 import re
@@ -17,7 +15,7 @@ import time
 import traceback
 
 from flask import Flask, request, jsonify
-from itsdangerous.url_safe import Serializer, URLSafeSerializer
+from itsdangerous import Serializer, URLSafeSerializer
 
 def timeit(desc: str='') -> ContextManager[None]:
     # The inferred type for the decorated function is wrong hence this wrapper to get the correct type
