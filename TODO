@@ -1,4 +1,7 @@
 
+
+* Incubator get takes different amount of time
+
 [ ] prio 1. robotarm: check that it is close to h neu when starting, but don't move there using MoveJoint !!! can check the inverse kinematics of the current position close to B neu
 
 [ ] prio 1. Rename all occurrences to h21, r21, out21 to B21, C21, A21 and so on

@@ -88,13 +88,17 @@ def index() -> Iterator[Tag | dict[str, str]]:
     zoom = utils.catch(lambda: float(store['zoom']), 1)
     batch_size = utils.catch(lambda: int(store['batch_size']), 6)
 
-    v3 = protocol.make_v3(incu_csv='t1, t2, t3, t4, t5', interleave=True, six=True, lockstep=True)
-    # v3 = protocol.make_v3(incu_csv='1200,1200,1200,1205,final', interleave=True, six=True, lockstep=True)
+    # v3 = protocol.make_v3(incu_csv='t1, t2, t3, t4, t5', interleave=True, six=True, lockstep=True)
+    # v3 = protocol.make_v3(incu_csv='22:15, 22:05, 22:05, 22:15, t5', interleave=True, six=True, lockstep=True)
+    v3 = protocol.make_v3(incu_csv='1205,1200,1200,1205,1230', interleave=True, six=True, lockstep=True)
 
     with utils.timeit('eventlist'):
         program = protocol.cell_paint_program(batch_sizes=[batch_size], protocol_config=v3)
     with utils.timeit('runtime'):
         runtime = protocol.execute_program(configs['dry-run'], program, {}, log_to_file=False)
+
+    import timings
+    utils.pr(timings.Guesses)
 
     entries = runtime.log_entries
 
@@ -206,13 +210,13 @@ def index() -> Iterator[Tag | dict[str, str]]:
             if source == 'run':
                 continue
             area += div(
-                str(plate) if t - t0 > 9.0 and my_width > 4 else '',
+                str(plate) if t - t0 > 9.0 and my_width > 4 and plate else '',
                 css='''
                     position: absolute;
                     border-radius: 2px;
                     border: 1px #0005 solid;
                     display: grid;
-                    place-items: center right;
+                    place-items: center;
                     font-size: 0.8em;
                 ''',
                 style=trim(f'''

@@ -86,17 +86,14 @@ class Plate:
 H = [21, 19, 17, 15, 13, 11, 9, 7, 5, 3, 1]
 I = [i+1 for i in range(22)]
 
-h21 = 'h21'
-r21 = 'r21'
-
-incu_locs: list[str] = [f'L{i}' for i in I] + [f'R{i}' for i in I]
-h_locs:    list[str] = [f'h{i}' for i in H]
-rt_locs:   list[str] = [f'r{i}' for i in H]
-out_locs:  list[str] = [f'out{i}' for i in reversed(H)] + list(reversed(rt_locs))
-lid_locs:  list[str] = [h for h in h_locs if h != h21]
-
 A_locs:    list[str] = [f'out{i}' for i in H]
+B_locs:    list[str] = [f'h{i}' for i in H]
 C_locs:    list[str] = [f'r{i}' for i in H]
+
+Incu_locs: list[str] = [f'L{i}' for i in I] + [f'R{i}' for i in I]
+RT_locs:   list[str] = C_locs[:5] + A_locs[:5] + [B_locs[4]]
+Out_locs:  list[str] = A_locs[5:][::-1] + B_locs[5:][::-1] + C_locs[5:][::-1]
+Lid_locs:  list[str] = [b for b in B_locs if '19' in b or '17' in b]
 
 A = TypeVar('A')
 
@@ -237,7 +234,8 @@ class ProtocolConfig:
     disp:          list[str]
     incu:          list[Symbolic]
     interleavings: list[str]
-    lockstep: bool
+    interleave:    bool
+    lockstep:      bool
     prep_wash:     str | None = None
     prep_disp:     str | None = None
     def __post_init__(self):
@@ -326,6 +324,7 @@ def make_v3(*, incu_csv: str, interleave: bool, six: bool = False, lockstep: boo
         ][:N],
         lockstep = lockstep,
         incu = incu,
+        interleave = interleave,
         interleavings = interleavings,
     )
 
@@ -400,32 +399,32 @@ def time_arm_incu(config: RuntimeConfig):
     IncuLocs = 16
     N = 8
     incu: list[Command] = []
-    for loc in incu_locs[:IncuLocs]:
+    for loc in Incu_locs[:IncuLocs]:
         incu += [
             commands.IncuCmd('put', loc),
             commands.IncuCmd('get', loc),
         ]
     arm: list[Command] = []
     plate = Plate('', '', '', '', '', 1)
-    for lid_loc in lid_locs[:N]:
+    for lid_loc in Lid_locs[:N]:
         plate = replace(plate, lid_loc=lid_loc)
         arm += [
             *RobotarmCmds(plate.lid_put),
             *RobotarmCmds(plate.lid_get),
         ]
-    for rt_loc in rt_locs[:N]:
+    for rt_loc in RT_locs[:N]:
         plate = replace(plate, rt_loc=rt_loc)
         arm += [
             *RobotarmCmds(plate.rt_put),
             *RobotarmCmds(plate.rt_get),
         ]
-    for out_loc in out_locs[:N]:
+    for out_loc in Out_locs[:N]:
         plate = replace(plate, out_loc=out_loc)
         arm += [
             *RobotarmCmds(plate.out_put),
             *RobotarmCmds(plate.out_get),
         ]
-    plate = replace(plate, lid_loc=lid_locs[0], rt_loc=rt_locs[0])
+    plate = replace(plate, lid_loc=Lid_locs[0], rt_loc=RT_locs[0])
     arm2: list[Command] = [
         *RobotarmCmds(plate.rt_put),
         *RobotarmCmds('incu get'),
@@ -467,7 +466,7 @@ def lid_stress_test(config: RuntimeConfig):
         5. gripper:     sufficiently open to grab a plate
     '''
     cmds: list[Command] = []
-    for i, (lid, A, C) in enumerate(zip(lid_locs, A_locs, C_locs)):
+    for i, (lid, A, C) in enumerate(zip(Lid_locs, A_locs, C_locs)):
         p = Plate('p', incu_loc='', rt_loc=C, lid_loc=lid, out_loc=A, batch_index=1)
         cmds += [
             *RobotarmCmds(p.lid_put),
@@ -495,7 +494,7 @@ def load_incu(config: RuntimeConfig, num_plates: int):
         5. gripper:                 sufficiently open to grab a plate
     '''
     cmds: list[Command] = []
-    for i, (incu_loc, a_loc) in enumerate(zip(incu_locs, reversed(A_locs)), start=1):
+    for i, (incu_loc, a_loc) in enumerate(zip(Incu_locs, A_locs[::-1]), start=1):
         if i > num_plates:
             break
         p = Plate(
@@ -553,7 +552,7 @@ def unload_incu(config: RuntimeConfig, num_plates: int):
     ATTENTION(unload_incu.__doc__ or '')
     execute_program(config, program, {'program': 'unload_incu'})
 
-Desc = tuple[Plate, str, str]
+Desc = tuple[str, str, str]
 
 def RobotarmCmds(s: str, before_pick: list[Command] = [], after_drop: list[Command] = []) -> list[Command]:
     return [
@@ -599,8 +598,16 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
     ]
 
     chunks: dict[Desc, Iterable[Command]] = {}
-    for plate in batch:
-        for i, step in enumerate(p.step_names):
+    if p.interleave:
+        lid_locs = Lid_locs[:2]
+    else:
+        lid_locs = Lid_locs[:1]
+    lid_index = 0
+    for i, step in enumerate(p.step_names):
+        for plate in batch:
+            lid_loc = lid_locs[lid_index % len(lid_locs)]
+            lid_index += 1
+            plate_with_corrected_lid_pos= replace(plate, lid_loc=lid_loc)
             ix = i + 1
             plate_desc = f'plate {plate.id}'
 
@@ -623,15 +630,16 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                 ]
 
             lid_off = [
-                *RobotarmCmds(plate.lid_put, before_pick=[Checkpoint(f'{plate_desc} lid off {ix}')]),
+                *RobotarmCmds(plate_with_corrected_lid_pos.lid_put, before_pick=[Checkpoint(f'{plate_desc} lid off {ix}')]),
             ]
 
             lid_on = [
-                *RobotarmCmds(plate.lid_get, after_drop=[Duration(f'{plate_desc} lid off {ix}', opt_weight=-1)]),
+                *RobotarmCmds(plate_with_corrected_lid_pos.lid_get, after_drop=[Duration(f'{plate_desc} lid off {ix}', opt_weight=-1)]),
             ]
 
             if step == 'Mito':
                 incu_get = [
+                    WaitForResource('incu', assume='nothing'),
                     IncuFork('get', plate.incu_loc),
                     *RobotarmCmds('incu get', before_pick = [
                         WaitForResource('incu', assume='will wait'),
@@ -640,6 +648,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                 ]
             elif step == 'PFA':
                 incu_get = [
+                    WaitForResource('incu', assume='nothing'),
                     IncuFork('get', plate.incu_loc),
                     *RobotarmCmds('incu get', before_pick = [
                         WaitForResource('incu', assume='will wait'),
@@ -687,7 +696,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                     Sequence(
                         WaitForCheckpoint(f'{plate_desc} pre disp {ix}', assume='nothing'),
                         Idle() + f'{plate_desc} pre disp {ix} delay',
-                        DispCmd(disp_prime) if disp_prime else Idle(),
+                        DispCmd(disp_prime).with_metadata(event_plate_id='') if disp_prime else Idle(),
                         DispCmd(p.pre_disp[i]) if p.pre_disp[i] else Idle(),
                         DispCmd(p.disp[i], cmd='Validate'),
                         Early(3),
@@ -701,12 +710,8 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                 pre_disp = Idle()
                 pre_disp_wait = Idle()
 
-            if plate is first_plate:
-                wash_prime = WashFork(p.wash[i], cmd='Validate', assume='nothing') + 2
-            else:
-                wash_prime = Idle()
-
             wash = [
+                WashFork(p.wash[i], cmd='Validate', assume='idle'),
                 RobotarmCmd('wash put prep'),
                 RobotarmCmd('wash put transfer'),
                 # WaitForResource('wash'),
@@ -732,7 +737,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                 Early(1),
                 WaitForResource('wash', assume='will wait'),
                 RobotarmCmd('wash_to_disp transfer'),
-                Duration(f'{plate_desc} transfer {ix}', opt_weight=-10),
+                Duration(f'{plate_desc} transfer {ix}', exactly=RobotarmCmd('wash_to_disp transfer').est()),
                 pre_disp_wait,
                 Fork(
                     Sequence(
@@ -755,17 +760,17 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                 RobotarmCmd('disp get return'),
             ]
 
-            chunks[plate, step, 'incu -> B21' ] = [*incu_delay, wash_prime, *incu_get]
-            chunks[plate, step,  'B21 -> wash'] = wash
-            chunks[plate, step, 'wash -> disp'] = disp
-            chunks[plate, step, 'disp -> B21' ] = [*disp_to_B21, *lid_on]
+            chunks[plate.id, step, 'incu -> B21' ] = [*incu_delay, *incu_get]
+            chunks[plate.id, step,  'B21 -> wash'] = wash
+            chunks[plate.id, step, 'wash -> disp'] = disp
+            chunks[plate.id, step, 'disp -> B21' ] = [*disp_to_B21, *lid_on]
 
-            chunks[plate, step, 'wash -> B21' ] = [*RobotarmCmds('wash get', before_pick=[WaitForResource('wash')]), *lid_on]
-            chunks[plate, step, 'wash -> B15' ] = RobotarmCmds('wash15 get', before_pick=[WaitForResource('wash')])
-            chunks[plate, step,  'B15 -> B21' ] = [*RobotarmCmds('B15 get'), *lid_on]
+            chunks[plate.id, step, 'wash -> B21' ] = [*RobotarmCmds('wash get', before_pick=[WaitForResource('wash')]), *lid_on]
+            chunks[plate.id, step, 'wash -> B15' ] = RobotarmCmds('wash15 get', before_pick=[WaitForResource('wash')])
+            chunks[plate.id, step,  'B15 -> B21' ] = [*RobotarmCmds('B15 get'), *lid_on]
 
-            chunks[plate, step,  'B21 -> incu'] = B21_to_incu
-            chunks[plate, step,  'B21 -> out' ] = [*RobotarmCmds(plate.out_put)]
+            chunks[plate.id, step,  'B21 -> incu'] = B21_to_incu
+            chunks[plate.id, step,  'B21 -> out' ] = [*RobotarmCmds(plate.out_put)]
 
     adjacent: dict[Desc, set[Desc]] = defaultdict(set)
 
@@ -779,7 +784,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
         if p is None:
             return None
         else:
-            return p, step, subpart
+            return p.id, step, subpart
 
     if p.lockstep:
         for i, (step, next_step) in enumerate(utils.iterate_with_next(p.step_names)):
@@ -827,27 +832,27 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
         for d, ds in deps.items():
             for x in ds:
                 print(
-                    ', '.join((x[1], x[0].id, x[2])),
+                    ', '.join((x[1], x[0], x[2])),
                     '<',
-                    ', '.join((d[1], d[0].id, d[2]))
+                    ', '.join((d[1], d[0], d[2]))
                 )
 
     linear = list(graphlib.TopologicalSorter(deps).static_order())
 
     if 0:
         utils.pr([
-            ', '.join((desc[1], desc[0].id, desc[2]))
+            ', '.join((desc[1], desc[0], desc[2]))
             for desc in linear
         ])
 
     plate_cmds = [
         command.with_metadata(
-            event_plate_id=plate.id,
+            event_plate_id=plate_id,
             event_part=step,
             event_subpart=subpart,
         )
         for desc in linear
-        for plate, step, subpart in [desc]
+        for plate_id, step, subpart in [desc]
         for command in chunks[desc]
     ]
 
@@ -868,12 +873,12 @@ def define_plates(batch_sizes: list[int]) -> list[Plate]:
         for index_in_batch in range(batch_size):
             plates += [Plate(
                 id=f'{index+1}',
-                incu_loc=incu_locs[index],
-                rt_loc=rt_locs[index_in_batch],
-                # lid_loc=lid_locs[index_in_batch],
-                lid_loc=lid_locs[index_in_batch % 2],
-                # lid_loc=lid_locs[0],
-                out_loc=out_locs[index],
+                incu_loc=Incu_locs[index],
+                rt_loc=RT_locs[index_in_batch],
+                # lid_loc=Lid_locs[index_in_batch],
+                lid_loc=Lid_locs[index_in_batch % 2],
+                # lid_loc=Lid_locs[0],
+                out_loc=Out_locs[index],
                 batch_index=batch_index,
             )]
             index += 1
@@ -1005,6 +1010,9 @@ def group_times(times: dict[str, list[float]]):
         else:
             return s
     for k, vs in sorted(groups.items(), key=key):
+        if k.startswith('plate'):
+            plate, i, *what = k.split(' ')
+            k = f'plate {int(i):>2} {" ".join(what)}'
         out[k] = [utils.pp_secs(v) for _, [v] in vs]
     return out
 
