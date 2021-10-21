@@ -2,8 +2,8 @@ on:
   push:
   pull_request:
   schedule:
-    # Run it at 9:35 UTC the 20th of every month
-    - cron: '35 9 20 * *'
+    # Run it at 5:30 UTC the 22nd of every month
+    - cron: '30 5 22 * *'
 
 jobs:
   build:
@@ -17,5 +17,9 @@ jobs:
       - run: pip install pyright
       - run: pip install z3-solver
       - run: python cli.py --list-imports | tee /dev/stderr | xargs pyright
-      - run: python cli.py --cell-paint 5,5
+      - run: python cli.py --cell-paint 6,6,6
       - run: python cli.py --cell-paint 7,7 --interleave
+      - run: python cli.py --cell-paint 8,8 --interleave --incu 1245,1205
+      - run: python cli.py --cell-paint 8,8 --interleave --two-final-washes
+      - run: python cli.py --cell-paint 9,9 --interleave --two-final-washes
+      - run: python cli.py --cell-paint 10 --interleave --two-final-washes --lockstep --incu 1200,1200,1200,1200,X

@@ -847,8 +847,8 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
 
     plate_cmds = [
         command.with_metadata(
-            event_plate_id=plate_id,
             event_part=step,
+            event_plate_id=plate_id,
             event_subpart=subpart,
         )
         for desc in linear
@@ -1039,8 +1039,7 @@ def make_runtime(config: RuntimeConfig, metadata: dict[str, str], *, log_to_file
     metadata['git_HEAD'] = utils.git_HEAD() or ''
     metadata['host']     = platform.node()
     with runtime.excepthook():
-        with runtime.timeit('run', metadata=metadata):
-            yield runtime
+        yield runtime
 
 import constraints
 

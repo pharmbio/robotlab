@@ -49,7 +49,7 @@ class Command(abc.ABC):
                 this = counts[resource]
                 this_name = f'{resource} #{counts[resource]}'
                 if this:
-                    return WaitForCheckpoint(name=this_name, assume=self.assume)
+                    return WaitForCheckpoint(name=this_name, assume=self.assume, report_behind_time=False)
                 else:
                     return Sequence()
             case Fork(resource=resource):

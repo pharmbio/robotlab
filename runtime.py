@@ -241,7 +241,7 @@ class Runtime:
             # if source == 'time':
         # if entry.get('source') == 'wait' and entry.get('kind') != 'info' and entry.get('arg') not in "wash disp incu".split():
             # write = False
-        if entry.get('source') in {'wait', 'idle'} and (entry.get('kind') == 'end' or entry.get('origin') is not None):
+        if entry.get('source') in {'wait', 'idle'} and (entry.get('kind') == 'end' or entry.get('thread') is not None):
             write = False
         if entry.get('source') == 'checkpoint':
             write = False
