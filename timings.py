@@ -34,13 +34,6 @@ overrides: dict[Estimated, float] = {
     ('wash', 'TestCommunications'): 1.3,
 
     ('robotarm', 'lid_h17 get return'): 1.5,
-    ('robotarm', 'r21 get prep'): 3.0,
-    ('robotarm', 'r21 put return'): 3.0,
-    ('robotarm', 'out21 get prep'): 3.0,
-    ('robotarm', 'out19 get prep'): 3.0,
-    ('robotarm', 'out17 get prep'): 3.0,
-    ('robotarm', 'out15 get prep'): 3.0,
-    ('robotarm', 'out13 get prep'): 3.0,
 }
 # utils.pr({k: (Estimates.get(k, None), '->', v) for k, v in overrides.items()})
 Estimates.update(overrides)
