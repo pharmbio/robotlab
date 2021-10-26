@@ -327,8 +327,7 @@ class WaitForResource(Command):
     assume: WaitAssumption = 'nothing'
 
     def execute(self, runtime: Runtime, metadata: dict[str, Any]) -> None:
-        with runtime.timeit('wait', self.resource, metadata=metadata):
-            runtime.wait_for_resource(self.resource)
+        raise ValueError('Cannot execute WaitForResource, run Command.make_resource_checkpoints first')
 
 @dataclass(frozen=True)
 class RobotarmCmd(Command):

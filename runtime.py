@@ -6,7 +6,6 @@ from datetime import datetime, timedelta
 from urllib.request import urlopen
 
 import json
-import re
 import threading
 import traceback
 from queue import Queue

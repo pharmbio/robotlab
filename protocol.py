@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Any, Generic, TypeVar, Iterable, Iterator
+from typing import Any, TypeVar, Iterable, Iterator
 from dataclasses import *
 
 from datetime import datetime

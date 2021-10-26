@@ -118,7 +118,6 @@ class SimulatedTime(Timelike):
             self.wake_up()
 
     def queue_put(self, queue: Queue[A], a: A) -> None:
-        thread_data = self.current_thread_data()
         with self.lock:
             i = id(queue)
             self.qsize[i] += 1
@@ -127,7 +126,6 @@ class SimulatedTime(Timelike):
             self.wake_up()
 
     def queue_put_nowait(self, queue: Queue[A], a: A) -> None:
-        thread_data = self.current_thread_data()
         with self.lock:
             i = id(queue)
             self.qsize[i] += 1
