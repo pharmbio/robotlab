@@ -284,12 +284,13 @@ class Runtime:
             t = '--:--:--'
 
         arg = str(entry.get('arg'))
+        last = ' '
         if source == 'duration' and kind == 'end':
             secs = float(entry.get("duration", 0.0) or 0.0)
             arg = f'`{arg}` = {utils.pp_secs(secs)}'
-        elif source in ('wash', 'disp', 'incu'):
-            if (incu_loc := entry.get("incu_loc")):
-                arg = f'{arg} {incu_loc}'
+        elif (incu_loc := entry.get("incu_loc")):
+            arg = f'{arg} {incu_loc} {kind}'
+        elif source in ('wash', 'disp'):
             if 'Validate ' in arg and kind == 'begin':
                 return
             arg = arg.replace('RunValidated ', '')
@@ -298,10 +299,11 @@ class Runtime:
             arg = arg + ' '
             arg = f'{arg:─<50}'
             if (T := entry.get('duration')):
-                r = f'─({utils.pp_secs(T)}s)─'
+                r = f'─ {utils.pp_secs(T)}s ─'
             else:
-                r = '─'
+                r = ''
             arg = arg[:len(arg)-len(r)] + r
+            last = '─'
 
         if source == 'robotarm' and 'return' in arg:
             return
@@ -321,23 +323,21 @@ class Runtime:
                     source = machine + ' ' + source
                     # arg = f'{machine}: {arg}'
 
-        column_order = 'incu', 'disp', 'wash'
+        column_order = 'disp wash'.split()
         columns = ''
-        last = '─' if (arg or ' ')[-1] == '─' else ' '
         for c in column_order:
             s = source if 'Validate ' not in arg else ''
             if s == c and kind == 'begin':
                 self.active.add(c)
-                columns += color(c, '┐')
-                last = ' '
+                columns += color(c, '┬')
             elif s == c and kind == 'end':
                 self.active.remove(c)
-                columns += color(c, '┘')
-                last = ' '
+                columns += color(c, '┴')
             elif c in self.active:
                 columns += color(c, '│')
             else:
                 columns += color(source, last)
+            columns += color(source, last)
 
         src = dict(
             wash='washer',
