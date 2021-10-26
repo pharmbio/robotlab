@@ -11,7 +11,7 @@ services:
   pvis-flask:
     mem_limit: 1G
     mem_reservation: 1G
-    cpus: 1
+    cpus: 4
     build:
       context: './'
       dockerfile: Dockerfile

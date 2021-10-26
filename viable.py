@@ -233,7 +233,12 @@ def throw(e: Exception):
     raise e
 
 def serializer_factory() -> Serializer:
-    return URLSafeSerializer(secrets.token_hex(32), serializer=pickle)
+    secret = os.environ.get('VIABLE_SECRET')
+    if secret:
+        print('Using secret from environment variable VIABLE_SECRET')
+    else:
+        secret = secrets.token_hex(32)
+    return URLSafeSerializer(secret, serializer=pickle)
 
 @dataclass(frozen=True)
 class Exposed:
@@ -331,7 +336,7 @@ class Serve:
             parts = f(*args)
             body_node = body(*cast(Any, parts))
             title_str = f.__name__
-        except Exception as e:
+        except BaseException as e:
             title_str = 'error'
             body_node = body()
             body_node.sheet += '''
@@ -426,6 +431,7 @@ class Serve:
             print('Not using flask_compress:', str(e), file=sys.stderr)
 
         if sys.argv[0].endswith('.py'):
+            print('Running app...')
             host = os.environ.get('VIABLE_HOST')
             port = os.environ.get('VIABLE_PORT')
             port = int(port) if port else None
