@@ -1,6 +1,7 @@
 from __future__ import annotations
 from typing import *
 
+from viable import app
 from viable import head, serve, esc, css_esc, trim, button, pre
 from viable import Tag, div, span, label, img, raw, Input, input
 import viable as V

@@ -1,1 +1,4 @@
-pandas==1.2.1
+pandas
+flask
+flask_compress
+z3-solver

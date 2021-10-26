@@ -1,0 +1,29 @@
+version: "2.4"
+
+networks:
+  pvis-net:
+    driver: bridge
+  traefik_web:
+    external:
+      name: traefik_web
+
+services:
+  pvis-flask:
+    mem_limit: 1G
+    mem_reservation: 1G
+    cpus: 1
+    build:
+      context: './'
+      dockerfile: Dockerfile
+    ports:
+      - 12001:5000
+    networks:
+      - pvis-net
+      - traefik_web
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik_web"
+      - "traefik.port=12001"
+      - "traefik.http.routers.pvis.rule=Host(`pvis.devserver.pharmb.io`)"
+      - "traefik.http.routers.pvis.tls.certresolver=myresolver"
+      - "traefik.http.routers.pvis.entrypoints=websecure"
