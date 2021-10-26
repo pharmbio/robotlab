@@ -193,7 +193,7 @@ class Runtime:
     def excepthook(self):
         try:
             yield
-        except BaseException as e:
+        except BaseException:
             self.log('error', 'exception', traceback.format_exc())
             raise
 
@@ -230,77 +230,17 @@ class Runtime:
         }
         if source == 'duration' and kind == 'end' and duration is not None:
             self.times[str(arg)].append(duration)
-        write: bool = True
-        if not self.log_filename:
-            write = False
-        if entry.get('silent'):
-            write = False
-        if entry.get('source') == 'robotarm' and entry.get('kind') == 'end':
-            write = False
-            # if 1 or kind == 'end': # and source in {'time', 'wait'}: # not in {'robotarm', 'wait', 'wash_delay', 'disp_delay', 'experiment'}:
-            # if source == 'time':
-        # if entry.get('source') == 'wait' and entry.get('kind') != 'info' and entry.get('arg') not in "wash disp incu".split():
-            # write = False
-        if entry.get('source') in {'wait', 'idle'} and (entry.get('kind') == 'end' or entry.get('thread') is not None):
-            write = False
-        if entry.get('source') == 'checkpoint':
-            write = False
-        if write:
-            parts: list[str] = []
-            color = utils.Color()
-            for k, v in entry.items():
-                if k in {'log_time', 't0', 'event_id', 'event_index', 'secs', 'duration', 'incu_loc', 'origin', 'id'}:
-                    continue
-                elif (v is None or v == '') and k != 'duration':
-                    continue
-                elif entry.get('source') == 'run' and len(parts) >= 4:
-                    continue
-                elif k == 'arg' and entry.get('source') == 'duration' and entry.get('kind') == 'end':
-                    secs = float(entry.get("duration", 0.0) or 0.0)
-                    part = f'{"`" + str(v) + "` = " + utils.pp_secs(secs): <50}'
-                elif k == 'arg' and (incu_loc := entry.get("incu_loc")):
-                    part = f'{str(v) + " " + str(incu_loc): <50}'
-                elif k == 'arg' and entry.get('source') in {'wash', 'disp'}:
-                    s = str(v)
-                    if 'Validate ' in s and entry.get('kind') == 'end':
-                        write = False
-                    s = s.replace('RunValidated ', '')
-                    s = s.replace('Run ', '')
-                    s = trim_LHC_filenames(s)
-                    part = f'{s: <50}'
-                elif k == 'arg':
-                    part = f'{str(v): <50}'
-                elif k == 't' and isinstance(v, (int, float)):
-                    part = self.pp_time_offset(v)
-                elif k in {'t', 'duration'} and isinstance(v, (int, float)):
-                    part = f'{pp_secs(v): >9}'
-                elif k == 'source':
-                    part = f'{str(v): <8}'
-                elif isinstance(v, float):
-                    part = f'{v:8.2f}'
-                elif k == 'kind':
-                    part = f'{str(v): <5}'
-                elif k == 'event_plate_id':
-                    part = f'{str(v): >2}'
-                elif k == 'event_part':
-                    part = f'{str(v): <6}'
-                elif k == 'event_subpart':
-                    continue
-                else:
-                    part = f'{str(v): <8}'
-                if entry.get('source') in {'wash', 'disp', 'incu'} and k in {'arg', 'source'}:
-                    part = re.sub('(?<= ) ', '-', part)
-                parts += [part]
-            # color =
-            # parts += [str(entry)]
-            if write:
-                with self.log_lock:
-                    line = ' | '.join(parts)
-                    if entry.get('source') == 'wash':
-                        line = color.cyan(line)
-                    elif entry.get('source') == 'disp':
-                        line = color.lightred(line)
-                    print(line)
+
+        # the logging logic is quite convoluted so let's safeguard against software errors in it
+        try:
+            line = self.log_entry_to_line(entry)
+        except BaseException:
+            traceback.print_exc()
+            utils.pr(entry)
+            line = None
+        if line:
+            with self.log_lock:
+                print(line)
 
         if 0:
             utils.pr(entry)
@@ -312,6 +252,111 @@ class Runtime:
         else:
             self.log_entries.append(entry)
         return t
+
+    active: set[str] = field(default_factory=set)
+
+    def log_entry_to_line(self, entry: dict[str, Any]) -> str | None:
+        source = entry.get('source') or ''
+        kind = entry.get('kind') or ''
+        plate_id = entry.get('event_plate_id') or ''
+        part = entry.get('event_part') or ''
+
+        if not self.log_filename:
+            return
+        if entry.get('silent'):
+            return
+        if source == 'robotarm' and kind == 'end':
+            return
+        if source in ('wait', 'idle'):
+            if kind != 'info':
+                return
+            if entry.get('thread'):
+                if entry.get('log_sleep'):
+                    pass
+                else:
+                    return
+        if source == 'checkpoint':
+            return
+
+        t = entry.get('t')
+        if isinstance(t, (int, float)):
+            t = self.pp_time_offset(t)
+        else:
+            t = '--:--:--'
+
+        arg = str(entry.get('arg'))
+        if source == 'duration' and kind == 'end':
+            secs = float(entry.get("duration", 0.0) or 0.0)
+            arg = f'`{arg}` = {utils.pp_secs(secs)}'
+        elif source in ('wash', 'disp', 'incu'):
+            if (incu_loc := entry.get("incu_loc")):
+                arg = f'{arg} {incu_loc}'
+            if 'Validate ' in arg and kind == 'begin':
+                return
+            arg = arg.replace('RunValidated ', '')
+            arg = arg.replace('Run ', '')
+            arg = trim_LHC_filenames(arg)
+            arg = arg + ' '
+            arg = f'{arg:─<50}'
+            if (T := entry.get('duration')):
+                r = f'─({utils.pp_secs(T)}s)─'
+            else:
+                r = '─'
+            arg = arg[:len(arg)-len(r)] + r
+
+        if source == 'robotarm' and 'return' in arg:
+            return
+
+        def color(src: str, s: str):
+            if src == 'wash':
+                return utils.Color().cyan(s)
+            elif src == 'disp':
+                return utils.Color().lightred(s)
+            else:
+                return utils.Color().none(s)
+
+        if source in ('idle', 'wait'):
+            for machine in ('wash', 'disp', 'incu'):
+                thread = str(entry.get('thread', ''))
+                if thread.startswith(machine):
+                    source = machine + ' ' + source
+                    # arg = f'{machine}: {arg}'
+
+        column_order = 'incu', 'disp', 'wash'
+        columns = ''
+        last = '─' if (arg or ' ')[-1] == '─' else ' '
+        for c in column_order:
+            s = source if 'Validate ' not in arg else ''
+            if s == c and kind == 'begin':
+                self.active.add(c)
+                columns += color(c, '┐')
+                last = ' '
+            elif s == c and kind == 'end':
+                self.active.remove(c)
+                columns += color(c, '┘')
+                last = ' '
+            elif c in self.active:
+                columns += color(c, '│')
+            else:
+                columns += color(source, last)
+
+        src = dict(
+            wash='washer',
+            incu='incubator',
+            disp='dispenser',
+        ).get(source, source)
+
+        parts = [
+            t,
+            f'{src     : <9}',
+            f'{arg     : <50}' + columns,
+            f'{plate_id: >2}',
+            f'{part    : <6}',
+        ]
+
+        parts = [color(source, part) for part in parts]
+        line = color(source, ' | ').join(parts)
+        return line
 
     def timeit(self, source: str, arg: str | int | None = None, metadata: dict[str, Any] = {}) -> ContextManager[None]:
         # The inferred type for the decorated function is wrong hence this wrapper to get the correct type
@@ -391,34 +436,4 @@ class Runtime:
         self.queue_get(q)
         with self.time_lock:
             return self.checkpoint_times[name]
-
-    resource_counters: dict[str, int] = field(default_factory=
-        lambda: defaultdict[str, int](int)
-    )
-
-    def enqueue_for_resource_production(self, resource: str):
-        with self.time_lock:
-            prev = self.resource_counters[resource]
-            self.resource_counters[resource] += 1
-            this = self.resource_counters[resource]
-
-        prev_checkpoint = f'{resource} #{prev}'
-        this_checkpoint = f'{resource} #{this}'
-
-        if not prev:
-            q = Queue[None]()
-            self.queue_put_nowait(q, None) # prepopulate it
-        else:
-            q = self.enqueue_for_checkpoint(prev_checkpoint)
-
-        return q, this_checkpoint
-
-    def wait_for_resource(self, resource: str):
-        with self.time_lock:
-            current = self.resource_counters[resource]
-
-        current_checkpoint = f'{resource} #{current}'
-
-        if current:
-            self.wait_for_checkpoint(current_checkpoint)
 

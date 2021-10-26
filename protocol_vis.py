@@ -81,21 +81,71 @@ n = 0
 
 @serve.one('/')
 def index() -> Iterator[Tag | dict[str, str]]:
-    store: dict[str, str | bool] = {}
-    zoom_input = Input(store, 'zoom', 'text', default='1')
-    batch_size_input = Input(store, 'batch_size', 'text', default='6')
 
-    zoom = utils.catch(lambda: float(store['zoom']), 1)
+    yield {
+        'sheet': '''
+            body, html {
+                font-family: monospace;
+                font-size: 12px;
+            }
+        '''
+    }
+    yield {
+        'onkeydown': '''
+            if (event.key == 'Enter') {
+                update_query(input_values())
+                refresh()
+            }
+        ''',
+        'oninput': '''
+            if (event.target?.type != 'text') {
+                update_query(input_values())
+                refresh()
+            }
+        ''',
+        'sheet': '''
+            label {
+                display: grid;
+                padding: 2px;
+                width: 400px;
+                grid-template-columns: 1fr 1fr;
+                align-items: center;
+                grid-gap: 4px;
+            }
+            label > :nth-child(1) {
+                justify-self: right;
+            }
+        '''
+    }
+    store: dict[str, str | bool] = {}
+    yield label(span('zoom: '),       Input(store, 'zoom', type='text', default='1'))
+    yield label(span('batch sizes:'), Input(store, 'batch_size', type='text', default='6'))
+    yield label(span('incubation times:'), Input(store, 'incu', type='text', default='1200'))
+    yield label(Input(store, 'interleave', type='checkbox', default=False), div('interleave'))
+    yield label(Input(store, 'lockstep', type='checkbox', default=False),   div('lockstep'))
+    yield label(Input(store, 'six', type='checkbox', default=False),        div('two final washes'))
+
+    zoom       = utils.catch(lambda: float(store['zoom']), 1)
     batch_size = utils.catch(lambda: int(store['batch_size']), 6)
 
     # v3 = protocol.make_v3(incu_csv='t1, t2, t3, t4, t5', interleave=True, six=True, lockstep=True)
     # v3 = protocol.make_v3(incu_csv='22:15, 22:05, 22:05, 22:15, t5', interleave=True, six=True, lockstep=True)
-    v3 = protocol.make_v3(incu_csv='1205,1200,1200,1205,1230', interleave=True, six=True, lockstep=True)
+    v3 = protocol.make_v3(
+        incu_csv   = str(store.get('incu', '1200')),
+        interleave = bool(store.get('interleave')),
+        six        = bool(store.get('six')),
+        lockstep   = bool(store.get('lockstep')),
+    )
 
-    with utils.timeit('eventlist'):
-        program = protocol.cell_paint_program(batch_sizes=[batch_size], protocol_config=v3)
-    with utils.timeit('runtime'):
-        runtime = protocol.execute_program(configs['dry-run'], program, {}, log_to_file=False)
+    try:
+        with utils.timeit('eventlist'):
+            program = protocol.cell_paint_program(batch_sizes=[batch_size], protocol_config=v3)
+        with utils.timeit('runtime'):
+            runtime = protocol.execute_program(configs['dry-run'], program, {}, log_to_file=False)
+    except Exception as e:
+        import traceback
+        yield pre(traceback.format_exc())
+        return
 
     import timings
     utils.pr(timings.Guesses)
@@ -242,15 +292,6 @@ def index() -> Iterator[Tag | dict[str, str]]:
         if (event.target.dataset.info)
             document.querySelector('#info').innerHTML = ''
     """
-
-    yield {
-        'sheet': '''
-            body, html {
-                font-family: monospace;
-                font-size: 12px;
-            }
-        '''
-    }
     # yield zoom_input
     # yield batch_size_input
     yield area

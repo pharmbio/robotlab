@@ -87,13 +87,15 @@ H = [21, 19, 17, 15, 13, 11, 9, 7, 5, 3, 1]
 I = [i+1 for i in range(22)]
 
 A_locs:    list[str] = [f'out{i}' for i in H]
-B_locs:    list[str] = [f'h{i}' for i in H]
+B_locs:    list[str] = [f'B{i}' for i in H]
 C_locs:    list[str] = [f'r{i}' for i in H]
+H_locs:    list[str] = [f'h{i}' for i in H]
 
 Incu_locs: list[str] = [f'L{i}' for i in I] + [f'R{i}' for i in I]
-RT_locs:   list[str] = C_locs[:5] + A_locs[:5] + [B_locs[4]]
+RT_locs_few:  list[str] = C_locs[:4] + A_locs[:4]    # up to 8 plates
+RT_locs_many: list[str] = C_locs[:5] + A_locs[:5] + [B_locs[4]]
 Out_locs:  list[str] = A_locs[5:][::-1] + B_locs[5:][::-1] + C_locs[5:][::-1]
-Lid_locs:  list[str] = [b for b in B_locs if '19' in b or '17' in b]
+Lid_locs:  list[str] = [b for b in H_locs if '19' in b or '17' in b]
 
 A = TypeVar('A')
 
@@ -412,7 +414,7 @@ def time_arm_incu(config: RuntimeConfig):
             *RobotarmCmds(plate.lid_put),
             *RobotarmCmds(plate.lid_get),
         ]
-    for rt_loc in RT_locs[:N]:
+    for rt_loc in RT_locs_many[:N]:
         plate = replace(plate, rt_loc=rt_loc)
         arm += [
             *RobotarmCmds(plate.rt_put),
@@ -424,7 +426,7 @@ def time_arm_incu(config: RuntimeConfig):
             *RobotarmCmds(plate.out_put),
             *RobotarmCmds(plate.out_get),
         ]
-    plate = replace(plate, lid_loc=Lid_locs[0], rt_loc=RT_locs[0])
+    plate = replace(plate, lid_loc=Lid_locs[0], rt_loc=RT_locs_many[0])
     arm2: list[Command] = [
         *RobotarmCmds(plate.rt_put),
         *RobotarmCmds('incu get'),
@@ -615,10 +617,10 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
             wash_delay: list[Command]
             if step == 'Mito':
                 incu_delay = [
-                    WaitForCheckpoint(f'batch {batch_index}') + f'{plate_desc} incu delay {ix}'
+                    WaitForCheckpoint(f'batch {batch_index}', report_behind_time=plate is not first_plate) + f'{plate_desc} incu delay {ix}'
                 ]
                 wash_delay = [
-                    WaitForCheckpoint(f'batch {batch_index}') + f'{plate_desc} first wash delay'
+                    (WaitForCheckpoint(f'batch {batch_index}', report_behind_time=plate is not first_plate) + f'{plate_desc} first wash delay').with_metadata(log_sleep=True)
                 ]
             else:
                 incu_delay = [
@@ -626,7 +628,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                 ]
                 wash_delay = [
                     Early(2),
-                    WaitForCheckpoint(f'{plate_desc} incubation {ix-1}') + p.incu[i-1]
+                    (WaitForCheckpoint(f'{plate_desc} incubation {ix-1}') + p.incu[i-1]).with_metadata(log_sleep=True)
                 ]
 
             lid_off = [
@@ -634,7 +636,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
             ]
 
             lid_on = [
-                *RobotarmCmds(plate_with_corrected_lid_pos.lid_get, after_drop=[Duration(f'{plate_desc} lid off {ix}', opt_weight=-1)]),
+                *RobotarmCmds(plate_with_corrected_lid_pos.lid_get, after_drop=[Duration(f'{plate_desc} lid off {ix}', opt_weight=-1).with_metadata(silent=True)]),
             ]
 
             if step == 'Mito':
@@ -705,23 +707,23 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                     resource='disp',
                     assume='nothing',
                 )
-                pre_disp_wait = Duration(f'{plate_desc} pre disp done {ix}', opt_weight=-1)
+                pre_disp_wait = Duration(f'{plate_desc} pre disp done {ix}', opt_weight=-1).with_metadata(silent=True)
             else:
                 pre_disp = Idle()
                 pre_disp_wait = Idle()
 
             wash = [
-                WashFork(p.wash[i], cmd='Validate', assume='idle'),
                 RobotarmCmd('wash put prep'),
+                WashFork(p.wash[i], cmd='Validate', assume='idle') + 1 if plate is first_plate else Idle(),
                 RobotarmCmd('wash put transfer'),
                 # WaitForResource('wash'),
                 Fork(
                     Sequence(
                         *wash_delay,
                         Duration(f'{plate_desc} incubation {ix-1}', exactly=p.incu[i-1]) if i > 0 else Idle(),
-                        Checkpoint(f'{plate_desc} pre disp {ix}'),
+                        Checkpoint(f'{plate_desc} pre disp {ix}').with_metadata(silent=True),
                         WashCmd(p.wash[i], cmd='RunValidated'),
-                        Checkpoint(f'{plate_desc} transfer {ix}')
+                        Checkpoint(f'{plate_desc} transfer {ix}').with_metadata(silent=True)
                         if i < 4 else
                         Checkpoint(f'{plate_desc} incubation {ix}'),
                     ),
@@ -737,7 +739,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                 Early(1),
                 WaitForResource('wash', assume='will wait'),
                 RobotarmCmd('wash_to_disp transfer'),
-                Duration(f'{plate_desc} transfer {ix}', exactly=RobotarmCmd('wash_to_disp transfer').est()),
+                Duration(f'{plate_desc} transfer {ix}', exactly=RobotarmCmd('wash_to_disp transfer').est()).with_metadata(silent=True),
                 pre_disp_wait,
                 Fork(
                     Sequence(
@@ -870,11 +872,12 @@ def define_plates(batch_sizes: list[int]) -> list[Plate]:
 
     index = 0
     for batch_index, batch_size in enumerate(batch_sizes):
+        rt_locs = RT_locs_many if batch_size > len(RT_locs_few) else RT_locs_few
         for index_in_batch in range(batch_size):
             plates += [Plate(
                 id=f'{index+1}',
                 incu_loc=Incu_locs[index],
-                rt_loc=RT_locs[index_in_batch],
+                rt_loc=rt_locs[index_in_batch],
                 # lid_loc=Lid_locs[index_in_batch],
                 lid_loc=Lid_locs[index_in_batch % 2],
                 # lid_loc=Lid_locs[0],
@@ -1061,6 +1064,7 @@ def execute_program(config: RuntimeConfig, program: Command, metadata: dict[str,
         program = program.transform(Filter)
 
     with make_runtime(config, metadata, log_to_file=log_to_file) as runtime:
+        print('Expected finish:', runtime.pp_time_offset(max(expected_ends.values())))
         program.remove_scheduling_idles().execute(runtime, {})
         ret = runtime
 

@@ -107,6 +107,19 @@ class Command(abc.ABC):
             case _:
                 return f(self)
 
+    def universe(self: Command) -> Iterator[Command]:
+        '''
+        Universe a'la "Uniform boilerplate and list processing"
+        (Mitchell & Runciman, 2007) https://dl.acm.org/doi/10.1145/1291201.1291208
+        '''
+        yield self
+        match self:
+            case Seq():
+                for cmd in self.commands:
+                    yield from cmd.universe()
+            case Fork():
+                yield from self.command.universe()
+
     def assign_ids(self: Command, counter: Mutable[int] | None = None) -> Command:
         count = 0
         def F(cmd: Command) -> Command:
@@ -142,15 +155,12 @@ class Command(abc.ABC):
 
     def free_vars(self: Command) -> set[str]:
         out: set[str] = set()
-        def F(cmd: Command) -> Command:
-            nonlocal out
+        for cmd in self.universe():
             match cmd:
                 case Idle():
                     out |= cmd.seconds.var_set()
                 case WaitForCheckpoint():
                     out |= cmd.plus_seconds.var_set()
-            return cmd
-        self.transform(F)
         return out
 
 @dataclass(frozen=True)
@@ -246,9 +256,9 @@ class WaitForCheckpoint(Command):
             t0 = runtime.wait_for_checkpoint(self.name)
             desired_point_in_time = t0 + plus_secs
             delay = desired_point_in_time - runtime.monotonic()
-            if delay < 0 and not self.report_behind_time:
+            if delay < 1 and not self.report_behind_time:
                 metadata = {**metadata, 'silent': True}
-            runtime.sleep(delay, metadata) # if plus seconds = 0 don't report behind time ... ?
+            runtime.sleep(delay, metadata)
 
     def __add__(self, other: float | int | str | Symbolic) -> WaitForCheckpoint:
         return self.replace(plus_secs=self.plus_seconds + other)

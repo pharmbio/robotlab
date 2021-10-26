@@ -137,7 +137,7 @@ class Color:
         else:
             return s
 
-    def none       (self, s: str) -> str: return s
+    def none       (self, s: str) -> str: return self.do('', '') + s
     def black      (self, s: str) -> str: return self.do('\033[30m', s)
     def red        (self, s: str) -> str: return self.do('\033[31m', s)
     def green      (self, s: str) -> str: return self.do('\033[32m', s)

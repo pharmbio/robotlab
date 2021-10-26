@@ -1,4 +1,0 @@
-[
-  {"type": "GripperMove", "pos": 89},
-  {"type": "MoveJoint", "joints": [98, -116, 96, 20, 98, 0], "name": "neu_deli"}
-]
