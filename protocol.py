@@ -522,7 +522,8 @@ def load_incu(config: RuntimeConfig, num_plates: int):
     program = Sequence(*[
         RobotarmCmd('incu_A21 put-prep'),
         *cmds,
-        RobotarmCmd('incu_A21 put-return')
+        RobotarmCmd('incu_A21 put-return'),
+        WaitForResource('incu'),
     ])
     ATTENTION(load_incu.__doc__ or '')
     execute_program(config, program, {'program': 'load_incu'})
@@ -1064,11 +1065,14 @@ def execute_program(config: RuntimeConfig, program: Command, metadata: dict[str,
         program = program.transform(Filter)
 
     with make_runtime(config, metadata, log_to_file=log_to_file) as runtime:
-        print('Expected finish:', runtime.pp_time_offset(max(expected_ends.values())))
+        try:
+            print('Expected finish:', runtime.pp_time_offset(max(expected_ends.values())))
+        except:
+            pass
         program.remove_scheduling_idles().execute(runtime, {})
         ret = runtime
 
-    if config.name() != 'live':
+    if config.name() != 'live' and expected_ends:
         with make_runtime(configs['dry-run'], {}, log_to_file=False) as runtime:
             program.execute(runtime, {})
             entries = runtime.log_entries
