@@ -362,3 +362,7 @@ def timeit(desc: str='') -> ContextManager[None]:
 
     return worker()
 
+from datetime import datetime
+
+def now_str_for_filename() -> str:
+    return str(datetime.now()).split('.')[0].replace(' ', '_')

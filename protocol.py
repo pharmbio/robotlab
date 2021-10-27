@@ -10,6 +10,7 @@ import os
 import platform
 import re
 import textwrap
+import pickle
 
 from commands import (
     Command,
@@ -1025,7 +1026,7 @@ import contextlib
 @contextlib.contextmanager
 def make_runtime(config: RuntimeConfig, metadata: dict[str, str], *, log_to_file: bool=True) -> Iterator[Runtime]:
     metadata = {
-        'start_time': str(datetime.now()).split('.')[0],
+        'start_time': utils.now_str_for_filename(),
         **metadata,
         'config_name': config.name(),
     }
@@ -1069,7 +1070,14 @@ def execute_program(config: RuntimeConfig, program: Command, metadata: dict[str,
             print('Expected finish:', runtime.pp_time_offset(max(expected_ends.values())))
         except:
             pass
-        program.remove_scheduling_idles().execute(runtime, {})
+
+        program_opt = program.remove_scheduling_idles()
+        os.makedirs('programs/', exist_ok=True)
+        program_pickle_file = 'programs/' + utils.now_str_for_filename() + '.pkl'
+        with open(program_pickle_file, 'wb') as fp:
+            pickle.dump(program_opt, fp)
+        runtime.log('info', 'system', None, {'program_pickle_file': program_pickle_file, 'silent': True})
+        program_opt.execute(runtime, {})
         ret = runtime
 
     if config.name() != 'live' and expected_ends:
