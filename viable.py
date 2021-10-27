@@ -233,9 +233,18 @@ def throw(e: Exception):
     raise e
 
 def serializer_factory() -> Serializer:
-    secret = os.environ.get('VIABLE_SECRET')
-    if secret:
+    secret_from_env = os.environ.get('VIABLE_SECRET')
+    try:
+        with open('.viable-secret', 'r') as fp:
+            secret_from_file = fp.read()
+    except:
+        secret_from_file = None
+    if secret_from_file:
+        print('Using secret from file .viable-secret')
+        secret = secret_from_file
+    elif secret_from_env:
         print('Using secret from environment variable VIABLE_SECRET')
+        secret = secret_from_env
     else:
         secret = secrets.token_hex(32)
     return URLSafeSerializer(secret, serializer=pickle)
@@ -557,7 +566,6 @@ hot_js = str(r'''
         }
         refresh(600, poll)
     }
-    poll()
     window.onpopstate = () => refresh()
     function input_values() {
         const inputs = document.querySelectorAll('input:not([type=radio]),input[type=radio]:checked,select')
@@ -598,6 +606,10 @@ hot_js = str(r'''
         history.replaceState(null, null, next)
     }
 ''')
+if os.environ.get('VIABLE_NO_HOT'):
+    pass
+else:
+    hot_js += 'poll()'
 hot_js = trim(hot_js, sep='\n')
 
 class a(Tag): pass
