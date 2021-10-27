@@ -43,7 +43,7 @@ def show(x: Any, show_key: Any=show_key, width: int=80, use_color: bool=sys.stdo
         is_list = isinstance(x, list)
         is_set = isinstance(x, (set, frozenset))
         has_iter = hasattr(x, '__iter__')
-        if is_dataclass(x):
+        if is_dataclass(x) and not isinstance(x, type):
             begin, end = color.none(x.__class__.__name__) + '(', ')'
             if len(fields(x)) == 0:
                 yield dent + pre + begin + end + post

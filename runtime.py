@@ -68,6 +68,9 @@ class RuntimeConfig:
                 return k
         raise ValueError(f'unknown config {self}')
 
+    def give_name(self, name: str):
+        configs[name] = self
+
     def with_speed(self, robotarm_speed: int) -> RuntimeConfig:
         if robotarm_speed == self.robotarm_speed:
             return self
@@ -75,21 +78,18 @@ class RuntimeConfig:
             conf = replace(self, robotarm_speed=robotarm_speed)
             # have to make up a name (this is a bit silly)
             name = f'{self.name()}({robotarm_speed=})'
-            configs[name] = conf
+            conf.give_name(name)
             return conf
-
-wall_time          = lambda: WallTime()
-simulated_and_wall = lambda: SimulatedTime(include_wall_time=True)
-simulated_no_wall  = lambda: SimulatedTime(include_wall_time=False)
 
 configs: dict[str, RuntimeConfig]
 configs = {
-    'live':           RuntimeConfig(wall_time,          disp_and_wash_mode='execute', incu_mode='execute', robotarm_mode='execute',            env=live_env),
-    'test-all':       RuntimeConfig(simulated_and_wall, disp_and_wash_mode='execute', incu_mode='execute', robotarm_mode='execute',            env=live_env),
-    'test-arm-incu':  RuntimeConfig(wall_time,          disp_and_wash_mode='noop',    incu_mode='execute', robotarm_mode='execute',            env=live_arm_incu),
-    'simulator':      RuntimeConfig(simulated_no_wall,  disp_and_wash_mode='noop',    incu_mode='noop',    robotarm_mode='execute no gripper', env=simulator_env),
-    'forward':        RuntimeConfig(simulated_no_wall,  disp_and_wash_mode='noop',    incu_mode='noop',    robotarm_mode='execute',            env=forward_env),
-    'dry-run':        RuntimeConfig(simulated_no_wall,  disp_and_wash_mode='noop',    incu_mode='noop',    robotarm_mode='noop',               env=dry_env),
+    'live':           RuntimeConfig(WallTime,      disp_and_wash_mode='execute', incu_mode='execute', robotarm_mode='execute',            env=live_env),
+    'test-all':       RuntimeConfig(WallTime,      disp_and_wash_mode='execute', incu_mode='execute', robotarm_mode='execute',            env=live_env),
+    'test-arm-incu':  RuntimeConfig(WallTime,      disp_and_wash_mode='noop',    incu_mode='execute', robotarm_mode='execute',            env=live_arm_incu),
+    'simulator':      RuntimeConfig(WallTime,      disp_and_wash_mode='noop',    incu_mode='noop',    robotarm_mode='execute no gripper', env=simulator_env),
+    'forward':        RuntimeConfig(WallTime,      disp_and_wash_mode='noop',    incu_mode='noop',    robotarm_mode='execute',            env=forward_env),
+    'dry-wall':       RuntimeConfig(WallTime,      disp_and_wash_mode='noop',    incu_mode='noop',    robotarm_mode='noop',               env=dry_env),
+    'dry-run':        RuntimeConfig(SimulatedTime, disp_and_wash_mode='noop',    incu_mode='noop',    robotarm_mode='noop',               env=dry_env),
 }
 
 def curl(url: str, print_result: bool = False) -> Any:
@@ -127,8 +127,6 @@ A = TypeVar('A')
 @dataclass(frozen=True)
 class Runtime:
     config: RuntimeConfig
-    var_values: dict[str, float] = field(default_factory=dict)
-    execute_scheduling_idles: bool = False
     log_filename: str | None = None
     log_entries: list[dict[str, Any]] = field(default_factory=list)
     log_lock: RLock  = field(default_factory=RLock)
@@ -136,10 +134,16 @@ class Runtime:
     timelike: Mutable[Timelike] = Mutable.factory(cast(Any, 'initialize in __post_init__ based on config.timelike_factory'))
     times: dict[str, list[float]] = field(default_factory=lambda: cast(Any, defaultdict(list)))
 
+    start_time: datetime = field(default_factory=datetime.now)
+
+    checkpoint_times: dict[str, float] = field(default_factory=dict)
+    checkpoint_waits: dict[str, list[Queue[None]]] = field(default_factory=
+        lambda: defaultdict[str, list[Queue[None]]](list)
+    )
+
     def __post_init__(self):
         self.timelike.value = self.config.timelike_factory()
-        with self.timelike.value.spawning():
-            self.register_thread('main')
+        self.register_thread('main')
 
         if self.config.robotarm_mode != 'noop':
             self.set_robotarm_speed(self.config.robotarm_speed)
@@ -185,8 +189,7 @@ class Runtime:
         def F():
             with self.excepthook():
                 f()
-        with self.timelike.value.spawning():
-            threading.Thread(target=F, daemon=True).start()
+        threading.Thread(target=F, daemon=True).start()
 
     @contextmanager
     def excepthook(self):
@@ -368,8 +371,6 @@ class Runtime:
 
         return worker(source, arg, metadata)
 
-    start_time: datetime = field(default_factory=datetime.now)
-
     def pp_time_offset(self, secs: int | float):
         dt = self.start_time + timedelta(seconds=secs)
         return dt.strftime('%H:%M:%S') # + dt.strftime('.%f')[:3]
@@ -407,11 +408,6 @@ class Runtime:
 
     def thread_done(self):
         return self.timelike.value.thread_done()
-
-    checkpoint_times: dict[str, float] = field(default_factory=dict)
-    checkpoint_waits: dict[str, list[Queue[None]]] = field(default_factory=
-        lambda: defaultdict[str, list[Queue[None]]](list)
-    )
 
     def checkpoint(self, name: str, *, metadata: dict[str, Any] = {}):
         with self.time_lock:

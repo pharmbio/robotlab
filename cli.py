@@ -13,6 +13,7 @@ import moves
 from moves import movelists
 import timings
 import protocol
+import resume
 
 import utils
 
@@ -35,6 +36,8 @@ def main():
     parser.add_argument('--load-incu', type=int, help=(protocol.load_incu.__doc__ or '').strip().splitlines()[0])
     parser.add_argument('--unload-incu', type=int, help=(protocol.unload_incu.__doc__ or '').strip().splitlines()[0])
     parser.add_argument('--lid-stress-test', action='store_true', help=(protocol.lid_stress_test.__doc__ or '').strip().splitlines()[0])
+
+    parser.add_argument('--resume', type=str, help='Resume program given a log file')
 
     parser.add_argument('--wash', type=str, help='Run a program on the washer')
     parser.add_argument('--disp', type=str, help='Run a program on the dispenser')
@@ -167,6 +170,9 @@ def main():
     elif args.incu_get:
         runtime = Runtime(config)
         commands.IncuCmd('get', args.incu_get).execute(runtime, {})
+
+    elif args.resume:
+        resume.resume_program(config, args.resume)
 
     else:
         parser.print_help()

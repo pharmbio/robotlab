@@ -46,10 +46,6 @@ class Timelike(abc.ABC):
     def thread_done(self):
         pass
 
-    @abc.abstractmethod
-    def spawning(self) -> ContextManager[None]:
-        pass
-
 from threading import Thread
 from collections import defaultdict
 
@@ -63,19 +59,10 @@ class ThreadData:
 
 @dataclass
 class SimulatedTime(Timelike):
-    include_wall_time: bool
-    start_time: float = field(default_factory=time.monotonic)
     threads: dict[Thread, ThreadData] = field(default_factory=lambda: defaultdict[Thread, ThreadData](ThreadData))
     skipped_time: float = 0.0
     lock: Lock = field(default_factory=Lock)
     qsize: dict[int, int] = field(default_factory=lambda: defaultdict[int, int](int))
-    pending_spawns: int = 0
-
-    @contextmanager
-    def spawning(self):
-        with self.lock:
-            self.pending_spawns += 1
-        yield
 
     def log(self):
         return
@@ -86,19 +73,13 @@ class SimulatedTime(Timelike):
                 if v.sleep_until != float('inf') else
                 f'{v.name}: {v.state}'
             ]
-        out += [f'{self.pending_spawns=}']
         print(' | '.join(out))
 
     def monotonic(self):
-        if self.include_wall_time:
-            return time.monotonic() - self.start_time + self.skipped_time
-        else:
-            return self.skipped_time
+        return self.skipped_time
 
     def register_thread(self, name: str):
         with self.lock:
-            assert self.pending_spawns > 0
-            self.pending_spawns -= 1
             tid = threading.current_thread()
             self.threads[tid] = ThreadData(name)
 
@@ -161,14 +142,6 @@ class SimulatedTime(Timelike):
 
         self.log()
 
-        if self.include_wall_time:
-            def wait():
-                time.sleep(seconds)
-                with self.lock:
-                    if thread_data.state == 'sleeping':
-                        self.wake_up()
-            threading.Thread(target=wait, daemon=True)
-
         thread_data.inbox.get()
         assert thread_data.state == 'busy'
         assert thread_data.sleep_until == float('inf')
@@ -179,8 +152,6 @@ class SimulatedTime(Timelike):
 
     def wake_up(self):
         assert self.lock.locked()
-        # if self.pending_spawns > 0:
-            # return
         # Wake up next thread if all are sleeping or blocked
         self.log()
         states = {v.state for v in self.threads.values()}
@@ -193,7 +164,7 @@ class SimulatedTime(Timelike):
             return
         if states <= {'blocked', 'idle'}:
             return
-        if 'busy' in states and not self.include_wall_time:
+        if 'busy' in states:
             # there is still a thread busy, we exit here to let it proceed
             return
         now = self.monotonic()
@@ -215,10 +186,6 @@ class SimulatedTime(Timelike):
 @dataclass(frozen=True)
 class WallTime(Timelike):
     start_time: float = field(default_factory=time.monotonic)
-
-    @contextmanager
-    def spawning(self):
-        yield
 
     def monotonic(self):
         return time.monotonic() - self.start_time

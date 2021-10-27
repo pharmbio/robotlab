@@ -25,7 +25,7 @@ class Move(abc.ABC):
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> Move:
-        subs = { c.__name__: c for c in cls.__subclasses__() }
+        subs = {c.__name__: c for c in cls.__subclasses__()}
         d = d.copy()
         return subs[d.pop('type')](**d) # type: ignore
 

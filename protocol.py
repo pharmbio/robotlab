@@ -1099,16 +1099,9 @@ def execute_program(config: RuntimeConfig, program: Command, metadata: dict[str,
                     # utils.pr((f'{matches=}', i, e, ends[i]))
             by_id: dict[str, Command] = {
                 i: c
-                for c, m in program.collect()
-                if (i := m.get('id')) and isinstance(i, str)
-            }
-
-            by_id |= {
-                i: c
-                for c1, _ in program.collect()
-                if isinstance(c1, Fork)
-                for c, m in c1.command.collect()
-                if (i := m.get('id')) and isinstance(i, str)
+                for c in program.universe()
+                if isinstance(c, commands.Seq)
+                if (i := c.metadata.get('id')) and isinstance(i, str)
             }
 
             for i, e in expected_ends.items():

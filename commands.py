@@ -91,6 +91,8 @@ class Command(abc.ABC):
                     return False
             case Seq():
                 return not self.metadata and all(cmd.is_noop() for cmd in self.commands)
+            case Fork():
+                return self.command.is_noop()
             case _:
                 return False
 
