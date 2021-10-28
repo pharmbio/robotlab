@@ -239,53 +239,6 @@ function simulator-entr-gui {
     ls *py | entr -c -r python gui.py "$@" --simulator
 }
 
-note '
-    Get a plate from the incubator
-'
-function incu-get {
-    python cli.py --test-arm-incu --incu-get "$1"
-}
-
-note '
-    Put a plate into the incubator
-'
-function incu-put {
-    python cli.py --test-arm-incu --incu-put "$1"
-}
-
-note '
-    Example of moving four plates from r to incu L
-'
-function four-plates-from-r-to-incu () {
-    # python cli.py --test-arm-incu --robotarm 'r21 get' 'incu put'; incu-put L1
-    # python cli.py --test-arm-incu --robotarm 'r19 get' 'incu put'; incu-put L2
-    python cli.py --test-arm-incu --robotarm 'r17 get' 'incu put'; incu-put L3
-    python cli.py --test-arm-incu --robotarm 'r15 get' 'incu put'; incu-put L4
-    python cli.py --test-arm-incu --robotarm 'r13 get' 'incu put'; incu-put L5
-    python cli.py --test-arm-incu --robotarm 'r11 get' 'incu put'; incu-put L6
-}
-
-note '
-    Try to understand what the washer and dispenser are doing
-'
-function test-wash-disp () {
-    while true; do
-        curl -s "$BIOTEK_URL/wash/LHC_TestCommunications" | while read line; do printf 'wash %s\n' "$line"; done
-        curl -s "$BIOTEK_URL/disp/LHC_TestCommunications" | while read line; do printf 'disp %s\n' "$line"; done
-    done
-}
-
-note '
-    Copy URP scripts from the robot
-'
-function copy-urp-scripts {
-    eval "$(setup-env)"
-    set -x
-    mkdir -p scripts
-    scp "root@$ROBOT_IP:/data/programs/dan_*" scripts/
-}
-
-
 main () {
     if test "$#" -gt 0 && test "$(type -t -- "$1")" = 'function'; then
         "$@"
