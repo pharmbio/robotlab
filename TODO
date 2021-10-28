@@ -1,28 +1,21 @@
+w44:
+[ ] robustness: raise gripper if close more than expected
+[ ] moves: Rename all occurrences to h21, r21, out21 to B21, C21, A21 and so on
+[ ] moves: convert moves to jsonl
+[ ] bioteks: Validate all protocols before starting cell paint
+[ ] bioteks: check that all LHC protocol files exist before starting, also associate their timings with their last modification date (and perhaps hash?)
+[ ] bioteks: overview before starting, make a little summary of LHC files before starting
+[ ] moves: save both lin&joint for all coords
+[ ] resume: test resuming
+[ ] start & resume: make it easy to put the robot in the right place. freedrive and travel between known safe coordinates
+[ ] start & resume: make it easy to start freedrive to put the robot in place
+[ ] start & resume: check that it is close to h neu when starting, but don't move there using MoveJoint !!! can check the inverse kinematics of the current position close to B neu
+[ ] start & resume: remove all neutral MoveJoint, instead check that the robot is roughly correct (??)
 
-
-[-] Incubator get does not seem to take different amount of time because of height
-
-[ ] prio 1. robotarm: check that it is close to h neu when starting, but don't move there using MoveJoint !!! can check the inverse kinematics of the current position close to B neu
-
-[ ] prio 1. Rename all occurrences to h21, r21, out21 to B21, C21, A21 and so on
-[ ] prio 1. remove all MoveJoint, instead check that the robot is roughly correct (??)
-
-[ ] prio 2. bioteks: Validate all protocols before starting cell paint
-[ ] prio 2. bioteks: check that all LHC protocol files exist before starting, also associate their timings with their last modification date (and perhaps hash?)
-[ ] prio 1. bioteks: overview before starting
-[ ] prio 1. bioteks: make a little summary of LHC files before starting
-
-[ ] prio 3. robustness: raise gripper if close more than expected
-
-[ ] prio 1. make it easy to start freedrive to put the robot in place
-[ ] prio 1. --incu-load with >11 plates
-[ ] prio 0. add stains purge after last purge?
-
+misc:
 [ ] prio 2. repo: document how to start everything, in particular how to start the GUI (gui on forwarded robot can be started with run.sh)
-[ ] prio 1. moves: convert moves to jsonl
-
+[ ] prio 1. --incu-load with >11 plates
 [ ] prio 1. post mortem: put/get names not transparent enough ... ? lid_put lid_get
-
 [ ] prio 1. gui: make it easier to see where you are, use colours or add a 3d graph
 [ ] prio 1. gui: keyboard reference rotation
 [ ] prio 1. gui: add links to first subsections so you can go directly to ie wash_put and wash_get
@@ -84,6 +77,8 @@
             someone must have put them the wrong way around in the hotel
 
 [-] prio 2. (wontfix, not possible) washer wrapper: doesn't throw an error properly when out of liquid (but you can notice something is wrong because duration is only 22s, not >100s)
+
+[-] Incubator get does not seem to take different amount of time because of height
 
 - Dealing with runtime failures (machines acting up, gripper failures: plates slipping, lids not correctly on or off)
     - [ ] Make a list of all interactions that can error
