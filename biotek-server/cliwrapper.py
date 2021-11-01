@@ -1,33 +1,44 @@
-#!/usr/bin/env python3
-import sys
-import os.path
+import ast
 import os
-import json
-from flask import Flask, jsonify
-from subprocess import Popen, PIPE, STDOUT
-from queue import Queue
-from typing import Callable, Any, List, Tuple
+import os.path
+import sys
 import threading
 import time
+
+from dataclasses import dataclass, field
+from queue import Queue
+from subprocess import Popen, PIPE, STDOUT
+from typing import Any, List, Tuple
+
+from flask import Flask, jsonify
 
 LHC_CALLER_CLI_PATH = "C:\\Program Files (x86)\\BioTek\\Liquid Handling Control 2.22\\LHC_CallerCLI.exe"
 PROTOCOLS_ROOT = "C:\\ProgramData\\BioTek\\Liquid Handling Control 2.22\\Protocols\\"
 PORT = int(os.environ.get('PORT', 5050))
 HOST = os.environ.get('HOST', '10.10.0.56')
 
-def spawn(f: Callable[[], None]) -> None:
-    threading.Thread(target=f, daemon=True).start()
+@dataclass
+class Machine:
+    name: str
+    args: List[str]
 
-def machine(name: str, args: List[str]):
-
-    input_queue: Queue[Tuple[str, str, Queue[Any]]] = Queue()
+    input_queue: 'Queue[Tuple[str, str, Queue[Any]]]' = field(default_factory=Queue)
     is_ready: bool = False
 
-    @spawn
-    def handler():
-        nonlocal is_ready
+    def __post_init__(self):
+        threading.Thread(target=self.handler, daemon=True).start()
+
+    def message(self, cmd: str, arg: str=""):
+        if self.is_ready:
+            reply_queue: Queue[Any] = Queue()
+            self.input_queue.put((cmd, arg, reply_queue))
+            return reply_queue.get()
+        else:
+            return dict(success=False, lines=["not ready"])
+
+    def handler(self):
         with Popen(
-            args,
+            self.args,
             stdin=PIPE,
             stdout=PIPE,
             stderr=STDOUT,
@@ -43,41 +54,39 @@ def machine(name: str, args: List[str]):
 
             def read_to_ready(t0: float):
                 lines: List[str] = []
+                value: None = None
                 while True:
                     exc = p.poll()
                     if exc is not None:
                         t = round(time.monotonic() - t0, 3)
                         lines += [(t, f"exit code: {exc}")]
                         return lines
-                    line = stdout.readline().strip()
+                    line = stdout.readline().rstrip()
                     t = round(time.monotonic() - t0, 3)
-                    print(t, name, line)
+                    print(t, self.name, line)
                     if line.startswith('ready'):
-                        return lines
-                    else:
-                        lines += [line]
+                        return lines, value
+                    if line.startswith('value'):
+                        try:
+                            value = ast.literal_eval(line[len('value '):])
+                        except:
+                            pass
+                    lines += [line]
 
             lines = read_to_ready(time.monotonic())
             while True:
-                is_ready = True
-                cmd, arg, reply_queue = input_queue.get()
-                is_ready = False
+                self.is_ready = True
+                cmd, arg, reply_queue = self.input_queue.get()
+                self.is_ready = False
                 t0 = time.monotonic()
                 stdin.write(cmd + ' ' + arg + '\n')
                 stdin.flush()
-                lines = read_to_ready(t0)
+                lines, value = read_to_ready(t0)
                 success = any(line.startswith('success') for line in lines)
-                reply_queue.put_nowait(dict(success=success, lines=lines))
-
-    def message(cmd: str, arg: str=""):
-        if is_ready:
-            reply_queue: Queue[Any] = Queue()
-            input_queue.put((cmd, arg, reply_queue))
-            return reply_queue.get()
-        else:
-            return dict(success=False, lines=["not ready"])
-
-    return message
+                response = dict(lines=lines, success=success)
+                if value is not None:
+                    response['value'] = value
+                reply_queue.put_nowait(response)
 
 def example_main():
     while True:
@@ -92,35 +101,39 @@ def example_main():
 def main(test: bool):
     if test:
         machines = {
-            'example': machine(
+            'example': Machine(
                 'example',
                 args=['python', __file__, "--example"]
             ),
         }
     else:
         machines = {
-            'example': machine(
+            'example': Machine(
                 'example',
                 args=['python', __file__, "--example"],
             ),
-            'wash': machine(
+            'wash': Machine(
                 'wash',
                 args=[LHC_CALLER_CLI_PATH, "405 TS/LS", "USB 405 TS/LS sn:191107F", PROTOCOLS_ROOT],
             ),
-            'disp': machine(
+            'disp': Machine(
                 'disp',
                 args=[LHC_CALLER_CLI_PATH, "MultiFloFX", "USB MultiFloFX sn:19041612", PROTOCOLS_ROOT],
+            ),
+            'incu': Machine(
+                'incu',
+                args=["python", "-u", "../incubator-repl/incubator.py"],
             ),
         }
 
     app = Flask(__name__)
-    app.config['JSONIFY_PRETTYPRINT_REGULAR'] = True
+    app.config['JSONIFY_PRETTYPRINT_REGULAR'] = True #type: ignore
 
     @app.route('/<machine>/<cmd>')             # type: ignore
     @app.route('/<machine>/<cmd>/<path:arg>')  # type: ignore
     def execute(machine: str, cmd: str, arg: str=""):
         arg = arg.replace('/', '\\')
-        return jsonify(machines[machine](cmd, arg))
+        return jsonify(machines[machine].message(cmd, arg))
 
     app.run(host=HOST, port=PORT, threaded=True, processes=1)
 
