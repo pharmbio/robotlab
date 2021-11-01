@@ -2,7 +2,7 @@ import socket
 import traceback
 import re
 from dataclasses import dataclass
-from typing import Union, Tuple
+from typing import Union, Tuple, Dict
 
 @dataclass(frozen=True)
 class STX:
@@ -23,7 +23,8 @@ class STX:
                 if hasattr(self, command):
                     getattr(self, command)(*args)
                 else:
-                    self.call(command, *args)
+                    response = self.call(command, *args)
+                    assert response != "E1"
                 print("success")
             except Exception as e:
                 print("error", str(e))
@@ -41,7 +42,7 @@ class STX:
         level = int(pos[1:])
         return slot, level
 
-    def parse_climate(self, response: str) -> dict[str, float]:
+    def parse_climate(self, response: str) -> Dict[str, float]:
         """
         temp:  target temperature in °C.
         humid: target relative humidity in percent.
@@ -63,7 +64,7 @@ class STX:
         response = self.call("STX2Activate")
         assert response == "1" or response == "1;1"
 
-    def status(self):
+    def get_status(self):
         response = self.call("STX2GetSysStatus")
         response = int(response)
         assert response != -1
@@ -85,15 +86,15 @@ class STX:
 
     def get_climate(self):
         response = self.call("STX2ReadActualClimate")
-        return parse_climate(response)
+        return self.parse_climate(response)
 
     def get_target_climate(self):
         response = self.call("STX2ReadSetClimate")
-        return parse_climate(response)
+        return self.parse_climate(response)
 
     def set_target_climate(self, temp, humid, co2, n2):
-        response = self.call("STX2WriteSetClimate", temp, humid, co2, n2)
-        assert response == "1"
+        # I think the STX driver wants co2 and n2 in the opposite order here...
+        self.call("STX2WriteSetClimate", temp, humid, co2, n2)
 
     def get(self, pos: str):
         slot, level = self.parse_pos(pos)

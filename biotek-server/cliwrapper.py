@@ -127,7 +127,8 @@ def main(test: bool):
         }
 
     app = Flask(__name__)
-    app.config['JSONIFY_PRETTYPRINT_REGULAR'] = True #type: ignore
+    app.config['JSONIFY_PRETTYPRINT_REGULAR'] = True # type: ignore
+    app.config['JSON_SORT_KEYS'] = False             # type: ignore
 
     @app.route('/<machine>/<cmd>')             # type: ignore
     @app.route('/<machine>/<cmd>/<path:arg>')  # type: ignore
