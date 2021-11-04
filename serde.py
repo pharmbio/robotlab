@@ -14,6 +14,7 @@ def temp_scope():
     yield
     __dataclasses = saved
 
+# this could be done automatically by looking at imported modules ...
 def add_dataclass(t: Any):
     assert is_dataclass(t)
     assert t.__name__ not in __dataclasses

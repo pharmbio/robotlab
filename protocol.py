@@ -1,8 +1,7 @@
 from __future__ import annotations
-from typing import Any, TypeVar, Iterable, Iterator
+from typing import Any, TypeVar, Iterable, Iterator, Callable
 from dataclasses import *
 
-from datetime import datetime
 from collections import defaultdict, Counter
 
 import graphlib
@@ -30,7 +29,7 @@ from commands import (
     WaitForResource,
 )
 from moves import movelists
-from runtime import RuntimeConfig, Runtime, configs
+from runtime import RuntimeConfig, Runtime, dry_run
 import commands
 import moves
 
@@ -518,7 +517,7 @@ def load_incu(config: RuntimeConfig, num_plates: int):
                 RobotarmCmd(f'incu_A{pos} put transfer from drop neu'),
                 IncuFork('put', p.incu_loc),
                 RobotarmCmd(f'incu_A{pos} put return'),
-            ], plate_id=p.id)
+            ]).with_metadata(plate_id=p.id)
         ]
     program = Sequence(*[
         RobotarmCmd('incu_A21 put-prep'),
@@ -575,7 +574,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
     p = protocol_config
 
     prep_wash = WashFork(p.prep_wash) if p.prep_wash else Idle()
-    prep_disp = DispFork(p.prep_disp) + 2 if p.prep_disp else Idle()
+    prep_disp = DispFork(p.prep_disp).delay(2) if p.prep_disp else Idle()
     prep_cmds: list[Command] = [
         prep_wash,
         prep_disp,
@@ -716,9 +715,8 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
 
             wash = [
                 RobotarmCmd('wash put prep'),
-                WashFork(p.wash[i], cmd='Validate', assume='idle') + 1 if plate is first_plate else Idle(),
+                WashFork(p.wash[i], cmd='Validate', assume='idle').delay(1) if plate is first_plate else Idle(),
                 RobotarmCmd('wash put transfer'),
-                # WaitForResource('wash'),
                 Fork(
                     Sequence(
                         *wash_delay,
@@ -757,9 +755,6 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
             disp_to_B21 = [
                 RobotarmCmd('disp get prep'),
                 WaitForCheckpoint(f'{plate_desc} disp {ix} done', report_behind_time=False, assume='nothing'),
-                # WaitForResource('disp'),
-                # Duration(f'{plate_desc} disp {ix} done', opt_weight=0.0),
-                # DispFork(p.disp.Stains),
                 RobotarmCmd('disp get transfer'),
                 RobotarmCmd('disp get return'),
             ]
@@ -864,7 +859,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
     #     print(e)
 
     return Sequence(
-        Sequence(*prep_cmds, step='prep'),
+        Sequence(*prep_cmds).with_metadata(step='prep'),
         *plate_cmds,
         Sequence(*post_cmds)
     )
@@ -982,8 +977,7 @@ test_comm_program: Command = Sequence(
     WashFork(cmd='TestCommunications', protocol_path=None),
     WaitForResource('incu'),
     WaitForResource('wash'),
-    event_part='test comm'
-)
+).with_metadata(event_part='test comm')
 
 def test_comm(config: RuntimeConfig):
     '''
@@ -1024,17 +1018,19 @@ def group_times(times: dict[str, list[float]]):
 import contextlib
 
 @contextlib.contextmanager
-def make_runtime(config: RuntimeConfig, metadata: dict[str, str], *, log_to_file: bool=True) -> Iterator[Runtime]:
+def make_runtime(config: RuntimeConfig, metadata: dict[str, str]) -> Iterator[Runtime]:
     metadata = {
         'start_time': utils.now_str_for_filename(),
         **metadata,
-        'config_name': config.name(),
+        'config_name': config.name,
     }
-    if log_to_file:
-        log_filename = ' '.join(['event log', *metadata.values()])
-        log_filename = 'logs/' + log_filename.replace(' ', '_') + '.jsonl'
-        os.makedirs('logs/', exist_ok=True)
-
+    if config.log_to_file:
+        log_filename = config.log_filename
+        if not log_filename:
+            log_filename = ' '.join(['event log', *metadata.values()])
+            log_filename = 'logs/' + log_filename.replace(' ', '_') + '.jsonl'
+        abspath = os.path.abspath(log_filename)
+        os.makedirs(os.path.dirname(abspath), exist_ok=True)
         print(f'{log_filename=}')
     else:
         log_filename = None
@@ -1048,13 +1044,47 @@ def make_runtime(config: RuntimeConfig, metadata: dict[str, str], *, log_to_file
 
 import constraints
 
-def execute_program(config: RuntimeConfig, program: Command, metadata: dict[str, str], log_to_file: bool = True) -> Runtime:
+def execute_program(config: RuntimeConfig, program: Command, metadata: dict[str, str]) -> Runtime:
+    program = program.remove_noops()
     program = program.assign_ids()
 
     with utils.timeit('constraints'):
         program, expected_ends = constraints.optimize(program)
 
-    if config.name() == 'test-arm-incu':
+    with utils.timeit('estimates'):
+        with make_runtime(dry_run.replace(log_to_file=False), {}) as runtime_est:
+            program.execute(runtime_est, {})
+
+    with utils.timeit('check correspondence'):
+        est_entries = runtime_est.log_entries
+        matches = 0
+        mismatches = 0
+        seen: set[str] = set()
+        for e in est_entries:
+            i = e.get('id')
+            if i and (e.get('kind') == 'end' or e.get('kind') == 'info' and e.get('source') == 'checkpoint'):
+                seen.add(i)
+                if abs(e['t'] - expected_ends[i]) > 0.1:
+                    utils.pr(('no match!', i, e, expected_ends[i]))
+                    mismatches += 1
+                else:
+                    matches += 1
+                # utils.pr((f'{matches=}', i, e, ends[i]))
+        by_id: dict[str, Command] = {
+            i: c
+            for c in program.universe()
+            if isinstance(c, commands.Meta)
+            if (i := c.metadata.get('id')) and isinstance(i, str)
+        }
+
+        for i, e in expected_ends.items():
+            if i not in seen:
+                print(i, e, by_id.get(i, '?'), sep='\t')
+
+        if mismatches or not matches:
+            print(f'{matches=} {mismatches=} {len(expected_ends)=}')
+
+    if config.name == 'test-arm-incu':
         def Filter(cmd: Command) -> Command:
             match cmd:
                 case commands.BiotekCmd() | commands.Idle():
@@ -1064,52 +1094,28 @@ def execute_program(config: RuntimeConfig, program: Command, metadata: dict[str,
                 case _:
                     return cmd
         program = program.transform(Filter)
+        program = program.remove_noops()
 
-    with make_runtime(config, metadata, log_to_file=log_to_file) as runtime:
+    utils.pr(program)
+
+    with make_runtime(config, metadata) as runtime:
         try:
             print('Expected finish:', runtime.pp_time_offset(max(expected_ends.values())))
         except:
             pass
 
         program_opt = program.remove_scheduling_idles()
-        os.makedirs('programs/', exist_ok=True)
-        program_pickle_file = 'programs/' + utils.now_str_for_filename() + '.pkl'
-        with open(program_pickle_file, 'wb') as fp:
-            pickle.dump(program_opt, fp)
-        runtime.log('info', 'system', None, {'program_pickle_file': program_pickle_file, 'silent': True})
+
+        os.makedirs('running/', exist_ok=True)
+        base = 'running/' + utils.now_str_for_filename() + '_'
+        save = {
+            'estimates_pickle_file': est_entries,
+            'program_pickle_file': program_opt,
+        }
+        for k, v in save.items():
+            with open(base + k, 'wb') as fp:
+                pickle.dump(v, fp)
+            runtime.log('info', 'system', None, {k: base + k, 'silent': True})
+
         program_opt.execute(runtime, {})
-        ret = runtime
-
-    if config.name() != 'live' and expected_ends:
-        with make_runtime(configs['dry-run'], {}, log_to_file=False) as runtime:
-            program.execute(runtime, {})
-            entries = runtime.log_entries
-            matches = 0
-            mismatches = 0
-            seen: set[str] = set()
-            for e in entries:
-                i = e.get('id')
-                if (e.get('kind') == 'end' or e.get('kind') == 'info' and e.get('source') == 'checkpoint') and i:
-                    seen.add(i)
-                    if abs(e['t'] - expected_ends[i]) > 0.1:
-                        utils.pr(('no match!', i, e, expected_ends[i]))
-                        mismatches += 1
-                    else:
-                        matches += 1
-                    # utils.pr((f'{matches=}', i, e, ends[i]))
-            by_id: dict[str, Command] = {
-                i: c
-                for c in program.universe()
-                if isinstance(c, commands.Seq)
-                if (i := c.metadata.get('id')) and isinstance(i, str)
-            }
-
-            for i, e in expected_ends.items():
-                if i not in seen:
-                    print(i, e, by_id.get(i, '?'), sep='\t')
-
-            if mismatches or not matches:
-                print(f'{matches=} {mismatches=} {len(expected_ends)=}')
-
-    return ret
-
+        return runtime

@@ -17,18 +17,6 @@ import traceback
 from flask import Flask, request, jsonify
 from itsdangerous import Serializer, URLSafeSerializer
 
-def timeit(desc: str='') -> ContextManager[None]:
-    # The inferred type for the decorated function is wrong hence this wrapper to get the correct type
-
-    @contextmanager
-    def worker():
-        t0 = time.monotonic()
-        yield
-        T = time.monotonic() - t0
-        print(f'{T:.3f} {desc}')
-
-    return worker()
-
 def trim(s: str, soft: bool=False, sep: str=' '):
     if soft:
         return textwrap.dedent(s).strip()
@@ -168,7 +156,8 @@ class Tag(Node):
         else:
             yield ' ' * i + f'<{name}{attrs}>'
             for child in self.children:
-                yield from child.to_strs(indent=indent, i=i+indent)
+                if child:
+                    yield from child.to_strs(indent=indent, i=i+indent)
             yield ' ' * i + f'</{name}>'
 
     def make_classes(self, classes: dict[str, tuple[str, str]], minify: bool=True) -> dict[str, tuple[str, str]]:
@@ -250,6 +239,16 @@ def serializer_factory() -> Serializer:
     return URLSafeSerializer(secret, serializer=pickle)
 
 @dataclass(frozen=True)
+class js:
+    fragment: str
+
+def function_name(f: Callable[..., Any]) -> str:
+    if f.__module__ == '__main__':
+        return f.__qualname__
+    else:
+        return f.__module__ + '.' + f.__qualname__
+
+@dataclass(frozen=True)
 class Exposed:
     _f: Callable[..., Any]
     _serializer: Serializer
@@ -269,19 +268,32 @@ class Exposed:
         '''
         return self._f(*args, **kws)
 
-    def url(self, *args: Any, **kws: Any):
+    def call(self, *args: Any, **kws: Any) -> str:
         '''
-        The quoted url for the function, optionally already applied to some arguments.
+        The handler, optionally already applied to some arguments, which may be javascript fragments.
 
         >>> @serve.expose
         ... def Sum(*args: str | int | float) -> float
         ...     res = sum(map(float, args))
         ...     print(res)
         ...     return res
-        >>> elem = input(onclick=f'call({Sum.url(1)},this.value).then(async resp=>console.log(await resp.json()))')
+        >>> elem = input(onclick=Sum.call(1, js('this.value')))
         '''
-        msg: bytes = self._serializer.dumps((self._f.__name__, *args, kws)) # type: ignore
-        return f"'/call/{msg.decode()}'"
+        py_args: list[Any] = []
+        js_args: list[Any] = []
+        for arg in args:
+            if isinstance(arg, js):
+                js_args += [arg.fragment]
+            else:
+                assert not js_args
+                py_args += [arg]
+        name = function_name(self._f)
+        payload_tuple = (name, *py_args, kws)
+        payload = self._serializer.dumps(payload_tuple)
+        if isinstance(payload, bytes):
+            payload = payload.decode()
+        args_csv = ",".join((repr(name), repr(payload), *js_args))
+        return f'call({args_csv})'
 
 app = Flask(__name__)
 
@@ -297,8 +309,8 @@ class Serve:
     # State for reloading
     notify_reload: Event = field(default_factory=Event)
 
-    def expose(self, f: Callable[..., Any], *args: Any, **kws: Any) -> Exposed:
-        name = f.__name__
+    def expose(self, f: Callable[..., Any]) -> Exposed:
+        name = function_name(f)
         assert name != '<lambda>'
         if name in self.exposed:
             assert self.exposed[name].f == f # type: ignore
@@ -313,9 +325,10 @@ class Serve:
                 app.add_url_rule( # type: ignore
                     rule,
                     endpoint=endpoint,
-                    view_func=lambda *args: self.view(rule, *args) # type: ignore
+                    view_func=lambda *args, **kws: self.view(rule, *args, **kws) # type: ignore
                 )
             self.routes[rule] = f
+            return f
         return inner
 
     def one(self, rule: str = '/'):
@@ -337,12 +350,12 @@ class Serve:
         self.notify_reload.set()
         self.notify_reload.clear()
 
-    def view(self, rule: str, *args: Any) -> str:
-        return self.view_callable(self.routes[rule], *args)
+    def view(self, rule: str, *args: Any, **kws: Any) -> str:
+        return self.view_callable(self.routes[rule], *args, **kws)
 
-    def view_callable(self, f: Callable[..., Iterable[Tag | str | dict[str, str]]], *args: Any, include_hot: bool=True) -> str:
+    def view_callable(self, f: Callable[..., Iterable[Tag | str | dict[str, str]]], *args: Any, include_hot: bool=True, **kws: Any) -> str:
         try:
-            parts = f(*args)
+            parts = f(*args, **kws)
             body_node = body(*cast(Any, parts))
             title_str = f.__name__
         except BaseException as e:
@@ -389,15 +402,16 @@ class Serve:
             head_node += meta(name="viewport", content="width=device-width,initial-scale=1")
         if not has_icon:
             # favicon because of chromium bug, see https://stackoverflow.com/a/36104057
-            head_node += meta(rel="icon", type="image/png", href="data:image/png;base64,iVBORw0KGgo=")
+            head_node += link(rel="icon", type="image/png", href="data:image/png;base64,iVBORw0KGgo=")
 
         minify = bool(re.search('gzip|br|deflate', cast(Any, request).headers.get('Accept-encoding', '')))
         indent = 0 if minify else 2
-        newline = '\n' if minify else ''
+        newline = '' if minify else '\n'
 
         classes = body_node.make_classes({}, minify=minify)
 
-        head_node += style(*[raw(inst) for name, inst in classes.values()])
+        if classes:
+            head_node += style(*[raw(inst) for name, inst in classes.values()])
 
         if include_hot:
             head_node += script(src="/hot.js", defer=True)
@@ -413,12 +427,14 @@ class Serve:
             self.reload()
             return self.last_err or '', {'Content-Type': 'text/plain'}
 
-        @app.post('/call/<msg>')
-        def call(msg: str):
+        @app.post('/call/<name>')
+        def call(name: str):
             try:
-                name, *args, kws = self._serializer.loads(msg)     # type: ignore
-                more_args = request.json["args"]                   # type: ignore
-                ret = self.exposed[name](*args, *more_args, **kws) # type: ignore
+                payload = request.json["payload"]                      # type: ignore
+                msg_name, *args, kws = self._serializer.loads(payload) # type: ignore
+                assert name == msg_name
+                more_args = request.json["args"]                       # type: ignore
+                ret = self.exposed[msg_name](*args, *more_args, **kws) # type: ignore
                 return jsonify(ret)
             except:
                 traceback.print_exc()
@@ -430,8 +446,7 @@ class Serve:
 
         @app.route('/ping')
         def ping():
-            self.notify_reload.wait(115)
-            return jsonify({})
+            return jsonify({'refresh': self.notify_reload.wait(115)})
 
         try:
             from flask_compress import Compress # type: ignore
@@ -441,20 +456,60 @@ class Serve:
 
         if sys.argv[0].endswith('.py'):
             print('Running app...')
-            host = os.environ.get('VIABLE_HOST')
-            port = os.environ.get('VIABLE_PORT')
-            port = int(port) if port else None
-            app.run(host=host, port=port)
+            # use flask's SERVER_NAME instead
+            app.config['SERVER_NAME'] = os.environ.get('SERVER_NAME')
+            app.run()
 
 serve = Serve()
 
 hot_js = str(r'''
-    function call(url, ...args) {
-        return fetch(url, {
+    function get_query() {
+        return Object.fromEntries(new URL(location.href).searchParams)
+    }
+    function update_query(kvs) {
+        return set_query({...get_query(), ...kvs})
+    }
+    function set_query(kvs) {
+        let next = new URL(location.href)
+        next.search = new URLSearchParams(kvs)
+        history.replaceState(null, null, next.href)
+    }
+    function with_pathname(s) {
+        let next = new URL(location.href)
+        next.pathname = s
+        return next.href
+    }
+    async function call(name, payload, ...args) {
+        const resp = await fetch("/call/" + name, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ args: args }),
+            body: JSON.stringify({ payload, args }),
         })
+        const body = await resp.json()
+        if (body && typeof body === 'object') {
+            if (body.eval) {
+                (0, eval)(body.eval)
+            }
+            if (body.set_query) {
+                set_query(body.set_query)
+            }
+            if (body.update_query) {
+                update_query(body.update_query)
+            }
+            if (body.replace) {
+                history.replaceState(null, null, with_pathname(body.replace))
+            }
+            if (body.goto) {
+                history.pushState(null, null, with_pathname(body.goto))
+            }
+            if (body.refresh) {
+                refresh()
+            }
+            if (body.log) {
+                console.log(body.log)
+            }
+        }
+        return resp
     }
     function morph(prev, next) {
         if (
@@ -522,11 +577,11 @@ hot_js = str(r'''
         }
         let text = null
         try {
-            const resp = await fetch(window.location.href)
+            const resp = await fetch(location.href)
             text = await resp.text()
         } catch (e) {
             if (i > 0) {
-                window.setTimeout(() => refresh(i-1, and_then), i < 300 ? 1000 : 16)
+                window.setTimeout(() => refresh(i-1, and_then), i < 300 ? 1000 : 50)
             } else {
                 console.warn('timeout', e)
             }
@@ -545,6 +600,7 @@ hot_js = str(r'''
                 console.warn(e)
             }
             if (and_then) {
+                in_progress = false
                 and_then()
             } else if (in_progress) {
                 in_progress = false
@@ -559,7 +615,10 @@ hot_js = str(r'''
         while (true) {
             try {
                 const resp = await fetch('/ping')
-                await resp.json()
+                body = await resp.json()
+                if (body.refresh) {
+                    break
+                }
             } catch {
                 break
             }
@@ -589,28 +648,25 @@ hot_js = str(r'''
         }
         return vals
     }
-    function get_query(q) {
-        return Object.fromEntries(new URLSearchParams(location.search))
-    }
-    function update_query(kvs) {
-        return set_query({...get_query(), ...kvs})
-    }
-    function set_query(kvs) {
-        let q = '?' + new URLSearchParams(kvs).toString()
-        let next = location.href
-        if (next.indexOf('?') == -1 || !location.search) {
-            next = next.replace(/\?$/, '') + q
-        } else {
-            next = next.replace(location.search, q)
-        }
-        history.replaceState(null, null, next)
-    }
 ''')
 if os.environ.get('VIABLE_NO_HOT'):
     pass
 else:
     hot_js += 'poll()'
-hot_js = trim(hot_js, sep='\n')
+try:
+    import utils
+    with utils.timeit('esbuild'):
+        from subprocess import run
+        res = run(["esbuild", "--minify"], capture_output=True, input=hot_js, encoding='utf-8')
+        hot_js = res.stdout
+        if res.stderr:
+            print(res.stderr, file=sys.stderr)
+except:
+    hot_js = trim(hot_js, sep='\n')
+
+def queue_refresh(after_ms: float=100):
+    js = f'clearTimeout(window._qrt); window._qrt = setTimeout(()=>requestAnimationFrame(()=>refresh()),{after_ms})'
+    return script(raw(js), eval=True)
 
 class a(Tag): pass
 class abbr(Tag): pass

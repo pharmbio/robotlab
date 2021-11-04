@@ -7,6 +7,7 @@ from commands import (
     Command,
     Seq,
     Fork,
+    Meta,
     Checkpoint,
     Duration,
     Idle,
@@ -43,8 +44,6 @@ class OptimalResult:
 
 def optimal_env(cmd: Command) -> OptimalResult:
     variables = cmd.free_vars()
-    if not variables:
-        return OptimalResult({}, {})
     ids = Ids()
 
     Resolution = 2
@@ -83,14 +82,6 @@ def optimal_env(cmd: Command) -> OptimalResult:
     ends: dict[str, Symbolic] = {}
 
     def run(cmd: Command, begin: Symbolic, *, is_main: bool) -> Symbolic:
-        end = run_inner(cmd, begin, is_main=is_main)
-        match cmd:
-            case Seq() if cmd_id := cmd.metadata.get('id'):
-                assert isinstance(cmd_id, str)
-                ends[cmd_id] = end
-        return end
-
-    def run_inner(cmd: Command, begin: Symbolic, *, is_main: bool) -> Symbolic:
         '''
         returns end
         '''
@@ -136,6 +127,12 @@ def optimal_env(cmd: Command) -> OptimalResult:
                 end = begin
                 for c in cmd.commands:
                     end = run(c, end, is_main=is_main)
+                return end
+            case Meta():
+                end = run(cmd.command, begin, is_main=is_main)
+                if cmd_id := cmd.metadata.get('id'):
+                    assert isinstance(cmd_id, str)
+                    ends[cmd_id] = end
                 return end
             case Fork():
                 assert is_main, 'can only fork from the main thread'

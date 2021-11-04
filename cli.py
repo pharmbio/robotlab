@@ -1,11 +1,12 @@
 from __future__ import annotations
 from typing import *
+import typing
 
 import argparse
 import os
 import sys
 
-from runtime import RuntimeConfig, configs, Runtime
+from runtime import RuntimeConfig, configs, Runtime, config_lookup
 from utils import show
 
 import commands
@@ -16,47 +17,113 @@ import protocol
 import resume
 
 import utils
+from dataclasses import dataclass, field, fields, replace, Field
+import json
+
+A = TypeVar('A')
+
+@dataclass(frozen=True)
+class option:
+    name: str
+    value: Any
+    help: str = ''
+
+@dataclass(frozen=True)
+class Nothing:
+    pass
+
+nothing = Nothing()
+
+@dataclass(frozen=True)
+class Arg:
+    helps: dict[Any, str] = field(default_factory=dict)
+    enums: dict[Any, list[option]] = field(default_factory=dict)
+    def __call__(self, default: A | Nothing = nothing, help: str | Callable[..., Any] | None = None, enum: list[option] | None = None) -> A:
+        f: Field[A]
+        def default_factory():
+            # at this point we know f.type
+            if default == nothing:
+                f_type: str = f.type # type: ignore
+                return eval(f_type)()
+            else:
+                return default
+        f = field(default_factory=default_factory) # type: ignore
+        if callable(help):
+            help = help.__doc__
+        if help:
+            self.helps[f] = help.strip().splitlines()[0]
+        if enum:
+            self.enums[f] = enum
+        return f # type: ignore
+
+    def parse_args(self, as_type: Type[A], **kws: Any) -> tuple[A, argparse.ArgumentParser]:
+        parser = argparse.ArgumentParser(**kws)
+        for f in fields(as_type):
+            enum = self.enums.get(f)
+            name = '--' + f.name.replace('_', '-')
+            default = f.default_factory()
+            if enum:
+                parser.add_argument(name, default=default, help=argparse.SUPPRESS)
+                for opt in enum:
+                    parser.add_argument('--' + opt.name, dest=f.name, action="store_const", const=opt.value, help=opt.help)
+            else:
+                f_type = eval(f.type)
+                if f_type == list or typing.get_origin(f_type) == list:
+                    parser.add_argument(dest=f.name, default=default, nargs="*", help=self.helps.get(f))
+                elif f_type == bool:
+                    action = 'store_false' if default else 'store_true'
+                    parser.add_argument(name, default=bool(default), action=action, help=self.helps.get(f))
+                else:
+                    parser.add_argument(name, default=default, metavar='X', type=f_type, help=self.helps.get(f))
+        v = parser.parse_args()
+        return as_type(**v.__dict__), parser
+
+arg = Arg()
+
+@dataclass(frozen=True)
+class Args:
+    config_name: str = arg(
+        'dry-run',
+        enum=[option(c.name, c.name, help='Run with config ' + c.name) for c in configs]
+    )
+    test_comm:                 bool = arg(help=(protocol.test_comm.__doc__ or '').strip())
+
+    cell_paint:                str  = arg(help='Cell paint with batch sizes of BS, separated by comma (such as 6,6 for 2x6). Plates start stored in incubator L1, L2, ..')
+    incu:                      str  = arg(default='1200,1200,1200,1200,1200', help='Incubation times in seconds, separated by comma')
+    interleave:                bool = arg(help='Interleave plates, required for 7 plate batches')
+    two_final_washes:          bool = arg(help='Use two shorter final washes in the end, required for big batch sizes, required for 8 plate batches')
+    lockstep:                  bool = arg(help='Allow steps to overlap: first plate PFA starts before last plate Mito finished and so on, required for 10 plate batches')
+    log_filename:              str  = arg(help='Manually set the log filename instead of having a generated name based on date')
+
+    test_circuit:              bool = arg(help='Test circuit: start with one plate with lid on incubator transfer door, and all other positions empty!')
+    time_bioteks:              bool = arg(help=protocol.time_bioteks)
+    time_arm_incu:             bool = arg(help=protocol.time_arm_incu)
+    load_incu:                 int  = arg(help=protocol.load_incu)
+    unload_incu:               int  = arg(help=protocol.unload_incu)
+    lid_stress_test:           bool = arg(help=protocol.lid_stress_test)
+
+    resume:                    str  = arg(help='Resume program given a log file')
+
+    wash:                      str  = arg(help='Run a program on the washer')
+    disp:                      str  = arg(help='Run a program on the dispenser')
+    prime:                     str  = arg(help='Run a priming program on the dispenser')
+    incu_put:                  str  = arg(help='Put the plate in the transfer station to the argument position POS (L1, .., R1, ..).')
+    incu_get:                  str  = arg(help='Get the plate in the argument position POS. It ends up in the transfer station.')
+
+    list_imports:              bool = arg(help='Print the imported python modules for type checking.')
+
+    list_robotarm_programs:    bool = arg(help='List the robot arm programs')
+    inspect_robotarm_programs: bool = arg(help='Inspect steps of robotarm programs')
+    robotarm:                  bool = arg(help='Run robot arm')
+    robotarm_send:             str  = arg(help='Send a raw program to the robot arm')
+    robotarm_speed:            int  = arg(default=100, help='Robot arm speed [1-100]')
+    program_names:             list[str] = arg(help='Robot arm program name to run')
+    json_arg:                  str  = arg(help='Give arguments as json on the command line')
 
 def main():
-    parser = argparse.ArgumentParser(description='Make the lab robots do things.', )
-    parser.add_argument('--config', metavar='NAME', type=str, default='dry-run', help=argparse.SUPPRESS)
-    for k, v in configs.items():
-        parser.add_argument('--' + k, dest="config", action="store_const", const=k, help='Run with config ' + k)
-
-    parser.add_argument('--test-comm', action='store_true', help=(protocol.test_comm.__doc__ or '').strip())
-
-    parser.add_argument('--cell-paint', metavar='BS', type=str, default=None, help='Cell paint with batch sizes of BS, separated by comma (such as 6,6 for 2x6). Plates start stored in incubator L1, L2, ..')
-    parser.add_argument('--incu', metavar='IS', type=str, default='1200,1200,1200,1200,1200', help='Incubation times in seconds, separated by comma')
-    parser.add_argument('--interleave', action='store_true', help='Interleave plates, required for 7 plate batches')
-    parser.add_argument('--two-final-washes', action='store_true', help='Use two shorter final washes in the end, required for big batch sizes, required for 8 plate batches')
-    parser.add_argument('--lockstep', action='store_true', help='Allow steps to overlap: first plate PFA starts before last plate Mito finished and so on, required for 10 plate batches')
-    parser.add_argument('--test-circuit', action='store_true', help='Test circuit: start with one plate with lid on incubator transfer door, and all other positions empty!')
-    parser.add_argument('--time-bioteks', action='store_true', help=(protocol.time_bioteks.__doc__ or '').strip().splitlines()[0])
-    parser.add_argument('--time-arm-incu', action='store_true', help=(protocol.time_arm_incu.__doc__ or '').strip().splitlines()[0])
-    parser.add_argument('--load-incu', type=int, help=(protocol.load_incu.__doc__ or '').strip().splitlines()[0])
-    parser.add_argument('--unload-incu', type=int, help=(protocol.unload_incu.__doc__ or '').strip().splitlines()[0])
-    parser.add_argument('--lid-stress-test', action='store_true', help=(protocol.lid_stress_test.__doc__ or '').strip().splitlines()[0])
-
-    parser.add_argument('--resume', type=str, help='Resume program given a log file')
-
-    parser.add_argument('--wash', type=str, help='Run a program on the washer')
-    parser.add_argument('--disp', type=str, help='Run a program on the dispenser')
-    parser.add_argument('--prime', type=str, help='Run a priming program on the dispenser')
-    parser.add_argument('--incu-put', metavar='POS', type=str, default=None, help='Put the plate in the transfer station to the argument position POS (L1, .., R1, ..).')
-    parser.add_argument('--incu-get', metavar='POS', type=str, default=None, help='Get the plate in the argument position POS. It ends up in the transfer station.')
-
-    parser.add_argument('--list-imports', action='store_true', help='Print the imported python modules for type checking.')
-
-    parser.add_argument('--list-robotarm-programs', action='store_true', help='List the robot arm programs')
-    parser.add_argument('--inspect-robotarm-programs', action='store_true', help='Inspect steps of robotarm programs')
-    parser.add_argument('--robotarm', action='store_true', help='Run robot arm')
-    parser.add_argument('--robotarm-send', metavar='STR', type=str, help='Send a raw program to the robot arm')
-    parser.add_argument('--robotarm-speed', metavar='N', type=int, default=100, help='Robot arm speed [1-100]')
-    parser.add_argument('program_name', type=str, nargs='*', help='Robot arm program name to run')
-
-    args = parser.parse_args()
-    if 0:
-        print(f'args =', show(args.__dict__))
+    args, parser = arg.parse_args(Args, description='Make the lab robots do things.')
+    if args.json_arg:
+        args = Args(**json.loads(args.json_arg))
 
     if args.list_imports:
         my_dir = os.path.dirname(__file__)
@@ -66,15 +133,13 @@ def main():
                 print(path)
         sys.exit(0)
 
-    config_name = args.config
-    try:
-        config: RuntimeConfig = configs[config_name]
-    except KeyError:
-        raise ValueError(f'Unknown {config_name = }. Available: {show(configs.keys())}')
+    config: RuntimeConfig = config_lookup(args.config_name)
+    config = config.replace(
+        robotarm_speed=args.robotarm_speed,
+        log_filename=args.log_filename,
+    )
 
-    config = config.with_speed(args.robotarm_speed)
-
-    print(f'Using', config.name(), 'config =', show(config))
+    print('config =', show(config))
 
     v3 = protocol.make_v3(
         incu_csv=args.incu,
@@ -117,7 +182,7 @@ def main():
 
     elif args.robotarm:
         runtime = Runtime(config)
-        for name in args.program_name:
+        for name in args.program_names:
             if name in movelists:
                 commands.RobotarmCmd(name).execute(runtime, {})
             else:

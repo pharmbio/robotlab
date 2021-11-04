@@ -17,7 +17,7 @@ import utils
 from utils import Mutable
 from utils import pp_secs
 
-from timelike import Timelike, WallTime, SimulatedTime
+from timelike import Timelike, WallTime, SimulatedTime, FastForwardTime
 from collections import defaultdict
 
 import os
@@ -32,7 +32,7 @@ class Env:
 
 live_env = Env(
     robotarm_host = '10.10.0.112',
-    incu_url      = 'http://10.10.0.56:5051',
+    incu_url      = 'http://10.10.0.56:5050',
     biotek_url    = 'http://10.10.0.56:5050',
 )
 
@@ -53,44 +53,55 @@ dry_env = Env()
 
 @dataclass(frozen=True)
 class RuntimeConfig:
+    name:               str
     timelike_factory:   Callable[[], Timelike]
     disp_and_wash_mode: Literal['noop', 'execute',                       ]
     incu_mode:          Literal['noop', 'execute',                       ]
     robotarm_mode:      Literal['noop', 'execute', 'execute no gripper', ]
-
     env: Env
-
     robotarm_speed: int = 100
+    log_filename: str = ''
+    log_to_file: bool = True
 
-    def name(self) -> str:
-        for k, v in configs.items():
-            if v is self:
-                return k
-        raise ValueError(f'unknown config {self}')
+    def replace(self,
+        robotarm_speed: int  | None = None,
+        log_filename:   str  | None = None,
+        log_to_file:    bool | None = None,
+    ):
+        next = self
+        updates = dict(
+            robotarm_speed=robotarm_speed,
+            log_filename=log_filename,
+            log_to_file=log_to_file,
+        )
+        for k, v in updates.items():
+            if v is None:
+                pass
+            elif getattr(next, k) is v:
+                pass
+            else:
+                next = replace(next, **{k: v})
+        return next
 
-    def give_name(self, name: str):
-        configs[name] = self
+configs: list[RuntimeConfig]
+configs = [
+    RuntimeConfig('live',          WallTime,              disp_and_wash_mode='execute', incu_mode='execute', robotarm_mode='execute',            env=live_env),
+    RuntimeConfig('test-all',      WallTime,              disp_and_wash_mode='execute', incu_mode='execute', robotarm_mode='execute',            env=live_env),
+    RuntimeConfig('test-arm-incu', WallTime,              disp_and_wash_mode='noop',    incu_mode='execute', robotarm_mode='execute',            env=live_arm_incu),
+    RuntimeConfig('simulator',     WallTime,              disp_and_wash_mode='noop',    incu_mode='noop',    robotarm_mode='execute no gripper', env=simulator_env),
+    RuntimeConfig('forward',       WallTime,              disp_and_wash_mode='noop',    incu_mode='noop',    robotarm_mode='execute',            env=forward_env),
+    RuntimeConfig('dry-ff',        FastForwardTime(50.0), disp_and_wash_mode='noop',    incu_mode='noop',    robotarm_mode='noop',               env=dry_env),
+    RuntimeConfig('dry-wall',      WallTime,              disp_and_wash_mode='noop',    incu_mode='noop',    robotarm_mode='noop',               env=dry_env),
+    RuntimeConfig('dry-run',       SimulatedTime,         disp_and_wash_mode='noop',    incu_mode='noop',    robotarm_mode='noop',               env=dry_env),
+]
 
-    def with_speed(self, robotarm_speed: int) -> RuntimeConfig:
-        if robotarm_speed == self.robotarm_speed:
-            return self
-        else:
-            conf = replace(self, robotarm_speed=robotarm_speed)
-            # have to make up a name (this is a bit silly)
-            name = f'{self.name()}({robotarm_speed=})'
-            conf.give_name(name)
-            return conf
+def config_lookup(name: str) -> RuntimeConfig:
+    for config in configs:
+        if config.name == name:
+            return config
+    raise KeyError(name)
 
-configs: dict[str, RuntimeConfig]
-configs = {
-    'live':           RuntimeConfig(WallTime,      disp_and_wash_mode='execute', incu_mode='execute', robotarm_mode='execute',            env=live_env),
-    'test-all':       RuntimeConfig(WallTime,      disp_and_wash_mode='execute', incu_mode='execute', robotarm_mode='execute',            env=live_env),
-    'test-arm-incu':  RuntimeConfig(WallTime,      disp_and_wash_mode='noop',    incu_mode='execute', robotarm_mode='execute',            env=live_arm_incu),
-    'simulator':      RuntimeConfig(WallTime,      disp_and_wash_mode='noop',    incu_mode='noop',    robotarm_mode='execute no gripper', env=simulator_env),
-    'forward':        RuntimeConfig(WallTime,      disp_and_wash_mode='noop',    incu_mode='noop',    robotarm_mode='execute',            env=forward_env),
-    'dry-wall':       RuntimeConfig(WallTime,      disp_and_wash_mode='noop',    incu_mode='noop',    robotarm_mode='noop',               env=dry_env),
-    'dry-run':        RuntimeConfig(SimulatedTime, disp_and_wash_mode='noop',    incu_mode='noop',    robotarm_mode='noop',               env=dry_env),
-}
+dry_run = config_lookup('dry-run')
 
 def curl(url: str, print_result: bool = False) -> Any:
     # if 'is_ready' not in url:

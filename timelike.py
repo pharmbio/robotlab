@@ -182,13 +182,13 @@ class SimulatedTime(Timelike):
                 v.inbox.put_nowait(None)
         self.log()
 
-
 @dataclass(frozen=True)
 class WallTime(Timelike):
     start_time: float = field(default_factory=time.monotonic)
+    speedup: float = 1.0
 
     def monotonic(self):
-        return time.monotonic() - self.start_time
+        return (time.monotonic() - self.start_time) * self.speedup
 
     def register_thread(self, name: str):
         pass
@@ -204,11 +204,14 @@ class WallTime(Timelike):
 
     def sleep(self, seconds: float):
         if seconds > 0:
-            time.sleep(seconds)
+            time.sleep(seconds / self.speedup)
 
     def thread_idle(self):
         pass
 
     def thread_done(self):
         pass
+
+def FastForwardTime(speedup: float):
+    return lambda: WallTime(speedup=speedup)
 

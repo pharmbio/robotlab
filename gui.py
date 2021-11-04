@@ -8,16 +8,15 @@ from pathlib import Path
 import ast
 import math
 import re
-import threading
 
 from moves import Move, MoveList
-from runtime import RuntimeConfig, configs
+from runtime import RuntimeConfig, config_lookup
 import moves
 import robotarm
 import runtime
 import utils
 
-from viable import head, serve, esc, css_esc, trim, button, pre
+from viable import head, serve, esc, css_esc, trim, button, pre, js
 from viable import Tag, div, span, label, img, raw, Input, input
 import viable as V
 
@@ -28,11 +27,11 @@ log.setLevel(logging.ERROR)
 
 import sys
 
-config: RuntimeConfig = configs['live']
+config: RuntimeConfig = config_lookup('live')
 if '--simulator' in sys.argv:
-    config = configs['simulator']
+    config = config_lookup('simulator')
 elif '--forward' in sys.argv:
-    config = configs['forward']
+    config = config_lookup('forward')
 
 utils.pr(config)
 
@@ -41,21 +40,27 @@ polled_info: dict[str, list[float]] = {}
 from datetime import datetime, timedelta
 server_start = datetime.now()
 
-def spawn(f: Callable[[], None]) -> None:
-    threading.Thread(target=f, daemon=True).start()
-
-@spawn
+@utils.spawn
 def poll() -> None:
     arm = runtime.get_robotarm(config, quiet=False)
+    arm.send('write_output_integer_register(1, 0)\n')
+    arm.recv_until('PROGRAM_XXX_STOPPED')
     while True:
         arm.send(robotarm.reindent('''
             sec poll():
+                def round(x):
+                    return floor(x * 10 + 0.5) / 10
+                end
+                def r2d_round(rad):
+                    deg = r2d(rad)
+                    return round(deg)
+                end
                 p = get_actual_tcp_pose()
                 rpy = rotvec2rpy([p[3], p[4], p[5]])
-                rpy = [r2d(rpy[0]), r2d(rpy[1]), r2d(rpy[2])]
-                xyz = [p[0]*1000, p[1]*1000, p[2]*1000]
+                rpy = [r2d_round(rpy[0]), r2d_round(rpy[1]), r2d_round(rpy[2])]
+                xyz = [round(p[0]*1000), round(p[1]*1000), round(p[2]*1000)]
                 q = get_actual_joint_positions()
-                q = [r2d(q[0]), r2d(q[1]), r2d(q[2]), r2d(q[3]), r2d(q[4]), r2d(q[5])]
+                q = [r2d_round(q[0]), r2d_round(q[1]), r2d_round(q[2]), r2d_round(q[3]), r2d_round(q[4]), r2d_round(q[5])]
                 tick = 1 + read_output_integer_register(1)
                 write_output_integer_register(1, tick)
                 textmsg("poll {" +
@@ -63,7 +68,7 @@ def poll() -> None:
                     "'rpy': " + to_str(rpy) + ", " +
                     "'joints': " + to_str(q) + ", " +
                     "'pos': " + to_str([read_output_integer_register(0)]) + ", " +
-                    "'tick': " + to_str([floor(tick / 5) % 9 + 1]) + ", " +
+                    "'tick': " + to_str([floor(tick / 10) + 1]) + ", " +
                 "} eom")
             end
         '''))
@@ -71,7 +76,10 @@ def poll() -> None:
             if m := re.search(rb'poll (.*\}) eom', b):
                 try:
                     v = m.group(1).decode(errors='replace')
+                    prev = polled_info.copy()
                     polled_info.update(ast.literal_eval(v))
+                    if prev != polled_info:
+                        serve.reload()
                 except:
                     import traceback as tb
                     tb.print_exc()
@@ -103,6 +111,7 @@ def edit_at(program_name: str, i: int, changes: dict[str, Any]):
     ml = MoveList(ml)
     ml[i] = m
     ml.write_json(filename)
+    return {'refresh': True}
 
 @serve.expose
 def keydown(program_name: str, args: dict[str, Any]):
@@ -204,12 +213,13 @@ def index() -> Iterator[Tag | dict[str, str]]:
             } else {
                 event.preventDefault()
                 console.log('to backend', event)
-                call(''' + keydown.url(program_name) + ''', {
+                const arg = {
                     selected: window.selected,
                     key: event.key,
                     altKey: event.altKey,
                     shiftKey: event.shiftKey,
-                })
+                }
+                ''' + keydown.call(program_name, js('arg')) + '''
             }
         ''',
         sheet='''
@@ -271,7 +281,7 @@ def index() -> Iterator[Tag | dict[str, str]]:
         for k, vs in polled_info.items()
     }
 
-    info['server_age'] = round((datetime.now() - server_start).total_seconds()) # type: ignore
+    # info['server_age'] = round((datetime.now() - server_start).total_seconds()) # type: ignore
 
     from pprint import pformat
 
@@ -385,7 +395,7 @@ def index() -> Iterator[Tag | dict[str, str]]:
                                     inset  0px -1px #0006;
                             }
                         ''',
-                        onclick=f'call({arm_do.url(moves.RawCode("EnsureRelPos()"), v)})',
+                        onclick=arm_do.call(moves.RawCode("EnsureRelPos()"), v),
                     )
             else:
                 row += div(f'{dist: 5.0f}',
@@ -415,7 +425,7 @@ def index() -> Iterator[Tag | dict[str, str]]:
             tabindex='-1',
             style=f'grid-column: go',
             css='margin: 0 10px;',
-            onclick=f'call({arm_do.url(m)})'
+            onclick=arm_do.call(m),
         )
 
         from_here = [m for _, m in visible_moves[row_index:] if not isinstance(m, moves.Section)]
@@ -424,7 +434,7 @@ def index() -> Iterator[Tag | dict[str, str]]:
             tabindex='-1',
             style=f'grid-column: run',
             css='margin: 0 10px;',
-            onclick=f'call({arm_do.url(*from_here)}).then(refresh)',
+            onclick=arm_do.call(*from_here),
             title=', '.join(m.try_name() or m.__class__.__name__ for m in from_here)
         )
 
@@ -433,7 +443,7 @@ def index() -> Iterator[Tag | dict[str, str]]:
             tabindex='-1',
             style=f'grid-column: update',
             css='margin: 0 10px;',
-            onclick=f'call({update.url(program_name, i)})'
+            onclick=update.call(program_name, i),
         )
 
         row += input(
@@ -459,7 +469,7 @@ def index() -> Iterator[Tag | dict[str, str]]:
             ''',
             disabled=not hasattr(m, 'name'),
             value=getattr(m, 'name', ''),
-            oninput=f'call({edit_at.url(program_name, i)},{{name:event.target.value}}).then(refresh)'
+            oninput=edit_at.call(program_name, i, js("{name:event.target.value}")),
         )
         if not isinstance(m, moves.Section):
             row += V.code(m.to_script(),
@@ -481,12 +491,12 @@ def index() -> Iterator[Tag | dict[str, str]]:
                 margin-left: 10px;
             }
         """).append(
-            button('run program',   tabindex='-1', onclick=f'''call({ arm_do.url(*visible_program)                              })''', css='width: 160px'),
-            button('freedrive',     tabindex='-1', onclick=f'''call({ arm_do.url(moves.RawCode("freedrive_mode() sleep(3600)")) })'''),
-            button('stop robot',    tabindex='-1', onclick=f'''call({ arm_do.url()                                              })''', css='flex-grow: 1; color: red; font-size: 48px'),
-            button('gripper open',  tabindex='-1', onclick=f'''call({ arm_do.url(moves.RawCode("GripperMove(88)"))              })'''),
-            button('gripper close', tabindex='-1', onclick=f'''call({ arm_do.url(moves.RawCode("GripperMove(255)"))             })'''),
-            button('grip test',     tabindex='-1', onclick=f'''call({ arm_do.url(moves.RawCode("GripperTest()"))               })'''),
+            button('run program',   tabindex='-1', onclick=arm_do.call(*visible_program)                              , css='width: 160px'),
+            button('freedrive',     tabindex='-1', onclick=arm_do.call(moves.RawCode("freedrive_mode() sleep(3600)"))),
+            button('stop robot',    tabindex='-1', onclick=arm_do.call()                                              , css='flex-grow: 1; color: red; font-size: 48px'),
+            button('gripper open',  tabindex='-1', onclick=arm_do.call(moves.RawCode("GripperMove(88)"))),
+            button('gripper close', tabindex='-1', onclick=arm_do.call(moves.RawCode("GripperMove(255)"))),
+            button('grip test',     tabindex='-1', onclick=arm_do.call(moves.RawCode("GripperTest()"))),
     )
 
     foot = div(css='''
@@ -513,11 +523,11 @@ def index() -> Iterator[Tag | dict[str, str]]:
                 text-align: left;
             }
         """)
-        btns += button('roll -> 0° (level roll)',                  tabindex='-1', onclick=f'''call({ arm_do.url(EnsureRelPos, moves.MoveRel([0, 0, 0], [-r,  0,       0     ])) })''')
-        btns += button('pitch -> 0° (face horizontally)',          tabindex='-1', onclick=f'''call({ arm_do.url(EnsureRelPos, moves.MoveRel([0, 0, 0], [ 0, -p,       0     ])) })''')
-        btns += button('pitch -> -90° (face the floor)',           tabindex='-1', onclick=f'''call({ arm_do.url(EnsureRelPos, moves.MoveRel([0, 0, 0], [ 0, -p - 90,  0     ])) })''')
-        btns += button('yaw -> 0° (towards washer and dispenser)', tabindex='-1', onclick=f'''call({ arm_do.url(EnsureRelPos, moves.MoveRel([0, 0, 0], [ 0,  0,      -y     ])) })''')
-        btns += button('yaw -> 90° (towards hotels and incu)',     tabindex='-1', onclick=f'''call({ arm_do.url(EnsureRelPos, moves.MoveRel([0, 0, 0], [ 0,  0,      -y + 90])) })''')
+        btns += button('roll -> 0° (level roll)',                  tabindex='-1', onclick=arm_do.call(EnsureRelPos, moves.MoveRel([0, 0, 0], [-r,  0,       0     ])))
+        btns += button('pitch -> 0° (face horizontally)',          tabindex='-1', onclick=arm_do.call(EnsureRelPos, moves.MoveRel([0, 0, 0], [ 0, -p,       0     ])))
+        btns += button('pitch -> -90° (face the floor)',           tabindex='-1', onclick=arm_do.call(EnsureRelPos, moves.MoveRel([0, 0, 0], [ 0, -p - 90,  0     ])))
+        btns += button('yaw -> 0° (towards washer and dispenser)', tabindex='-1', onclick=arm_do.call(EnsureRelPos, moves.MoveRel([0, 0, 0], [ 0,  0,      -y     ])))
+        btns += button('yaw -> 90° (towards hotels and incu)',     tabindex='-1', onclick=arm_do.call(EnsureRelPos, moves.MoveRel([0, 0, 0], [ 0,  0,      -y + 90])))
         foot += btns
 
     foot += pre(
@@ -543,12 +553,5 @@ def index() -> Iterator[Tag | dict[str, str]]:
         }
     """)
     for speed in [20, 40, 60, 80, 100]:
-        speed_btns += button(f'set speed to {speed}', tabindex='-1', onclick=f'''call({ arm_set_speed.url(speed) })''')
+        speed_btns += button(f'set speed to {speed}', tabindex='-1', onclick=arm_set_speed.call(speed))
     foot += speed_btns
-
-    yield V.script(raw('''
-        window.requestAnimationFrame(() => {
-            if (window.rt) window.clearTimeout(window.rt)
-            window.rt = window.setTimeout(() => refresh(0, () => 0), 100)
-        })
-    '''), eval=True)

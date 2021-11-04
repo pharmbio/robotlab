@@ -87,7 +87,6 @@ def resume_program(config: RuntimeConfig, log_filename_in: str) -> Runtime:
         )
     else:
         raise ValueError('Unknown timelike factory on config object')
-    config.give_name('resume')
 
     log_filename = 'logs/resume-' + utils.now_str_for_filename() + '.jsonl'
     os.makedirs('logs/', exist_ok=True)

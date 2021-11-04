@@ -73,6 +73,7 @@ def execute(
                 runtime.sleep(est, {**metadata, 'silent': True})
                 res: Any = {"success":True,"lines":[]}
             else:
+                assert runtime.config.disp_and_wash_mode == 'execute'
                 url = (
                     runtime.env.biotek_url +
                     '/' + machine +
@@ -86,8 +87,11 @@ def execute(
             details = '\n'.join(lines)
             if success:
                 break
-            elif 'Error code: 6061' in details and 'Port is no longer available' in details:
+            elif 'Error code: 6061' in details:
+                for line in lines:
+                    runtime.log('warn', machine, line)
                 runtime.log('warn', machine, 'got error code 6061, retrying...', {**metadata, **res})
             else:
-                print(details)
+                for line in lines:
+                    runtime.log('error', machine, line)
                 raise ValueError(res)

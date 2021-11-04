@@ -360,11 +360,15 @@ def timeit(desc: str='') -> ContextManager[None]:
         t0 = time.monotonic()
         yield
         T = time.monotonic() - t0
-        print(pp_secs(T), desc)
+        print(f'{T:.3f}', desc)
 
     return worker()
 
 from datetime import datetime
-
 def now_str_for_filename() -> str:
     return str(datetime.now()).split('.')[0].replace(' ', '_')
+
+import threading
+def spawn(f: Callable[[], None]) -> None:
+    threading.Thread(target=f, daemon=True).start()
+

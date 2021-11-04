@@ -1,16 +1,31 @@
 w44:
 [ ] robustness: raise gripper if close more than expected
-[ ] moves: Rename all occurrences to h21, r21, out21 to B21, C21, A21 and so on
-[ ] moves: convert moves to jsonl
-[ ] bioteks: Validate all protocols before starting cell paint
-[ ] bioteks: check that all LHC protocol files exist before starting, also associate their timings with their last modification date (and perhaps hash?)
-[ ] bioteks: overview before starting, make a little summary of LHC files before starting
-[ ] moves: save both lin&joint for all coords
-[ ] resume: test resuming
-[ ] start & resume: make it easy to put the robot in the right place. freedrive and travel between known safe coordinates
-[ ] start & resume: make it easy to start freedrive to put the robot in place
-[ ] start & resume: check that it is close to h neu when starting, but don't move there using MoveJoint !!! can check the inverse kinematics of the current position close to B neu
-[ ] start & resume: remove all neutral MoveJoint, instead check that the robot is roughly correct (??)
+[ ] moves:
+    [ ] Rename all occurrences to h21, r21, out21 to B21, C21, A21 and so on
+    [ ] convert moves to jsonl
+    [ ] save both lin&joint for all coords
+[ ] bioteks
+    [ ] Validate all protocols before starting cell paint
+    [ ] check that all LHC protocol files exist before starting, also associate their timings with their last modification date (and perhaps hash?)
+    [ ] overview before starting, make a little summary of LHC files before starting
+[ ] start & resume
+    [ ] test resuming
+    [ ] make it easy to put the robot in the right place. freedrive and travel between known safe coordinates
+    [ ] make it easy to start freedrive to put the robot in place
+    [ ] check that it is close to h neu when starting, but don't move there using MoveJoint !!! can check the inverse kinematics of the current position close to B neu
+    [ ] remove all neutral MoveJoint, instead check that the robot is roughly correct (??)[ ] start & resume
+[ ] archive log
+    [ ] use biotek pdfs
+    [ ] what to generate? excel? pdf? webpage?
+[ ] improve commands:
+    [ ] Duration -> TimeSince
+    [ ] exactly ... at_least ... at_most ...
+[ ] improve logging code:
+    [ ] "kind"
+    [ ] "source"
+    [ ] "arg", ... introduce a name for time estimations
+    [ ] "info"
+    [ ] "idle" "wait"
 
 misc:
 [ ] prio 2. repo: document how to start everything, in particular how to start the GUI (gui on forwarded robot can be started with run.sh)

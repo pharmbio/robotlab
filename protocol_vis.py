@@ -12,7 +12,7 @@ from collections import *
 import utils
 
 import protocol
-from runtime import RuntimeConfig, configs
+from runtime import RuntimeConfig, dry_run
 
 colors = dict(
     background = '#fff',
@@ -142,8 +142,9 @@ def index() -> Iterator[Tag | dict[str, str]]:
         with utils.timeit('eventlist'):
             program = protocol.cell_paint_program(batch_sizes=[batch_size], protocol_config=v3)
         with utils.timeit('runtime'):
-            runtime = protocol.execute_program(configs['dry-run'], program, {}, log_to_file=False)
-    except Exception as e:
+            config = dry_run.replace(log_to_file=False)
+            runtime = protocol.execute_program(config, program, {})
+    except:
         import traceback
         yield pre(traceback.format_exc())
         return
