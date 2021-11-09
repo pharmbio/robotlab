@@ -454,7 +454,7 @@ class Serve:
             with self.notify_reload_lock:
                 self.notify_reload.append(q)
             try:
-                q.get(timeout=1)
+                q.get(timeout=115)
                 reload = True
             except Empty:
                 reload = False
