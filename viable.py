@@ -3,7 +3,6 @@ from typing import *
 
 from contextlib import contextmanager
 from dataclasses import *
-from threading import Event
 import abc
 import os
 import pickle
@@ -13,8 +12,10 @@ import sys
 import textwrap
 import time
 import traceback
+from queue import Queue, Empty
 
 from flask import Flask, request, jsonify
+from flask.wrappers import Response
 from itsdangerous import Serializer, URLSafeSerializer
 
 def trim(s: str, soft: bool=False, sep: str=' '):
@@ -142,7 +143,8 @@ class Tag(Node):
                     # https://html.spec.whatwg.org/multipage/syntax.html#unquoted
                     re.match(r'[\w\-\.,:;/+@#?(){}[\]]+$', v)
                 else f'{k}="{esc(v)}"'
-                for k, v in sorted(self.attrs.items())
+                for k, va in sorted(self.attrs.items())
+                for v in [minify(va) if k.startswith('on') else va]
                 if v is not False
                 if v is not None
             )
@@ -160,32 +162,26 @@ class Tag(Node):
                     yield from child.to_strs(indent=indent, i=i+indent)
             yield ' ' * i + f'</{name}>'
 
-    def make_classes(self, classes: dict[str, tuple[str, str]], minify: bool=True) -> dict[str, tuple[str, str]]:
+    def make_classes(self, classes: dict[str, tuple[str, str]]) -> dict[str, tuple[str, str]]:
         for decls in self.inline_sheet:
             if decls not in classes:
-                norm = trim(decls, soft=not minify, sep=' ')
-                classes[decls] = '', norm
+                classes[decls] = '', decls
         self.inline_sheet.clear()
         for decls in self.inline_css:
             if decls in classes:
                 name, _ = classes[decls]
             else:
                 name = f'css-{len(classes)}'
-                norm = trim(decls, soft=not minify, sep=' ')
-                if '&' in norm:
-                    inst = norm.replace('&', f'[{name}]')
+                if '&' in decls:
+                    inst = decls.replace('&', f'[{name}]')
                 else:
-                    if minify:
-                        inst = f'[{name}]{{{norm}}}'
-                    else:
-                        norm = '\n' + textwrap.indent(norm, prefix='    ') + '\n'
-                        inst = f'[{name}] {{{norm}}}'
+                    inst = f'[{name}] {{{decls}}}'
                 classes[decls] = name, inst
             self.extend({name: True})
         self.inline_css.clear()
         for child in self.children:
             if isinstance(child, Tag):
-                child.make_classes(classes, minify)
+                child.make_classes(classes)
         return classes
 
 class tag(Tag):
@@ -297,6 +293,8 @@ class Exposed:
 
 app = Flask(__name__)
 
+from threading import RLock
+
 @dataclass
 class Serve:
     # Routes
@@ -307,7 +305,8 @@ class Serve:
     _serializer: Serializer = field(default_factory=serializer_factory)
 
     # State for reloading
-    notify_reload: Event = field(default_factory=Event)
+    notify_reload_lock: RLock = field(default_factory=RLock)
+    notify_reload: list[Queue[None]] = field(default_factory=list)
 
     def expose(self, f: Callable[..., Any]) -> Exposed:
         name = function_name(f)
@@ -347,8 +346,10 @@ class Serve:
         return inner
 
     def reload(self) -> None:
-        self.notify_reload.set()
-        self.notify_reload.clear()
+        with self.notify_reload_lock:
+            for q in self.notify_reload:
+                q.put_nowait(None)
+            self.notify_reload.clear()
 
     def view(self, rule: str, *args: Any, **kws: Any) -> str:
         return self.view_callable(self.routes[rule], *args, **kws)
@@ -404,14 +405,14 @@ class Serve:
             # favicon because of chromium bug, see https://stackoverflow.com/a/36104057
             head_node += link(rel="icon", type="image/png", href="data:image/png;base64,iVBORw0KGgo=")
 
-        minify = bool(re.search('gzip|br|deflate', cast(Any, request).headers.get('Accept-encoding', '')))
-        indent = 0 if minify else 2
-        newline = '' if minify else '\n'
+        compress = bool(re.search('gzip|br|deflate', cast(Any, request).headers.get('Accept-encoding', '')))
+        indent = 0 if compress else 2
+        newline = '' if compress else '\n'
 
-        classes = body_node.make_classes({}, minify=minify)
+        classes = body_node.make_classes({})
 
         if classes:
-            head_node += style(*[raw(inst) for name, inst in classes.values()])
+            head_node += style(raw(minify('\n'.join(inst for _, inst in classes.values()), loader='css')))
 
         if include_hot:
             head_node += script(src="/hot.js", defer=True)
@@ -435,7 +436,10 @@ class Serve:
                 assert name == msg_name
                 more_args = request.json["args"]                       # type: ignore
                 ret = self.exposed[msg_name](*args, *more_args, **kws) # type: ignore
-                return jsonify(ret)
+                if isinstance(ret, Response):
+                    return ret
+                else:
+                    return jsonify(ret)
             except:
                 traceback.print_exc()
                 return '', 400
@@ -444,9 +448,19 @@ class Serve:
         def hot_js_route():
             return hot_js, {'Content-Type': 'application/javascript'}
 
-        @app.route('/ping')
+        @app.post('/ping')
         def ping():
-            return jsonify({'refresh': self.notify_reload.wait(115)})
+            q = Queue[None]()
+            with self.notify_reload_lock:
+                self.notify_reload.append(q)
+            try:
+                q.get(timeout=1)
+                reload = True
+            except Empty:
+                reload = False
+                with self.notify_reload_lock:
+                    self.notify_reload.remove(q)
+            return {'refresh': reload}
 
         try:
             from flask_compress import Compress # type: ignore
@@ -458,7 +472,7 @@ class Serve:
             print('Running app...')
             # use flask's SERVER_NAME instead
             app.config['SERVER_NAME'] = os.environ.get('SERVER_NAME')
-            app.run()
+            app.run(threaded=True)
 
 serve = Serve()
 
@@ -466,13 +480,16 @@ hot_js = str(r'''
     function get_query() {
         return Object.fromEntries(new URL(location.href).searchParams)
     }
-    function update_query(kvs) {
-        return set_query({...get_query(), ...kvs})
+    function update_query(kvs, reload=true) {
+        return set_query({...get_query(), ...kvs}, reload)
     }
-    function set_query(kvs) {
+    function set_query(kvs, reload=true) {
         let next = new URL(location.href)
         next.search = new URLSearchParams(kvs)
         history.replaceState(null, null, next.href)
+        if (reload) {
+            refresh()
+        }
     }
     function with_pathname(s) {
         let next = new URL(location.href)
@@ -565,65 +582,68 @@ hot_js = str(r'''
             prev.replaceWith(next)
         }
     }
-    let in_progress = false
+    let current
     let rejected = false
-    async function refresh(i=0, and_then) {
-        if (!and_then) {
-            if (in_progress) {
-                rejected = true
-                return
-            }
-            in_progress = true
+    async function refresh(i=0) {
+        console.log('refresh', i, rejected, current)
+        if (current) {
+            rejected = true
+            return current
         }
-        let text = null
-        try {
-            const resp = await fetch(location.href)
-            text = await resp.text()
-        } catch (e) {
-            if (i > 0) {
-                window.setTimeout(() => refresh(i-1, and_then), i < 300 ? 1000 : 50)
-            } else {
-                console.warn('timeout', e)
+        let resolve, reject
+        current = new Promise((a, b) => {
+            resolve = a;
+            reject = b
+        })
+        rejected = false
+        do {
+            rejected = false
+            let text = null
+            while (text === null) {
+                try {
+                    const resp = await fetch(location.href)
+                    text = await resp.text()
+                } catch (e) {
+                    if (i > 0) {
+                        await new Promise(x => setTimeout(x, i < 300 ? 1000 : 50))
+                    } else {
+                        console.warn('timeout', e)
+                        reject('timeout')
+                        throw new Error('timeout')
+                    }
+                }
             }
-        }
-        if (text !== null) {
             try {
                 const parser = new DOMParser()
                 const doc = parser.parseFromString(text, "text/html")
                 morph(document.head, doc.head)
                 morph(document.body, doc.body)
                 for (const script of document.querySelectorAll('script[eval]')) {
-                    const global_eval = eval
-                    global_eval(script.textContent)
+                    (0, eval)(script.textContent)
                 }
             } catch(e) {
                 console.warn(e)
             }
-            if (and_then) {
-                in_progress = false
-                and_then()
-            } else if (in_progress) {
-                in_progress = false
-                if (rejected) {
-                    rejected = false
-                    refresh()
-                }
-            }
-        }
+        } while (rejected)
+        current = undefined
+        resolve()
     }
     async function poll() {
         while (true) {
             try {
-                const resp = await fetch('/ping')
+                console.time('ping')
+                const resp = await fetch('/ping', {method: 'POST'})
                 body = await resp.json()
+                console.log('ping', body)
                 if (body.refresh) {
-                    break
+                    await refresh()
                 }
-            } catch {
-                break
+            } catch (e) {
+                console.warn('poll', e)
+                await refresh(600)
             }
+            console.timeEnd('ping')
         }
-        refresh(600, poll)
     }
     window.onpopstate = () => refresh()
     function input_values() {
@@ -648,24 +668,90 @@ hot_js = str(r'''
         }
         return vals
     }
+    function throttle(f, ms=150) {
+        let last
+        let timer
+        return (...args) => {
+            if (!timer) {
+                f(...args)
+                timer = setTimeout(() => {
+                    let _last = last
+                    timer = undefined
+                    last = undefined
+                    if (_last) {
+                        f(..._last)
+                    }
+                }, ms)
+            } else {
+                last = [...args]
+            }
+        }
+    }
+    set_query = throttle(set_query)
+    function debounce(f, ms=200, leading=true, trailing=true) {
+        let timer;
+        let called;
+        return (...args) => {
+            if (!timer && leading) {
+                f.apply(this, args)
+                called = true
+            } else {
+                called = false
+            }
+            clearTimeout(timer)
+            timer = setTimeout(() => {
+                let _called = called;
+                timer = undefined;
+                called = false;
+                if (!_called && trailing) {
+                    f.apply(this, args)
+                }
+            }, ms)
+        }
+    }
 ''')
 if os.environ.get('VIABLE_NO_HOT'):
     pass
 else:
     hot_js += 'poll()'
-try:
-    import utils
-    with utils.timeit('esbuild'):
-        from subprocess import run
-        res = run(["esbuild", "--minify"], capture_output=True, input=hot_js, encoding='utf-8')
-        hot_js = res.stdout
-        if res.stderr:
-            print(res.stderr, file=sys.stderr)
-except:
-    hot_js = trim(hot_js, sep='\n')
+
+import utils
+from functools import lru_cache
+from subprocess import run
+
+def minify(s: str, loader: str='js') -> str:
+    s = s.strip()
+    if loader == 'js' and '\n' not in s:
+        return s
+    else:
+        return minify_nontrivial(s, loader)
+
+@lru_cache
+def minify_nontrivial(s: str, loader: str='js') -> str:
+    try:
+        with utils.timeit(f'esbuild {loader}'):
+            res = run(
+                ["esbuild", "--minify", f"--loader={loader}"],
+                capture_output=True, input=s, encoding='utf-8'
+            )
+            if res.stderr:
+                print(loader, s, res.stderr, file=sys.stderr)
+                return s
+            # print(f'minify({s[:80]!r}, {loader=})\n  = {res.stdout[:80]!r}')
+            return res.stdout.strip()
+    except:
+        return s
+
+hot_js = minify(hot_js)
 
 def queue_refresh(after_ms: float=100):
-    js = f'clearTimeout(window._qrt); window._qrt = setTimeout(()=>requestAnimationFrame(()=>refresh()),{after_ms})'
+    js = minify(f'''
+        clearTimeout(window._qrt)
+        window._qrt = setTimeout(
+            () => requestAnimationFrame(() => refresh()),
+            {after_ms}
+        )
+    ''')
     return script(raw(js), eval=True)
 
 class a(Tag): pass

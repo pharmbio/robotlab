@@ -13,7 +13,7 @@ from commands import (
     WaitForCheckpoint,
     Command,
     Sequence,
-    Seq,
+    Meta,
 )
 from runtime import RuntimeConfig, Runtime
 
@@ -52,7 +52,7 @@ def resume_program(config: RuntimeConfig, log_filename_in: str) -> Runtime:
             pass
 
     def Filter(cmd: Command):
-        if isinstance(cmd, Seq) and cmd.metadata.get('id') in finished_ids:
+        if isinstance(cmd, Meta) and cmd.metadata.get('id') in finished_ids:
             return Sequence()
         elif isinstance(cmd, Checkpoint) and cmd.name in checkpoint_times:
             return Sequence()

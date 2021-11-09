@@ -681,7 +681,6 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                             )
                         ]
                     ),
-                    # WaitForResource('incu'),
                 ]
             else:
                 B21_to_incu = [
@@ -699,12 +698,12 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                     Sequence(
                         WaitForCheckpoint(f'{plate_desc} pre disp {ix}', assume='nothing'),
                         Idle() + f'{plate_desc} pre disp {ix} delay',
-                        DispCmd(disp_prime).with_metadata(event_plate_id='') if disp_prime else Idle(),
-                        DispCmd(p.pre_disp[i]) if p.pre_disp[i] else Idle(),
+                        DispCmd(disp_prime).with_metadata(plate_id='') if disp_prime else Idle(),
+                        DispCmd(p.pre_disp[i]).with_metadata(predispense=True) if p.pre_disp[i] else Idle(),
                         DispCmd(p.disp[i], cmd='Validate'),
                         Early(3),
                         Checkpoint(f'{plate_desc} pre disp done {ix}'),
-                    ),
+                    ).with_metadata(slot=3),
                     resource='disp',
                     assume='nothing',
                 )
@@ -779,11 +778,11 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
             if next:
                 adjacent[now] |= {next}
 
-    def desc(p: Plate | None, step: str, subpart: str) -> Desc | None:
+    def desc(p: Plate | None, step: str, substep: str) -> Desc | None:
         if p is None:
             return None
         else:
-            return p.id, step, subpart
+            return p.id, step, substep
 
     if p.lockstep:
         for i, (step, next_step) in enumerate(utils.iterate_with_next(p.step_names)):
@@ -798,11 +797,11 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                 ]
                 for offset, _ in enumerate(overlap):
                     seq([
-                        desc(p, step, subpart=subpart)
-                        for i, subpart in ilv.rows
+                        desc(p, step, substep=substep)
+                        for i, substep in ilv.rows
                         if i + offset < len(overlap)
                         for p, step, subparts in [overlap[i + offset]]
-                        if subpart in subparts
+                        if substep in subparts
                     ])
     else:
         for step, next_step in utils.iterate_with_next(p.step_names):
@@ -817,8 +816,8 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
         ilv = Interleavings[p.interleavings[i]]
         for offset, _ in enumerate(batch):
             seq([
-                desc(batch[i+offset], step, subpart)
-                for i, subpart in ilv.rows
+                desc(batch[i+offset], step, substep)
+                for i, substep in ilv.rows
                 if i + offset < len(batch)
             ])
 
@@ -844,19 +843,30 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
             for desc in linear
         ])
 
+    slots = {
+        'incu -> B21':  1,
+        'B21 -> wash':  2,
+        'wash -> disp': 3,
+        'disp -> B21':  4,
+        'B21 -> incu':  4,
+        'wash -> B21':  3,
+        'B21 -> out':   4,
+        'wash -> B15':  3,
+        'B15 -> B21':   4,
+        'B15 -> out':   4,
+    }
+
     plate_cmds = [
         command.with_metadata(
-            event_part=step,
-            event_plate_id=plate_id,
-            event_subpart=subpart,
+            step=step,
+            substep=substep,
+            plate_id=plate_id,
+            slot=slots[substep],
         )
         for desc in linear
-        for plate_id, step, subpart in [desc]
+        for plate_id, step, substep in [desc]
         for command in chunks[desc]
     ]
-
-    # for e in plate_events:
-    #     print(e)
 
     return Sequence(
         Sequence(*prep_cmds).with_metadata(step='prep'),
@@ -977,7 +987,7 @@ test_comm_program: Command = Sequence(
     WashFork(cmd='TestCommunications', protocol_path=None),
     WaitForResource('incu'),
     WaitForResource('wash'),
-).with_metadata(event_part='test comm')
+).with_metadata(step='test comm')
 
 def test_comm(config: RuntimeConfig):
     '''

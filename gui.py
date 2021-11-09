@@ -222,13 +222,13 @@ def index() -> Iterator[Tag | dict[str, str]]:
                 ''' + keydown.call(program_name, js('arg')) + '''
             }
         ''',
-        sheet='''
+        sheet ='''
             body {
                 font-family: monospace;
                 font-size: 16px;
                 user-select: none;
-                # padding: 0;
-                # margin: 0;
+                -padding: 0;
+                -margin: 0;
             }
             button {
                 font-family: monospace;

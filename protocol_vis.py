@@ -181,22 +181,17 @@ def index() -> Iterator[Tag | dict[str, str]]:
         ''')
         for e in entries:
             try:
-                part    = e.get('event_part', '')
-                subpart = e.get('event_subpart', '')
-                plate   = utils.catch(lambda: int(e.get('event_plate_id', 0)), 0)
-                t0      = e['t0']
-                t       = e['t']
-                source  = e['source']
-                arg     = e['arg']
-                thread  = e.get('thread', '').removeprefix('before ').removeprefix('after ')
-                if thread:
-                    thread = thread.strip(' #0123456789')
+                slot     = e.get('slot')
+                plate    = utils.catch(lambda: int(e.get('plate_id', 0)), 0)
+                t0       = e['t0']
+                t        = e['t']
+                source   = e['source']
+                resource = e.get('resource')
+                arg      = e['arg']
             except:
                 continue
             if t0 is None:
                 continue
-            # if 'idle' in str(e.get('arg')):
-                # continue
             color_map = {
                 'wait': 'color3',
                 'idle': 'color3',
@@ -206,35 +201,17 @@ def index() -> Iterator[Tag | dict[str, str]]:
                 'incu': 'color2',
                 'timer': 'color3',
             }
-            fields = {
-                'incu -> B21':  1,
-                'B21 -> wash':  3,
-                'wash -> disp': 5,
-                'disp -> B21':  7,
-                'B21 -> incu':  7,
-                'wash -> B21':  5,
-                'B21 -> out':   7,
-                'wash -> B15':  5,
-                'B15 -> B21':   7,
-                'B15 -> out':   7,
-            }
-            field = fields.get(subpart, 0)
-            slots = {
-                'incu': 2 if field < 4 else 8,
-                'wait': field ,
-                'robotarm': field,
-                'idle': field,
-                'wash': 4,
-                'disp': 6,
-                'duration': 10 + plate,
-            }
-            slot = slots.get(source, 0)
-            if thread and source != 'duration':
-                slot = slots.get(thread, 0)
-            # slot = slots.get(e.get('source', ''), 0)
-            # slot += (1 + max(slots.values())) * utils.catch(lambda: int(e['event_plate_id']), 0)
-            # slot += batch_size * slot + utils.catch(lambda: int(e['event_plate_id']), 0)
-            # slot = utils.catch(lambda: int(e['event_plate_id']), 0)
+            if slot is None:
+                slot = {
+                    'incu': 1,
+                    'wash': 2,
+                    'disp': 3,
+                }.get(resource or '', 1)
+            slot = 2 * slot - 2
+            if resource in ('wash', 'disp', 'incu'):
+                slot += 1
+            if source == 'duration':
+                slot = 10 + plate
             color = colors.get(color_map.get(source, ''), '#ccc')
             width = 14
             my_width = 14

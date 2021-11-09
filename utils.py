@@ -357,10 +357,18 @@ def timeit(desc: str='') -> ContextManager[None]:
 
     @contextmanager
     def worker():
+        e = None
         t0 = time.monotonic()
-        yield
+        try:
+            yield
+        except Exception as exn:
+            e = exn
         T = time.monotonic() - t0
-        print(f'{T:.3f}', desc)
+        if e:
+            print(f'{T:.3f}', desc, repr(e))
+            raise e
+        else:
+            print(f'{T:.3f}', desc)
 
     return worker()
 

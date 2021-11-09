@@ -319,7 +319,7 @@ class Fork(Command):
     def execute(self, runtime: Runtime, metadata: dict[str, Any]) -> None:
         thread_name = self.thread_name
         assert thread_name
-        fork_metadata = {**metadata, 'thread': thread_name}
+        fork_metadata = {**metadata, 'thread': thread_name, 'resource': self.resource}
         @runtime.spawn
         def fork():
             runtime.register_thread(thread_name)
