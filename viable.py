@@ -1,7 +1,6 @@
 from __future__ import annotations
 from typing import *
 
-from contextlib import contextmanager
 from dataclasses import *
 import abc
 import os
@@ -10,7 +9,7 @@ import re
 import secrets
 import sys
 import textwrap
-import time
+import json
 import traceback
 from queue import Queue, Empty
 
@@ -275,20 +274,23 @@ class Exposed:
         ...     return res
         >>> elem = input(onclick=Sum.call(1, js('this.value')))
         '''
-        py_args: list[Any] = []
-        js_args: list[Any] = []
-        for arg in args:
+        py_args: dict[str | int, Any] = {}
+        js_args: dict[str | int, js] = {}
+        for k, arg in (dict(enumerate(args)) | kws).items():
             if isinstance(arg, js):
-                js_args += [arg.fragment]
+                js_args[k] = arg
             else:
-                assert not js_args
-                py_args += [arg]
+                py_args[k] = arg
         name = function_name(self._f)
-        payload_tuple = (name, *py_args, kws)
-        payload = self._serializer.dumps(payload_tuple)
-        if isinstance(payload, bytes):
-            payload = payload.decode()
-        args_csv = ",".join((repr(name), repr(payload), *js_args))
+        py_name_kvs = self._serializer.dumps((name, py_args))
+        if isinstance(py_name_kvs, bytes):
+            py_name_kvs = py_name_kvs.decode()
+        js_kvs = ','.join(
+            json.dumps(k)+':'+v.fragment
+            for k, v in js_args.items()
+        )
+        js_kvs = '{' + js_kvs + '}'
+        args_csv = ",".join((json.dumps(name), json.dumps(py_name_kvs), js_kvs))
         return f'call({args_csv})'
 
 app = Flask(__name__)
@@ -309,20 +311,33 @@ class Serve:
     notify_reload: list[Queue[None]] = field(default_factory=list)
     reloads: int = 0
 
-    def __post_init__(self):
-        @app.post('/reload')
-        def reload():
-            self.reload()
-            return self.last_err or '', {'Content-Type': 'text/plain'}
+    def expose(self, f: Callable[..., Any]) -> Exposed:
+        name = function_name(f)
+        assert name != '<lambda>'
+        if name in self.exposed:
+            assert self.exposed[name].f == f # type: ignore
+        res = Exposed(f, self._serializer)
+        self.exposed[name] = res
+        return res
 
+    def __post_init__(self):
         @app.post('/call/<name>')
         def call(name: str):
             try:
-                payload = request.json["payload"]                      # type: ignore
-                msg_name, *args, kws = self._serializer.loads(payload) # type: ignore
-                assert name == msg_name
-                more_args = request.json["args"]                       # type: ignore
-                ret = self.exposed[msg_name](*args, *more_args, **kws) # type: ignore
+                py_name_kvs, js_kvs = request.json                    # type: ignore
+                py_name, py_kvs = self._serializer.loads(py_name_kvs) # type: ignore
+                assert name == py_name
+                arg_dict: dict[int, Any] = {}
+                kws: dict[str, Any] = {}
+                for k, v in (py_kvs | js_kvs).items():                # type: ignore
+                    if isinstance(k, int) or k.isdigit():             # type: ignore
+                        k = int(k)
+                        arg_dict[k] = v
+                    else:
+                        assert isinstance(k, str)
+                        kws[k] = v
+                args: list[Any] = [v for _, v in sorted(arg_dict.items(), key=lambda kv: kv[0])]
+                ret = self.exposed[py_name](*args, **kws) # type: ignore
                 if isinstance(ret, Response):
                     return ret
                 else:
@@ -330,6 +345,11 @@ class Serve:
             except:
                 traceback.print_exc()
                 return '', 400
+
+        @app.post('/reload')
+        def reload():
+            self.reload()
+            return self.last_err or '', {'Content-Type': 'text/plain'}
 
         @app.route('/hot.js')
         def hot_js_route():
@@ -355,15 +375,6 @@ class Serve:
             resp = jsonify({'refresh': reload})
             resp.set_cookie('reloads', str(self.reloads))
             return resp
-
-    def expose(self, f: Callable[..., Any]) -> Exposed:
-        name = function_name(f)
-        assert name != '<lambda>'
-        if name in self.exposed:
-            assert self.exposed[name].f == f # type: ignore
-        res = Exposed(f, self._serializer)
-        self.exposed[name] = res
-        return res
 
     def route(self, rule: str = '/'):
         def inner(f: Callable[..., Iterable[Tag | str | dict[str, str]]]):
@@ -506,11 +517,11 @@ hot_js = str(r'''
         next.pathname = s
         return next.href
     }
-    async function call(name, payload, ...args) {
+    async function call(name, py_name_kvs, js_kvs) {
         const resp = await fetch("/call/" + name, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ payload, args }),
+            body: JSON.stringify([py_name_kvs, js_kvs]),
         })
         const body = await resp.json()
         if (body && typeof body === 'object') {
