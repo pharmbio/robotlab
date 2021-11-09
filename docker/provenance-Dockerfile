@@ -1,4 +1,6 @@
 FROM python:3.10
+RUN apt-get -y update && apt-get -y upgradee
+RUN apt-get install esbuild
 WORKDIR /usr/src/app
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
