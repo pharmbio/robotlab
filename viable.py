@@ -309,6 +309,53 @@ class Serve:
     notify_reload: list[Queue[None]] = field(default_factory=list)
     reloads: int = 0
 
+    def __post_init__(self):
+        @app.post('/reload')
+        def reload():
+            self.reload()
+            return self.last_err or '', {'Content-Type': 'text/plain'}
+
+        @app.post('/call/<name>')
+        def call(name: str):
+            try:
+                payload = request.json["payload"]                      # type: ignore
+                msg_name, *args, kws = self._serializer.loads(payload) # type: ignore
+                assert name == msg_name
+                more_args = request.json["args"]                       # type: ignore
+                ret = self.exposed[msg_name](*args, *more_args, **kws) # type: ignore
+                if isinstance(ret, Response):
+                    return ret
+                else:
+                    return jsonify(ret)
+            except:
+                traceback.print_exc()
+                return '', 400
+
+        @app.route('/hot.js')
+        def hot_js_route():
+            return hot_js, {'Content-Type': 'application/javascript'}
+
+        @app.post('/ping')
+        def ping():
+            i = request.cookies.get('reloads', None)
+            if i is not None and i != str(self.reloads):
+                resp = jsonify({'refresh': True})
+                resp.set_cookie('reloads', str(self.reloads))
+                return resp
+            q = Queue[None]()
+            with self.notify_reload_lock:
+                self.notify_reload.append(q)
+            try:
+                q.get(timeout=115)
+                reload = True
+            except Empty:
+                reload = False
+                with self.notify_reload_lock:
+                    self.notify_reload.remove(q)
+            resp = jsonify({'refresh': reload})
+            resp.set_cookie('reloads', str(self.reloads))
+            return resp
+
     def expose(self, f: Callable[..., Any]) -> Exposed:
         name = function_name(f)
         assert name != '<lambda>'
@@ -425,52 +472,6 @@ class Serve:
         )
 
     def run(self):
-        @app.post('/reload')
-        def reload():
-            self.reload()
-            return self.last_err or '', {'Content-Type': 'text/plain'}
-
-        @app.post('/call/<name>')
-        def call(name: str):
-            try:
-                payload = request.json["payload"]                      # type: ignore
-                msg_name, *args, kws = self._serializer.loads(payload) # type: ignore
-                assert name == msg_name
-                more_args = request.json["args"]                       # type: ignore
-                ret = self.exposed[msg_name](*args, *more_args, **kws) # type: ignore
-                if isinstance(ret, Response):
-                    return ret
-                else:
-                    return jsonify(ret)
-            except:
-                traceback.print_exc()
-                return '', 400
-
-        @app.route('/hot.js')
-        def hot_js_route():
-            return hot_js, {'Content-Type': 'application/javascript'}
-
-        @app.post('/ping')
-        def ping():
-            i = request.cookies.get('reloads', None)
-            if i is not None and i != str(self.reloads):
-                resp = jsonify({'refresh': True})
-                resp.set_cookie('reloads', str(self.reloads))
-                return resp
-            q = Queue[None]()
-            with self.notify_reload_lock:
-                self.notify_reload.append(q)
-            try:
-                q.get(timeout=115)
-                reload = True
-            except Empty:
-                reload = False
-                with self.notify_reload_lock:
-                    self.notify_reload.remove(q)
-            resp = jsonify({'refresh': reload})
-            resp.set_cookie('reloads', str(self.reloads))
-            return resp
-
         try:
             from flask_compress import Compress # type: ignore
             Compress(app)
