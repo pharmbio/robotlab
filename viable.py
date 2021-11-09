@@ -307,6 +307,7 @@ class Serve:
     # State for reloading
     notify_reload_lock: RLock = field(default_factory=RLock)
     notify_reload: list[Queue[None]] = field(default_factory=list)
+    reloads: int = 0
 
     def expose(self, f: Callable[..., Any]) -> Exposed:
         name = function_name(f)
@@ -347,6 +348,7 @@ class Serve:
 
     def reload(self) -> None:
         with self.notify_reload_lock:
+            self.reloads += 1
             for q in self.notify_reload:
                 q.put_nowait(None)
             self.notify_reload.clear()
@@ -450,6 +452,11 @@ class Serve:
 
         @app.post('/ping')
         def ping():
+            i = request.cookies.get('reloads', None)
+            if i is not None and i != str(self.reloads):
+                resp = jsonify({'refresh': True})
+                resp.set_cookie('reloads', str(self.reloads))
+                return resp
             q = Queue[None]()
             with self.notify_reload_lock:
                 self.notify_reload.append(q)
@@ -460,7 +467,9 @@ class Serve:
                 reload = False
                 with self.notify_reload_lock:
                     self.notify_reload.remove(q)
-            return {'refresh': reload}
+            resp = jsonify({'refresh': reload})
+            resp.set_cookie('reloads', str(self.reloads))
+            return resp
 
         try:
             from flask_compress import Compress # type: ignore
@@ -528,6 +537,9 @@ hot_js = str(r'''
         }
         return resp
     }
+    in_focus = true
+    window.onfocus = () => { in_focus = true }
+    window.onblur = () => { in_focus = false }
     function morph(prev, next) {
         if (
             prev.nodeType === Node.ELEMENT_NODE &&
@@ -547,7 +559,7 @@ hot_js = str(r'''
                     prev.setAttribute(name, next.getAttribute(name))
                 }
             }
-            if (prev.tagName === 'INPUT' && (document.activeElement !== prev || next.getAttribute('truth') === 'server')) {
+            if (prev.tagName === 'INPUT' && (document.activeElement !== prev || !in_focus)) {
                 if (prev.type == 'radio' && document.activeElement.name === prev.name) {
                     // pass
                 } else {
@@ -585,7 +597,6 @@ hot_js = str(r'''
     let current
     let rejected = false
     async function refresh(i=0) {
-        console.log('refresh', i, rejected, current)
         if (current) {
             rejected = true
             return current
@@ -596,7 +607,10 @@ hot_js = str(r'''
             reject = b
         })
         rejected = false
+        const html = document.querySelector('html')
+        html.classList.add('loading')
         do {
+            console.log('refresh', i, rejected, current)
             rejected = false
             let text = null
             while (text === null) {
@@ -624,17 +638,20 @@ hot_js = str(r'''
             } catch(e) {
                 console.warn(e)
             }
-        } while (rejected)
+        } while (rejected);
+        requestAnimationFrame(() => {
+            if (!current) {
+                html.classList.remove('loading')
+            }
+        })
         current = undefined
         resolve()
     }
     async function poll() {
         while (true) {
             try {
-                console.time('ping')
-                const resp = await fetch('/ping', {method: 'POST'})
+                const resp = await fetch('/ping', {method: 'POST'}) // should post last seen frame too
                 body = await resp.json()
-                console.log('ping', body)
                 if (body.refresh) {
                     await refresh()
                 }
@@ -642,7 +659,6 @@ hot_js = str(r'''
                 console.warn('poll', e)
                 await refresh(600)
             }
-            console.timeEnd('ping')
         }
     }
     window.onpopstate = () => refresh()

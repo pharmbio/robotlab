@@ -380,3 +380,10 @@ import threading
 def spawn(f: Callable[[], None]) -> None:
     threading.Thread(target=f, daemon=True).start()
 
+B = TypeVar('B')
+def maybe(x: A | None, f: Callable[[A], B], b: B = None) -> B:
+    if x is None:
+        return b
+    else:
+        return f(x)
+
