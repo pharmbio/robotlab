@@ -9,4 +9,4 @@ COPY . .
 EXPOSE 5000
 ENV PYTHONUNBUFFERED TRUE
 RUN ["sh", "-c", "head -c32 /dev/random | base64 > .viable-secret"]
-ENTRYPOINT gunicorn --bind 0.0.0.0:5000 provenance:app --threads 100 --workers 4
+ENTRYPOINT gunicorn --bind 0.0.0.0:5000 provenance:app --threads 100 --workers 1
