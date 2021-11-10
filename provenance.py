@@ -55,9 +55,14 @@ class Int(Var[int]):
 
     def from_str(self, s: str):
         try:
-            return int(s)
+            ret = int(s)
         except:
-            return self.value
+            ret = self.value
+        if self.min is not None and ret < self.min:
+            ret = self.min
+        if self.max is not None and ret > self.max:
+            ret = self.max
+        return ret
 
     def input(self, m: Store):
         return input(
@@ -83,7 +88,7 @@ class Str(Var[str]):
             oninput=m.update_untyped({self: js('this.value')}).goto()
         )
 
-@dataclass
+@dataclass(frozen=True)
 class StoredValue:
     goto_value: Any | js
     initial_value: Any
@@ -98,7 +103,7 @@ def init_store() -> dict[Provenance, Callable[[str, Any], Any]]:
         'query': request.args.get,
     }
 
-@dataclass
+@dataclass(frozen=True)
 class Store:
     default_provenance: Provenance = 'cookie'
     store: dict[Provenance, Callable[[str, Any], Any]] = field(default_factory=init_store)
@@ -134,9 +139,8 @@ class Store:
         return Store(self.default_provenance, self.store, values, self.sub_prefix)
 
     def defaults(self) -> Store:
-        sentinel = object()
         values = {
-            k: replace(v, goto_value=v.goto_value, initial_value=sentinel)
+            k: replace(v, goto_value=v.default_value)
             for k, v in self.values.items()
         }
         return Store(self.default_provenance, self.store, values, self.sub_prefix)
@@ -188,7 +192,7 @@ class Store:
             )
         else:
             s_str = ''
-        return q_str + ';' + s_str
+        return (q_str + ';' + s_str).strip(';')
 
 @serve.expose
 def cook(*values: Any, keys: list[tuple[Provenance, str]]) -> Dict[Any, Any] | Response:
@@ -196,17 +200,20 @@ def cook(*values: Any, keys: list[tuple[Provenance, str]]) -> Dict[Any, Any] | R
     for (p, n), v in zip(keys, values):
         next[p][n] = v
     assert not next['query']
-    ret: dict[str, Any] = {'refresh': True}
+    kaka = None
+    gen = None
+    refresh = False
     if next_DB := next['server']:
         DB.update(next_DB)
-        ret['refresh'] = False
         serve.reload()
+        gen = serve.generation
     if next_cookie := next['cookie']:
         prev = json.loads(request.cookies.get('kaka', "{}"))
         kaka = json.dumps({**prev, **next_cookie})
-        resp = jsonify(ret)
-        resp.set_cookie('kaka', kaka)
-        return resp
-    return ret
+        refresh = True
+    resp = jsonify({'refresh': refresh, 'gen': gen})
+    if kaka: resp.set_cookie('kaka', kaka)
+    if gen: resp.set_cookie('gen', str(gen))
+    return resp
 
 

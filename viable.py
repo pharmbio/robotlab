@@ -13,7 +13,7 @@ import json
 import traceback
 from queue import Queue, Empty
 
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, make_response
 from flask.wrappers import Response
 from itsdangerous import Serializer, URLSafeSerializer
 
@@ -171,6 +171,8 @@ class Tag(Node):
                 name, _ = classes[decls]
             else:
                 name = f'css-{len(classes)}'
+                if '-&' in decls:
+                    decls = decls.replace('-&', f'-{name}')
                 if '&' in decls:
                     inst = decls.replace('&', f'[{name}]')
                 else:
@@ -237,18 +239,15 @@ def serializer_factory() -> Serializer:
 class js:
     fragment: str
 
-def function_name(f: Callable[..., Any]) -> str:
-    if f.__module__ == '__main__':
-        return f.__qualname__
-    else:
-        return f.__module__ + '.' + f.__qualname__
+P = ParamSpec('P')
+R = TypeVar('R')
 
 @dataclass(frozen=True)
-class Exposed:
-    _f: Callable[..., Any]
+class Exposed(Generic[P, R]):
+    _f: Callable[P, R]
     _serializer: Serializer
 
-    def __call__(self, *args: Any, **kws: Any) -> Any:
+    def __call__(self, *args: P.args, **kws: P.kwargs) -> R:
         '''
         Call from python.
 
@@ -263,7 +262,8 @@ class Exposed:
         '''
         return self._f(*args, **kws)
 
-    def call(self, *args: Any, **kws: Any) -> str:
+    # def call(self, *args: P.args | js, **kws: P.kwargs | js) -> str:
+    def call(self, *args: Any | js, **kws: Any | js) -> str:
         '''
         The handler, optionally already applied to some arguments, which may be javascript fragments.
 
@@ -281,7 +281,7 @@ class Exposed:
                 js_args[k] = arg
             else:
                 py_args[k] = arg
-        name = function_name(self._f)
+        name = Exposed.function_name(self._f)
         py_name_kvs = self._serializer.dumps((name, py_args))
         if isinstance(py_name_kvs, bytes):
             py_name_kvs = py_name_kvs.decode()
@@ -293,6 +293,33 @@ class Exposed:
         args_csv = ",".join((json.dumps(name), json.dumps(py_name_kvs), js_kvs))
         return f'call({args_csv})'
 
+    def from_request(self, request_name: str, request_json: Any) -> Response:
+        py_name_kvs, js_kvs = request_json
+        py_name, py_kvs = self._serializer.loads(py_name_kvs)
+        assert request_name == py_name == Exposed.function_name(self._f)
+        arg_dict: dict[int, Any] = {}
+        kws: dict[str, Any] = {}
+        for k, v in (py_kvs | js_kvs).items():
+            if isinstance(k, int) or k.isdigit():
+                k = int(k)
+                arg_dict[k] = v
+            else:
+                assert isinstance(k, str)
+                kws[k] = v
+        args: list[Any] = [v for _, v in sorted(arg_dict.items(), key=lambda kv: kv[0])]
+        ret = self(*args, **kws)
+        if isinstance(ret, Response):
+            return ret
+        else:
+            return jsonify(ret)
+
+    @staticmethod
+    def function_name(f: Callable[..., Any]) -> str:
+        if f.__module__ == '__main__':
+            return f.__qualname__
+        else:
+            return f.__module__ + '.' + f.__qualname__
+
 app = Flask(__name__)
 
 from threading import RLock
@@ -303,45 +330,26 @@ class Serve:
     routes: dict[str, Callable[..., Iterable[Tag | str | dict[str, str]]]] = field(default_factory=dict)
 
     # Exposed functions
-    exposed: dict[str, Exposed] = field(default_factory=dict)
+    exposed: dict[str, Exposed[Any, Any]] = field(default_factory=dict)
     _serializer: Serializer = field(default_factory=serializer_factory)
 
     # State for reloading
     notify_reload_lock: RLock = field(default_factory=RLock)
     notify_reload: list[Queue[None]] = field(default_factory=list)
-    reloads: int = 0
+    generation: int = 1
 
-    def expose(self, f: Callable[..., Any]) -> Exposed:
-        name = function_name(f)
+    def expose(self, f: Callable[P, R]) -> Exposed[P, R]:
+        name = Exposed.function_name(f)
         assert name != '<lambda>'
-        if name in self.exposed:
-            assert self.exposed[name].f == f # type: ignore
-        res = Exposed(f, self._serializer)
-        self.exposed[name] = res
+        assert name not in self.exposed
+        res = self.exposed[name] = Exposed(f, self._serializer)
         return res
 
     def __post_init__(self):
         @app.post('/call/<name>')
         def call(name: str):
             try:
-                py_name_kvs, js_kvs = request.json                    # type: ignore
-                py_name, py_kvs = self._serializer.loads(py_name_kvs) # type: ignore
-                assert name == py_name
-                arg_dict: dict[int, Any] = {}
-                kws: dict[str, Any] = {}
-                for k, v in (py_kvs | js_kvs).items():                # type: ignore
-                    if isinstance(k, int) or k.isdigit():             # type: ignore
-                        k = int(k)
-                        arg_dict[k] = v
-                    else:
-                        assert isinstance(k, str)
-                        kws[k] = v
-                args: list[Any] = [v for _, v in sorted(arg_dict.items(), key=lambda kv: kv[0])]
-                ret = self.exposed[py_name](*args, **kws) # type: ignore
-                if isinstance(ret, Response):
-                    return ret
-                else:
-                    return jsonify(ret)
+                return self.exposed[name].from_request(name, request.json)
             except:
                 traceback.print_exc()
                 return '', 400
@@ -357,23 +365,21 @@ class Serve:
 
         @app.post('/ping')
         def ping():
-            i = request.cookies.get('reloads', None)
-            if i is not None and i != str(self.reloads):
-                resp = jsonify({'refresh': True})
-                resp.set_cookie('reloads', str(self.reloads))
+            i = request.cookies.get('gen', None)
+            if i is not None and i != str(self.generation):
+                resp = jsonify({'gen': self.generation})
+                resp.set_cookie('gen', str(self.generation))
                 return resp
             q = Queue[None]()
             with self.notify_reload_lock:
                 self.notify_reload.append(q)
             try:
                 q.get(timeout=115)
-                reload = True
             except Empty:
-                reload = False
                 with self.notify_reload_lock:
                     self.notify_reload.remove(q)
-            resp = jsonify({'refresh': reload})
-            resp.set_cookie('reloads', str(self.reloads))
+            resp = jsonify({'gen': self.generation})
+            resp.set_cookie('gen', str(self.generation))
             return resp
 
     def route(self, rule: str = '/'):
@@ -406,7 +412,7 @@ class Serve:
 
     def reload(self) -> None:
         with self.notify_reload_lock:
-            self.reloads += 1
+            self.generation += 1
             for q in self.notify_reload:
                 q.put_nowait(None)
             self.notify_reload.clear()
@@ -477,10 +483,12 @@ class Serve:
         if include_hot:
             head_node += script(src="/hot.js", defer=True)
 
-        return (
+        resp = make_response(
             f'<!doctype html>{newline}' +
             html(head_node, body_node, lang='en').to_str(indent)
         )
+        resp.set_cookie('reloads', str(self.generation))
+        return resp
 
     def run(self):
         try:
@@ -498,6 +506,42 @@ class Serve:
 serve = Serve()
 
 hot_js = str(r'''
+    last_gen = 0
+    async function call(name, py_name_kvs, js_kvs) {
+        const resp = await fetch("/call/" + name, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify([py_name_kvs, js_kvs]),
+        })
+        const body = await resp.json()
+        if (body && typeof body === 'object') {
+            if (body.log) {
+                console.log(body.log)
+            }
+            if (body.eval) {
+                (0, eval)(body.eval)
+            }
+            if (body.set_query) {
+                set_query(body.set_query)
+            }
+            if (body.update_query) {
+                update_query(body.update_query)
+            }
+            if (body.replace) {
+                history.replaceState(null, null, with_pathname(body.replace))
+            }
+            if (body.goto) {
+                history.pushState(null, null, with_pathname(body.goto))
+            }
+            if (body.refresh) {
+                refresh()
+            } else if (body.gen && body.gen != last_gen) {
+                last_gen = body.gen
+                refresh()
+            }
+        }
+        return resp
+    }
     function get_query() {
         return Object.fromEntries(new URL(location.href).searchParams)
     }
@@ -516,38 +560,6 @@ hot_js = str(r'''
         let next = new URL(location.href)
         next.pathname = s
         return next.href
-    }
-    async function call(name, py_name_kvs, js_kvs) {
-        const resp = await fetch("/call/" + name, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify([py_name_kvs, js_kvs]),
-        })
-        const body = await resp.json()
-        if (body && typeof body === 'object') {
-            if (body.eval) {
-                (0, eval)(body.eval)
-            }
-            if (body.set_query) {
-                set_query(body.set_query)
-            }
-            if (body.update_query) {
-                update_query(body.update_query)
-            }
-            if (body.replace) {
-                history.replaceState(null, null, with_pathname(body.replace))
-            }
-            if (body.goto) {
-                history.pushState(null, null, with_pathname(body.goto))
-            }
-            if (body.refresh) {
-                refresh()
-            }
-            if (body.log) {
-                console.log(body.log)
-            }
-        }
-        return resp
     }
     in_focus = true
     window.onfocus = () => { in_focus = true }
@@ -622,7 +634,6 @@ hot_js = str(r'''
         const html = document.querySelector('html')
         html.classList.add('loading')
         do {
-            console.log('refresh', i, rejected, current)
             rejected = false
             let text = null
             while (text === null) {
@@ -662,9 +673,10 @@ hot_js = str(r'''
     async function poll() {
         while (true) {
             try {
-                const resp = await fetch('/ping', {method: 'POST'}) // should post last seen frame too
+                const resp = await fetch('/ping', {method: 'POST'}) // post last seen generation too?
                 body = await resp.json()
-                if (body.refresh) {
+                if (body.gen && body.gen != last_gen) {
+                    last_gen = body.gen
                     await refresh()
                 }
             } catch (e) {
@@ -776,7 +788,7 @@ def queue_refresh(after_ms: float=100):
     js = minify(f'''
         clearTimeout(window._qrt)
         window._qrt = setTimeout(
-            () => requestAnimationFrame(() => refresh()),
+            () => requestAnimationFrame(() => gen()),
             {after_ms}
         )
     ''')

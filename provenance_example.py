@@ -23,24 +23,36 @@ def form(m: Store, *vs: Int | Str):
     for v in vs:
         d += label(
             span(f"{v.desc or v.name or ''}:"),
-            v.input(m),
+            v.input(m).extend(id_=v.name),
         )
     return d
 
 def view(m: Store):
     x = m.var(Str(desc='x'))
     y = m.var(Str(desc='y'))
+    yield button('y:="hoho" (1)', onclick=m.update({y: "hoho"}).goto())
+    yield button('y:="hoho" (2)', onclick=m.update_untyped({y: js(json.dumps("hoho"))}).goto())
+    yield button('y:=x (1)', onclick=m.update_untyped({y: js(f'document.querySelector("input#{x.name}").value')}).goto())
+    yield button('y:=x (2)', onclick=m.update_untyped({y: x.value}).goto())
+    yield button('y:=x (3)', onclick=m.update_untyped({y: js(json.dumps(x.value))}).goto())
     yield button('reset', onclick=m.defaults().goto())
-    yield button('example 1', onclick=m.update({x: "hoho"}).goto())
-    yield button('example 2', onclick=m.update_untyped({y: js('document.querySelector("input").value')}).goto())
-    yield button('example 3', onclick=m.update_untyped({y: x.value}).goto())
     yield form(m, x, y)
 
 def twins(m: Store):
-    n = m.var(Int(1))
+    n = m.var(Int(1, type='number', min=0, max=5))
     yield form(m, n)
     for i in range(n.value):
-        with m.sub(f'a{i}') as ma: yield from view(ma)
+        with m.sub(f'a{i}') as ma: yield div(*view(ma), css='''
+            & {
+                border: 1px #d8d8d8 solid;
+                border-radius: 0 0 6px 0;
+                width: fit-content;
+                padding: 12px;
+            }
+            & button:not(:first-child) {
+                margin-left: 9px;
+            }
+        ''')
     yield button('reset all', onclick=m.defaults().goto())
 
 import sys
@@ -48,13 +60,13 @@ print(sys.version)
 
 @serve.route()
 def index():
-    yield 'boo'
     yield {'sheet': '''
         body > *, label { margin: 10px 5px 0 0; }
         label { display: grid; grid-template-columns: 100px 100px; grid-gap: 10px; }
         label > span { place-self: center right; }
     '''}
     m = Store(default_provenance='server')
+    # yield from view(m)
     a = m.var(Int(type='range'))
     b = m.var(Int(type='number'))
     yield pre(str(dict(a=a.value, b=b.value)))
@@ -149,67 +161,35 @@ def plot():
             css='& * { transition: all 800ms }'
         )
 
+    spinner = div(
+        div(), div(), div(), div(),
+        css='''
+            & {
+              display: inline-block;
+              position: relative;
+              width: 40px;
+              height: 20px;
+            }
+            & div {
+              position: absolute;
+              top: 6px;
+              width: 6px;
+              height: 6px;
+              border-radius: 50%;
+              background: #000;
+              animation-timing-function: cubic-bezier(0, 1, 1, 0);
+            }
+            & div:nth-child(1) { left: 4px;  animation: -&-1 0.6s infinite; }
+            & div:nth-child(2) { left: 4px;  animation: -&-2 0.6s infinite; }
+            & div:nth-child(3) { left: 16px; animation: -&-2 0.6s infinite; }
+            & div:nth-child(4) { left: 28px; animation: -&-3 0.6s infinite; }
+            @keyframes -&-1 { 0% { transform: scale(0);        } 100% { transform: scale(1);           } }
+            @keyframes -&-3 { 0% { transform: scale(1);        } 100% { transform: scale(0);           } }
+            @keyframes -&-2 { 0% { transform: translate(0, 0); } 100% { transform: translate(12px, 0); } }
+        ''')
+
     yield div(
-        div(
-            div(), div(), div(), div(),
-            css='''
-                & {
-                  display: inline-block;
-                  position: relative;
-                  width: 40px;
-                  height: 20px;
-                }
-                & div {
-                  position: absolute;
-                  top: 6px;
-                  width: 6px;
-                  height: 6px;
-                  border-radius: 50%;
-                  background: #000;
-                  animation-timing-function: cubic-bezier(0, 1, 1, 0);
-                }
-                & div:nth-child(1) {
-                  left: 4px;
-                  animation: lds-ellipsis1 0.6s infinite;
-                }
-                & div:nth-child(2) {
-                  left: 4px;
-                  animation: lds-ellipsis2 0.6s infinite;
-                }
-                & div:nth-child(3) {
-                  left: 16px;
-                  animation: lds-ellipsis2 0.6s infinite;
-                }
-                & div:nth-child(4) {
-                  left: 28px;
-                  animation: lds-ellipsis3 0.6s infinite;
-                }
-                @keyframes lds-ellipsis1 {
-                  0% {
-                    transform: scale(0);
-                  }
-                  100% {
-                    transform: scale(1);
-                  }
-                }
-                @keyframes lds-ellipsis3 {
-                  0% {
-                    transform: scale(1);
-                  }
-                  100% {
-                    transform: scale(0);
-                  }
-                }
-                @keyframes lds-ellipsis2 {
-                  0% {
-                    transform: translate(0, 0);
-                  }
-                  100% {
-                    transform: translate(12px, 0);
-                  }
-                }
-            '''
-        ),
+        spinner,
         css='''
             & {
                 position: fixed;
