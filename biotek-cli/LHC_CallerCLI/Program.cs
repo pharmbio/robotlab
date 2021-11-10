@@ -157,8 +157,10 @@ namespace LHCCallerCLI
                     return;
                 }
                 if (last_validated_protocol != arg) {
-                    Console.WriteLine("error last validated protocol and argument does not match");
-                    return;
+                    Console.WriteLine("warning last validated protocol and argument do not match");
+                    last_validated_protocol = " ";
+                    Validate(path_prefix + arg);
+                    last_validated_protocol = arg;
                 }
                 RunValidated();
                 Console.WriteLine("success");
