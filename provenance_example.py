@@ -42,17 +42,16 @@ def twins(m: Store):
     n = m.var(Int(1, type='number', min=0, max=5))
     yield form(m, n)
     for i in range(n.value):
-        with m.sub(f'a{i}') as ma: yield div(*view(ma), css='''
-            & {
-                border: 1px #d8d8d8 solid;
-                border-radius: 0 0 6px 0;
-                width: fit-content;
-                padding: 12px;
-            }
-            & button:not(:first-child) {
-                margin-left: 9px;
-            }
-        ''')
+        with m.sub(f'a{i}') as ma: yield div(*view(ma),
+            b='1px #d8d8d8 solid',
+            border_radius='0 0 6px 0',
+            width='fit-content',
+            p=12,
+            css='''
+                & button:not(:first-child) {
+                    margin-left: 9px;
+                }
+            ''')
     yield button('reset all', onclick=m.defaults().goto())
 
 import sys
@@ -198,7 +197,7 @@ def plot():
                 opacity: 0;
                 transition: opacity 50ms 0;
             }
-            .loading & {
+            [loading="1"] & {
                 opacity: 1;
                 transition: opacity 50ms 400ms;
             }

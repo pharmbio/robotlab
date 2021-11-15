@@ -63,6 +63,64 @@ class Node(abc.ABC):
         sep = '' if indent == 0 else '\n'
         return sep.join(self.to_strs(indent=indent))
 
+css_props={
+    p.replace('-', '_'): [p]
+    for p in '''
+        align-content align-items align-self all animation animation-delay
+        animation-direction animation-duration animation-fill-mode
+        animation-iteration-count animation-name animation-play-state
+        animation-timing-function backface-visibility background
+        background-attachment background-blend-mode background-clip
+        background-color background-image background-origin
+        background-position background-repeat background-size border
+        border-bottom border-bottom-color border-bottom-left-radius
+        border-bottom-right-radius border-bottom-style border-bottom-width
+        border-collapse border-color border-image border-image-outset
+        border-image-repeat border-image-slice border-image-source
+        border-image-width border-left border-left-color border-left-style
+        border-left-width border-radius border-right border-right-color
+        border-right-style border-right-width border-spacing
+        border-style border-top border-top-color border-top-left-radius
+        border-top-right-radius border-top-style border-top-width border-width
+        bottom box-decoration-break box-shadow box-sizing break-after
+        break-before break-inside caption-side caret-color clear clip
+        clip-path color column-count column-fill column-gap column-rule
+        column-rule-color column-rule-style column-rule-width column-span
+        column-width columns content counter-increment counter-reset cursor
+        direction display empty-cells filter flex flex-basis flex-direction
+        flex-flow flex-grow flex-shrink flex-wrap float font font-family
+        font-feature-settings font-kerning font-size font-size-adjust
+        font-stretch font-style font-variant font-variant-caps font-weight
+        gap grid grid-area grid-auto-columns grid-auto-flow grid-auto-rows
+        grid-column grid-column-end grid-column-gap grid-column-start grid-gap
+        grid-row grid-row-end grid-row-gap grid-row-start grid-template
+        grid-template-areas grid-template-columns grid-template-rows
+        hanging-punctuation height hyphens image-rendering isolation
+        justify-content left letter-spacing line-height list-style
+        list-style-image list-style-position list-style-type margin
+        margin-bottom margin-left margin-right margin-top max-height max-width
+        min-height min-width mix-blend-mode object-fit object-position opacity
+        order orphans outline outline-color outline-offset outline-style
+        outline-width overflow overflow-wrap overflow-x overflow-y padding
+        padding-bottom padding-left padding-right padding-top page-break-after
+        page-break-before page-break-inside perspective perspective-origin
+        pointer-events position quotes resize right row-gap scroll-behavior
+        tab-size table-layout text-align text-align-last text-decoration
+        text-decoration-color text-decoration-line text-decoration-style
+        text-indent text-justify text-overflow text-shadow text-transform top
+        transform transform-origin transform-style transition transition-delay
+        transition-duration transition-property transition-timing-function
+        unicode-bidi user-select vertical-align visibility white-space widows
+        width word-break word-spacing word-wrap writing-mode z-index
+'''.split()
+}
+for m, margin in {'m': 'margin', 'p': 'padding', 'b': 'border'}.items():
+    css_props[m] = [margin]
+    for x, left_right in {'t': 'top', 'b': 'bottom', 'l': 'left', 'r': 'right', 'x': 'left right', 'y': 'top bottom'}.items():
+        css_props[m+x] = [margin + '-' + left for left in left_right.split()]
+css_props['d'] = ['display']
+css_props['bg'] = ['background']
+
 class Tag(Node):
     _attributes_ = {'children', 'attrs', 'inline_css', 'inline_sheet'}
     def __init__(self, *children: Node | str | dict[str, str | bool | None], **attrs: str | bool | None):
@@ -95,7 +153,20 @@ class Tag(Node):
                 assert isinstance(v, str), 'inline css must be str'
                 self.inline_sheet += [v]
                 continue
-            k = k.strip("_").replace("_", "-")
+            if props := css_props.get(k):
+                if isinstance(v, int):
+                    if v == 0:
+                        v = '0'
+                    else:
+                        v = str(v) + 'px'
+                assert isinstance(v, str)
+                vs: list[str] = []
+                for prop in props:
+                    vs += [f'{prop}:{v}']
+                v = ';'.join(vs)
+                k = 'style'
+            else:
+                k = k.strip("_").replace("_", "-")
             if k == 'className':
                 k = 'class'
             if k == 'htmlFor':
@@ -114,6 +185,9 @@ class Tag(Node):
                 self.attrs[k] = str(self.attrs[k]).rstrip(sep) + sep + v.lstrip(sep)
             else:
                 self.attrs[k] = v
+        # style = self.attrs.pop('style', None)
+        # if style:
+        #     self.inline_css += [style]
         return self
 
     def __iadd__(self, other: str | Tag) -> Tag:
@@ -487,7 +561,7 @@ class Serve:
             f'<!doctype html>{newline}' +
             html(head_node, body_node, lang='en').to_str(indent)
         )
-        resp.set_cookie('reloads', str(self.generation))
+        resp.set_cookie('gen', str(self.generation))
         return resp
 
     def run(self):
@@ -570,6 +644,9 @@ hot_js = str(r'''
             next.nodeType === Node.ELEMENT_NODE &&
             prev.tagName === next.tagName
         ) {
+            if (prev.hasAttribute('nodiff')) {
+                return
+            }
             for (let name of prev.getAttributeNames()) {
                 if (!next.hasAttribute(name)) {
                     prev.removeAttribute(name)
@@ -620,7 +697,7 @@ hot_js = str(r'''
     }
     let current
     let rejected = false
-    async function refresh(i=0) {
+    async function refresh() {
         if (current) {
             rejected = true
             return current
@@ -632,18 +709,19 @@ hot_js = str(r'''
         })
         rejected = false
         const html = document.querySelector('html')
-        html.classList.add('loading')
+        html.setAttribute('loading', '1')
         do {
             rejected = false
             let text = null
+            let retries = 0
             while (text === null) {
                 try {
                     const resp = await fetch(location.href)
                     text = await resp.text()
                 } catch (e) {
-                    if (i > 0) {
-                        await new Promise(x => setTimeout(x, i < 300 ? 1000 : 50))
-                    } else {
+                    retries++
+                    await new Promise(x => setTimeout(x, retries < 100 ? 50 : 1000))
+                    if (retries > 500) {
                         console.warn('timeout', e)
                         reject('timeout')
                         throw new Error('timeout')
@@ -664,7 +742,7 @@ hot_js = str(r'''
         } while (rejected);
         requestAnimationFrame(() => {
             if (!current) {
-                html.classList.remove('loading')
+                html.setAttribute('loading', '0')
             }
         })
         current = undefined
@@ -788,7 +866,7 @@ def queue_refresh(after_ms: float=100):
     js = minify(f'''
         clearTimeout(window._qrt)
         window._qrt = setTimeout(
-            () => requestAnimationFrame(() => gen()),
+            () => requestAnimationFrame(() => refresh()),
             {after_ms}
         )
     ''')
@@ -928,3 +1006,4 @@ if 0:
     test += div()
     test.css += 'lol;'
     print(test)
+

@@ -191,7 +191,11 @@ class Meta(Command):
         return self.command.est()
 
     def execute(self, runtime: Runtime, metadata: dict[str, Any]) -> None:
-        self.command.execute(runtime, {**metadata, **self.metadata})
+        try:
+            m = {'est': self.command.est()}
+        except:
+            m = {}
+        self.command.execute(runtime, {**m, **metadata, **self.metadata})
 
     def replace(self, command: Command):
         return command.with_metadata(self.metadata)
@@ -278,6 +282,7 @@ class WaitForCheckpoint(Command):
             t0 = runtime.wait_for_checkpoint(self.name)
             desired_point_in_time = t0 + plus_secs
             delay = desired_point_in_time - runtime.monotonic()
+            metadata = {'report_behind_time': self.report_behind_time, **metadata}
             if delay < 1 and not self.report_behind_time:
                 metadata = {**metadata, 'silent': True}
             runtime.sleep(delay, metadata)

@@ -90,7 +90,7 @@ configs = [
     RuntimeConfig('test-arm-incu', WallTime,              disp_and_wash_mode='noop',    incu_mode='execute', robotarm_mode='execute',            env=live_arm_incu),
     RuntimeConfig('simulator',     WallTime,              disp_and_wash_mode='noop',    incu_mode='noop',    robotarm_mode='execute no gripper', env=simulator_env),
     RuntimeConfig('forward',       WallTime,              disp_and_wash_mode='noop',    incu_mode='noop',    robotarm_mode='execute',            env=forward_env),
-    RuntimeConfig('dry-ff',        FastForwardTime(50.0), disp_and_wash_mode='noop',    incu_mode='noop',    robotarm_mode='noop',               env=dry_env),
+    RuntimeConfig('dry-ff',        FastForwardTime(10.0), disp_and_wash_mode='noop',    incu_mode='noop',    robotarm_mode='noop',               env=dry_env),
     RuntimeConfig('dry-wall',      WallTime,              disp_and_wash_mode='noop',    incu_mode='noop',    robotarm_mode='noop',               env=dry_env),
     RuntimeConfig('dry-run',       SimulatedTime,         disp_and_wash_mode='noop',    incu_mode='noop',    robotarm_mode='noop',               env=dry_env),
 ]
@@ -399,8 +399,8 @@ class Runtime:
             self.log('info', 'wait', f'behind time {pp_secs(secs)}s', metadata={**metadata, 'secs': secs})
         else:
             to = self.pp_time_offset(self.monotonic() + secs)
-            self.log('info', 'wait', f'sleeping to {to} ({pp_secs(secs)}s)', metadata={**metadata, 'secs': secs})
-        return self.timelike.value.sleep(secs)
+            with self.timeit('wait', f'sleeping to {to} ({pp_secs(secs)}s)', metadata={**metadata, 'secs': secs}):
+                self.timelike.value.sleep(secs)
 
     def queue_get(self, queue: Queue[A]) -> A:
         return self.timelike.value.queue_get(queue)
@@ -414,11 +414,11 @@ class Runtime:
     def register_thread(self, name: str):
         return self.timelike.value.register_thread(name)
 
-    def thread_idle(self):
-        return self.timelike.value.thread_idle()
-
     def thread_done(self):
         return self.timelike.value.thread_done()
+
+    def get_speedup(self) -> float:
+        return self.timelike.value.get_speedup()
 
     def checkpoint(self, name: str, *, metadata: dict[str, Any] = {}):
         with self.time_lock:

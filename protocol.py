@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Any, TypeVar, Iterable, Iterator, Callable
+from typing import Any, TypeVar, Iterable, Iterator, cast
 from dataclasses import *
 
 from collections import defaultdict, Counter
@@ -872,7 +872,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
         Sequence(*prep_cmds).with_metadata(step='prep'),
         *plate_cmds,
         Sequence(*post_cmds)
-    )
+    ).with_metadata(batch_index=batch_index)
 
 def define_plates(batch_sizes: list[int]) -> list[Plate]:
     plates: list[Plate] = []
@@ -1047,8 +1047,6 @@ def make_runtime(config: RuntimeConfig, metadata: dict[str, str]) -> Iterator[Ru
 
     runtime = Runtime(config=config, log_filename=log_filename)
 
-    metadata['git_HEAD'] = utils.git_HEAD() or ''
-    metadata['host']     = platform.node()
     with runtime.excepthook():
         yield runtime
 
@@ -1116,6 +1114,11 @@ def execute_program(config: RuntimeConfig, program: Command, metadata: dict[str,
 
         program_opt = program.remove_scheduling_idles()
 
+        metadata = metadata.copy()
+        metadata['git_HEAD'] = utils.git_HEAD() or ''
+        metadata['host']     = platform.node()
+        metadata['speedup']  = cast(Any, runtime.get_speedup())
+
         os.makedirs('running/', exist_ok=True)
         base = 'running/' + utils.now_str_for_filename() + '_'
         save = {
@@ -1125,7 +1128,9 @@ def execute_program(config: RuntimeConfig, program: Command, metadata: dict[str,
         for k, v in save.items():
             with open(base + k, 'wb') as fp:
                 pickle.dump(v, fp)
-            runtime.log('info', 'system', None, {k: base + k, 'silent': True})
+            metadata[k] = base + k
+
+        runtime.log('info', 'system', None, {**metadata, 'silent': True})
 
         program_opt.execute(runtime, {})
         return runtime

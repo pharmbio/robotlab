@@ -15,6 +15,10 @@ A = TypeVar('A')
 
 class Timelike(abc.ABC):
     @abc.abstractmethod
+    def get_speedup(self) -> float:
+        pass
+
+    @abc.abstractmethod
     def monotonic(self) -> float:
         pass
 
@@ -39,10 +43,6 @@ class Timelike(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def thread_idle(self):
-        pass
-
-    @abc.abstractmethod
     def thread_done(self):
         pass
 
@@ -52,7 +52,7 @@ from collections import defaultdict
 @dataclass
 class ThreadData:
     name: str = field(default_factory=lambda: threading.current_thread().name)
-    state: Literal['busy', 'blocked', 'sleeping', 'idle'] = 'busy'
+    state: Literal['busy', 'blocked', 'sleeping'] = 'busy'
     sleep_until: float = float('inf')
     inbox: Queue[None] = field(default_factory=Queue)
     blocked_at: Queue[Any] | None = None
@@ -63,6 +63,9 @@ class SimulatedTime(Timelike):
     skipped_time: float = 0.0
     lock: Lock = field(default_factory=Lock)
     qsize: dict[int, int] = field(default_factory=lambda: defaultdict[int, int](int))
+
+    def get_speedup(self) -> float:
+        return 1.0
 
     def log(self):
         return
@@ -86,11 +89,6 @@ class SimulatedTime(Timelike):
     def current_thread_data(self) -> ThreadData:
         tid = threading.current_thread()
         return self.threads[tid]
-
-    def thread_idle(self):
-        with self.lock:
-            self.current_thread_data().state = 'idle'
-            self.wake_up()
 
     def thread_done(self):
         with self.lock:
@@ -162,7 +160,7 @@ class SimulatedTime(Timelike):
         if states == {'blocked'}:
             raise ValueError(f'Threads blocked indefinitely')
             return
-        if states <= {'blocked', 'idle'}:
+        if states <= {'blocked'}:
             return
         if 'busy' in states:
             # there is still a thread busy, we exit here to let it proceed
@@ -187,6 +185,9 @@ class WallTime(Timelike):
     start_time: float = field(default_factory=time.monotonic)
     speedup: float = 1.0
 
+    def get_speedup(self) -> float:
+        return self.speedup
+
     def monotonic(self):
         return (time.monotonic() - self.start_time) * self.speedup
 
@@ -205,9 +206,6 @@ class WallTime(Timelike):
     def sleep(self, seconds: float):
         if seconds > 0:
             time.sleep(seconds / self.speedup)
-
-    def thread_idle(self):
-        pass
 
     def thread_done(self):
         pass
