@@ -14,6 +14,7 @@ import pickle
 from commands import (
     Command,
     Fork,
+    Info,
     Checkpoint,
     Duration,
     Idle,
@@ -587,6 +588,10 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
     batch_index = first_plate.batch_index
     first_batch = batch_index == 0
 
+    def Section(section: str) -> Command:
+        section = f'{section} {batch_index}'
+        return Info(section).with_metadata(section=section)
+
     if not first_batch:
         prep_cmds += [
             WaitForCheckpoint(f'batch {batch_index-1}') + Symbolic.var('batch sep'),
@@ -758,7 +763,12 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                 RobotarmCmd('disp get return'),
             ]
 
-            chunks[plate.id, step, 'incu -> B21' ] = [*incu_delay, *incu_get]
+            if plate is first_plate and step != 'Mito':
+                section_info = Section(step)
+            else:
+                section_info = Idle()
+
+            chunks[plate.id, step, 'incu -> B21' ] = [*incu_delay, section_info, *incu_get]
             chunks[plate.id, step,  'B21 -> wash'] = wash
             chunks[plate.id, step, 'wash -> disp'] = disp
             chunks[plate.id, step, 'disp -> B21' ] = [*disp_to_B21, *lid_on]
@@ -869,6 +879,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
     ]
 
     return Sequence(
+        Section('Mito'),
         Sequence(*prep_cmds).with_metadata(step='prep'),
         *plate_cmds,
         Sequence(*post_cmds)
@@ -1104,7 +1115,7 @@ def execute_program(config: RuntimeConfig, program: Command, metadata: dict[str,
         program = program.transform(Filter)
         program = program.remove_noops()
 
-    utils.pr(program)
+    # utils.pr(program)
 
     with make_runtime(config, metadata) as runtime:
         try:

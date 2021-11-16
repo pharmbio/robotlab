@@ -227,6 +227,15 @@ def Sequence(*commands: Command) -> Command:
     return Seq(flat)
 
 @dataclass(frozen=True)
+class Info(Command):
+    arg: str = ''
+    def est(self):
+        return 0.0
+
+    def execute(self, runtime: Runtime, metadata: dict[str, Any]) -> None:
+        runtime.log('info', 'system', self.arg, metadata=metadata)
+
+@dataclass(frozen=True)
 class Idle(Command):
     secs: Symbolic | float | int = 0.0
     only_for_scheduling: bool = False

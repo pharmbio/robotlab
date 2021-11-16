@@ -21,6 +21,7 @@ from timelike import Timelike, WallTime, SimulatedTime, FastForwardTime
 from collections import defaultdict
 
 import os
+import sys
 import signal
 
 @dataclass(frozen=True)
@@ -156,6 +157,12 @@ class Runtime:
         self.timelike.value = self.config.timelike_factory()
         self.register_thread('main')
 
+        def stop_arm():
+            arm = self.get_robotarm(quiet=False, include_gripper=False)
+            arm.send('textmsg("log quit")\n')
+            arm.recv_until('quit')
+            arm.close()
+
         if self.config.robotarm_mode != 'noop':
             self.set_robotarm_speed(self.config.robotarm_speed)
             @self.spawn
@@ -180,13 +187,20 @@ class Runtime:
                     if c == '9': speed = 90
                     if c == '0': speed = 100
                     if c == 'Q':
-                        arm = self.get_robotarm(quiet=False, include_gripper=False)
-                        arm.send('textmsg("log quit")\n')
-                        arm.recv_until('quit')
-                        arm.close()
+                        stop_arm()
                         os.kill(os.getpid(), signal.SIGINT)
                     if speed:
                         self.set_robotarm_speed(speed)
+
+        def handle_signal(signum: int, _frame: Any):
+            print('signal:', signum)
+            self.log('error', 'system', f'signal {signum}')
+            stop_arm()
+            sys.exit(0)
+
+        signal.signal(signal.SIGTERM, handle_signal)
+        signal.signal(signal.SIGINT, handle_signal)
+        signal.signal(signal.SIGQUIT, handle_signal)
 
     def get_robotarm(self, quiet: bool = True, include_gripper: bool = True) -> Robotarm:
         return get_robotarm(self.config, quiet=quiet, include_gripper=include_gripper)
@@ -257,6 +271,8 @@ class Runtime:
 
         if 0:
             utils.pr(entry)
+        if kind == 'error':
+            utils.pr(entry)
         if self.log_filename:
             with self.log_lock:
                 with open(self.log_filename, 'a') as fp:
@@ -269,10 +285,10 @@ class Runtime:
     active: set[str] = field(default_factory=set)
 
     def log_entry_to_line(self, entry: dict[str, Any]) -> str | None:
-        source = entry.get('source') or ''
         kind = entry.get('kind') or ''
-        plate_id = entry.get('event_plate_id') or ''
-        part = entry.get('event_part') or ''
+        step = entry.get('step') or ''
+        source = entry.get('source') or ''
+        plate_id = entry.get('plate_id') or ''
 
         if not self.log_filename:
             return
@@ -364,7 +380,7 @@ class Runtime:
             f'{src     : <9}',
             f'{arg     : <50}' + columns,
             f'{plate_id: >2}',
-            f'{part    : <6}',
+            f'{step    : <6}',
         ]
 
         parts = [color(source, part) for part in parts]
