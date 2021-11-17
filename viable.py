@@ -145,6 +145,7 @@ class Tag(Node):
 
     def extend(self, attrs: dict[str, str | bool | None] = {}, **kws: str | bool | None) -> Tag:
         for k, v in {**attrs, **kws}.items():
+            k = k.strip('_')
             if k == 'css':
                 assert isinstance(v, str), 'inline css must be str'
                 self.inline_css += [v]
@@ -166,7 +167,7 @@ class Tag(Node):
                 v = ';'.join(vs)
                 k = 'style'
             else:
-                k = k.strip("_").replace("_", "-")
+                k = k.replace('_', '-')
             if k == 'className':
                 k = 'class'
             if k == 'htmlFor':
@@ -185,9 +186,6 @@ class Tag(Node):
                 self.attrs[k] = str(self.attrs[k]).rstrip(sep) + sep + v.lstrip(sep)
             else:
                 self.attrs[k] = v
-        # style = self.attrs.pop('style', None)
-        # if style:
-        #     self.inline_css += [style]
         return self
 
     def __iadd__(self, other: str | Tag) -> Tag:
@@ -576,6 +574,12 @@ class Serve:
             # use flask's SERVER_NAME instead
             app.config['SERVER_NAME'] = os.environ.get('SERVER_NAME')
             app.run(threaded=True)
+
+    def suppress_flask_logging(self):
+        # suppress flask logging
+        import logging
+        log = logging.getLogger('werkzeug')
+        log.setLevel(logging.ERROR)
 
 serve = Serve()
 

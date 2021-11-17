@@ -82,6 +82,10 @@ def execute(
                 )
                 url = url.rstrip('/')
                 res: Any = curl(url)
+            if 0:
+                import random
+                if random.random() > 0.95 and runtime.config.name == 'dry-ff':
+                    res: Any = {"success":False,"lines":["error biotek broken"]}
             success: bool = res.get('success', False)
             lines: list[str] = res.get('lines', [])
             details = '\n'.join(lines)
@@ -92,6 +96,6 @@ def execute(
                     runtime.log('warn', machine, line)
                 runtime.log('warn', machine, 'got error code 6061, retrying...', {**metadata, **res})
             else:
-                for line in lines:
-                    runtime.log('error', machine, line)
+                for line in lines or ['']:
+                    runtime.log('error', machine, f'{machine}: {line}')
                 raise ValueError(res)

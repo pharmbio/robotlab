@@ -10,20 +10,22 @@ import shutil
 import os
 from commands import (
     Checkpoint,
+    Duration,
     WaitForCheckpoint,
     Command,
     Sequence,
     Meta,
 )
-from runtime import RuntimeConfig, Runtime
+from runtime import RuntimeConfig, ResumeConfig
+import protocol
 
-def resume_program(config: RuntimeConfig, log_filename_in: str) -> Runtime:
+def resume_program(config: RuntimeConfig, log_filename_in: str):
     entries = list(utils.read_json_lines(log_filename_in))
     entries = entries
 
     program: Command | None = None
-    for e in entries:
-        if (path := e.get('program_pickle_file')):
+    for e in entries[::-1]:
+        if (path := e.get('runtime_metadata', {}).get('program_pickle_file')):
             with open(path, 'rb') as fp:
                 program = pickle.load(fp)
                 break
@@ -44,7 +46,7 @@ def resume_program(config: RuntimeConfig, log_filename_in: str) -> Runtime:
     finished_ids: set[str] = set()
     for e in entries:
         try:
-            if e['kind'] == 'end':
+            if e['kind'] == 'end' or 'section' in e:
                 cmd_id = e['id']
                 assert isinstance(cmd_id, str)
                 finished_ids.add(cmd_id)
@@ -68,38 +70,26 @@ def resume_program(config: RuntimeConfig, log_filename_in: str) -> Runtime:
 
     print('inital node count =', len(list(program.universe())))
     program = program.transform(Filter)
+    program = program.remove_noops()
     print('final node count =', len(list(program.universe())))
 
     start_time = datetime.fromisoformat(entries[0]['log_time'])
-    secs_ago = (datetime.now() - start_time).total_seconds()
     print('start_time =', str(start_time))
-    print('secs_ago =', secs_ago)
 
-    if config.timelike_factory is timelike.WallTime:
-        config = replace(
-            config,
-            timelike_factory = lambda: timelike.WallTime(start_time=time.monotonic() - secs_ago)
-        )
-    elif config.timelike_factory is timelike.SimulatedTime:
-        config = replace(
-            config,
-            timelike_factory = lambda: timelike.SimulatedTime(skipped_time=secs_ago)
-        )
-    else:
-        raise ValueError('Unknown timelike factory on config object')
-
-    log_filename = 'logs/resume-' + utils.now_str_for_filename() + '.jsonl'
-    os.makedirs('logs/', exist_ok=True)
-    print(f'{log_filename = }')
+    log_filename = config.log_filename
+    if not log_filename:
+        log_filename = 'logs/resume-' + utils.now_str_for_filename() + '.jsonl'
+        os.makedirs('logs/', exist_ok=True)
+    abspath = os.path.abspath(log_filename)
+    os.makedirs(os.path.dirname(abspath), exist_ok=True)
+    print(f'{log_filename=}')
     shutil.copy2(log_filename_in, log_filename)
 
-    runtime = Runtime(
-        config=config,
+    config = config.replace(
         log_filename=log_filename,
-        start_time=start_time,
-        checkpoint_times=checkpoint_times,
+        resume_config=ResumeConfig(
+            start_time=start_time,
+            checkpoint_times=checkpoint_times,
+        )
     )
-    with runtime.timeit('resume', log_filename_in, {}):
-        program.execute(runtime, {})
-    return runtime
-
+    protocol.execute_program(config, program, {})

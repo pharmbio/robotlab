@@ -52,6 +52,22 @@ forward_env = Env(
 
 dry_env = Env()
 
+import time
+
+@dataclass
+class ResumeConfig:
+    start_time: datetime
+    checkpoint_times: dict[str, float]
+    secs_ago: float = 0.0
+    def __post_init__(self):
+        self.secs_ago = (datetime.now() - self.start_time).total_seconds()
+
+@dataclass(frozen=True)
+class Keep:
+    pass
+
+keep = Keep()
+
 @dataclass(frozen=True)
 class RuntimeConfig:
     name:               str
@@ -61,22 +77,54 @@ class RuntimeConfig:
     robotarm_mode:      Literal['noop', 'execute', 'execute no gripper', ]
     env: Env
     robotarm_speed: int = 100
-    log_filename: str = ''
+    log_filename: str | None = None
     log_to_file: bool = True
+    resume_config: ResumeConfig | None = None
+
+    def make_runtime(self) -> Runtime:
+        resume_config = self.resume_config
+        if resume_config:
+            return Runtime(
+                config=self,
+                timelike=self.make_timelike(),
+                start_time=resume_config.start_time,
+                checkpoint_times=resume_config.checkpoint_times.copy(),
+            )
+        else:
+            return Runtime(
+                config=self,
+                timelike=self.make_timelike(),
+            )
+
+    def make_timelike(self) -> Timelike:
+        resume_config = self.resume_config
+        if resume_config:
+            if self.timelike_factory is WallTime:
+                return WallTime(start_time=time.monotonic() - resume_config.secs_ago)
+            elif self.timelike_factory is FastForwardTime:
+                return FastForwardTime(start_time=time.monotonic() - resume_config.secs_ago)
+            elif self.timelike_factory is SimulatedTime:
+                return SimulatedTime(skipped_time=resume_config.secs_ago)
+            else:
+                raise ValueError(f'Unknown timelike factory {self.timelike_factory} on config object')
+        else:
+            return self.timelike_factory()
 
     def replace(self,
-        robotarm_speed: int  | None = None,
-        log_filename:   str  | None = None,
-        log_to_file:    bool | None = None,
+        robotarm_speed: int |                 Keep = keep,
+        log_filename:   str | None |          Keep = keep,
+        log_to_file:    bool |                Keep = keep,
+        resume_config:  ResumeConfig | None | Keep = keep,
     ):
         next = self
         updates = dict(
             robotarm_speed=robotarm_speed,
             log_filename=log_filename,
             log_to_file=log_to_file,
+            resume_config=resume_config,
         )
         for k, v in updates.items():
-            if v is None:
+            if v is keep:
                 pass
             elif getattr(next, k) is v:
                 pass
@@ -86,14 +134,14 @@ class RuntimeConfig:
 
 configs: list[RuntimeConfig]
 configs = [
-    RuntimeConfig('live',          WallTime,              disp_and_wash_mode='execute', incu_mode='execute', robotarm_mode='execute',            env=live_env),
-    RuntimeConfig('test-all',      WallTime,              disp_and_wash_mode='execute', incu_mode='execute', robotarm_mode='execute',            env=live_env),
-    RuntimeConfig('test-arm-incu', WallTime,              disp_and_wash_mode='noop',    incu_mode='execute', robotarm_mode='execute',            env=live_arm_incu),
-    RuntimeConfig('simulator',     WallTime,              disp_and_wash_mode='noop',    incu_mode='noop',    robotarm_mode='execute no gripper', env=simulator_env),
-    RuntimeConfig('forward',       WallTime,              disp_and_wash_mode='noop',    incu_mode='noop',    robotarm_mode='execute',            env=forward_env),
-    RuntimeConfig('dry-ff',        FastForwardTime(10.0), disp_and_wash_mode='noop',    incu_mode='noop',    robotarm_mode='noop',               env=dry_env),
-    RuntimeConfig('dry-wall',      WallTime,              disp_and_wash_mode='noop',    incu_mode='noop',    robotarm_mode='noop',               env=dry_env),
-    RuntimeConfig('dry-run',       SimulatedTime,         disp_and_wash_mode='noop',    incu_mode='noop',    robotarm_mode='noop',               env=dry_env),
+    RuntimeConfig('live',          WallTime,        disp_and_wash_mode='execute', incu_mode='execute', robotarm_mode='execute',            env=live_env),
+    RuntimeConfig('test-all',      WallTime,        disp_and_wash_mode='execute', incu_mode='execute', robotarm_mode='execute',            env=live_env),
+    RuntimeConfig('test-arm-incu', WallTime,        disp_and_wash_mode='noop',    incu_mode='execute', robotarm_mode='execute',            env=live_arm_incu),
+    RuntimeConfig('simulator',     WallTime,        disp_and_wash_mode='noop',    incu_mode='noop',    robotarm_mode='execute no gripper', env=simulator_env),
+    RuntimeConfig('forward',       WallTime,        disp_and_wash_mode='noop',    incu_mode='noop',    robotarm_mode='execute',            env=forward_env),
+    RuntimeConfig('dry-ff',        FastForwardTime, disp_and_wash_mode='noop',    incu_mode='noop',    robotarm_mode='noop',               env=dry_env),
+    RuntimeConfig('dry-wall',      WallTime,        disp_and_wash_mode='noop',    incu_mode='noop',    robotarm_mode='noop',               env=dry_env),
+    RuntimeConfig('dry-run',       SimulatedTime,   disp_and_wash_mode='noop',    incu_mode='noop',    robotarm_mode='noop',               env=dry_env),
 ]
 
 def config_lookup(name: str) -> RuntimeConfig:
@@ -139,11 +187,10 @@ A = TypeVar('A')
 @dataclass(frozen=True)
 class Runtime:
     config: RuntimeConfig
-    log_filename: str | None = None
+    timelike: Timelike
     log_entries: list[dict[str, Any]] = field(default_factory=list)
     log_lock: RLock  = field(default_factory=RLock)
     time_lock: RLock = field(default_factory=RLock)
-    timelike: Mutable[Timelike] = Mutable.factory(cast(Any, 'initialize in __post_init__ based on config.timelike_factory'))
     times: dict[str, list[float]] = field(default_factory=lambda: cast(Any, defaultdict(list)))
 
     start_time: datetime = field(default_factory=datetime.now)
@@ -154,56 +201,33 @@ class Runtime:
     )
 
     def __post_init__(self):
-        self.timelike.value = self.config.timelike_factory()
         self.register_thread('main')
 
-        def stop_arm():
-            arm = self.get_robotarm(quiet=False, include_gripper=False)
-            arm.send('textmsg("log quit")\n')
-            arm.recv_until('quit')
-            arm.close()
+        if self.config.name != 'dry-run':
+            def handle_signal(signum: int, _frame: Any):
+                self.log('error', 'system', f'Received {signal.strsignal(signum)}, shutting down', {'signum': signum})
+                self.stop_arm()
+                sys.exit(1)
 
-        if self.config.robotarm_mode != 'noop':
-            self.set_robotarm_speed(self.config.robotarm_speed)
-            @self.spawn
-            def change_robotarm_speed():
-                while True:
-                    with self.log_lock:
-                        print('Press escape to set speed to 1%, enter to return it to 100%')
-                    c = utils.getchar()
-                    speed: None | int = None
-                    ESCAPE = '\x1b'
-                    RETURN = '\n'
-                    if c == ESCAPE: speed = 1
-                    if c == RETURN: speed = 100
-                    if c == '1': speed = 10
-                    if c == '2': speed = 20
-                    if c == '3': speed = 30
-                    if c == '4': speed = 40
-                    if c == '5': speed = 50
-                    if c == '6': speed = 60
-                    if c == '7': speed = 70
-                    if c == '8': speed = 80
-                    if c == '9': speed = 90
-                    if c == '0': speed = 100
-                    if c == 'Q':
-                        stop_arm()
-                        os.kill(os.getpid(), signal.SIGINT)
-                    if speed:
-                        self.set_robotarm_speed(speed)
+            signal.signal(signal.SIGINT, handle_signal)
+            signal.signal(signal.SIGQUIT, handle_signal)
+            signal.signal(signal.SIGTERM, handle_signal)
+            signal.signal(signal.SIGABRT, handle_signal)
 
-        def handle_signal(signum: int, _frame: Any):
-            print('signal:', signum)
-            self.log('error', 'system', f'signal {signum}')
-            stop_arm()
-            sys.exit(0)
+            print('Signal handlers installed')
 
-        signal.signal(signal.SIGTERM, handle_signal)
-        signal.signal(signal.SIGINT, handle_signal)
-        signal.signal(signal.SIGQUIT, handle_signal)
+    def kill(self):
+        self.stop_arm()
+        os.kill(os.getpid(), signal.SIGINT)
 
     def get_robotarm(self, quiet: bool = True, include_gripper: bool = True) -> Robotarm:
         return get_robotarm(self.config, quiet=quiet, include_gripper=include_gripper)
+
+    def stop_arm(self):
+        arm = self.get_robotarm(quiet=False, include_gripper=False)
+        arm.send('textmsg("log quit")\n')
+        arm.recv_until('quit')
+        arm.close()
 
     def set_robotarm_speed(self, speed: int):
         arm = self.get_robotarm(quiet=False, include_gripper=False)
@@ -220,9 +244,11 @@ class Runtime:
     def excepthook(self):
         try:
             yield
-        except BaseException:
-            self.log('error', 'exception', traceback.format_exc())
-            raise
+        except BaseException as e:
+            import reprlib
+            self.log('error', 'exception', reprlib.repr(e), {'traceback': traceback.format_exc(), 'repr': repr(e)})
+            if not isinstance(e, SystemExit):
+                os.kill(os.getpid(), signal.SIGINT)
 
     @property
     def env(self):
@@ -271,11 +297,12 @@ class Runtime:
 
         if 0:
             utils.pr(entry)
-        if kind == 'error':
-            utils.pr(entry)
-        if self.log_filename:
+        if tb := entry.get('traceback'):
+            print(tb)
+        log_filename = self.config.log_filename
+        if log_filename:
             with self.log_lock:
-                with open(self.log_filename, 'a') as fp:
+                with open(log_filename, 'a') as fp:
                     json.dump(entry, fp)
                     fp.write('\n')
         else:
@@ -290,7 +317,9 @@ class Runtime:
         source = entry.get('source') or ''
         plate_id = entry.get('plate_id') or ''
 
-        if not self.log_filename:
+        log_filename = self.config.log_filename
+
+        if not log_filename:
             return
         if entry.get('silent'):
             return
@@ -406,7 +435,7 @@ class Runtime:
         return self.start_time + timedelta(seconds=self.monotonic())
 
     def monotonic(self) -> float:
-        return self.timelike.value.monotonic()
+        return self.timelike.monotonic()
 
     def sleep(self, secs: float, metadata: dict[str, Any]):
         if abs(secs) < 0.1:
@@ -416,25 +445,25 @@ class Runtime:
         else:
             to = self.pp_time_offset(self.monotonic() + secs)
             with self.timeit('wait', f'sleeping to {to} ({pp_secs(secs)}s)', metadata={**metadata, 'secs': secs}):
-                self.timelike.value.sleep(secs)
+                self.timelike.sleep(secs)
 
     def queue_get(self, queue: Queue[A]) -> A:
-        return self.timelike.value.queue_get(queue)
+        return self.timelike.queue_get(queue)
 
     def queue_put(self, queue: Queue[A], a: A) -> None:
-        return self.timelike.value.queue_put(queue, a)
+        return self.timelike.queue_put(queue, a)
 
     def queue_put_nowait(self, queue: Queue[A], a: A) -> None:
-        return self.timelike.value.queue_put_nowait(queue, a)
+        return self.timelike.queue_put_nowait(queue, a)
 
     def register_thread(self, name: str):
-        return self.timelike.value.register_thread(name)
+        return self.timelike.register_thread(name)
 
     def thread_done(self):
-        return self.timelike.value.thread_done()
+        return self.timelike.thread_done()
 
-    def get_speedup(self) -> float:
-        return self.timelike.value.get_speedup()
+    def speedup(self) -> float:
+        return self.timelike.speedup()
 
     def checkpoint(self, name: str, *, metadata: dict[str, Any] = {}):
         with self.time_lock:

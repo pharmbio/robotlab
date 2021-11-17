@@ -20,10 +20,7 @@ from viable import head, serve, esc, css_esc, trim, button, pre, js
 from viable import Tag, div, span, label, img, raw, input
 import viable as V
 
-# suppress flask logging
-import logging
-log = logging.getLogger('werkzeug')
-log.setLevel(logging.ERROR)
+serve.suppress_flask_logging()
 
 import sys
 

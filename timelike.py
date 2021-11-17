@@ -15,7 +15,7 @@ A = TypeVar('A')
 
 class Timelike(abc.ABC):
     @abc.abstractmethod
-    def get_speedup(self) -> float:
+    def speedup(self) -> float:
         pass
 
     @abc.abstractmethod
@@ -64,7 +64,7 @@ class SimulatedTime(Timelike):
     lock: Lock = field(default_factory=Lock)
     qsize: dict[int, int] = field(default_factory=lambda: defaultdict[int, int](int))
 
-    def get_speedup(self) -> float:
+    def speedup(self) -> float:
         return 1.0
 
     def log(self):
@@ -183,13 +183,12 @@ class SimulatedTime(Timelike):
 @dataclass(frozen=True)
 class WallTime(Timelike):
     start_time: float = field(default_factory=time.monotonic)
-    speedup: float = 1.0
 
-    def get_speedup(self) -> float:
-        return self.speedup
+    def speedup(self) -> float:
+        return 1.0
 
     def monotonic(self):
-        return (time.monotonic() - self.start_time) * self.speedup
+        return (time.monotonic() - self.start_time) * self.speedup()
 
     def register_thread(self, name: str):
         pass
@@ -205,11 +204,12 @@ class WallTime(Timelike):
 
     def sleep(self, seconds: float):
         if seconds > 0:
-            time.sleep(seconds / self.speedup)
+            time.sleep(seconds / self.speedup())
 
     def thread_done(self):
         pass
 
-def FastForwardTime(speedup: float):
-    return lambda: WallTime(speedup=speedup)
+class FastForwardTime(WallTime):
+    def speedup(self) -> float:
+        return 10.0
 

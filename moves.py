@@ -386,6 +386,12 @@ def read_movelists() -> dict[str, MoveList]:
     grand_out['noop'] = MoveList()
     grand_out['gripper check'] = MoveList([GripperCheck()])
 
+    to_neu = grand_out['lid_h19 put prep'][0]
+    assert isinstance(to_neu, MoveJoint)
+    assert to_neu.name == 'h neu'
+    to_neu = replace(to_neu, slow=True)
+    grand_out['to neu'] = MoveList([to_neu])
+
     return grand_out
 
 movelists: dict[str, MoveList]

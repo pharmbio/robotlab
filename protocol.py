@@ -706,7 +706,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                         DispCmd(disp_prime).with_metadata(plate_id='') if disp_prime else Idle(),
                         DispCmd(p.pre_disp[i]).with_metadata(predispense=True) if p.pre_disp[i] else Idle(),
                         DispCmd(p.disp[i], cmd='Validate'),
-                        Early(3),
+                        Early(2),
                         Checkpoint(f'{plate_desc} pre disp done {ix}'),
                     ).with_metadata(slot=3),
                     resource='disp',
@@ -1016,8 +1016,6 @@ def cell_paint(config: RuntimeConfig, protocol_config: ProtocolConfig, *, batch_
     }
 
     runtime = execute_program(config, program, metadata)
-    for k, vs in group_times(runtime.times).items():
-        print(k, '[' + ', '.join(vs) + ']')
 
 def group_times(times: dict[str, list[float]]):
     groups = utils.group_by(list(times.items()), key=lambda s: s[0].rstrip(' 0123456789'))
@@ -1037,6 +1035,7 @@ def group_times(times: dict[str, list[float]]):
     return out
 
 import contextlib
+from datetime import datetime
 
 @contextlib.contextmanager
 def make_runtime(config: RuntimeConfig, metadata: dict[str, str]) -> Iterator[Runtime]:
@@ -1056,52 +1055,60 @@ def make_runtime(config: RuntimeConfig, metadata: dict[str, str]) -> Iterator[Ru
     else:
         log_filename = None
 
-    runtime = Runtime(config=config, log_filename=log_filename)
+    config = config.replace(log_filename=log_filename)
+
+    runtime = config.make_runtime()
 
     with runtime.excepthook():
         yield runtime
 
 import constraints
 
-def execute_program(config: RuntimeConfig, program: Command, metadata: dict[str, str]) -> Runtime:
+def execute_program(config: RuntimeConfig, program: Command, metadata: dict[str, str]):
     program = program.remove_noops()
-    program = program.assign_ids()
+    resume_config = config.resume_config
+    if not resume_config:
+        program = program.assign_ids()
 
-    with utils.timeit('constraints'):
-        program, expected_ends = constraints.optimize(program)
+    if not resume_config:
+        with utils.timeit('constraints'):
+            program, expected_ends = constraints.optimize(program)
+    else:
+        expected_ends = {}
 
     with utils.timeit('estimates'):
-        with make_runtime(dry_run.replace(log_to_file=False), {}) as runtime_est:
+        with make_runtime(dry_run.replace(log_to_file=False, resume_config=config.resume_config), {}) as runtime_est:
             program.execute(runtime_est, {})
-
-    with utils.timeit('check correspondence'):
         est_entries = runtime_est.log_entries
-        matches = 0
-        mismatches = 0
-        seen: set[str] = set()
-        for e in est_entries:
-            i = e.get('id')
-            if i and (e.get('kind') == 'end' or e.get('kind') == 'info' and e.get('source') == 'checkpoint'):
-                seen.add(i)
-                if abs(e['t'] - expected_ends[i]) > 0.1:
-                    utils.pr(('no match!', i, e, expected_ends[i]))
-                    mismatches += 1
-                else:
-                    matches += 1
-                # utils.pr((f'{matches=}', i, e, ends[i]))
-        by_id: dict[str, Command] = {
-            i: c
-            for c in program.universe()
-            if isinstance(c, commands.Meta)
-            if (i := c.metadata.get('id')) and isinstance(i, str)
-        }
 
-        for i, e in expected_ends.items():
-            if i not in seen:
-                print(i, e, by_id.get(i, '?'), sep='\t')
+    if not resume_config:
+        with utils.timeit('check correspondence'):
+            matches = 0
+            mismatches = 0
+            seen: set[str] = set()
+            for e in est_entries:
+                i = e.get('id')
+                if i and (e.get('kind') == 'end' or e.get('kind') == 'info' and e.get('source') == 'checkpoint'):
+                    seen.add(i)
+                    if abs(e['t'] - expected_ends[i]) > 0.1:
+                        utils.pr(('no match!', i, e, expected_ends[i]))
+                        mismatches += 1
+                    else:
+                        matches += 1
+                    # utils.pr((f'{matches=}', i, e, ends[i]))
+            by_id: dict[str, Command] = {
+                i: c
+                for c in program.universe()
+                if isinstance(c, commands.Meta)
+                if (i := c.metadata.get('id')) and isinstance(i, str)
+            }
 
-        if mismatches or not matches:
-            print(f'{matches=} {mismatches=} {len(expected_ends)=}')
+            for i, e in expected_ends.items():
+                if i not in seen:
+                    print(i, e, by_id.get(i, '?'), sep='\t')
+
+            if mismatches or not matches:
+                print(f'{matches=} {mismatches=} {len(expected_ends)=}')
 
     if config.name == 'test-arm-incu':
         def Filter(cmd: Command) -> Command:
@@ -1115,8 +1122,6 @@ def execute_program(config: RuntimeConfig, program: Command, metadata: dict[str,
         program = program.transform(Filter)
         program = program.remove_noops()
 
-    # utils.pr(program)
-
     with make_runtime(config, metadata) as runtime:
         try:
             print('Expected finish:', runtime.pp_time_offset(max(expected_ends.values())))
@@ -1125,10 +1130,13 @@ def execute_program(config: RuntimeConfig, program: Command, metadata: dict[str,
 
         program_opt = program.remove_scheduling_idles()
 
-        metadata = metadata.copy()
-        metadata['git_HEAD'] = utils.git_HEAD() or ''
-        metadata['host']     = platform.node()
-        metadata['speedup']  = cast(Any, runtime.get_speedup())
+        runtime_metadata: dict[str, str | int | float | None] = {
+            'pid': os.getpid(),
+            'host': platform.node(),
+            'speedup': runtime.speedup(),
+            'git_HEAD': utils.git_HEAD() or '',
+            'log_filename': config.log_filename,
+        }
 
         os.makedirs('running/', exist_ok=True)
         base = 'running/' + utils.now_str_for_filename() + '_'
@@ -1139,9 +1147,11 @@ def execute_program(config: RuntimeConfig, program: Command, metadata: dict[str,
         for k, v in save.items():
             with open(base + k, 'wb') as fp:
                 pickle.dump(v, fp)
-            metadata[k] = base + k
+            runtime_metadata[k] = base + k
 
-        runtime.log('info', 'system', None, {**metadata, 'silent': True})
-
+        runtime.log('info', 'system', None, {'runtime_metadata': runtime_metadata, 'silent': True})
         program_opt.execute(runtime, {})
-        return runtime
+        runtime.log('info', 'system', None, {'completed': True, 'silent': True})
+
+        for k, vs in group_times(runtime.times).items():
+            print(k, '[' + ', '.join(vs) + ']')

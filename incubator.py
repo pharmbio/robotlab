@@ -63,6 +63,7 @@ def execute(
         if success:
             return
         else:
-            for line in lines:
-                runtime.log('error', 'incu', line)
+            machine = 'incu'
+            for line in lines or ['']:
+                runtime.log('error', machine, f'{machine}: {line}')
             raise ValueError(res)

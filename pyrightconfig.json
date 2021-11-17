@@ -1,6 +1,7 @@
 {
     "pythonVersion": "3.10",
     "typeCheckingMode": "strict",
+    "useLibraryCodeForTypes": true,
     "reportWildcardImportFromLibrary": "none",
     "reportMissingTypeStubs": "warning",
     "reportUnusedImport": "warning",

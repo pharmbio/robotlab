@@ -40,6 +40,22 @@ overrides: dict[Estimated, float] = {
 # utils.pr({k: (Estimates.get(k, None), '->', v) for k, v in overrides.items()})
 Estimates.update(overrides)
 
+if 0:
+    for k, v in list(Estimates.items()):
+        if 'Validate ' in str(k).lower():
+            v = 0.1
+        elif 'test' in str(k).lower():
+            v = 0.1
+        elif 'arm' in str(k).lower():
+            v = 0.1
+        elif 'wash' in str(k).lower():
+            v = 5.0
+        elif 'disp' in str(k).lower():
+            v = 1.0
+        else:
+            v = 0.1
+        Estimates[k] = v
+
 Guesses: dict[Estimated, float] = {}
 
 def estimate(source: Literal['wash', 'disp', 'robotarm', 'incu'], arg: str) -> float:
