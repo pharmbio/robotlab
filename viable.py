@@ -399,7 +399,7 @@ from threading import RLock
 @dataclass
 class Serve:
     # Routes
-    routes: dict[str, Callable[..., Iterable[Tag | str | dict[str, str]]]] = field(default_factory=dict)
+    routes: dict[str, Callable[..., Iterable[Node | str | dict[str, str]]]] = field(default_factory=dict)
 
     # Exposed functions
     exposed: dict[str, Exposed[Any, Any]] = field(default_factory=dict)
@@ -455,7 +455,7 @@ class Serve:
             return resp
 
     def route(self, rule: str = '/'):
-        def inner(f: Callable[..., Iterable[Tag | str | dict[str, str]]]):
+        def inner(f: Callable[..., Iterable[Node | str | dict[str, str]]]):
             if rule not in self.routes:
                 endpoint = f'viable{len(self.routes)+1}'
                 app.add_url_rule( # type: ignore
@@ -468,13 +468,13 @@ class Serve:
         return inner
 
     def one(self, rule: str = '/'):
-        def inner(f: Callable[..., Iterable[Tag | str | dict[str, str]]]):
+        def inner(f: Callable[..., Iterable[Node | str | dict[str, str]]]):
             self.route(rule)(f)
             self.run()
         return inner
 
     def saveas(self, path: str):
-        def inner(f: Callable[..., Iterable[Tag | str | dict[str, str]]]):
+        def inner(f: Callable[..., Iterable[Node | str | dict[str, str]]]):
             with app.test_request_context():
                 with open(path, 'w') as fp:
                     fp.write(self.view_callable(f, include_hot=False))
@@ -489,10 +489,10 @@ class Serve:
                 q.put_nowait(None)
             self.notify_reload.clear()
 
-    def view(self, rule: str, *args: Any, **kws: Any) -> str:
+    def view(self, rule: str, *args: Any, **kws: Any) -> Response:
         return self.view_callable(self.routes[rule], *args, **kws)
 
-    def view_callable(self, f: Callable[..., Iterable[Tag | str | dict[str, str]]], *args: Any, include_hot: bool=True, **kws: Any) -> str:
+    def view_callable(self, f: Callable[..., Iterable[Node | str | dict[str, str]]], *args: Any, include_hot: bool=True, **kws: Any) -> Response:
         try:
             parts = f(*args, **kws)
             body_node = body(*cast(Any, parts))
@@ -515,7 +515,9 @@ class Serve:
                 }
             '''
             body_node += pre(traceback.format_exc())
+        return self.view_body(body_node, title_str=title_str, include_hot=include_hot)
 
+    def view_body(self, body_node: Node, title_str: str, include_hot: bool=True) -> Response:
         head_node = head()
         for i, node in enumerate(body_node.children):
             if isinstance(node, head):
@@ -585,13 +587,7 @@ serve = Serve()
 
 hot_js = str(r'''
     last_gen = 0
-    async function call(name, py_name_kvs, js_kvs) {
-        const resp = await fetch("/call/" + name, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify([py_name_kvs, js_kvs]),
-        })
-        const body = await resp.json()
+    async function execute(body) {
         if (body && typeof body === 'object') {
             if (body.log) {
                 console.log(body.log)
@@ -612,12 +608,21 @@ hot_js = str(r'''
                 history.pushState(null, null, with_pathname(body.goto))
             }
             if (body.refresh) {
-                refresh()
+                await refresh()
             } else if (body.gen && body.gen != last_gen) {
                 last_gen = body.gen
-                refresh()
+                await refresh()
             }
         }
+    }
+    async function call(name, py_name_kvs, js_kvs) {
+        const resp = await fetch("/call/" + name, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify([py_name_kvs, js_kvs]),
+        })
+        const body = await resp.json()
+        await execute(body)
         return resp
     }
     function get_query() {
@@ -626,7 +631,7 @@ hot_js = str(r'''
     function update_query(kvs, reload=true) {
         return set_query({...get_query(), ...kvs}, reload)
     }
-    function set_query(kvs, reload=true) {
+    function set_query_immediately(kvs, reload=true) {
         let next = new URL(location.href)
         next.search = new URLSearchParams(kvs)
         history.replaceState(null, null, next.href)
@@ -755,12 +760,9 @@ hot_js = str(r'''
     async function poll() {
         while (true) {
             try {
-                const resp = await fetch('/ping', {method: 'POST'}) // post last seen generation too?
+                const resp = await fetch('/ping', {method: 'POST'})
                 body = await resp.json()
-                if (body.gen && body.gen != last_gen) {
-                    last_gen = body.gen
-                    await refresh()
-                }
+                await execute(body)
             } catch (e) {
                 console.warn('poll', e)
                 await refresh(600)
@@ -809,7 +811,7 @@ hot_js = str(r'''
             }
         }
     }
-    set_query = throttle(set_query)
+    set_query = throttle(set_query_immediately)
     function debounce(f, ms=200, leading=true, trailing=true) {
         let timer;
         let called;
@@ -853,7 +855,7 @@ def minify_nontrivial(s: str, loader: str='js') -> str:
     try:
         with utils.timeit(f'esbuild {loader}'):
             res = run(
-                ["esbuild", "--minify", f"--loader={loader}"],
+                ['esbuild', '--minify', f'--loader={loader}'],
                 capture_output=True, input=s, encoding='utf-8'
             )
             if res.stderr:

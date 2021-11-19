@@ -267,7 +267,7 @@ def make_v3(*, incu_csv: str, interleave: bool, six: bool = False, lockstep: boo
             if re.match(r'\d', s)
             else s
         )
-        for s in map(str.strip, incu_csv.split(','))
+        for s in utils.read_commasep(incu_csv)
     ]
     incu = incu + [incu[-1]] * N
     incu = incu[:N-1] + [Symbolic.wrap(0)]
@@ -590,7 +590,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
 
     def Section(section: str) -> Command:
         section = f'{section} {batch_index}'
-        return Info(section).with_metadata(section=section)
+        return Info(section).with_metadata(section=section, plate_id='')
 
     if not first_batch:
         prep_cmds += [

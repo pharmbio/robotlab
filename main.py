@@ -11,6 +11,7 @@ from flask import request
 from collections import *
 
 import utils
+import random
 
 import threading
 
@@ -24,7 +25,10 @@ import signal
 import os
 from runtime import config_lookup, get_robotarm, RuntimeConfig
 import moves
+from moves import RawCode, Move
 import sys
+
+from provenance import Var, Int, Str, Store, DB
 
 config: RuntimeConfig = config_lookup('live')
 if '--simulator' in sys.argv:
@@ -36,40 +40,54 @@ elif '--forward' in sys.argv:
 def sigint(pid: int):
     os.kill(pid, signal.SIGINT)
 
+def robotarm_do(ms: list[Move]):
+    arm = get_robotarm(config, quiet=False, include_gripper=True)
+    arm.execute_moves(ms, name='gui', allow_partial_completion=True)
+    arm.close()
+
 @serve.expose
 def robotarm_freedrive():
     '''
     Sets the robotarm in freedrive
     '''
-    arm = get_robotarm(config)
-    arm.execute_moves([moves.RawCode("freedrive_mode() sleep(3600)")], name='gui', allow_partial_completion=True)
-    arm.close()
+    robotarm_do([RawCode("freedrive_mode() sleep(3600)")])
 
 @serve.expose
 def robotarm_to_neutral():
     '''
     Slowly moves in joint space to the neutral position by B21
     '''
-    arm = get_robotarm(config)
-    arm.execute_moves(moves.movelists['to neu'], name='gui', allow_partial_completion=True)
-    arm.close()
-    print('ok')
+    robotarm_do(moves.movelists['to neu'])
+
+@serve.expose
+def robotarm_open_gripper():
+    '''
+    Opens the robotarm gripper
+    '''
+    robotarm_do([RawCode("GripperMove(88)")])
+
+def as_stderr(log_path: str):
+    p = Path('running') / Path(log_path).stem
+    p = p.with_suffix('.stderr')
+    return p
 
 @serve.expose
 def start(simulate: bool):
     log_filename = 'logs/' + utils.now_str_for_filename() + '-from-gui.jsonl'
     args = Args(
         config_name='dry-run' if simulate else 'dry-wall',
-        cell_paint='6,6,6',
+        cell_paint='6',
         log_filename=log_filename,
         interleave=True,
         two_final_washes=False,
+        incu='x',
     )
     cmd = [
-        "python3.10",
-        "cli.py",
-        "--json-arg",
+        'sh', '-c',
+        'python3.10 cli.py --json-arg "$1" 2>"$2"',
+        '--',
         json.dumps(dataclasses.asdict(args)),
+        as_stderr(log_filename),
     ]
     Popen(cmd, start_new_session=True, stdout=DEVNULL, stderr=DEVNULL, stdin=DEVNULL)
     return {
@@ -78,22 +96,23 @@ def start(simulate: bool):
     }
 
 @serve.expose
-def resume(log_filename_in: str):
+def resume(log_filename_in: str, skip: list[str], drop: list[str]):
     log_filename_new = 'logs/' + utils.now_str_for_filename() + '-resume-from-gui.jsonl'
     args = Args(
         config_name='dry-wall',
         resume=log_filename_in,
         log_filename=log_filename_new,
-        interleave=False,
-        two_final_washes=False,
+        resume_skip=','.join(skip),
+        resume_drop=','.join(drop),
     )
     cmd = [
-        "python3.10",
-        "cli.py",
-        "--json-arg",
+        'sh', '-c',
+        'python3.10 cli.py --json-arg "$1" 2>"$2"',
+        '--',
         json.dumps(dataclasses.asdict(args)),
+        as_stderr(log_filename_new),
     ]
-    Popen(cmd, start_new_session=True, stdout=DEVNULL, stderr=DEVNULL, stdin=DEVNULL)
+    Popen(cmd, start_new_session=True, stdout=DEVNULL, stderr=sys.stderr, stdin=DEVNULL)
     return {
         'goto': log_filename_new,
         'refresh': True,
@@ -119,7 +138,7 @@ stripes_dn = f'''
        M{-sz},{-0*sz} l{3*sz},{3*sz}
        M{-sz},{-1*sz} l{3*sz},{3*sz}
        M{-sz},{-2*sz} l{3*sz},{3*sz}
-    ' stroke='#fff5' stroke-width='{stripe_width}'/>
+    ' stroke='#fff8' stroke-width='{stripe_width}'/>
   </svg>
 '''
 from base64 import b64encode
@@ -130,9 +149,11 @@ stripes_up = b64svg(stripes_up)
 stripes_dn = b64svg(stripes_dn)
 
 import pandas as pd
+import numpy as np
 from datetime import datetime, timedelta
 from functools import lru_cache
 from dataclasses import dataclass
+from pathlib import Path
 
 @lru_cache
 def load_from_pickle(filepath: str) -> Any:
@@ -140,17 +161,38 @@ def load_from_pickle(filepath: str) -> Any:
         rs = pickle.load(fp)
     return prep(pd.DataFrame.from_records(rs))
 
+@lru_cache(maxsize=1)
+def _jsonl_to_df(path: str, mtime_ns: int) -> pd.DataFrame | None:
+    try:
+        return prep(pd.read_json(path, lines=True))
+    except:
+        return None
+
+def jsonl_to_df(path: str) -> pd.DataFrame | None:
+    p = Path(path)
+    try:
+        return _jsonl_to_df(path, p.stat().st_mtime_ns).copy()
+    except:
+        return None
+
+def to_int(s: pd.Series, fill: int=0) -> pd.Series:
+    return pd.to_numeric(s, errors='coerce').fillna(fill).astype(int)
+
 def prep(df: pd.DataFrame):
     if 'id' in df:
-        df.id = pd.to_numeric(df.id, errors='coerce').fillna(-1).astype(int)
+        df.id = to_int(df.id, fill=-1)
+    else:
+        df.id = -1
     if 'plate_id' in df:
-        df.plate_id = pd.to_numeric(df.plate_id, errors='coerce').fillna(0).astype(int)
+        df.plate_id = to_int(df.plate_id)
     else:
         df['plate_id'] = 0
     if 'batch_index' in df:
-        df.batch_index = pd.to_numeric(df.batch_index, errors='coerce').fillna(0).astype(int)
+        df.batch_index = to_int(df.batch_index)
     else:
         df['batch_index'] = 0
+    if 'simple_id' not in df:
+        df['simple_id'] = None
     if 'report_behind_time' in df:
         df.report_behind_time = df.report_behind_time.fillna(0.0) == 1.0
     else:
@@ -164,6 +206,16 @@ def prep(df: pd.DataFrame):
     else:
         df['resource'] = 'main'
     return df
+
+def countdown_str(s: Series):
+    if s.isna().all():
+        return s
+    s = s.clip(0)
+    s = pd.to_datetime(s, unit='s')
+    s = s.dt.strftime('%H:%M:%S')
+    s = s.str.lstrip('0:')
+    s[s == ''] = '0'
+    return s
 
 @dataclass(frozen=True, kw_only=True)
 class AnalyzeResult:
@@ -186,7 +238,6 @@ class AnalyzeResult:
 
     @staticmethod
     def init(df: Any) -> AnalyzeResult:
-        df = prep(df)
         completed = 'completed' in df and df.completed.any()
 
         meta = df.runtime_metadata # .iloc[-1]
@@ -201,11 +252,12 @@ class AnalyzeResult:
         t_now *= runtime_metadata['speedup']
 
         if completed:
-            t_now = df.t.max()
+            t_now = df.t.max() + 1
 
         estimates = load_from_pickle(runtime_metadata['estimates_pickle_file'])
         estimates['finished'] = True
         estimates['running'] = False
+        estimates['current'] = False
         pid = runtime_metadata['pid']
         log_filename = runtime_metadata['log_filename']
 
@@ -226,7 +278,6 @@ class AnalyzeResult:
             t_now = df.t.max()
 
         r = df
-        r = r.drop(columns='log_time substep slot'.split(), errors='ignore')
         r_sections = r[~r.section.isna()]
         r = r[r.kind.isin(('begin', 'end'))]
         r['finished'] = r.id.isin(r[r.kind == 'end'].id)
@@ -237,21 +288,22 @@ class AnalyzeResult:
             | ((r.source == 'robotarm') & r.running)
         ]
         r = r[~r.arg.str.contains('Validate ')]
-        r = r.dropna(axis='columns', how='all')
         if 'secs' not in r:
             r['secs'] = float('NaN')
         r.loc[~r.finished, 't0'] = r.t
         r.loc[~r.finished, 't'] = r.t + r.est.fillna(r.secs)
         r.loc[~r.finished, 'duration'] = r.t - r.t0
-        r.loc[~r.finished, 'elapsed'] = -(r.t0 - t_now)
-        r.loc[~r.finished, 'countdown'] = (r.t.round() - t_now)
-        r.loc[~r.finished, 'pct'] = r.elapsed / r.duration * 100.0
+        r.loc[~r.finished, 'countdown'] = np.ceil(r.t) - t_now
         r = r[~r.finished | (r.kind == 'end')]
-        r.t = r.t.round(1)
         if 't0' not in r:
             r['t0'] = r.t
         r['is_estimate'] = False
         r.loc[r.running, 'is_estimate'] = True
+
+        r['t_ts'] = zero_time + pd.to_timedelta(r.t, unit='seconds')
+        r.loc[~r.secs.isna(), 'arg'] = 'sleeping'
+        r.loc[~r.secs.isna(), 'arg'] = r.arg + ' to ' + r.t_ts.dt.strftime('%H:%M:%S')
+
         r = r.sort_values('t')
         r = r.reset_index(drop=True)
 
@@ -292,7 +344,7 @@ class AnalyzeResult:
         sections['t0'] = sections.t
         sections['t'] = sections.t0 + sections.length
         sections['finished'] = sections.t0 < t_now
-        sections.loc[~sections.finished, 'countdown'] = (sections.t0.round() - t_now)
+        sections.loc[~sections.finished, 'countdown'] = (np.ceil(sections.t0) - t_now)
 
         cols = '''
             step
@@ -301,14 +353,15 @@ class AnalyzeResult:
             source
             resource
             arg
-            elapsed
             countdown
-            pct
             is_estimate
             batch_index
             plate_id
-            id
             running
+            finished
+            current
+            id
+            simple_id
         '''.split()
 
         return AnalyzeResult(
@@ -330,7 +383,7 @@ class AnalyzeResult:
         d = d[d.source == 'duration']
         d = pd.concat([d, d.arg.str.extract(r'plate \d+ (?P<checkpoint>.*)$')], axis=1)
         d = d[~d.checkpoint.isna()]
-        d = d['t0 t duration arg id step plate_id checkpoint'.split()]
+        d = d['t0 t duration arg step plate_id checkpoint'.split()]
         d = d[~d.checkpoint.str.contains('pre disp done')]
         d = d[
               (d.checkpoint == '37C')
@@ -338,6 +391,7 @@ class AnalyzeResult:
             # | d.checkpoint.str.contains('transfer')
         ]
         d.checkpoint = d.checkpoint.str.replace('incubation', 'incu', regex=False)
+        d.checkpoint = d.checkpoint.str.replace('transfer', 'xfer', regex=False)
         d.duration = pd.to_datetime(d.duration, unit='s')
         d.duration = d.duration.dt.strftime('%M:%S')
         d = d.rename(columns={'plate_id': 'plate'})
@@ -353,14 +407,7 @@ class AnalyzeResult:
         r.resource = r.resource.str.replace('main', 'arm', regex=False)
         r = r[r.running]
         r = r['resource t countdown arg plate_id'.split()]
-        r.t = zero_time + pd.to_timedelta(r.t, unit='seconds')
-        r.t = r.t.dt.strftime('%H:%M:%S')
-        r.countdown = pd.to_datetime(r.countdown.clip(-1) + 1, unit='s')
-        r.countdown = r.countdown.dt.strftime('%M:%S')
-        try:
-            r.countdown = r.countdown.str.lstrip('0:')
-        except:
-            pass
+        r.countdown = countdown_str(r.countdown)
         resources = 'arm disp wash incu'.split()
         for resource in resources:
             if not (r.resource == resource).any():
@@ -381,66 +428,51 @@ class AnalyzeResult:
         sections.section = sections.section.replace(' \d*$', '', regex=True)
         sections.t0 = zero_time + pd.to_timedelta(sections.t0, unit='seconds')
         sections.t0 = sections.t0.dt.strftime('%H:%M:%S')
-        sections.countdown = pd.to_datetime(sections.countdown.clip(-1) + 1, unit='s')
-        sections.countdown = sections.countdown.dt.strftime('%H:%M:%S')
-        try:
-            sections.countdown = sections.countdown.str.lstrip('0:')
-        except:
-            pass
+        sections.countdown = countdown_str(sections.countdown)
         sections.length = pd.to_datetime(sections.length, unit='s')
         sections.length = sections.length.dt.strftime('%M:%S')
         sections = sections.fillna('')
         return sections
 
-    def make_vis(self) -> tuple[Tag, Tag]:
+    def make_vis(self) -> Tag:
         t_now = self.t_now
         r = self.vis
         sections = self.sections
-        area = div(css='''
-            position: relative;
-            user-select: none;
-        ''')
-
-        area.onmousemove += """
-            console.log(event)
-            if (event.target.dataset.info)
-                document.querySelector('#info').innerHTML = event.target.dataset.info.trim()
-        """
-
-        area.onmouseout += """
-            if (event.target.dataset.info)
-                document.querySelector('#info').innerHTML = ''
-        """
-
-        info = pre(id="info", nodiff=True)
 
         start_times = sections.t0
         max_length = sections.length.max()
 
         r = r[r.source.isin(('wash', 'disp'))]
         r = r[~r.batch_index.isna()]
+        r = r[r.finished | r.current]
+
+        more_rows: list[dict[str, Any]] = []
         if 0 <= t_now <= start_times.max() and not self.completed:
-            r = r.append({
+            more_rows += [{
                 't0': t_now,
                 't': t_now,
                 'is_estimate': False,
                 'source': 'now',
                 'arg': '',
                 'plate_id': 0,
-            }, ignore_index=True)
+            }]
+        for i, (_, section) in enumerate(sections.iterrows()):
+            if pd.isna(section.length):
+                continue
+            more_rows += [{
+                't0': section.t0,
+                't': section.t,
+                'is_estimate': False,
+                'source': 'marker',
+                'arg': '',
+                'plate_id': 0,
+            }]
+
+        r = r.append(more_rows, ignore_index=True)
         r['slot'] = 0
-        for (i, (_, section)) in enumerate(sections.iterrows()):
-            if not pd.isna(section.length):
-                r = r.append({
-                    't0': section.t0,
-                    't': section.t,
-                    'is_estimate': False,
-                    'source': 'marker',
-                    'arg': '',
-                    'plate_id': 0,
-                }, ignore_index=True)
-                r.loc[r.t0 >= section.t0, 'slot'] = i
-                r.loc[r.t0 >= section.t0, 'section'] = section.section
+        for i, (_, section) in enumerate(sections.iterrows()):
+            r.loc[r.t0 >= section.t0, 'slot'] = i
+            r.loc[r.t0 >= section.t0, 'section'] = section.section
 
         r['slot_start'] = r.slot.replace(start_times)
 
@@ -449,14 +481,7 @@ class AnalyzeResult:
             'disp': 'var(--purple)',
             'incu': 'var(--green)',
             'now': '#fff',
-            'marker': '#383838',
-        })
-        r['zindex'] = r.source.replace({
-            'wash': 2,
-            'disp': 2,
-            'incu': 2,
-            'now': 3,
-            'marker': 1,
+            'marker': 'var(--bg-bright)',
         })
         r['machine_slot'] = r.source.replace({
             'wash': 0,
@@ -470,54 +495,107 @@ class AnalyzeResult:
             'now': 2,
             'marker': 2,
         })
+        r['zindex'] = r.source.replace({
+            'wash': 5,
+            'disp': 5,
+            'incu': 5,
+            'now': 4,
+            'marker': 1,
+        })
+        r.zindex = r.zindex - r.machine_slot - 2 * r.slot + r.slot.max() + 10
+        r.loc[r.source == 'now', 'zindex'] = r.zindex.max() + 1
+        r['can_hover']=~r.source.isin(('now', 'marker'))
 
         r['y0'] = (r.t0 - r.slot_start) / max_length
         r['y1'] = (r.t - r.slot_start) / max_length
         r['h'] = r.y1 - r.y0
+
+        r.simple_id = r.simple_id.fillna('')
+
+        area = div(css='''
+            & {
+                position: relative;
+                user-select: none;
+            }
+            & > * {
+                color: #000;
+                position: absolute;
+                border-radius: 0px;
+                outline: 1px #0005 solid;
+                display: grid;
+                place-items: center;
+                font-size: 0.9rem;
+                min-height: 1px;
+                background: var(--row-color);
+            }
+            & > [is-estimate]:not(:hover)::before {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                height: 100%;
+                content: "";
+                background: #0005;
+            }
+            & > [can-hover]:hover::after {
+                font-size: 1rem;
+                color: #000;
+                position: absolute;
+                outline: 1px #0005 solid;
+                z-index: 10;
+                padding: 5px;
+                margin: 0;
+                border-radius: 0 5px 5px 5px;
+                content: var(--info);
+                left: 100%;
+                transform: translateX(1px);
+                opacity: 1.0;
+                top: 0;
+                background: var(--row-color);
+                white-space: pre;
+            }
+        ''')
 
         width = 23
         for _, row in r.iterrows():
             est = 1 if row.is_estimate else 0
             area += div(
                 str(row.plate_id) if row.plate_id else '',
-                css=f'''
-                    color: var(--bg);
-                    position: absolute;
-                    border-radius: 0px;
-                    outline: 1px #0005 solid;
-                    display: grid;
-                    place-items: center;
-                    font-size: 0.8em;
-                    min-height: 1px;
-                ''',
-                css_=f'''
-                    width: {row.machine_width * width - 2}px;
-                    background: {row.color};
-                    opacity: {1.0 - 0.22*est};
-                    z-index: {row.zindex};
-                ''',
+                is_estimate=row.is_estimate,
+                can_hover=row.can_hover,
                 style=trim(f'''
                     left:{(row.slot*2.3 + row.machine_slot) * width:.0f}px;
-                    top:calc({row.y0 * 100:.1f}% + 1px);
-                    height:calc({row.h * 100:.1f}% + 1px);
+                    top:{  row.y0 * 100:.3f}%;
+                    height:{row.h * 100:.3f}%;
+                    --row-color:{row.color};
+                    --info:{repr(str(row.arg) + ' (' + str(row.simple_id) + ')')};
+                    z-index:{row.zindex};
                 ''', sep=''),
-                data_info=row.arg or ''
+                css_=f'''
+                    width: {row.machine_width * width - 2}px;
+                ''',
+                data_id=str(row.id),
+                data_simple_id=str(row.simple_id),
+                data_plate_id=str(row.plate_id),
             )
 
         area.width += f'{width*(r.slot.max()+1)*2.3}px'
         area.height += '100%'
 
-        return info, area
+        return area
 
 @serve.route('/')
 @serve.route('/<path:path>')
-def index(path: str | None = None) -> Iterator[Tag | dict[str, str]]:
+def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
     yield {
         'sheet': '''
             html {
                 box-sizing: border-box;
             }
-            * {
+            html, html::before, html::after {
+                box-sizing: border-box;
+            }
+            *, *::before, *::after {
                 box-sizing: inherit;
             }
             body, button {
@@ -532,24 +610,24 @@ def index(path: str | None = None) -> Iterator[Tag | dict[str, str]]:
             table td, table th {
                 padding: 2px 8px;
                 margin: 1px 2px;
-                background: #383838;
-                min-width: 4em;
+                background: var(--bg-bright);
+                min-width: 70px;
             }
             table tr:nth-child(even) :where(td, th) {
-                background: #584838;
+                background: var(--bg-brown);
             }
             table {
                 border-spacing: 1px;
+                transform: translateY(-1px);
             }
             body {
                 display: grid;
                 grid:
-                    "header    header"     auto
-                    "vis       info"       1fr
-                    "vis       button"     minmax(min-content, 5em)
-                    "vis-foot  vis-foot"   2em
-                    "info-foot info-foot"  2em
-                  / auto       1fr;
+                    "pad-left header    header    pad-right" auto
+                    "pad-left vis       info      pad-right" 1fr
+                    "pad-left vis       stop      pad-right" auto
+                    "pad-left info-foot info-foot pad-right" 30px
+                  / 1fr auto minmax(min-content, 800px) 1fr;
                 grid-gap: 10px;
                 padding: 10px;
             }
@@ -562,16 +640,18 @@ def index(path: str | None = None) -> Iterator[Tag | dict[str, str]]:
                 margin: 0;
             }
             html {
-                --bg:     #2d2d2d;
-                --fg:     #d3d0c8;
-                --red:    #f2777a;
-                --brown:  #d27b53;
-                --green:  #99cc99;
-                --yellow: #ffcc66;
-                --blue:   #6699cc;
-                --purple: #cc99cc;
-                --cyan:   #66cccc;
-                --orange: #f99157;
+                --bg:        #2d2d2d;
+                --bg-bright: #383838;
+                --bg-brown:  #554535;
+                --fg:        #d3d0c8;
+                --red:       #f2777a;
+                --brown:     #d27b53;
+                --green:     #99cc99;
+                --yellow:    #ffcc66;
+                --blue:      #6699cc;
+                --purple:    #cc99cc;
+                --cyan:      #66cccc;
+                --orange:    #f99157;
             }
             .red    { color: var(--red);    }
             .brown  { color: var(--brown);  }
@@ -581,6 +661,9 @@ def index(path: str | None = None) -> Iterator[Tag | dict[str, str]]:
             .purple { color: var(--purple); }
             .cyan   { color: var(--cyan);   }
             .orange { color: var(--orange); }
+            html {
+                font-size: 16px;
+            }
         '''
     }
     yield V.head(V.title('cell painter - ', path or ''))
@@ -588,6 +671,7 @@ def index(path: str | None = None) -> Iterator[Tag | dict[str, str]]:
         button('start', onclick=start.call(simulate=False)),
         button('simulate', onclick=start.call(simulate=True)),
         grid_area='header',
+        user_select='none',
         css='& *+* { margin-left: 8px }',
     )
     info = div(
@@ -595,7 +679,7 @@ def index(path: str | None = None) -> Iterator[Tag | dict[str, str]]:
         font_size='1rem',
         css='''
             & *+* {
-                margin-top: 1em;
+                margin-top: 18px;
                 margin-left: auto;
                 margin-right: auto;
             }
@@ -605,18 +689,33 @@ def index(path: str | None = None) -> Iterator[Tag | dict[str, str]]:
         ''')
     yield info
     df = None
+    stderr: list[str] = []
     vis = div()
-    vis_foot = div()
     if path:
-        try:
-            df = pd.read_json(path, lines=True)
-        except:
-            pass
-    if df is not None:
+        df = jsonl_to_df(path)
+        stderr = as_stderr(path).read_text()
+    if df is None:
+        if stderr:
+            box = div(
+                border='2px var(--red) solid',
+                px=8,
+                py=4,
+                border_radius=2,
+                css='''
+                    & > pre {
+                        line-height: 1.5;
+                        margin: 0;
+                    }
+                '''
+            )
+            box += pre(stderr)
+            info += box
+    else:
         ar = AnalyzeResult.init(df)
         if 1:
             r = ar.running()
             r = r['resource countdown arg plate'.split()]
+            r = r.rename(columns={'arg': 'info', 'resource': 'machine'})
             info += div(
                 V.raw(
                     r.to_html(index=False, border=0)
@@ -636,7 +735,7 @@ def index(path: str | None = None) -> Iterator[Tag | dict[str, str]]:
                 '''
             )
         if 1:
-            vis_foot, vis = ar.make_vis()
+            vis = ar.make_vis()
         if 1:
             sections = ar.pretty_sections()
             sections = sections['batch_index section countdown t0 length'.split()]
@@ -651,7 +750,8 @@ def index(path: str | None = None) -> Iterator[Tag | dict[str, str]]:
                         margin: auto;
                     }
                     & table td:nth-child(1),
-                    & table td:nth-child(3)
+                    & table td:nth-child(3),
+                    & table td:nth-child(5)
                     {
                         text-align: right
                     }
@@ -660,8 +760,9 @@ def index(path: str | None = None) -> Iterator[Tag | dict[str, str]]:
         if ar.has_error():
             box = div(
                 border='2px var(--red) solid',
-                px=8, py=4, border_radius=2,
-                color='#fff',
+                px=8,
+                py=4,
+                border_radius=2,
                 css='''
                     & > pre {
                         line-height: 1.5;
@@ -669,7 +770,6 @@ def index(path: str | None = None) -> Iterator[Tag | dict[str, str]]:
                     }
                 '''
             )
-            lines: list[str] = []
             for i, row in ar.errors.iterrows():
                 tb = row.traceback
                 if not isinstance(tb, str):
@@ -701,57 +801,161 @@ def index(path: str | None = None) -> Iterator[Tag | dict[str, str]]:
             text = f'pid: {ar.pid}'
         else:
             text = f'pid: -'
-        yield V.pre(text, overflow_x='hidden', grid_area='info-foot')
+        yield V.pre(text,
+            overflow_x='hidden',
+            grid_area='info-foot',
+            user_select='none',
+        )
 
-        buttons: list[Tag] = []
+        m = Store(default_provenance='cookie')
+        skip = m.var(Str(desc='Single washes and dispenses to skip, separated by comma'))
+        drop = m.var(Str(desc='Plates to drop from the rest of the run, separated by comma'))
 
         if not ar.has_error():
-            buttons = [
-                button('stop', onclick='confirm("Stop?")&&' + sigint.call(ar.pid), style='--color: var(--red)')
-            ]
+            yield m.defaults().goto_script()
+            yield button(
+                'stop',
+                onclick='confirm("Stop?")&&' + sigint.call(ar.pid),
+                grid_area='stop',
+                css='''
+                    & {
+                        font-size: 2rem;
+                        flex: 1 0 0;
+                        color: var(--red);
+                        border-color: var(--red);
+                        border-radius: 4px;
+                        padding: 15px;
+                    }
+                    &:focus {
+                        outline: 3px var(--red) solid;
+                    }
+                '''
+            )
         else:
-            buttons = [
+            buttons: list[Tag] = []
+
+            skipped = utils.read_commasep(skip.value)
+            dropped = utils.read_commasep(drop.value)
+
+            vis.data_skipped += json.dumps(skipped)
+            vis.onclick += m.update_untyped({
+                skip: js('''
+                    (() => {
+                        let skipped = JSON.parse(this.dataset.skipped)
+                        let id = event.target.dataset.simpleId
+                        if (!id) {
+                            return skipped.join(',')
+                        } else if (skipped.includes(id)) {
+                            return skipped.filter(i => i != id).join(',')
+                        } else {
+                            return [...skipped, id].join(',')
+                        }
+                    })()
+                ''')
+            }).goto()
+
+            selectors: list[str] = []
+            selectors += [f'[data-simple-id={v!r}][is-estimate]' for v in skipped]
+            selectors += [f'[data-plate-id={v!r}][is-estimate]' for v in dropped]
+
+            if selectors:
+                vis.css += (
+                    ', '.join(f'& {selector}' for selector in selectors) + '''{
+                        outline: 3px var(--red) solid;
+                    }'''
+                )
+
+            import textwrap
+
+            resume_text = textwrap.dedent('''
+                Robotarm needs to be moved back to the neutral position by B21 hotel.
+                All plate positions should be as indicated by the plate table.
+            ''')
+
+            yield div(
+                button('open gripper', onclick=robotarm_open_gripper.call()),
                 button('set robot in freedrive', onclick=robotarm_freedrive.call()),
                 button('move robot to neutral', onclick='confirm("Move robot to neutral?")&&' + robotarm_to_neutral.call()),
-                button('resume', onclick='confirm("Resume?")&&' + resume.call(ar.log_filename)),
-            ]
-        yield div(
-            *buttons,
-            display='flex',
-            grid_area='button',
-            margin='auto',
-            width='100%',
-            height='100%',
-            gap=10,
-            css='''
-                & button {
-                    flex: 1 0 0;
-                    color: var(--color, var(--fg));
-                    border-color: var(--color, var(--fg));
-                    border-radius: 4px;
-                    font-size: 2rem;
-                }
-                & button:focus {
-                    outline: 3px var(--color, var(--blue)) solid;
-                }
-            '''
-        )
+                *form(m, skip, drop),
+                button('resume' ,
+                    onclick=
+                        f'confirm("Resume?" + {json.dumps(resume_text)})&&' +
+                        resume.call(ar.log_filename, skip=skipped, drop=dropped),
+                    title=resume_text),
+                grid_area='stop',
+                css='''
+                    & {
+                        display: grid;
+                        grid-template-columns: auto auto;
+                        width: fit-content;
+                        place-items: center;
+                        grid-gap: 10px;
+                        margin: 0 auto;
+                        user-select: none;
+                    }
+                    & input {
+                        border: 1px #0003 solid;
+                        border-right-color: #fff2;
+                        border-bottom-color: #fff2;
+                    }
+                    & button {
+                        border-width: 1px;
+                    }
+                    & input, & button {
+                        padding: 8px;
+                        border-radius: 2px;
+                        background: var(--bg);
+                        color: var(--fg);
+                    }
+                    & input:focus-visible, & button:focus-visible {
+                        outline: 2px var(--blue) solid;
+                        outline-color: var(--blue);
+                    }
+                    & input:hover {
+                        border-color: var(--blue);
+                    }
+                    & > button {
+                        grid-column: 1 / span 2;
+                        width: 100%;
+                    }
+                    & > label {
+                        display: contents;
+                    }
+                    & > label > span {
+                        justify-self: right;
+                    }
+                    & input {
+                        width: 300px;
+                        font-family: monospace;
+                    }
+                    & * {
+                        margin: 0px;
+                    }
+                    & > label > span {
+                        grid-column: 1;
+                    }
+                '''
+            )
+
+            div(
+                *buttons,
+                display='flex',
+                margin='auto',
+                width='100%',
+                gap=10,
+            )
 
 
     yield vis.extend(grid_area='vis')
 
-    yield vis_foot.extend(grid_area='vis-foot')
+    yield V.queue_refresh(150)
 
-    yield V.queue_refresh(200)
-    # yield V.script(raw(queue_refresh.call()), eval=True, defer=True)
-
-import time
-
-# @utils.spawn
-# def refresher():
-#     ms = 1000
-#     while True:
-#         time.sleep(ms/1000.0)
-#         serve.reload()
+def form(m: Store, *vs: Int | Str):
+    for v in vs:
+        yield label(
+            span(f"{v.name or ''}:"),
+            v.input(m).extend(id_=v.name, spellcheck="false", autocomplete="off"),
+            title=v.desc,
+        )
 
 serve.run()

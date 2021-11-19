@@ -19,7 +19,7 @@ from commands import (
 from runtime import RuntimeConfig, ResumeConfig
 import protocol
 
-def resume_program(config: RuntimeConfig, log_filename_in: str):
+def resume_program(config: RuntimeConfig, log_filename_in: str, skip: list[str]=[], drop: list[str]=[]):
     entries = list(utils.read_json_lines(log_filename_in))
     entries = entries
 
@@ -53,17 +53,31 @@ def resume_program(config: RuntimeConfig, log_filename_in: str):
         except KeyError:
             pass
 
+    drop_ids: set[str] = set()
+    for cmd in program.universe():
+        if isinstance(cmd, Meta) and cmd.metadata.get('plate_id') in drop:
+            for c2 in cmd.universe():
+                if isinstance(c2, Meta) and 'id' in c2.metadata:
+                    drop_ids.add(c2.metadata['id'])
+
+    finished_ids |= drop_ids
     def Filter(cmd: Command):
-        if isinstance(cmd, Meta) and cmd.metadata.get('id') in finished_ids:
-            return Sequence()
-        elif isinstance(cmd, Checkpoint) and cmd.name in checkpoint_times:
-            return Sequence()
-        elif isinstance(cmd, WaitForCheckpoint) and not cmd.plus_secs and cmd.name in checkpoint_times:
-            return Sequence()
-        elif cmd.is_noop():
-            return Sequence()
-        else:
-            return cmd
+        match cmd:
+            case Checkpoint():
+                if cmd.name in checkpoint_times:
+                    return Sequence()
+                else:
+                    return cmd
+            case Meta() if cmd.metadata.get('id') in finished_ids:
+                return Sequence()
+            case Meta() if cmd.metadata.get('simple_id') in skip:
+                return Sequence()
+            case WaitForCheckpoint() if not cmd.plus_secs and cmd.name in checkpoint_times:
+                return Sequence()
+            case _ if cmd.is_noop():
+                return Sequence()
+            case _:
+                return cmd
 
     print(f'{len(checkpoint_times) = }')
     print(f'{len(finished_ids) = }')

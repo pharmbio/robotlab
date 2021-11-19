@@ -160,7 +160,7 @@ def optimal_env(cmd: Command) -> OptimalResult:
 
     # print(s)
     check = str(s.check())
-    assert check == 'sat', timings.Guesses
+    assert check == 'sat', f'Impossible to schedule! (Guessed times: {len(timings.Guesses)})'
 
     M = s.model()
 

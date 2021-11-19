@@ -103,6 +103,8 @@ class Args:
     lid_stress_test:           bool = arg(help=protocol.lid_stress_test)
 
     resume:                    str  = arg(help='Resume program given a log file')
+    resume_skip:               str  = arg(help='Comma-separated list of simple_id:s to skip (washes and dispenses)')
+    resume_drop:               str  = arg(help='Comma-separated list of plate_id:s to drop')
 
     wash:                      str  = arg(help='Run a program on the washer')
     disp:                      str  = arg(help='Run a program on the dispenser')
@@ -149,10 +151,7 @@ def main():
     )
 
     if args.cell_paint:
-        batch_sizes: list[int] = [
-            int(bs.strip())
-            for bs in args.cell_paint.split(',')
-        ]
+        batch_sizes = utils.read_commasep(args.cell_paint, int)
         protocol.cell_paint(
             config=config,
             batch_sizes=batch_sizes,
@@ -181,7 +180,7 @@ def main():
         protocol.test_comm(config)
 
     elif args.robotarm:
-        runtime = Runtime(config)
+        runtime = config.make_runtime()
         for name in args.program_names:
             if name in movelists:
                 commands.RobotarmCmd(name).execute(runtime, {})
@@ -189,7 +188,7 @@ def main():
                 raise ValueError(f'Unknown program: {name}')
 
     elif args.robotarm_send:
-        runtime = Runtime(config)
+        runtime = config.make_runtime()
         arm = runtime.get_robotarm()
         arm.execute_moves([moves.RawCode(args.robotarm_send)], name='raw')
         arm.close()
@@ -208,7 +207,7 @@ def main():
                 print(k + ':\n' + textwrap.indent(v.describe(), '  '))
 
     elif args.wash:
-        runtime = Runtime(config)
+        runtime = config.make_runtime()
         path = v3.wash[int(args.wash)]
         assert path, utils.pr(v3.wash)
         protocol.execute_program(config, commands.Sequence(
@@ -217,27 +216,32 @@ def main():
         ), {'program': 'wash'})
 
     elif args.disp:
-        runtime = Runtime(config)
+        runtime = config.make_runtime()
         path = v3.disp[int(args.disp)]
         assert path, utils.pr(v3.disp)
         commands.DispCmd(path).execute(runtime, {})
 
     elif args.prime:
-        runtime = Runtime(config)
+        runtime = config.make_runtime()
         path = v3.prime[int(args.prime)]
         assert path, utils.pr(v3.prime)
         commands.DispCmd(path).execute(runtime, {})
 
     elif args.incu_put:
-        runtime = Runtime(config)
+        runtime = config.make_runtime()
         commands.IncuCmd('put', args.incu_put).execute(runtime, {})
 
     elif args.incu_get:
-        runtime = Runtime(config)
+        runtime = config.make_runtime()
         commands.IncuCmd('get', args.incu_get).execute(runtime, {})
 
     elif args.resume:
-        resume.resume_program(config, args.resume)
+        resume.resume_program(
+            config,
+            args.resume,
+            skip=utils.read_commasep(args.resume_skip),
+            drop=utils.read_commasep(args.resume_drop),
+        )
 
     else:
         parser.print_help()

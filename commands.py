@@ -137,7 +137,18 @@ class Command(abc.ABC):
                     id = str(count)
                     count += 1
                     return cmd.with_metadata(id=id)
-        return self.transform(F)
+        by_type: dict[str, int] = defaultdict(int)
+        def G(cmd: Command) -> Command:
+            nonlocal by_type
+            match cmd:
+                case BiotekCmd() if cmd.cmd == 'Run' or cmd.cmd == 'RunValidated':
+                    m = cmd.machine[0]
+                    by_type[m] += 1
+                    simple_id = m + str(by_type[m])
+                    return cmd.with_metadata(simple_id=simple_id)
+                case _:
+                    return cmd
+        return self.transform(F).transform(G)
 
     def remove_scheduling_idles(self: Command) -> Command:
         def F(cmd: Command) -> Command:

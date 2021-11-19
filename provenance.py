@@ -12,6 +12,7 @@ import json
 
 from viable import js, serve, button, input, div, span, pre, label, app
 import viable as V
+from flask import after_this_request
 
 import utils
 
@@ -194,8 +195,16 @@ class Store:
             s_str = ''
         return (q_str + ';' + s_str).strip(';')
 
+    def goto_script(self) -> V.Node:
+        script = self.goto()
+        if script:
+            return V.script(V.raw(script), eval=True)
+        else:
+            return V.text('')
+
 @serve.expose
-def cook(*values: Any, keys: list[tuple[Provenance, str]]) -> Dict[Any, Any] | Response:
+def cook(*values: Any, keys: list[tuple[Provenance, str]]) -> Response:
+    print(values, keys)
     next: defaultdict[Provenance, dict[str, Any]] = defaultdict(dict)
     for (p, n), v in zip(keys, values):
         next[p][n] = v
@@ -215,5 +224,3 @@ def cook(*values: Any, keys: list[tuple[Provenance, str]]) -> Dict[Any, Any] | R
     if kaka: resp.set_cookie('kaka', kaka)
     if gen: resp.set_cookie('gen', str(gen))
     return resp
-
-

@@ -387,3 +387,6 @@ def maybe(x: A | None, f: Callable[[A], B], b: B = None) -> B:
     else:
         return f(x)
 
+def read_commasep(s: str, p: Callable[[str], A] = lambda x: x) -> list[A]:
+    return [p(x.strip()) for x in s.strip().split(',') if x.strip()]
+

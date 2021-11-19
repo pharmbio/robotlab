@@ -118,7 +118,6 @@ class MoveJoint(Move):
     def to_script(self) -> str:
         return call('MoveJoint', *self.joints, **keep_true(slow=self.slow))
 
-
 @dataclass(frozen=True)
 class GripperMove(Move):
     pos: int
