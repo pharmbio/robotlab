@@ -279,7 +279,9 @@ class AnalyzeResult:
 
         r = df
         r_sections = r[~r.section.isna()]
+        r_sections = r_sections.copy()
         r = r[r.kind.isin(('begin', 'end'))]
+        r = r.copy()
         r['finished'] = r.id.isin(r[r.kind == 'end'].id)
         r['running'] = (r.kind == 'begin') & ~r.finished & r.current
         r = r[
@@ -295,6 +297,7 @@ class AnalyzeResult:
         r.loc[~r.finished, 'duration'] = r.t - r.t0
         r.loc[~r.finished, 'countdown'] = np.ceil(r.t) - t_now
         r = r[~r.finished | (r.kind == 'end')]
+        r = r.copy()
         if 't0' not in r:
             r['t0'] = r.t
         r['is_estimate'] = False
