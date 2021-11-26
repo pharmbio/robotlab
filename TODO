@@ -1,8 +1,6 @@
 w44:
 [ ] robustness: raise gripper if close more than expected
 [ ] moves:
-    [ ] Rename all occurrences to h21, r21, out21 to B21, C21, A21 and so on
-    [ ] convert moves to jsonl
     [ ] save both lin&joint for all coords
 [ ] bioteks
     [ ] Validate all protocols before starting cell paint
@@ -12,7 +10,7 @@ w44:
     [ ] test resuming
     [ ] make it easy to put the robot in the right place. freedrive and travel between known safe coordinates
     [ ] make it easy to start freedrive to put the robot in place
-    [ ] check that it is close to h neu when starting, but don't move there using MoveJoint !!! can check the inverse kinematics of the current position close to B neu
+    [ ] check that it is close to B neu when starting, but don't move there using MoveJoint !!! can check the inverse kinematics of the current position close to B neu
     [ ] remove all neutral MoveJoint, instead check that the robot is roughly correct (??)[ ] start & resume
 [ ] archive log
     [ ] use biotek pdfs
@@ -47,6 +45,9 @@ misc:
 
 [x] prio 3. timings, how to make them perfect? solution: use z3
 
+[x] moves: Rename all occurrences to h21, r21, out21 to B21, C21, A21 and so on
+[x] moves: Convert moves to jsonl
+
 [x] prio 3. robots: test communication with all robots before starting a protocol
 [x] prio 3. timings: extract the important parts of the protocol
 [x] prio 3. cli: more information while running: current state (what cycle and plate etc)
@@ -68,7 +69,7 @@ misc:
 
 [x] prio 3. moves: fix w->d transfer pick vertical offset
 [x] prio 2. moves: wash put move has this really annoying start
-[x] prio 2. moves: still some moves with 0.8° roll such as r21. make them level
+[x] prio 2. moves: still some moves with 0.8° roll such as C21. make them level
 
 [x] prio 3. safety, gui: reset LinRel every time last move wasn't LinRel. Right now you can go into freedrive, move the robot arm, then do LinRel moves which moves the robot directly relative to a position _before_ the freedrive. This is dangerous!!
 [x] prio 1. gui: grip test: remove grip test button, only have one copy

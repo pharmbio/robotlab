@@ -30,7 +30,7 @@ Estimates: dict[Estimated, float] = {
 overrides: dict[Estimated, float] = {
     ('robotarm', 'noop'): 0.5,
 
-    ('robotarm', 'lid_h17 get return'): 1.5,
+    ('robotarm', 'lid_B17 get return'): 1.5,
 
     ('robotarm', 'B1 put transfer'): 7.5,
     ('robotarm', 'B1 put return'):   7.5,

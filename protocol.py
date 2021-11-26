@@ -15,6 +15,7 @@ from commands import (
     Command,
     Fork,
     Info,
+    Meta,
     Checkpoint,
     Duration,
     Idle,
@@ -87,16 +88,15 @@ class Plate:
 H = [21, 19, 17, 15, 13, 11, 9, 7, 5, 3, 1]
 I = [i+1 for i in range(22)]
 
-A_locs:    list[str] = [f'out{i}' for i in H]
+A_locs:    list[str] = [f'A{i}' for i in H]
 B_locs:    list[str] = [f'B{i}' for i in H]
-C_locs:    list[str] = [f'r{i}' for i in H]
-H_locs:    list[str] = [f'h{i}' for i in H]
+C_locs:    list[str] = [f'C{i}' for i in H]
 
 Incu_locs: list[str] = [f'L{i}' for i in I] + [f'R{i}' for i in I]
 RT_locs_few:  list[str] = C_locs[:4] + A_locs[:4]    # up to 8 plates
 RT_locs_many: list[str] = C_locs[:5] + A_locs[:5] + [B_locs[4]]
 Out_locs:  list[str] = A_locs[5:][::-1] + B_locs[5:][::-1] + C_locs[5:][::-1]
-Lid_locs:  list[str] = [b for b in H_locs if '19' in b or '17' in b]
+Lid_locs:  list[str] = [b for b in B_locs if '19' in b or '17' in b]
 
 A = TypeVar('A')
 
@@ -1105,7 +1105,11 @@ def execute_program(config: RuntimeConfig, program: Command, metadata: dict[str,
 
             for i, e in expected_ends.items():
                 if i not in seen:
-                    print(i, e, by_id.get(i, '?'), sep='\t')
+                    cmd = by_id.get(i)
+                    match cmd:
+                        case Meta(command=Info()):
+                            continue
+                    print('not seen:', i, e, cmd, sep='\t')
 
             if mismatches or not matches:
                 print(f'{matches=} {mismatches=} {len(expected_ends)=}')

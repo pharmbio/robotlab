@@ -97,7 +97,7 @@ def arm_set_speed(value: int) -> None:
 @serve.expose
 def edit_at(program_name: str, i: int, changes: dict[str, Any]):
     filename = get_programs()[program_name]
-    ml = MoveList.from_json_file(filename)
+    ml = MoveList.from_jsonl_file(filename)
     m = ml[i]
     for k, v in changes.items():
         if k in 'rpy xyz joints name slow pos tag sections'.split():
@@ -107,7 +107,7 @@ def edit_at(program_name: str, i: int, changes: dict[str, Any]):
 
     ml = MoveList(ml)
     ml[i] = m
-    ml.write_json(filename)
+    ml.write_jsonl(filename)
     return {'refresh': True}
 
 @serve.expose
@@ -163,7 +163,7 @@ def update(program_name: str, i: int):
         return
 
     filename = get_programs()[program_name]
-    ml = MoveList.from_json_file(filename)
+    ml = MoveList.from_jsonl_file(filename)
     m = ml[i]
     if isinstance(m, (moves.MoveLin, moves.MoveRel)):
         v = asdict(m)
@@ -171,24 +171,24 @@ def update(program_name: str, i: int):
         v['rpy'] = [utils.round_nnz(v, 1) for v in polled_info['rpy']]
         ml = MoveList(ml)
         ml[i] = moves.MoveLin(**v)
-        ml.write_json(filename)
+        ml.write_jsonl(filename)
     elif isinstance(m, (moves.GripperMove)):
         v = asdict(m)
         v['pos'] = polled_info['pos'][0]
         ml = MoveList(ml)
         ml[i] = moves.GripperMove(**v)
-        ml.write_json(filename)
+        ml.write_jsonl(filename)
     elif isinstance(m, (moves.MoveJoint)):
         v = asdict(m)
         v['joints'] = [utils.round_nnz(v, 2) for v in polled_info['joints']]
         ml = MoveList(ml)
         ml[i] = moves.MoveJoint(**v)
-        ml.write_json(filename)
+        ml.write_jsonl(filename)
 
 def get_programs() -> dict[str, Path]:
     return {
         path.with_suffix('').name: path
-        for path in sorted(Path('./movelists').glob('*.json'))
+        for path in sorted(Path('./movelists').glob('*.jsonl'))
     }
 
 @serve.one('/')
@@ -196,7 +196,7 @@ def index() -> Iterator[Tag | dict[str, str]]:
     programs = get_programs()
     program_name = request.args.get('program', next(iter(programs.keys())))
     section: tuple[str, ...] = tuple(request.args.get('section', "").split())
-    ml = MoveList.from_json_file(programs[program_name])
+    ml = MoveList.from_jsonl_file(programs[program_name])
 
     yield V.title(' '.join([program_name, *section]))
 

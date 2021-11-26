@@ -155,33 +155,16 @@ class MoveList(list[Move]):
     '''
 
     @staticmethod
-    def from_json_file(filename: str | Path) -> MoveList:
-        with open(filename) as f:
-            return MoveList([Move.from_dict(m) for m in json.load(f)])
+    def from_jsonl_file(filename: str | Path) -> MoveList:
+        return MoveList([
+            Move.from_dict(m)
+            for m in utils.read_json_lines(str(filename))
+        ])
 
-    def write_json(self, filename: str | Path) -> None:
+    def write_jsonl(self, filename: str | Path) -> None:
         with open(filename, 'w') as f:
-            f.write(self.to_json())
-
-    def to_json(self) -> str:
-        ms = [m.to_dict() for m in self]
-        jsons: list[str] = []
-        for m in ms:
-            short = json.dumps(m)
-            if len(short) < 120:
-                jsons += [short]
-            else:
-                jsons += [
-                    textwrap.indent(
-                        json.dumps(m, indent=2),
-                        '  ',
-                        lambda x: not x.startswith('{'))]
-        json_str = (
-                '[\n  '
-            +   ',\n  '.join(jsons)
-            + '\n]'
-        )
-        return json_str
+            for m in self:
+                print(json.dumps(m.to_dict()), file=f)
 
     def adjust_tagged(self, tag: str, *, dname: str, dz: float) -> MoveList:
         '''
@@ -211,7 +194,7 @@ class MoveList(list[Move]):
         '''
         If there is a tag like 19/21 then expand to all heights 1/21, 3/21, .., 21/21
         The first occurence of 19 in the name is replaced with 1, 3, .., 21, so
-        "lid_h19_put" becomes "lid_h1_put" and so on.
+        "lid_B19_put" becomes "lid_B1_put" and so on.
         '''
         hotel_dist: float = 70.94
         out: dict[str, MoveList] = {}
@@ -332,9 +315,9 @@ def sleek_movements(
     get_movelist: Callable[[HasMoveList], MoveList | None],
 ) -> list[HasMoveList]:
     '''
-    if program A ends by h21 neu and program B by h21 neu then run:
-        program A to h21 neu
-        program B from h21 neu
+    if program A ends by B21 neu and program B by B21 neu then run:
+        program A to B21 neu
+        program B from B21 neu
     '''
     ms: list[tuple[int, MoveList]] = []
     for i, x in enumerate(xs):
@@ -360,8 +343,8 @@ def sleek_movements(
 def read_movelists() -> dict[str, MoveList]:
     grand_out: dict[str, MoveList] = {}
 
-    for filename in Path('./movelists').glob('*.json'):
-        ml = MoveList.from_json_file(filename)
+    for filename in Path('./movelists').glob('*.jsonl'):
+        ml = MoveList.from_jsonl_file(filename)
         name = filename.with_suffix('').name
         secs = ml.expand_sections(name, include_self=name in {'wash_to_disp'})
         for k, v in secs.items():
@@ -385,9 +368,9 @@ def read_movelists() -> dict[str, MoveList]:
     grand_out['noop'] = MoveList()
     grand_out['gripper check'] = MoveList([GripperCheck()])
 
-    to_neu = grand_out['lid_h19 put prep'][0]
+    to_neu = grand_out['lid_B19 put prep'][0]
     assert isinstance(to_neu, MoveJoint)
-    assert to_neu.name == 'h neu'
+    assert to_neu.name == 'B neu'
     to_neu = replace(to_neu, slow=True)
     grand_out['to neu'] = MoveList([to_neu])
 
@@ -395,4 +378,16 @@ def read_movelists() -> dict[str, MoveList]:
 
 movelists: dict[str, MoveList]
 movelists = read_movelists()
+
+# B21.json
+# disp.json
+# incu_A21.json
+# incu.json
+# lid_h19.json
+# A21.json
+# r21.json
+# wash21.json
+# wash.json
+# wash_to_disp.json
+# wash_to_r21.json
 
