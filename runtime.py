@@ -14,7 +14,6 @@ from threading import RLock
 
 from robotarm import Robotarm
 import utils
-from utils import Mutable
 from utils import pp_secs
 
 from timelike import Timelike, WallTime, SimulatedTime, FastForwardTime

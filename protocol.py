@@ -1,15 +1,16 @@
 from __future__ import annotations
-from typing import Any, TypeVar, Iterable, Iterator, cast
+from typing import Any, TypeVar, Iterable, Iterator
 from dataclasses import *
 
 from collections import defaultdict, Counter
 
+import contextlib
 import graphlib
 import os
+import pickle
 import platform
 import re
 import textwrap
-import pickle
 
 from commands import (
     Command,
@@ -32,12 +33,12 @@ from commands import (
 )
 from moves import movelists
 from runtime import RuntimeConfig, Runtime, dry_run
+from symbolic import Symbolic
 import commands
+import constraints
 import moves
 
 import utils
-
-from symbolic import Symbolic
 
 def ATTENTION(s: str):
     color = utils.Color()
@@ -1034,9 +1035,6 @@ def group_times(times: dict[str, list[float]]):
         out[k] = [utils.pp_secs(v) for _, [v] in vs]
     return out
 
-import contextlib
-from datetime import datetime
-
 @contextlib.contextmanager
 def make_runtime(config: RuntimeConfig, metadata: dict[str, str]) -> Iterator[Runtime]:
     metadata = {
@@ -1061,8 +1059,6 @@ def make_runtime(config: RuntimeConfig, metadata: dict[str, str]) -> Iterator[Ru
 
     with runtime.excepthook():
         yield runtime
-
-import constraints
 
 def execute_program(config: RuntimeConfig, program: Command, metadata: dict[str, str]):
     program = program.remove_noops()

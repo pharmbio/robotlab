@@ -6,7 +6,7 @@ import argparse
 import os
 import sys
 
-from runtime import RuntimeConfig, configs, Runtime, config_lookup
+from runtime import RuntimeConfig, configs, config_lookup
 from utils import show
 
 import commands
@@ -17,7 +17,7 @@ import protocol
 import resume
 
 import utils
-from dataclasses import dataclass, field, fields, replace, Field
+from dataclasses import dataclass, field, fields, Field
 import json
 
 A = TypeVar('A')
@@ -130,8 +130,8 @@ def main():
     if args.list_imports:
         my_dir = os.path.dirname(__file__)
         for m in sys.modules.values():
-            path = getattr(m, '__file__', '')
-            if path.startswith(my_dir):
+            path = getattr(m, '__file__', None)
+            if path and path.startswith(my_dir):
                 print(path)
         sys.exit(0)
 
