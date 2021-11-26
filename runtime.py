@@ -365,9 +365,6 @@ class Runtime:
             arg = arg[:len(arg)-len(r)] + r
             last = '─'
 
-        # if source == 'robotarm' and 'return' in arg:
-        #     return
-
         def color(src: str, s: str):
             if src == 'wash':
                 return utils.Color().cyan(s)
@@ -381,7 +378,6 @@ class Runtime:
                 thread = str(entry.get('thread', ''))
                 if thread.startswith(machine):
                     source = machine + ' ' + source
-                    # arg = f'{machine}: {arg}'
 
         column_order = 'disp wash'.split()
         columns = ''

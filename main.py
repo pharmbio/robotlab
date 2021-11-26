@@ -230,6 +230,7 @@ class AnalyzeResult:
     vis: pd.DataFrame
     sections: pd.DataFrame
     errors: pd.DataFrame
+    world: dict[str, Any]
 
     def has_error(self):
         if self.completed:
@@ -284,6 +285,13 @@ class AnalyzeResult:
         r = r.copy()
         r['finished'] = r.id.isin(r[r.kind == 'end'].id)
         r['running'] = (r.kind == 'begin') & ~r.finished & r.current
+
+        try:
+            world = r[r.finished].world.ffill().iloc[-1]
+            assert isinstance(world, dict)
+        except:
+            world = {}
+
         r = r[
             r.source.isin(('wash', 'disp', 'incu', 'main'))
             | r.report_behind_time
@@ -304,8 +312,9 @@ class AnalyzeResult:
         r.loc[r.running, 'is_estimate'] = True
 
         r['t_ts'] = zero_time + pd.to_timedelta(r.t, unit='seconds')
+        r.t_ts = r.t_ts.dt.strftime('%H:%M:%S')
         r.loc[~r.secs.isna(), 'arg'] = 'sleeping'
-        r.loc[~r.secs.isna(), 'arg'] = r.arg + ' to ' + r.t_ts.dt.strftime('%H:%M:%S')
+        r.loc[~r.secs.isna(), 'arg'] = r.arg + ' to ' + r.t_ts
 
         r = r.sort_values('t')
         r = r.reset_index(drop=True)
@@ -379,6 +388,7 @@ class AnalyzeResult:
             vis=vis[cols].fillna(''),
             sections=sections,
             errors=errors,
+            world=world,
         )
 
     def durations(self) -> pd.DataFrame:
@@ -449,20 +459,11 @@ class AnalyzeResult:
         r = r[~r.batch_index.isna()]
         r = r[r.finished | r.current]
 
-        more_rows: list[dict[str, Any]] = []
-        if 0 <= t_now <= start_times.max() and not self.completed:
-            more_rows += [{
-                't0': t_now,
-                't': t_now,
-                'is_estimate': False,
-                'source': 'now',
-                'arg': '',
-                'plate_id': 0,
-            }]
+        bg_rows: list[dict[str, Any]] = []
         for i, (_, section) in enumerate(sections.iterrows()):
             if pd.isna(section.length):
                 continue
-            more_rows += [{
+            bg_rows += [{
                 't0': section.t0,
                 't': section.t,
                 'is_estimate': False,
@@ -470,8 +471,21 @@ class AnalyzeResult:
                 'arg': '',
                 'plate_id': 0,
             }]
+        bg_rows = pd.DataFrame.from_records(bg_rows)
 
-        r = r.append(more_rows, ignore_index=True)
+        now_row: list[dict[str, Any]] = []
+        if 0 <= t_now <= start_times.max() and not self.completed:
+            now_row += [{
+                't0': t_now,
+                't': t_now,
+                'is_estimate': False,
+                'source': 'now',
+                'arg': '',
+                'plate_id': 0,
+            }]
+        now_row = pd.DataFrame.from_records(now_row)
+
+        r = pd.concat([bg_rows, r, now_row], ignore_index=True)
         r['slot'] = 0
         for i, (_, section) in enumerate(sections.iterrows()):
             r.loc[r.t0 >= section.t0, 'slot'] = i
@@ -498,15 +512,6 @@ class AnalyzeResult:
             'now': 2,
             'marker': 2,
         })
-        r['zindex'] = r.source.replace({
-            'wash': 5,
-            'disp': 5,
-            'incu': 5,
-            'now': 4,
-            'marker': 1,
-        })
-        r.zindex = r.zindex - r.machine_slot - 2 * r.slot + r.slot.max() + 10
-        r.loc[r.source == 'now', 'zindex'] = r.zindex.max() + 1
         r['can_hover']=~r.source.isin(('now', 'marker'))
 
         r['y0'] = (r.t0 - r.slot_start) / max_length
@@ -545,7 +550,6 @@ class AnalyzeResult:
                 color: #000;
                 position: absolute;
                 outline: 1px #0005 solid;
-                z-index: 10;
                 padding: 5px;
                 margin: 0;
                 border-radius: 0 5px 5px 5px;
@@ -556,6 +560,7 @@ class AnalyzeResult:
                 top: 0;
                 background: var(--row-color);
                 white-space: pre;
+                z-index: 1;
             }
         ''')
 
@@ -572,7 +577,6 @@ class AnalyzeResult:
                     height:{row.h * 100:.3f}%;
                     --row-color:{row.color};
                     --info:{repr(str(row.arg) + ' (' + str(row.simple_id) + ')')};
-                    z-index:{row.zindex};
                 ''', sep=''),
                 css_=f'''
                     width: {row.machine_width * width - 2}px;
@@ -755,6 +759,24 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
                     & table td:nth-child(1),
                     & table td:nth-child(3),
                     & table td:nth-child(5)
+                    {
+                        text-align: right
+                    }
+                '''
+            )
+        if 1:
+            w = pd.Series({v: k for k, v in ar.world.items()}, dtype=object)
+            w = w.sort_index()
+            w = pd.DataFrame(w)
+            info += div(
+                V.raw(
+                    w.to_html(border=0, header=0)
+                ),
+                css='''
+                    & table {
+                        margin: auto;
+                    }
+                    & table th:nth-child(1)
                     {
                         text-align: right
                     }
