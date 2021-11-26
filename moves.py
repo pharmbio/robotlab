@@ -149,6 +149,8 @@ class RawCode(Move):
     def is_open(self) -> bool: raise ValueError
     def is_close(self) -> bool: raise ValueError
 
+HotelLocs = [1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21]
+
 class MoveList(list[Move]):
     '''
     Utility class for dealing with moves in a list
@@ -202,8 +204,8 @@ class MoveList(list[Move]):
             if m := re.match(r'(\d+)/21$', tag):
                 ref_h = int(m.group(1))
                 assert str(ref_h) in name
-                assert ref_h in [1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21]
-                for h in [1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21]:
+                assert ref_h in HotelLocs
+                for h in HotelLocs:
                     dz = (h - ref_h) / 2 * hotel_dist
                     name_h = name.replace(str(ref_h), str(h), 1)
                     out[name_h] = self.adjust_tagged(tag, dname=str(h), dz=dz)
@@ -313,6 +315,7 @@ HasMoveList = TypeVar('HasMoveList')
 def sleek_movements(
     xs: list[HasMoveList],
     get_movelist: Callable[[HasMoveList], MoveList | None],
+    pair_ok: Callable[[HasMoveList, HasMoveList], bool],
 ) -> list[HasMoveList]:
     '''
     if program A ends by B21 neu and program B by B21 neu then run:
@@ -331,7 +334,7 @@ def sleek_movements(
         b_last = b[-1].try_name()
         if a.has_gripper() or b.has_gripper():
             continue
-        if a_first and a_first == b_last:
+        if a_first and a_first == b_last and pair_ok(xs[i], xs[j]):
             rm |= {i, j}
 
     return [
@@ -340,54 +343,161 @@ def sleek_movements(
         if i not in rm
     ]
 
+def named_movelist(
+    base: str,
+    kind: Literal[
+        'full',
+        'prep',
+        'transfer',
+        'return',
+        'transfer to drop neu',
+        'transfer from drop neu',
+    ],
+    movelist: MoveList
+) -> tuple[str, MoveList]:
+    if kind == 'full':
+        name = base
+    else:
+        name = base + ' ' + kind
+    return name, movelist
+
+def read_and_expand(filename: Path) -> dict[str, MoveList]:
+    ml = MoveList.from_jsonl_file(filename)
+    name = filename.stem
+    expanded = ml.expand_sections(name, include_self=name == 'wash_to_disp')
+    for k, v in list(expanded.items()):
+        expanded |= v.expand_hotels(k)
+    return expanded
+
 def read_movelists() -> dict[str, MoveList]:
-    grand_out: dict[str, MoveList] = {}
-
+    expanded: dict[str, MoveList] = {}
     for filename in Path('./movelists').glob('*.jsonl'):
-        ml = MoveList.from_jsonl_file(filename)
-        name = filename.with_suffix('').name
-        secs = ml.expand_sections(name, include_self=name in {'wash_to_disp'})
-        for k, v in secs.items():
-            expanded = v.expand_hotels(k)
-            for kk, vv in {k: v, **expanded}.items() :
-                out: dict[str, MoveList] = {}
-                out[kk] = vv
-                if 'put-prep' not in kk and not 'put-return' in kk:
-                    parts = vv.split()
-                    out[kk + ' prep']     = parts.prep
-                    out[kk + ' transfer'] = parts.transfer
-                    out[kk + ' return']   = parts.ret
-                    if 'incu_A' in kk and 'put' in kk:
-                        to_neu, neu, after_neu = parts.transfer.split_on(lambda m: m.try_name().endswith('drop neu'))
-                        assert to_neu.has_close() and not to_neu.has_open()
-                        assert not after_neu.has_close() and after_neu.has_open()
-                        out[kk + ' transfer to drop neu'] = MoveList(to_neu + [neu])
-                        out[kk + ' transfer from drop neu'] = after_neu
-                grand_out = grand_out | out
+        expanded |= read_and_expand(filename)
 
-    grand_out['noop'] = MoveList()
-    grand_out['gripper check'] = MoveList([GripperCheck()])
+    out: list[tuple[str, MoveList]] = []
+    for base, v in expanded.items():
+        out += [named_movelist(base, 'full', v)]
+        if 'put-prep' in base or 'put-return' in base:
+            assert 'incu_A21' in base # these are used to put arm in A-neutral start position
+            continue
+        parts = v.split()
+        prep = named_movelist(base, 'prep', parts.prep)
+        ret = named_movelist(base, 'return', parts.ret)
+        out += [
+            prep,
+            ret,
+            named_movelist(base, 'transfer', parts.transfer),
+        ]
+        if 'incu_A' in base and 'put' in base:
+            to_neu, neu, after_neu = parts.transfer.split_on(lambda m: m.try_name().endswith('drop neu'))
+            assert to_neu.has_close() and not to_neu.has_open()
+            assert not after_neu.has_close() and after_neu.has_open()
+            out += [
+                named_movelist(base, 'transfer to drop neu', MoveList(to_neu + [neu])),
+                named_movelist(base, 'transfer from drop neu', after_neu),
+            ]
 
-    to_neu = grand_out['lid_B19 put prep'][0]
+    out += [
+        named_movelist('noop', 'full', MoveList()),
+        named_movelist('gripper check', 'full', MoveList([GripperCheck()])),
+    ]
+
+    to_neu = dict(out)['lid_B19 put prep'][0]
     assert isinstance(to_neu, MoveJoint)
     assert to_neu.name == 'B neu'
     to_neu = replace(to_neu, slow=True)
-    grand_out['to neu'] = MoveList([to_neu])
 
-    return grand_out
+    out += [
+        named_movelist('to neu', 'full', MoveList([to_neu])),
+    ]
+
+    return dict(out)
 
 movelists: dict[str, MoveList]
 movelists = read_movelists()
 
-# B21.json
-# disp.json
-# incu_A21.json
-# incu.json
-# lid_h19.json
-# A21.json
-# r21.json
-# wash21.json
-# wash.json
-# wash_to_disp.json
-# wash_to_r21.json
+World: TypeAlias = dict[str, str]
+
+class Effect(abc.ABC):
+    @abc.abstractmethod
+    def apply(self, world: World) -> World:
+        pass
+
+@dataclass(frozen=True)
+class NoEffect(Effect):
+    def apply(self, world: World):
+        return world
+
+@dataclass(frozen=True)
+class MovePlate(Effect):
+    source: str
+    target: str
+    def apply(self, world: World):
+        assert self.source in world
+        assert self.target not in world
+        w2 = {**world, self.target: world[self.source]}
+        del w2[self.source]
+        return w2
+
+@dataclass(frozen=True)
+class TakeLidOff(Effect):
+    source: str
+    target: str
+    def apply(self, world: World):
+        assert self.source in world
+        assert self.target not in world
+        w2 = {**world, self.target: 'lid ' + world[self.source]}
+        return w2
+
+@dataclass(frozen=True)
+class PutLidOn(Effect):
+    source: str
+    target: str
+    def apply(self, world: World):
+        assert self.source in world
+        assert self.target in world
+        assert 'lid ' + world[self.target] == world[self.source]
+        w2 = {**world}
+        del w2[self.source]
+        return w2
+
+B21 = 'B21'
+effects: dict[str, Effect] = {}
+
+for m in 'incu disp wash wash'.split():
+    effects[m + ' put'] = MovePlate(source=B21, target=m)
+    effects[m + ' get'] = MovePlate(source=m, target=B21)
+
+effects['wash_to_disp'] = MovePlate(source='wash', target='disp')
+
+for i in HotelLocs:
+    Ai = f'A{i}'
+    Bi = f'B{i}'
+    Ci = f'C{i}'
+    effects[Ai + ' get'] = MovePlate(source=Ai, target=B21)
+    effects[Bi + ' get'] = MovePlate(source=Bi, target=B21)
+    effects[Ci + ' get'] = MovePlate(source=Ci, target=B21)
+
+    effects[Ai + ' put'] = MovePlate(source=B21, target=Ai)
+    effects[Bi + ' put'] = MovePlate(source=B21, target=Bi)
+    effects[Ci + ' put'] = MovePlate(source=B21, target=Ci)
+
+    lid_Bi = f'lid_B{i}'
+    effects[lid_Bi + ' get'] = PutLidOn(source=Bi, target=B21)
+    effects[lid_Bi + ' put'] = TakeLidOff(source=B21, target=Bi)
+
+    effects[f'incu_{Ai} put'] = MovePlate(source=Ai, target='incu')
+    effects[f'incu_{Ai} get'] = MovePlate(source='incu', target=Ai)
+
+    wash_i = f'wash{i}'
+    effects[wash_i + ' put'] = MovePlate(source=Bi, target='wash')
+    effects[wash_i + ' get'] = MovePlate(source='wash', target=Bi)
+
+for k in list(effects.keys()):
+    effects[k + ' transfer'] = effects[k]
+
+for i in HotelLocs:
+    Ai = f'A{i}'
+    effects[f'incu_{Ai} put transfer to drop neu'] = MovePlate(source=Ai, target='incu drop')
+    effects[f'incu_{Ai} put transfer from drop neu'] = MovePlate(source='incu drop', target='incu')
 

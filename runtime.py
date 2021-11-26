@@ -18,6 +18,7 @@ from utils import pp_secs
 
 from timelike import Timelike, WallTime, SimulatedTime, FastForwardTime
 from collections import defaultdict
+from moves import World
 
 import os
 import sys
@@ -309,6 +310,7 @@ class Runtime:
         return t
 
     active: set[str] = field(default_factory=set)
+    last_world: World = field(default_factory=dict)
 
     def log_entry_to_line(self, entry: dict[str, Any]) -> str | None:
         kind = entry.get('kind') or ''
@@ -363,8 +365,8 @@ class Runtime:
             arg = arg[:len(arg)-len(r)] + r
             last = '─'
 
-        if source == 'robotarm' and 'return' in arg:
-            return
+        # if source == 'robotarm' and 'return' in arg:
+        #     return
 
         def color(src: str, s: str):
             if src == 'wash':
@@ -403,12 +405,18 @@ class Runtime:
             disp='dispenser',
         ).get(source, source)
 
+        w = entry.get('world', self.last_world.copy())
+        diff = {w.get(k): k for k, v in {**self.last_world, **w}.items() if self.last_world.get(k) != w.get(k)}
+        self.last_world.clear()
+        self.last_world.update(w)
+
         parts = [
             t,
             f'{src     : <9}',
             f'{arg     : <50}' + columns,
             f'{plate_id: >2}',
             f'{step    : <6}',
+            f'{diff}',
         ]
 
         parts = [color(source, part) for part in parts]

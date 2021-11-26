@@ -79,6 +79,19 @@ class Command(abc.ABC):
             case _:
                 return f(self)
 
+    def transform_with_metadata(self: Command, f: Callable[[Command, dict[str, Any]], Command]) -> Command:
+        def go(cmd: Command, metadata: dict[str, Any]) -> Command:
+            match cmd:
+                case Seq():
+                    return f(cmd.replace(commands=[go(cmd, metadata) for cmd in cmd.commands]), metadata)
+                case Fork():
+                    return f(cmd.replace(command=go(cmd.command, metadata)), metadata)
+                case Meta():
+                    return f(cmd.replace(command=go(cmd.command, {**metadata, **cmd.metadata})), metadata)
+                case _:
+                    return f(cmd, metadata)
+        return go(self, {})
+
     def universe(self: Command) -> Iterator[Command]:
         '''
         Universe of all subterms a la "Uniform boilerplate and list processing"

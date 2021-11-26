@@ -27,11 +27,12 @@ from commands import (
     WashFork,
     DispFork,
     IncuFork,
+    BiotekCmd,
     RobotarmCmd,
     WaitForCheckpoint,
     WaitForResource,
 )
-from moves import movelists
+from moves import movelists, effects, World, MovePlate
 from runtime import RuntimeConfig, Runtime, dry_run
 from symbolic import Symbolic
 import commands
@@ -98,6 +99,34 @@ RT_locs_few:  list[str] = C_locs[:4] + A_locs[:4]    # up to 8 plates
 RT_locs_many: list[str] = C_locs[:5] + A_locs[:5] + [B_locs[4]]
 Out_locs:  list[str] = A_locs[5:][::-1] + B_locs[5:][::-1] + C_locs[5:][::-1]
 Lid_locs:  list[str] = [b for b in B_locs if '19' in b or '17' in b]
+
+def initial_world(plates: list[Plate]) -> World:
+    return {p.incu_loc: p.id for p in plates}
+
+def add_world_metadata(program: Command, world0: World) -> Command:
+    world = {**world0}
+    def F(cmd: Command, metadata: dict[str, Any]) -> Command:
+        nonlocal world
+        match cmd:
+            case RobotarmCmd() if e := effects.get(cmd.program_name):
+                world = e.apply(world)
+                return cmd.with_metadata(world=world)
+            case IncuCmd() if cmd.action == 'put' and cmd.incu_loc:
+                e = MovePlate(source='incu', target=cmd.incu_loc)
+                world = e.apply(world)
+                return cmd.with_metadata(world=world)
+            case IncuCmd() if cmd.action == 'get' and cmd.incu_loc:
+                e = MovePlate(source=cmd.incu_loc, target='incu')
+                world = e.apply(world)
+                return cmd.with_metadata(world=world)
+            case BiotekCmd() if 'Run' in cmd.cmd and not metadata.get('predispense'):
+                if plate_id := metadata.get('plate_id'):
+                    assert cmd.machine in world, (cmd, metadata)
+                    assert world[cmd.machine] == plate_id, (cmd, metadata, world, world[cmd.machine], plate_id)
+                return cmd
+            case _:
+                return cmd
+    return program.transform_with_metadata(F)
 
 A = TypeVar('A')
 
@@ -227,7 +256,6 @@ finjune = Interleaving.init('''
 ''')
 
 Interleavings = {k: v for k, v in globals().items() if isinstance(v, Interleaving)}
-
 
 @dataclass(frozen=True)
 class ProtocolConfig:
@@ -930,25 +958,28 @@ def sleek_program(program: Command) -> Command:
             return movelists[cmd.program_name]
         else:
             return None
+    def pair_ok(cmd_and_metadata1: tuple[Command, Any], cmd_and_metadata2: tuple[Command, Any]) -> bool:
+        _, m1 = cmd_and_metadata1
+        _, m2 = cmd_and_metadata2
+        p1 = m1.get('plate_id')
+        p2 = m2.get('plate_id')
+        return p1 is not None and p2 is not None and p1 == p2
     return Sequence(
         *[
             cmd.with_metadata(metadata)
-            for cmd, metadata in moves.sleek_movements(
-                program.collect(),
-                get_movelist,
-            )
+            for cmd, metadata
+            in moves.sleek_movements(program.collect(), get_movelist, pair_ok)
         ]
     )
 
 def cell_paint_program(batch_sizes: list[int], protocol_config: ProtocolConfig, sleek: bool = True) -> Command:
     cmds: list[Command] = []
-    for batch in group_by_batch(define_plates(batch_sizes)):
+    plates = define_plates(batch_sizes)
+    for batch in group_by_batch(plates):
         batch_cmds = paint_batch(
             batch,
             protocol_config=protocol_config,
         )
-        if sleek:
-            batch_cmds = sleek_program(batch_cmds)
         cmds += [batch_cmds]
     program = Sequence(
         Checkpoint('run'),
@@ -956,8 +987,10 @@ def cell_paint_program(batch_sizes: list[int], protocol_config: ProtocolConfig, 
         *cmds,
         Duration('run')
     )
+    if sleek:
+        program = sleek_program(program)
+    program = add_world_metadata(program, initial_world(plates))
     return program
-
 
 def test_circuit(config: RuntimeConfig) -> None:
     '''
