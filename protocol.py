@@ -1138,8 +1138,8 @@ def execute_program(config: RuntimeConfig, program: Command, metadata: dict[str,
             'log_filename': config.log_filename,
         }
 
-        os.makedirs('running/', exist_ok=True)
-        base = 'running/' + utils.now_str_for_filename() + '_'
+        os.makedirs('cache/', exist_ok=True)
+        base = 'cache/' + utils.now_str_for_filename() + '_'
         save = {
             'estimates_pickle_file': est_entries,
             'program_pickle_file': program_opt,

@@ -67,7 +67,7 @@ def robotarm_open_gripper():
     robotarm_do([RawCode("GripperMove(88)")])
 
 def as_stderr(log_path: str):
-    p = Path('running') / Path(log_path).stem
+    p = Path('cache') / Path(log_path).stem
     p = p.with_suffix('.stderr')
     return p
 
