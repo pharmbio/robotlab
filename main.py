@@ -29,6 +29,7 @@ from moves import RawCode, Move
 import sys
 
 from provenance import Var, Int, Str, Store, DB
+from protocol import Incu_locs, A_locs, B_locs, C_locs
 
 config: RuntimeConfig = config_lookup('live')
 if '--simulator' in sys.argv:
@@ -76,15 +77,15 @@ def start(simulate: bool):
     log_filename = 'logs/' + utils.now_str_for_filename() + '-from-gui.jsonl'
     args = Args(
         config_name='dry-run' if simulate else 'dry-wall',
-        cell_paint='6',
         log_filename=log_filename,
-        interleave=True,
-        two_final_washes=False,
-        incu='x',
+        cell_paint='6,6',
+        # interleave=True,
+        # two_final_washes=True,
+        # load_incu=11,
     )
     cmd = [
         'sh', '-c',
-        'python3.10 cli.py --json-arg "$1" 2>"$2"',
+        'yes | python3.10 cli.py --json-arg "$1" 2>"$2"',
         '--',
         json.dumps(dataclasses.asdict(args)),
         as_stderr(log_filename),
@@ -164,15 +165,21 @@ def load_from_pickle(filepath: str) -> Any:
 @lru_cache(maxsize=1)
 def _jsonl_to_df(path: str, mtime_ns: int) -> pd.DataFrame | None:
     try:
-        return prep(pd.read_json(path, lines=True))
+        df = pd.read_json(path, lines=True)
     except:
         return None
+    return prep(df)
 
 def jsonl_to_df(path: str) -> pd.DataFrame | None:
     p = Path(path)
     try:
-        return _jsonl_to_df(path, p.stat().st_mtime_ns).copy()
-    except:
+        stat = p.stat()
+    except FileNotFoundError:
+        return None
+    df = _jsonl_to_df(path, stat.st_mtime_ns)
+    if df is not None:
+        return df.copy()
+    else:
         return None
 
 def to_int(s: pd.Series, fill: int=0) -> pd.Series:
@@ -205,6 +212,8 @@ def prep(df: pd.DataFrame):
         df.resource = df.resource.fillna('main')
     else:
         df['resource'] = 'main'
+    if 'step' not in df:
+        df['step'] = None
     return df
 
 def countdown_str(s: Series):
@@ -231,6 +240,7 @@ class AnalyzeResult:
     sections: pd.DataFrame
     errors: pd.DataFrame
     world: dict[str, Any]
+    num_plates: int
 
     def has_error(self):
         if self.completed:
@@ -246,6 +256,11 @@ class AnalyzeResult:
         runtime_metadata = meta.iloc[-1]
 
         df['current'] = df.index >= meta.index[-1]
+
+        try:
+            world0: dict[str, str] = df.effect.dropna().iloc[0]
+        except:
+            world0 = {}
 
         first_row = df.iloc[meta.index[-1], :]
         zero_time = first_row.log_time.to_pydatetime() - timedelta(seconds=first_row.t)
@@ -263,6 +278,12 @@ class AnalyzeResult:
         log_filename = runtime_metadata['log_filename']
 
         errors = df[(df.kind == 'error') & df.current]
+
+        num_plates = max(
+            df.plate_id.astype(float).max(),
+            estimates.plate_id.astype(float).max(),
+        )
+        num_plates = int(num_plates)
 
         if pid:
             try:
@@ -287,13 +308,20 @@ class AnalyzeResult:
         r['running'] = (r.kind == 'begin') & ~r.finished & r.current
 
         try:
-            world = r[r.finished].world.ffill().iloc[-1]
+            effects = r[r.finished & r.source.isin(('incu', 'robotarm')) & r.kind.eq('end')].effect.dropna()
+            world: dict[str, str] = {**world0}
+            for effect in effects:
+                world = {
+                    k: v
+                    for k, v in {**world, **effect}.items()
+                    if v is not None
+                }
             assert isinstance(world, dict)
         except:
             world = {}
 
         r = r[
-            r.source.isin(('wash', 'disp', 'incu', 'main'))
+            r.source.isin(('wash', 'disp', 'incu'))
             | r.report_behind_time
             | ((r.source == 'robotarm') & r.running)
         ]
@@ -330,7 +358,7 @@ class AnalyzeResult:
         vis = vis.reset_index(drop=True)
 
         def cleanup(d):
-            d = d[~d.arg.str.contains('Validate ')].copy()
+            d = d[~d.arg.fillna('').str.contains('Validate ')].copy()
             d.arg = d.arg.str.replace('RunValidated ', '', regex=False)
             d.arg = d.arg.str.replace('Run ', '', regex=False)
             d.arg = d.arg.str.replace('automation_v3.1/', '', regex=False)
@@ -338,6 +366,9 @@ class AnalyzeResult:
 
         r = cleanup(r)
         vis = cleanup(vis)
+
+        if vis.section.dropna().empty:
+            vis.loc[0, 'section'] = 'begin'
 
         sections = vis[~vis.section.isna()]
         sections = sections['batch_index t is_estimate section'.split()]
@@ -389,6 +420,7 @@ class AnalyzeResult:
             sections=sections,
             errors=errors,
             world=world,
+            num_plates=num_plates,
         )
 
     def durations(self) -> pd.DataFrame:
@@ -438,7 +470,7 @@ class AnalyzeResult:
     def pretty_sections(self) -> pd.DataFrame:
         zero_time = self.zero_time
         sections = self.sections
-        sections.section = sections.section.replace(' \d*$', '', regex=True)
+        sections.section = sections.section.replace(r' \d*$', '', regex=True)
         sections.t0 = zero_time + pd.to_timedelta(sections.t0, unit='seconds')
         sections.t0 = sections.t0.dt.strftime('%H:%M:%S')
         sections.countdown = countdown_str(sections.countdown)
@@ -596,14 +628,14 @@ class AnalyzeResult:
 def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
     yield {
         'sheet': '''
-            html {
-                box-sizing: border-box;
-            }
-            html, html::before, html::after {
-                box-sizing: border-box;
-            }
             *, *::before, *::after {
-                box-sizing: inherit;
+                box-sizing: border-box;
+            }
+            * {
+                margin: 0;
+            }
+            html, body {
+                height: 100%;
             }
             body, button {
                 background: var(--bg);
@@ -620,7 +652,10 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
                 background: var(--bg-bright);
                 min-width: 70px;
             }
-            table tr:nth-child(even) :where(td, th) {
+            table:not(.even) tbody tr:nth-child(odd) :where(td, th) {
+                background: var(--bg-brown);
+            }
+            table.even tbody tr:nth-child(even) :where(td, th) {
                 background: var(--bg-brown);
             }
             table {
@@ -638,14 +673,6 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
                 grid-gap: 10px;
                 padding: 10px;
             }
-            body > pre {
-                margin: 0;
-            }
-            html, body {
-                height: 100%;
-                width: 100%;
-                margin: 0;
-            }
             html {
                 --bg:        #2d2d2d;
                 --bg-bright: #383838;
@@ -659,17 +686,6 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
                 --purple:    #cc99cc;
                 --cyan:      #66cccc;
                 --orange:    #f99157;
-            }
-            .red    { color: var(--red);    }
-            .brown  { color: var(--brown);  }
-            .green  { color: var(--green);  }
-            .yellow { color: var(--yellow); }
-            .blue   { color: var(--blue);   }
-            .purple { color: var(--purple); }
-            .cyan   { color: var(--cyan);   }
-            .orange { color: var(--orange); }
-            html {
-                font-size: 16px;
             }
         '''
     }
@@ -721,11 +737,11 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
         ar = AnalyzeResult.init(df)
         if 1:
             r = ar.running()
-            r = r['resource countdown arg plate'.split()]
             r = r.rename(columns={'arg': 'info', 'resource': 'machine'})
+            r = r['machine countdown info plate'.split()]
             info += div(
                 V.raw(
-                    r.to_html(index=False, border=0)
+                    r.to_html(index=False, border=0, justify='left')
                 ),
                 css='''
                     & table {
@@ -765,23 +781,87 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
                 '''
             )
         if 1:
-            w = pd.Series({v: k for k, v in ar.world.items()}, dtype=object)
-            w = w.sort_index()
-            w = pd.DataFrame(w)
+            world = ar.world
+            world = {k: v if 'lid' in v else 'plate ' + v for k, v in world.items()}
+            incu_df = pd.DataFrame.from_records([
+                {
+                    'location': k,
+                    'incu': world.get(k),
+                }
+                for k in Incu_locs[:ar.num_plates][::-1]
+            ], index='location')
+            incu_df.index.name = None
+
+            rest_df = pd.DataFrame.from_records([
+                {
+                    'location': k,
+                    'thing': world.get(k),
+                }
+                for k in 'incu wash disp'.split()
+            ], index='location')
+            rest_df.index.name = None
+
+            ABC_df = pd.DataFrame.from_records([
+                {
+                    'z': int(a.strip('A')),
+                    'A': world.get(a),
+                    'B': world.get(b),
+                    'C': world.get(c),
+                }
+                for a, b, c in zip(A_locs, B_locs, C_locs)
+            ], index='z')
+            ABC_df.index.name = None
+
+            if ar.num_plates >= 14:
+                grid = '''
+                    "incu rest" 1fr
+                    "incu ABC"  auto
+                  / auto auto
+                '''
+            else:
+                grid = '''
+                    "incu ABC"  auto
+                    "rest rest" auto
+                  / auto auto
+                '''
             info += div(
+                css='display: grid; place-items: center'
+            ).append(div(
                 V.raw(
-                    w.to_html(border=0, header=0)
+                    incu_df.fillna('').to_html(index=1, border=0, table_id='incu', classes='even' if ar.num_plates % 2 == 0 else [])
+                ),
+                V.raw(
+                    ABC_df.fillna('').to_html(index=1, border=0, table_id='ABC')
+                ),
+                V.raw(
+                    rest_df.T.fillna('\u200b').to_html(index=0, border=0, table_id='rest')
                 ),
                 css='''
-                    & table {
-                        margin: auto;
+                    & {
+                        display: grid;
+                        grid: ''' + grid + ''';
+                        gap: 10px;
                     }
-                    & table th:nth-child(1)
-                    {
+                    & #incu { grid-area: incu;  }
+                    & #ABC { grid-area: ABC;  }
+                    & #rest { grid-area: rest; }
+                    & table {
+                        margin-top: auto;
+                    }
+                    & td, & th {
+                        text-align: center
+                    }
+                    & th {
+                        min-width: 50px;
+                    }
+                    & :where(#incu, #ABC) th:first-child {
                         text-align: right
                     }
+                    & td {
+                        min-width: 90px;
+                    }
                 '''
-            )
+            ))
         if ar.has_error():
             box = div(
                 border='2px var(--red) solid',
@@ -803,7 +883,7 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
             if not ar.process_is_alive:
                 box += pre('Controller process has terminated.')
             info += box
-        else:
+        elif 0:
             r = ar.durations()
             if r is not None:
                 info += div(
@@ -961,15 +1041,6 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
                     }
                 '''
             )
-
-            div(
-                *buttons,
-                display='flex',
-                margin='auto',
-                width='100%',
-                gap=10,
-            )
-
 
     yield vis.extend(grid_area='vis')
 

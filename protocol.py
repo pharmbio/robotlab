@@ -109,24 +109,30 @@ def add_world_metadata(program: Command, world0: World) -> Command:
         nonlocal world
         match cmd:
             case RobotarmCmd() if e := effects.get(cmd.program_name):
+                effect = e.effect(world)
                 world = e.apply(world)
-                return cmd.with_metadata(world=world)
+                return cmd.with_metadata(effect=effect)
             case IncuCmd() if cmd.action == 'put' and cmd.incu_loc:
                 e = MovePlate(source='incu', target=cmd.incu_loc)
+                effect = e.effect(world)
                 world = e.apply(world)
-                return cmd.with_metadata(world=world)
+                return cmd.with_metadata(effect=effect)
             case IncuCmd() if cmd.action == 'get' and cmd.incu_loc:
                 e = MovePlate(source=cmd.incu_loc, target='incu')
+                effect = e.effect(world)
                 world = e.apply(world)
-                return cmd.with_metadata(world=world)
+                return cmd.with_metadata(effect=effect)
             case BiotekCmd() if 'Run' in cmd.cmd and not metadata.get('predispense'):
                 if plate_id := metadata.get('plate_id'):
-                    assert cmd.machine in world, (cmd, metadata)
-                    assert world[cmd.machine] == plate_id, (cmd, metadata, world, world[cmd.machine], plate_id)
+                    assert cmd.machine in world
+                    assert world[cmd.machine] == plate_id
                 return cmd
             case _:
                 return cmd
-    return program.transform_with_metadata(F)
+    return Sequence(
+        Info('initial world').with_metadata(effect=world0),
+        program.transform_with_metadata(F)
+    )
 
 A = TypeVar('A')
 
@@ -526,6 +532,7 @@ def load_incu(config: RuntimeConfig, num_plates: int):
         5. gripper:                 sufficiently open to grab a plate
     '''
     cmds: list[Command] = []
+    world0: dict[str, str] = {}
     for i, (incu_loc, a_loc) in enumerate(zip(Incu_locs, A_locs[::-1]), start=1):
         if i > num_plates:
             break
@@ -537,8 +544,9 @@ def load_incu(config: RuntimeConfig, num_plates: int):
             lid_loc='',
             batch_index=0
         )
-        assert p.out_loc.startswith('out')
-        pos = p.out_loc.removeprefix('out')
+        world0[p.out_loc] = p.id
+        assert p.out_loc.startswith('A')
+        pos = p.out_loc.removeprefix('A')
         cmds += [
             Sequence(*[
                 RobotarmCmd(f'incu_A{pos} put prep'),
@@ -555,7 +563,8 @@ def load_incu(config: RuntimeConfig, num_plates: int):
         RobotarmCmd('incu_A21 put-return'),
         WaitForResource('incu'),
     ])
-    ATTENTION(load_incu.__doc__ or '')
+    # ATTENTION(load_incu.__doc__ or '')
+    program = add_world_metadata(program, world0)
     execute_program(config, program, {'program': 'load_incu'})
 
 def unload_incu(config: RuntimeConfig, num_plates: int):
@@ -981,6 +990,7 @@ def cell_paint_program(batch_sizes: list[int], protocol_config: ProtocolConfig, 
             protocol_config=protocol_config,
         )
         cmds += [batch_cmds]
+    world0 = initial_world(plates)
     program = Sequence(
         Checkpoint('run'),
         test_comm_program,
@@ -989,7 +999,7 @@ def cell_paint_program(batch_sizes: list[int], protocol_config: ProtocolConfig, 
     )
     if sleek:
         program = sleek_program(program)
-    program = add_world_metadata(program, initial_world(plates))
+    program = add_world_metadata(program, world0)
     return program
 
 def test_circuit(config: RuntimeConfig) -> None:

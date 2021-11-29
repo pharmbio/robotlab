@@ -54,7 +54,6 @@ class Move(abc.ABC):
         else:
             return False
 
-
 def call(name: str, *args: Any, **kwargs: Any) -> str:
     strs = [str(arg) for arg in args]
     strs += [k + '=' + str(v) for k, v in kwargs.items()]
@@ -343,8 +342,12 @@ def sleek_movements(
         if i not in rm
     ]
 
-def named_movelist(
-    base: str,
+@dataclass(frozen=True)
+class TaggedMoveList:
+    '''
+    Extra information about a move list that is used for resumption
+    '''
+    base: str
     kind: Literal[
         'full',
         'prep',
@@ -352,14 +355,17 @@ def named_movelist(
         'return',
         'transfer to drop neu',
         'transfer from drop neu',
-    ],
+    ]
     movelist: MoveList
-) -> tuple[str, MoveList]:
-    if kind == 'full':
-        name = base
-    else:
-        name = base + ' ' + kind
-    return name, movelist
+    prep: list[str] = field(default_factory=list)
+    is_ret: bool = False
+
+    @property
+    def name(self):
+        if self.kind == 'full':
+            return self.base
+        else:
+            return self.base + ' ' + self.kind
 
 def read_and_expand(filename: Path) -> dict[str, MoveList]:
     ml = MoveList.from_jsonl_file(filename)
@@ -369,102 +375,117 @@ def read_and_expand(filename: Path) -> dict[str, MoveList]:
         expanded |= v.expand_hotels(k)
     return expanded
 
-def read_movelists() -> dict[str, MoveList]:
+def read_movelists() -> dict[str, TaggedMoveList]:
     expanded: dict[str, MoveList] = {}
     for filename in Path('./movelists').glob('*.jsonl'):
         expanded |= read_and_expand(filename)
 
-    out: list[tuple[str, MoveList]] = []
+    out: list[TaggedMoveList] = []
     for base, v in expanded.items():
-        out += [named_movelist(base, 'full', v)]
         if 'put-prep' in base or 'put-return' in base:
             assert 'incu_A21' in base # these are used to put arm in A-neutral start position
+            out += [TaggedMoveList(base, 'full', v, is_ret='put-return' in base)]
             continue
+        out += [TaggedMoveList(base, 'full', v)]
         parts = v.split()
-        prep = named_movelist(base, 'prep', parts.prep)
-        ret = named_movelist(base, 'return', parts.ret)
+        prep = TaggedMoveList(base, 'prep', parts.prep)
+        ret = TaggedMoveList(base, 'return', parts.ret, is_ret=True)
+        transfer = TaggedMoveList(base, 'transfer', parts.transfer, prep=[prep.name])
         out += [
             prep,
             ret,
-            named_movelist(base, 'transfer', parts.transfer),
+            transfer,
         ]
         if 'incu_A' in base and 'put' in base:
+            # special handling for quick incubator load which has a neutral somewhere around A5
             to_neu, neu, after_neu = parts.transfer.split_on(lambda m: m.try_name().endswith('drop neu'))
             assert to_neu.has_close() and not to_neu.has_open()
             assert not after_neu.has_close() and after_neu.has_open()
+            A21_put_prep = 'incu_A21 put-prep'
+            to_drop = TaggedMoveList(base, 'transfer to drop neu', MoveList(to_neu + [neu]), prep=[A21_put_prep, prep.name])
+            from_drop = TaggedMoveList(base, 'transfer from drop neu', after_neu, prep=[A21_put_prep, prep.name, to_drop.name])
             out += [
-                named_movelist(base, 'transfer to drop neu', MoveList(to_neu + [neu])),
-                named_movelist(base, 'transfer from drop neu', after_neu),
+                to_drop,
+                from_drop,
             ]
 
     out += [
-        named_movelist('noop', 'full', MoveList()),
-        named_movelist('gripper check', 'full', MoveList([GripperCheck()])),
+        TaggedMoveList('noop', 'full', MoveList()),
+        TaggedMoveList('gripper check', 'full', MoveList([GripperCheck()])),
     ]
 
-    to_neu = dict(out)['lid_B19 put prep'][0]
+    to_neu = {v.name: v for v in out}['lid_B19 put prep'].movelist[0]
     assert isinstance(to_neu, MoveJoint)
     assert to_neu.name == 'B neu'
-    to_neu = replace(to_neu, slow=True)
+    to_neu_slow = replace(to_neu, slow=True)
 
     out += [
-        named_movelist('to neu', 'full', MoveList([to_neu])),
+        TaggedMoveList('to neu', 'full', MoveList([to_neu_slow])),
     ]
 
-    return dict(out)
+    return {v.name: v for v in out}
+
+tagged_movelists : dict[str, TaggedMoveList]
+tagged_movelists = read_movelists()
+
+for k, v in tagged_movelists.items():
+    for p in v.prep:
+        assert p in tagged_movelists
+    if v.is_ret:
+        assert 'return' in k
 
 movelists: dict[str, MoveList]
-movelists = read_movelists()
+movelists = {k: v.movelist for k, v in tagged_movelists.items()}
 
 World: TypeAlias = dict[str, str]
 
 class Effect(abc.ABC):
-    @abc.abstractmethod
     def apply(self, world: World) -> World:
+        next = {**world}
+        for k, v in self.effect(world).items():
+            if v is None:
+                assert k in world
+                next.pop(k)
+            else:
+                assert k not in world
+                next[k] = v
+        return next
+
+    @abc.abstractmethod
+    def effect(self, world: World) -> dict[str, str | None]:
         pass
 
 @dataclass(frozen=True)
 class NoEffect(Effect):
-    def apply(self, world: World):
-        return world
+    def effect(self, world: World) -> dict[str, str | None]:
+        return {}
 
 @dataclass(frozen=True)
 class MovePlate(Effect):
     source: str
     target: str
-    def apply(self, world: World):
-        assert self.source in world
-        assert self.target not in world
-        w2 = {**world, self.target: world[self.source]}
-        del w2[self.source]
-        return w2
+    def effect(self, world: World) -> dict[str, str | None]:
+        return {self.source: None, self.target: world[self.source]}
 
 @dataclass(frozen=True)
 class TakeLidOff(Effect):
     source: str
     target: str
-    def apply(self, world: World):
-        assert self.source in world
-        assert self.target not in world
-        w2 = {**world, self.target: 'lid ' + world[self.source]}
-        return w2
+    def effect(self, world: World) -> dict[str, str | None]:
+        return {self.target: 'lid ' + world[self.source]}
 
 @dataclass(frozen=True)
 class PutLidOn(Effect):
     source: str
     target: str
-    def apply(self, world: World):
-        assert self.source in world
-        assert self.target in world
-        assert 'lid ' + world[self.target] == world[self.source]
-        w2 = {**world}
-        del w2[self.source]
-        return w2
+    def effect(self, world: World) -> dict[str, str | None]:
+        assert world[self.source] == 'lid ' + world[self.target]
+        return {self.source: None}
 
 B21 = 'B21'
 effects: dict[str, Effect] = {}
 
-for m in 'incu disp wash wash'.split():
+for m in 'incu disp wash'.split():
     effects[m + ' put'] = MovePlate(source=B21, target=m)
     effects[m + ' get'] = MovePlate(source=m, target=B21)
 
@@ -498,6 +519,4 @@ for k in list(effects.keys()):
 
 for i in HotelLocs:
     Ai = f'A{i}'
-    effects[f'incu_{Ai} put transfer to drop neu'] = MovePlate(source=Ai, target='incu drop')
-    effects[f'incu_{Ai} put transfer from drop neu'] = MovePlate(source='incu drop', target='incu')
-
+    effects[f'incu_{Ai} put transfer from drop neu'] = MovePlate(source=Ai, target='incu')

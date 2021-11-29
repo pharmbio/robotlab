@@ -139,6 +139,13 @@ class Command(abc.ABC):
                     return cmd
         return self.transform(F)
 
+    def next_id(self: Command) -> int:
+        next = 0
+        for cmd in self.universe():
+            if isinstance(cmd, Meta) and (i := cmd.metadata.get('id')):
+                next = max(next, int(i) + 1)
+        return next
+
     def assign_ids(self: Command, counter: Mutable[int] | None = None) -> Command:
         count = 0
         def F(cmd: Command) -> Command:
@@ -206,9 +213,38 @@ class Command(abc.ABC):
                     out |= cmd.plus_seconds.var_set()
         return out
 
+class Metadata(TypedDict, total=False):
+    # TODO: use this
+    prep: str
+    ret: str
+    world: dict[str, str]
+    effect: dict[str, str | None]
+    thread_name: str
+    resource: str
+    id: str
+    simple_id: str
+    predispense: bool
+    report_behind_time: bool
+    batch_index: str
+    silent: bool
+    log_sleep: bool
+    step: str
+    substep: str
+    slot: int
+    untyped: dict[str, Any]
+
+def merge(m1: Metadata, m2: Metadata) -> Metadata:
+    u1 = m1.get('untyped', {})
+    u2 = m2.get('untyped', {})
+    if not u1 and not u2:
+        return {**m1, **m2}  # type: ignore
+    else:
+        return {**m1, **m2, 'untyped': {**u1, **u2}} # type: ignore
+
 @dataclass(frozen=True, kw_only=True)
 class Meta(Command):
-    metadata: dict[str, Any]
+    metadata: dict[str, Any] = field(default_factory=dict)
+    # typed_metadata: Metadata = field(default_factory=Metadata)
     command: Command
 
     def est(self) -> float:

@@ -204,7 +204,6 @@ class Store:
 
 @serve.expose
 def cook(*values: Any, keys: list[tuple[Provenance, str]]) -> Response:
-    print(values, keys)
     next: defaultdict[Provenance, dict[str, Any]] = defaultdict(dict)
     for (p, n), v in zip(keys, values):
         next[p][n] = v

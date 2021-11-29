@@ -310,7 +310,6 @@ class Runtime:
         return t
 
     active: set[str] = field(default_factory=set)
-    last_world: World = field(default_factory=dict)
 
     def log_entry_to_line(self, entry: dict[str, Any]) -> str | None:
         kind = entry.get('kind') or ''
@@ -401,16 +400,14 @@ class Runtime:
             disp='dispenser',
         ).get(source, source)
 
-        w = entry.get('world', self.last_world.copy())
-        diff = {w.get(k): k for k, v in {**self.last_world, **w}.items() if self.last_world.get(k) != w.get(k)}
-        self.last_world.clear()
-        self.last_world.update(w)
+        diff = entry.get('effect')
 
         parts = [
             t,
             f'{src     : <9}',
             f'{arg     : <50}' + columns,
             f'{plate_id: >2}',
+            f'{entry.get("id"): >4}'
             f'{step    : <6}',
             f'{diff}',
         ]
