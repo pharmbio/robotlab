@@ -28,7 +28,7 @@ import moves
 from moves import RawCode, Move
 import sys
 
-from provenance import Var, Int, Str, Store, DB
+from provenance import Var, Int, Str, Store, DB, Bool
 from protocol import Incu_locs, A_locs, B_locs, C_locs
 
 config: RuntimeConfig = config_lookup('live')
@@ -36,6 +36,13 @@ if '--simulator' in sys.argv:
     config = config_lookup('simulator')
 elif '--forward' in sys.argv:
     config = config_lookup('forward')
+
+
+triangle = '''
+  <svg xmlns="http://www.w3.org/2000/svg" class="svg-triangle" width=16 height=16>
+    <polygon points="1,1 1,14 14,7"/>
+  </svg>
+'''
 
 @serve.expose
 def sigint(pid: int):
@@ -73,14 +80,22 @@ def as_stderr(log_path: str):
     return p
 
 @serve.expose
-def start(simulate: bool):
+def start(batch_sizes: str, start_from_pfa: bool, simulate: bool):
+    N = max(utils.read_commasep(batch_sizes, int))
+    interleave = N >= 7
+    two_final_washes = N >= 8
+    lockstep = N >= 10
+    incu = '1200,1200,1200,1200,X' if N >= 10 else '1200'
     log_filename = 'logs/' + utils.now_str_for_filename() + '-from-gui.jsonl'
     args = Args(
         config_name='dry-run' if simulate else 'dry-wall',
         log_filename=log_filename,
-        cell_paint='6,6',
-        # interleave=True,
-        # two_final_washes=True,
+        cell_paint=batch_sizes,
+        interleave=interleave,
+        two_final_washes=two_final_washes,
+        lockstep=lockstep,
+        start_from_pfa=start_from_pfa,
+        incu=incu,
         # load_incu=11,
     )
     cmd = [
@@ -120,36 +135,8 @@ def resume(log_filename_in: str, skip: list[str], drop: list[str]):
     }
 
 serve.suppress_flask_logging()
-
-stripe_size = 4
-stripe_width = 1.2
-sz = stripe_size
-stripes_up = f'''
-  <svg xmlns='http://www.w3.org/2000/svg' width='{sz}' height='{sz}'>
-    <path d='
-       M{-sz},{1*sz} l{3*sz},{-3*sz}
-       M{-sz},{2*sz} l{3*sz},{-3*sz}
-       M{-sz},{3*sz} l{3*sz},{-3*sz}
-    ' stroke='white' stroke-width='{stripe_width}'/>
-  </svg>
-'''
-stripes_dn = f'''
-  <svg xmlns='http://www.w3.org/2000/svg' width='{sz}' height='{sz}'>
-    <path d='
-       M{-sz},{-0*sz} l{3*sz},{3*sz}
-       M{-sz},{-1*sz} l{3*sz},{3*sz}
-       M{-sz},{-2*sz} l{3*sz},{3*sz}
-    ' stroke='#fff8' stroke-width='{stripe_width}'/>
-  </svg>
-'''
-from base64 import b64encode
-def b64svg(s: str):
-    return f"url('data:image/svg+xml;base64,{b64encode(s.encode()).decode()}')"
-
-stripes_up = b64svg(stripes_up)
-stripes_dn = b64svg(stripes_dn)
-
 import pandas as pd
+
 import numpy as np
 from datetime import datetime, timedelta
 from functools import lru_cache
@@ -215,6 +202,13 @@ def prep(df: pd.DataFrame):
     if 'step' not in df:
         df['step'] = None
     return df
+
+def cleanup(d):
+    d = d[~d.arg.fillna('').str.contains('Validate ')].copy()
+    d.arg = d.arg.str.replace('RunValidated ', '', regex=False)
+    d.arg = d.arg.str.replace('Run ', '', regex=False)
+    d.arg = d.arg.str.replace('automation_v3.1/', '', regex=False)
+    return d
 
 def countdown_str(s: Series):
     if s.isna().all():
@@ -357,13 +351,6 @@ class AnalyzeResult:
         vis = vis.sort_values('t')
         vis = vis.reset_index(drop=True)
 
-        def cleanup(d):
-            d = d[~d.arg.fillna('').str.contains('Validate ')].copy()
-            d.arg = d.arg.str.replace('RunValidated ', '', regex=False)
-            d.arg = d.arg.str.replace('Run ', '', regex=False)
-            d.arg = d.arg.str.replace('automation_v3.1/', '', regex=False)
-            return d
-
         r = cleanup(r)
         vis = cleanup(vis)
 
@@ -424,11 +411,14 @@ class AnalyzeResult:
         )
 
     def durations(self) -> pd.DataFrame:
-        d = self.df
+        d = self.df.copy()
+        d['t_ts'] = self.zero_time + pd.to_timedelta(d.t, unit='seconds')
+        d.t_ts = d.t_ts.dt.strftime('%H:%M:%S')
+        d0 = d.copy()
         d = d[d.source == 'duration']
         d = pd.concat([d, d.arg.str.extract(r'plate \d+ (?P<checkpoint>.*)$')], axis=1)
         d = d[~d.checkpoint.isna()]
-        d = d['t0 t duration arg step plate_id checkpoint'.split()]
+        d = d['t0 t t_ts duration arg step plate_id checkpoint'.split()]
         d = d[~d.checkpoint.str.contains('pre disp done')]
         d = d[
               (d.checkpoint == '37C')
@@ -437,14 +427,31 @@ class AnalyzeResult:
         ]
         d.checkpoint = d.checkpoint.str.replace('incubation', 'incu', regex=False)
         d.checkpoint = d.checkpoint.str.replace('transfer', 'xfer', regex=False)
-        d.duration = pd.to_datetime(d.duration, unit='s')
-        d.duration = d.duration.dt.strftime('%M:%S')
         d = d.rename(columns={'plate_id': 'plate'})
         pivot = d.pivot(index=['plate'], columns='checkpoint')
-        if not pivot.empty:
-            return pivot.duration.fillna('')
-        else:
-            return None
+        d = d.drop(columns=['arg', 't0', 't'])
+        d = d.rename(columns={'checkpoint': 'arg'})
+
+        d2 = cleanup(d0)
+        d2 = d2[d2.source.isin(('disp', 'wash'))]
+        d2 = d2[d2.kind == 'end']
+        d2 = d2[d2.plate_id != 0]
+        d2.arg = d2.source + ' ' + d2.arg
+        d2 = d2.rename(columns={'plate_id': 'plate'})
+
+        d = d.append(d2)
+
+        d = d['t_ts duration arg plate'.split()]
+        d.duration = countdown_str(d.duration) #pd.to_datetime(d.duration, unit='s')
+        # d.duration = d.duration.dt.strftime('%M:%S')
+        d = d.sort_values(['plate', 't_ts'])
+        d = d.rename(columns={'t_ts': 't'})
+        return d
+
+        # if not pivot.empty:
+        #     return pivot.duration.fillna('')
+        # else:
+        #     return None
 
     def running(self) -> pd.DataFrame:
         r = self.r
@@ -469,7 +476,7 @@ class AnalyzeResult:
 
     def pretty_sections(self) -> pd.DataFrame:
         zero_time = self.zero_time
-        sections = self.sections
+        sections = self.sections.copy()
         sections.section = sections.section.replace(r' \d*$', '', regex=True)
         sections.t0 = zero_time + pd.to_timedelta(sections.t0, unit='seconds')
         sections.t0 = sections.t0.dt.strftime('%H:%M:%S')
@@ -637,11 +644,14 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
             html, body {
                 height: 100%;
             }
-            body, button {
+            body, button, input {
                 background: var(--bg);
                 color:      var(--fg);
                 font-family: monospace;
                 font-size: 18px;
+            }
+            table {
+                background: #0005;
             }
             table td, table th, table tr, table {
                 border: none;
@@ -690,13 +700,103 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
         '''
     }
     yield V.head(V.title('cell painter - ', path or ''))
-    yield div(
-        button('start', onclick=start.call(simulate=False)),
-        button('simulate', onclick=start.call(simulate=True)),
-        grid_area='header',
-        user_select='none',
-        css='& *+* { margin-left: 8px }',
-    )
+
+    form_css = '''
+        & {
+            display: grid;
+            grid-template-columns: auto auto;
+            width: fit-content;
+            place-items: center;
+            grid-gap: 10px;
+            margin: 0 auto;
+            user-select: none;
+        }
+        & input {
+            border: 1px #0003 solid;
+            border-right-color: #fff2;
+            border-bottom-color: #fff2;
+        }
+        & button {
+            border-width: 1px;
+        }
+        & input, & button {
+            padding: 8px;
+            border-radius: 2px;
+            background: var(--bg);
+            color: var(--fg);
+        }
+        & input:focus-visible, & button:focus-visible {
+            outline: 2px  var(--blue) solid;
+            outline-color: var(--blue);
+        }
+        & input:hover {
+            border-color: var(--blue);
+        }
+        & > button {
+            grid-column: 1 / span 2;
+            width: 100%;
+        }
+        & > label {
+            display: contents;
+            cursor: pointer;
+        }
+        & > label > span {
+            justify-self: right;
+        }
+        & input {
+            width: 300px;
+            font-family: monospace;
+        }
+        & * {
+            margin: 0px;
+        }
+        & > label > span {
+            grid-column: 1;
+        }
+        & [type=checkbox] {
+            filter: invert(80%);
+            width: 16px;
+            height: 16px;
+            margin: 7px;
+            margin-right: auto;
+            cursor: pointer;
+        }
+    '''
+
+    m = Store(default_provenance='cookie')
+    if not path:
+        plates = m.var(Str())
+        start_from_pfa = m.var(Bool(name='start from pfa'))
+        simulate = m.var(Bool())
+
+        yield div(
+            *form(m, plates, start_from_pfa, simulate),
+            button(
+                V.raw(triangle.strip()), ' ', 'start',
+                onclick=start.call(
+                    batch_sizes=plates.value,
+                    simulate=simulate.value,
+                    start_from_pfa=start_from_pfa.value,
+                ),
+                css='''
+                  & .svg-triangle {
+                    margin-right: 6px;
+                    width: 16px;
+                    height: 16px;
+                    transform: translateY(4px);
+                  }
+
+                  & .svg-triangle polygon {
+                    fill:var(--green);
+                  }
+                '''
+            ),
+            # button('simulate', onclick=start.call(simulate=True)),
+            grid_area='header',
+            user_select='none',
+            css='& *+* { margin-left: 8px }',
+            css__=form_css,
+        )
     info = div(
         grid_area='info',
         font_size='1rem',
@@ -706,17 +806,40 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
                 margin-left: auto;
                 margin-right: auto;
             }
-            & table {
-                background: #0005;
-            }
         ''')
     yield info
-    df = None
+    df: pd.DataFrame | None = None
     stderr: list[str] = []
     vis = div()
+    ar: AnalyzeResult | None = None
+
+    def sections(ar: AnalyzeResult):
+        s = ar.pretty_sections()
+        s = s['batch_index section countdown t0 length'.split()]
+        s = s.rename(columns={'batch_index': 'batch'})
+        s.batch += 1
+        return div(
+            V.raw(
+                s.to_html(index=False, border=0)
+            ),
+            css='''
+                & table {
+                    margin: auto;
+                }
+                & table td:nth-child(1),
+                & table td:nth-child(3),
+                & table td:nth-child(5)
+                {
+                    text-align: right
+                }
+            '''
+        )
+
     if path:
         df = jsonl_to_df(path)
         stderr = as_stderr(path).read_text()
+        if df is not None:
+            ar = AnalyzeResult.init(df)
     if df is None:
         if stderr:
             box = div(
@@ -733,14 +856,14 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
             )
             box += pre(stderr)
             info += box
-    else:
-        ar = AnalyzeResult.init(df)
-        if 1:
+    elif ar is not None:
+        if not ar.completed:
             r = ar.running()
             r = r.rename(columns={'arg': 'info', 'resource': 'machine'})
             r = r['machine countdown info plate'.split()]
             info += div(
                 V.raw(
+                    # d.head(50).to_html(index=False, border=0, justify='left')
                     r.to_html(index=False, border=0, justify='left')
                 ),
                 css='''
@@ -757,29 +880,9 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
                     }
                 '''
             )
+        info += sections(ar)
         if 1:
             vis = ar.make_vis()
-        if 1:
-            sections = ar.pretty_sections()
-            sections = sections['batch_index section countdown t0 length'.split()]
-            sections = sections.rename(columns={'batch_index': 'batch'})
-            sections.batch += 1
-            info += div(
-                V.raw(
-                    sections.to_html(index=False, border=0)
-                ),
-                css='''
-                    & table {
-                        margin: auto;
-                    }
-                    & table td:nth-child(1),
-                    & table td:nth-child(3),
-                    & table td:nth-child(5)
-                    {
-                        text-align: right
-                    }
-                '''
-            )
         if 1:
             world = ar.world
             world = {k: v if 'lid' in v else 'plate ' + v for k, v in world.items()}
@@ -876,47 +979,36 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
                 '''
             )
             for i, row in ar.errors.iterrows():
-                tb = row.traceback
+                try:
+                    tb = row.traceback
+                except:
+                    tb = None
                 if not isinstance(tb, str):
                     tb = None
                 box += pre(f'[{row.log_time.strftime("%H:%M:%S")}] {row.arg} {"(...)" if tb else ""}', title=tb)
             if not ar.process_is_alive:
                 box += pre('Controller process has terminated.')
             info += box
-        elif 0:
-            r = ar.durations()
-            if r is not None:
-                info += div(
-                    V.raw(
-                        r.to_html(border=0)
-                    ),
-                    css='''
-                        & table {
-                            margin: auto;
-                        }
-                        & table td, & table th {
-                            text-align: right;
-                        }
-                    '''
-                )
 
         if ar.completed:
-            text = 'completed'
+            text = ''
         elif ar.process_is_alive:
             text = f'pid: {ar.pid}'
         else:
             text = f'pid: -'
-        yield V.pre(text,
-            overflow_x='hidden',
-            grid_area='info-foot',
-            user_select='none',
-        )
+        if text:
+            yield V.pre(text,
+                overflow_x='hidden',
+                grid_area='info-foot',
+                user_select='none',
+            )
 
-        m = Store(default_provenance='cookie')
         skip = m.var(Str(desc='Single washes and dispenses to skip, separated by comma'))
         drop = m.var(Str(desc='Plates to drop from the rest of the run, separated by comma'))
 
-        if not ar.has_error():
+        if ar.completed:
+            pass
+        elif not ar.has_error():
             yield m.defaults().goto_script()
             yield button(
                 'stop',
@@ -988,65 +1080,37 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
                         resume.call(ar.log_filename, skip=skipped, drop=dropped),
                     title=resume_text),
                 grid_area='stop',
-                css='''
-                    & {
-                        display: grid;
-                        grid-template-columns: auto auto;
-                        width: fit-content;
-                        place-items: center;
-                        grid-gap: 10px;
-                        margin: 0 auto;
-                        user-select: none;
-                    }
-                    & input {
-                        border: 1px #0003 solid;
-                        border-right-color: #fff2;
-                        border-bottom-color: #fff2;
-                    }
-                    & button {
-                        border-width: 1px;
-                    }
-                    & input, & button {
-                        padding: 8px;
-                        border-radius: 2px;
-                        background: var(--bg);
-                        color: var(--fg);
-                    }
-                    & input:focus-visible, & button:focus-visible {
-                        outline: 2px var(--blue) solid;
-                        outline-color: var(--blue);
-                    }
-                    & input:hover {
-                        border-color: var(--blue);
-                    }
-                    & > button {
-                        grid-column: 1 / span 2;
-                        width: 100%;
-                    }
-                    & > label {
-                        display: contents;
-                    }
-                    & > label > span {
-                        justify-self: right;
-                    }
-                    & input {
-                        width: 300px;
-                        font-family: monospace;
-                    }
-                    & * {
-                        margin: 0px;
-                    }
-                    & > label > span {
-                        grid-column: 1;
-                    }
-                '''
+                css=form_css,
             )
 
     yield vis.extend(grid_area='vis')
 
-    yield V.queue_refresh(150)
+    if ar is not None and ar.completed:
+        d = ar.durations()
+        if d is not None:
+            yield div(
+                V.raw(
+                    d.to_html(border=0, index=False)
+                ),
+                div(height=40),
+                grid_area='info-foot',
+                css='''
+                    & table {
+                        margin: auto;
+                    }
+                    & table td, & table th {
+                        text-align: left;
+                    }
+                    & table td:nth-child(2) {
+                        text-align: right;
+                    }
+                '''
+            )
 
-def form(m: Store, *vs: Int | Str):
+    if path:
+        yield V.queue_refresh(150)
+
+def form(m: Store, *vs: Int | Str | Bool):
     for v in vs:
         yield label(
             span(f"{v.name or ''}:"),

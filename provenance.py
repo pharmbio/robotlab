@@ -75,6 +75,26 @@ class Int(Var[int]):
         )
 
 @dataclass(frozen=True)
+class Bool(Var[bool]):
+    value: bool=False
+    desc: str|None=None
+    help: str|None=None
+
+    def from_str(self, s: str):
+        if isinstance(s, bool):
+            return s
+        else:
+            return s.lower() == 'true'
+
+    def input(self, m: Store):
+        return input(
+            checked=self.value,
+            oninput=m.update_untyped({self: js('this.checked')}).goto(),
+            type='checkbox',
+        )
+
+
+@dataclass(frozen=True)
 class Str(Var[str]):
     value: str=''
     desc: str|None=None

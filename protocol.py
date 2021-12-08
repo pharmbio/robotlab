@@ -100,8 +100,11 @@ RT_locs_many: list[str] = C_locs[:5] + A_locs[:5] + [B_locs[4]]
 Out_locs:  list[str] = A_locs[5:][::-1] + B_locs[5:][::-1] + C_locs[5:][::-1]
 Lid_locs:  list[str] = [b for b in B_locs if '19' in b or '17' in b]
 
-def initial_world(plates: list[Plate]) -> World:
-    return {p.incu_loc: p.id for p in plates}
+def initial_world(plates: list[Plate], p: ProtocolConfig) -> World:
+    if p.start_from_PFA:
+        return {p.out_loc: p.id for p in plates}
+    else:
+        return {p.incu_loc: p.id for p in plates}
 
 def add_world_metadata(program: Command, world0: World) -> Command:
     world = {**world0}
@@ -263,7 +266,7 @@ finjune = Interleaving.init('''
 
 Interleavings = {k: v for k, v in globals().items() if isinstance(v, Interleaving)}
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class ProtocolConfig:
     step_names:    list[str]
     wash:          list[str]
@@ -274,8 +277,9 @@ class ProtocolConfig:
     interleavings: list[str]
     interleave:    bool
     lockstep:      bool
-    prep_wash:     str | None = None
-    prep_disp:     str | None = None
+    prep_wash:     str | None
+    prep_disp:     str | None
+    start_from_PFA: bool
     def __post_init__(self):
         d: dict[str, list[Any]] = {}
         for field in fields(self):
@@ -291,7 +295,7 @@ class ProtocolConfig:
         for ilv in self.interleavings:
             assert ilv in Interleavings
 
-def make_v3(*, incu_csv: str, interleave: bool, six: bool = False, lockstep: bool = False):
+def make_v3(*, incu_csv: str, interleave: bool, six: bool = False, lockstep: bool = False, start_from_PFA: bool = False):
     N = 6 if six else 5
 
     incu = [
@@ -319,7 +323,7 @@ def make_v3(*, incu_csv: str, interleave: bool, six: bool = False, lockstep: boo
         else:
             interleavings = 'lin  lin  lin  lin  finlin'.split()
 
-    return ProtocolConfig(
+    p = ProtocolConfig(
         prep_wash='automation_v3.1/0_W_D_PRIME.LHC',
         prep_disp=None,
         step_names=
@@ -364,13 +368,39 @@ def make_v3(*, incu_csv: str, interleave: bool, six: bool = False, lockstep: boo
         incu = incu,
         interleave = interleave,
         interleavings = interleavings,
+        start_from_PFA = False,
     )
+    if start_from_PFA:
+        return ProtocolConfig(
+            start_from_PFA = True,
+
+            # skip mito and rename PFA
+            step_names    = ['PFA RT'] + p.step_names[2:],
+
+            # skip all mito stuff
+            wash          = p.wash[1:],
+            prime         = p.prime[1:],
+            pre_disp      = p.pre_disp[1:],
+            disp          = p.disp[1:],
+            interleavings = p.interleavings[1:],
+
+            # let user write post-pfa incubation times first in the list
+            incu          = p.incu[:-1],
+
+            lockstep   = p.lockstep,
+            interleave = p.interleave,
+            prep_wash  = p.prep_wash,
+            prep_disp  = p.prep_disp,
+        )
+    else:
+        return p
 
 def test_make_v3():
     for incu_csv in ['i1, i2, i3', '21:00,20:00', '1200']:
         for six in [True, False]:
             for interleave in [True, False]:
-                make_v3(incu_csv=incu_csv, six=six, interleave=interleave)
+                for start_from_PFA in [True, False]:
+                    make_v3(incu_csv=incu_csv, six=six, interleave=interleave, start_from_PFA=start_from_PFA)
 
 test_make_v3()
 
@@ -650,6 +680,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
         lid_locs = Lid_locs[:1]
     lid_index = 0
     for i, step in enumerate(p.step_names):
+        step_index = i
         for plate in batch:
             lid_loc = lid_locs[lid_index % len(lid_locs)]
             lid_index += 1
@@ -659,7 +690,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
 
             incu_delay: list[Command]
             wash_delay: list[Command]
-            if step == 'Mito':
+            if step_index == 0:
                 incu_delay = [
                     WaitForCheckpoint(f'batch {batch_index}', report_behind_time=plate is not first_plate) + f'{plate_desc} incu delay {ix}'
                 ]
@@ -700,6 +731,11 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                         WaitForResource('incu', assume='will wait'),
                         Duration(f'{plate_desc} 37C', opt_weight=1),
                     ]),
+                    *lid_off,
+                ]
+            elif step == 'PFA RT':
+                incu_get = [
+                    *RobotarmCmds(plate.out_get),
                     *lid_off,
                 ]
             else:
@@ -801,7 +837,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                 RobotarmCmd('disp get return'),
             ]
 
-            if plate is first_plate and step != 'Mito':
+            if plate is first_plate and step_index != 0:
                 section_info = Section(step)
             else:
                 section_info = Idle()
@@ -917,7 +953,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
     ]
 
     return Sequence(
-        Section('Mito'),
+        Section(p.step_names[0]),
         Sequence(*prep_cmds).with_metadata(step='prep'),
         *plate_cmds,
         Sequence(*post_cmds)
@@ -990,7 +1026,7 @@ def cell_paint_program(batch_sizes: list[int], protocol_config: ProtocolConfig, 
             protocol_config=protocol_config,
         )
         cmds += [batch_cmds]
-    world0 = initial_world(plates)
+    world0 = initial_world(plates, protocol_config)
     program = Sequence(
         Checkpoint('run'),
         test_comm_program,
@@ -1058,8 +1094,7 @@ def cell_paint(config: RuntimeConfig, protocol_config: ProtocolConfig, *, batch_
         'program': 'cell_paint',
         'batch_sizes': ','.join(str(bs) for bs in batch_sizes),
     }
-
-    runtime = execute_program(config, program, metadata)
+    execute_program(config, program, metadata)
 
 def group_times(times: dict[str, list[float]]):
     groups = utils.group_by(list(times.items()), key=lambda s: s[0].rstrip(' 0123456789'))

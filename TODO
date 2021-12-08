@@ -26,6 +26,7 @@ w44:
     [ ] "info"
     [ ] "idle" "wait"
 [ ] replace fast-forward time with standard time but all estimates shorter
+[ ] resume: remove removed plate from the world
 
 misc:
 [ ] prio 2. repo: document how to start everything, in particular how to start the GUI (gui on forwarded robot can be started with run.sh)

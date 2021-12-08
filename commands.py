@@ -215,31 +215,57 @@ class Command(abc.ABC):
 
 class Metadata(TypedDict, total=False):
     # TODO: use this
-    prep: str
-    ret: str
-    world: dict[str, str]
-    effect: dict[str, str | None]
-    thread_name: str
-    resource: str
     id: str
-    simple_id: str
-    predispense: bool
+    completed: Literal[True]
+    effect: dict[str, str | None]
     report_behind_time: bool
+
     batch_index: str
-    silent: bool
-    log_sleep: bool
+    plate_id: str
     step: str
     substep: str
     slot: int
+
+    simple_id: str
+    thread_name: str
+    resource: str
+    predispense: bool
+
+    silent: bool
+    log_sleep: bool
+
+    prep: list[str] # remove?
+    is_ret: bool    # remove?
+    est: float      # add?
+
+    runtime_metadata: RuntimeMetadata
     untyped: dict[str, Any]
 
-def merge(m1: Metadata, m2: Metadata) -> Metadata:
+class RuntimeMetadata(TypedDict, total=True):
+    pid: int
+    git_HEAD: str
+    log_filename: str
+    estimates_pickle_file: str
+    program_pickle_file: str
+    host: str
+    speedup: float  # remove?
+
+def merge_two(m1: Metadata, m2: Metadata) -> Metadata:
     u1 = m1.get('untyped', {})
     u2 = m2.get('untyped', {})
     if not u1 and not u2:
         return {**m1, **m2}  # type: ignore
     else:
         return {**m1, **m2, 'untyped': {**u1, **u2}} # type: ignore
+
+def merge(*ms: Metadata) -> Metadata:
+    if not ms:
+        return {}
+    else:
+        out = ms[0]
+        for m in ms[1:]:
+            out = merge_two(out, m)
+        return out
 
 @dataclass(frozen=True, kw_only=True)
 class Meta(Command):

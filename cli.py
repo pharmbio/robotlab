@@ -93,6 +93,7 @@ class Args:
     interleave:                bool = arg(help='Interleave plates, required for 7 plate batches')
     two_final_washes:          bool = arg(help='Use two shorter final washes in the end, required for big batch sizes, required for 8 plate batches')
     lockstep:                  bool = arg(help='Allow steps to overlap: first plate PFA starts before last plate Mito finished and so on, required for 10 plate batches')
+    start_from_pfa:            bool = arg(help='Start from PFA (in room temperature). Use this if you have done Mito manually beforehand')
     log_filename:              str  = arg(help='Manually set the log filename instead of having a generated name based on date')
 
     test_circuit:              bool = arg(help='Test circuit: start with one plate with lid on incubator transfer door, and all other positions empty!')
@@ -147,7 +148,8 @@ def main():
         incu_csv=args.incu,
         interleave=args.interleave,
         six=args.two_final_washes,
-        lockstep=args.lockstep
+        lockstep=args.lockstep,
+        start_from_PFA=args.start_from_pfa,
     )
 
     if args.cell_paint:
