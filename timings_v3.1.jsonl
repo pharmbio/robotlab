@@ -4303,3 +4303,15 @@
 {"log_time":"2021-10-21 15:39:43.049665","t":6664.938,"t0":6662.729,"duration":2.209,"kind":"end","source":"robotarm","arg":"wash15 get return","event_plate_id":"10","event_part":"Wash 1","event_subpart":"wash -> B15","id":"1991"}
 {"log_time":"2021-10-21 15:39:44.055941","t":6665.944,"t0":6664.939,"duration":1.005,"kind":"end","source":"robotarm","arg":"wash put prep","event_plate_id":"1","event_part":"Final","event_subpart":"B21 -> wash","id":"1993"}
 {"log_time":"2021-10-21 15:39:44.616293","t":6666.504,"t0":6664.94,"duration":1.564,"kind":"end","source":"wash","arg":"Validate automation_v3.1/9_10_W-3X_NoFinalAspirate.LHC","event_plate_id":"1","event_part":"Final","event_subpart":"B21 -> wash","thread":"wash #103","id":"1992"}
+{"log_time": "2021-12-09 13:49:12.678584", "t": 1.558, "t0": 0.003, "duration": 1.555, "kind": "end", "source": "robotarm", "arg": "A1 put prep", "est": 2.5, "id": "0"}
+{"log_time": "2021-12-09 13:49:21.411297", "t": 10.291, "t0": 1.558, "duration": 8.733, "kind": "end", "source": "robotarm", "arg": "A1 put transfer", "est": 9.169999999999998, "id": "1"}
+{"log_time": "2021-12-09 13:49:26.128967", "t": 15.008, "t0": 10.291, "duration": 4.717, "kind": "end", "source": "robotarm", "arg": "A1 put return", "est": 4.465666666666667, "id": "2"}
+{"log_time": "2021-12-09 13:49:30.243461", "t": 19.123, "t0": 15.009, "duration": 4.114, "kind": "end", "source": "robotarm", "arg": "A1 get prep", "est": 2.5, "id": "3"}
+{"log_time": "2021-12-09 13:49:38.773509", "t": 27.653, "t0": 19.123, "duration": 8.53, "kind": "end", "source": "robotarm", "arg": "A1 get transfer", "est": 8.732, "id": "4"}
+{"log_time": "2021-12-09 13:49:40.279462", "t": 29.159, "t0": 27.653, "duration": 1.506, "kind": "end", "source": "robotarm", "arg": "A1 get return", "est": 2.5, "id": "5"}
+{"log_time": "2021-12-09 13:49:41.684620", "t": 30.564, "t0": 29.159, "duration": 1.405, "kind": "end", "source": "robotarm", "arg": "A3 put prep", "est": 2.5, "id": "6"}
+{"log_time": "2021-12-09 13:49:50.014987", "t": 38.894, "t0": 30.564, "duration": 8.33, "kind": "end", "source": "robotarm", "arg": "A3 put transfer", "est": 8.620166666666668, "id": "7"}
+{"log_time": "2021-12-09 13:49:54.129726", "t": 43.009, "t0": 38.895, "duration": 4.114, "kind": "end", "source": "robotarm", "arg": "A3 put return", "est": 4.3146666666666675, "id": "8"}
+{"log_time": "2021-12-09 13:49:58.244849", "t": 47.124, "t0": 43.009, "duration": 4.115, "kind": "end", "source": "robotarm", "arg": "A3 get prep", "est": 2.5, "id": "9"}
+{"log_time": "2021-12-09 13:50:06.676683", "t": 55.556, "t0": 47.125, "duration": 8.431, "kind": "end", "source": "robotarm", "arg": "A3 get transfer", "est": 8.696333333333333, "id": "10"}
+{"log_time": "2021-12-09 13:50:07.680371", "t": 56.56, "t0": 55.556, "duration": 1.004, "kind": "end", "source": "robotarm", "arg": "A3 get return", "est": 1.2380000000000002, "id": "11"}

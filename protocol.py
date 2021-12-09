@@ -449,6 +449,21 @@ def time_bioteks(config: RuntimeConfig, protocol_config: ProtocolConfig):
     ATTENTION(time_bioteks.__doc__ or '')
     execute_program(config, program, metadata={'program': 'time_bioteks'})
 
+def scratch_program(config: RuntimeConfig):
+    '''
+    The scratch program. Currently times put and get to the output hotel.
+    '''
+    N = 2
+    arm: list[Command] = []
+    for out_loc in Out_locs[:N]:
+        plate = Plate('1', '', '', '', out_loc=out_loc, batch_index=1)
+        arm += [
+            *RobotarmCmds(plate.out_put),
+            *RobotarmCmds(plate.out_get),
+        ]
+    program = Sequence(*arm)
+    execute_program(config, program, metadata={'program': 'scratch'})
+
 def time_arm_incu(config: RuntimeConfig):
     '''
     Timing for robotarm and incubator.
