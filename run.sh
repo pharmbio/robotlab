@@ -38,6 +38,7 @@ function sync-files {
     set -x
     rsync -rtuv ./* robotlab-ubuntu:robot-remote-control
     rsync -rtuv robotlab-ubuntu:robot-remote-control/logs/ logs/
+    rsync -rtuv robotlab-ubuntu:robot-remote-control/cache/ cache/
     rsync -rtuv robotlab-ubuntu:robot-remote-control/movelists/ movelists/
 }
 

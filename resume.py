@@ -94,7 +94,7 @@ def resume_program(config: RuntimeConfig, log_filename_in: str, skip: list[str]=
     print(f'{len(finished_ids) = }')
 
 
-    utils.pr(program)
+    # utils.pr(program)
     print('inital node count =', len(list(program.universe())))
     next_id = program.next_id()
     program = program.transform(Filter)
@@ -132,7 +132,7 @@ def resume_program(config: RuntimeConfig, log_filename_in: str, skip: list[str]=
 
     print(f'{finished_ids=}')
     print(f'{next_id=}')
-    utils.pr(program)
+    # utils.pr(program)
 
     log_filename = config.log_filename
     if not log_filename:

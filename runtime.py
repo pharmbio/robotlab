@@ -327,7 +327,7 @@ class Runtime:
             return
         if source == 'robotarm' and kind == 'end':
             return
-        if source in ('wait', 'idle'):
+        if source in ('wait', 'idle') and 0:
             if kind != 'info':
                 return
             if entry.get('thread'):
@@ -335,7 +335,7 @@ class Runtime:
                     pass
                 else:
                     return
-        if source == 'checkpoint':
+        if source == 'checkpoint' and 0:
             return
 
         t = entry.get('t')
@@ -409,7 +409,7 @@ class Runtime:
             f'{src     : <9}',
             f'{arg     : <50}' + columns,
             f'{plate_id: >2}',
-            f'{entry.get("id"): >4}'
+            f'{entry.get("id", "None"): >4}',
             f'{step    : <6}',
             f'{diff}',
         ]
