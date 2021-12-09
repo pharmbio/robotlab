@@ -96,8 +96,8 @@ css_props={
         grid-row grid-row-end grid-row-gap grid-row-start grid-template
         grid-template-areas grid-template-columns grid-template-rows
         hanging-punctuation height hyphens image-rendering isolation
-        justify-content left letter-spacing line-height list-style
-        list-style-image list-style-position list-style-type margin
+        justify-content justify-self left letter-spacing line-height
+        list-style list-style-image list-style-position list-style-type margin
         margin-bottom margin-left margin-right margin-top max-height max-width
         min-height min-width mix-blend-mode object-fit object-position opacity
         order orphans outline outline-color outline-offset outline-style
@@ -573,9 +573,10 @@ class Serve:
 
         if sys.argv[0].endswith('.py'):
             print('Running app...')
-            # use flask's SERVER_NAME instead
-            app.config['SERVER_NAME'] = os.environ.get('SERVER_NAME')
-            app.run(threaded=True)
+            host = os.environ.get('VIABLE_HOST')
+            port = os.environ.get('VIABLE_PORT')
+            port = int(port) if port else None
+            app.run(host=host, port=port, threaded=True)
 
     def suppress_flask_logging(self):
         # suppress flask logging
@@ -842,6 +843,7 @@ else:
 import utils
 from functools import lru_cache
 from subprocess import run
+import shutil
 
 def minify(s: str, loader: str='js') -> str:
     s = s.strip()
@@ -850,8 +852,15 @@ def minify(s: str, loader: str='js') -> str:
     else:
         return minify_nontrivial(s, loader)
 
+did_warn_no_esbuild = {'value': False}
+
 @lru_cache
 def minify_nontrivial(s: str, loader: str='js') -> str:
+    if shutil.which("esbuild") is None:
+        if not did_warn_no_esbuild.get('value'):
+            did_warn_no_esbuild['value'] = True
+            print('esbuild not found, skipping minifying', file=sys.stderr)
+        return s
     try:
         with utils.timeit(f'esbuild {loader}'):
             res = run(

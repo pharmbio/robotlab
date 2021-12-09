@@ -27,22 +27,21 @@ from runtime import config_lookup, get_robotarm, RuntimeConfig
 import moves
 from moves import RawCode, Move
 import sys
+import platform
 
 from provenance import Var, Int, Str, Store, DB, Bool
 from protocol import Incu_locs, A_locs, B_locs, C_locs
 
-config: RuntimeConfig = config_lookup('live')
-if '--simulator' in sys.argv:
+if '--live' in sys.argv:
+    config: RuntimeConfig = config_lookup('live')
+elif '--simulator' in sys.argv:
     config = config_lookup('simulator')
-elif '--forward' in sys.argv:
-    config = config_lookup('forward')
+elif '--dry-wall' in sys.argv:
+    config = config_lookup('dry-wall')
+else:
+    raise ValueError('Start with --live, --simulator or --dry-wall')
 
-
-triangle = '''
-  <svg xmlns="http://www.w3.org/2000/svg" class="svg-triangle" width=16 height=16>
-    <polygon points="1,1 1,14 14,7"/>
-  </svg>
-'''
+print(f'Running with {config.name=}')
 
 @serve.expose
 def sigint(pid: int):
@@ -80,15 +79,16 @@ def as_stderr(log_path: str):
     return p
 
 @serve.expose
-def start(batch_sizes: str, start_from_pfa: bool, simulate: bool):
+def start(batch_sizes: str, start_from_pfa: bool, simulate: bool, incu: str):
     N = max(utils.read_commasep(batch_sizes, int))
     interleave = N >= 7
     two_final_washes = N >= 8
     lockstep = N >= 10
-    incu = '1200,1200,1200,1200,X' if N >= 10 else '1200'
+    if incu == '1200' or incu == '20:00' and N >= 10:
+        incu = '1200,1200,1200,1200,X'
     log_filename = 'logs/' + utils.now_str_for_filename() + '-from-gui.jsonl'
     args = Args(
-        config_name='dry-run' if simulate else 'dry-wall',
+        config_name='dry-run' if simulate else config.name,
         log_filename=log_filename,
         cell_paint=batch_sizes,
         interleave=interleave,
@@ -115,7 +115,7 @@ def start(batch_sizes: str, start_from_pfa: bool, simulate: bool):
 def resume(log_filename_in: str, skip: list[str], drop: list[str]):
     log_filename_new = 'logs/' + utils.now_str_for_filename() + '-resume-from-gui.jsonl'
     args = Args(
-        config_name='dry-wall',
+        config_name=config.name,
         resume=log_filename_in,
         log_filename=log_filename_new,
         resume_skip=','.join(skip),
@@ -620,8 +620,7 @@ class AnalyzeResult:
                 css_=f'''
                     width: {row.machine_width * width - 2}px;
                 ''',
-                data_id=str(row.id),
-                data_simple_id=str(row.simple_id),
+                data_simple_id=str(row.simple_id) or None,
                 data_plate_id=str(row.plate_id),
             )
 
@@ -629,6 +628,12 @@ class AnalyzeResult:
         area.height += '100%'
 
         return area
+
+triangle = '''
+  <svg xmlns="http://www.w3.org/2000/svg" class="svg-triangle" width=16 height=16>
+    <polygon points="1,1 1,14 14,7"/>
+  </svg>
+'''
 
 @serve.route('/')
 @serve.route('/<path:path>')
@@ -644,10 +649,13 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
             html, body {
                 height: 100%;
             }
+            input, pre {
+                font-family: inherit;
+            }
             body, button, input {
                 background: var(--bg);
                 color:      var(--fg);
-                font-family: monospace;
+                font-family: Consolas, monospace;
                 font-size: 18px;
             }
             table {
@@ -678,7 +686,7 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
                     "pad-left header    header    pad-right" auto
                     "pad-left vis       info      pad-right" 1fr
                     "pad-left vis       stop      pad-right" auto
-                    "pad-left info-foot info-foot pad-right" 30px
+                    "pad-left info-foot info-foot pad-right" auto
                   / 1fr auto minmax(min-content, 800px) 1fr;
                 grid-gap: 10px;
                 padding: 10px;
@@ -732,6 +740,9 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
         & input:hover {
             border-color: var(--blue);
         }
+        & .wide {
+            grid-column: 1 / span 2;
+        }
         & > button {
             grid-column: 1 / span 2;
             width: 100%;
@@ -745,19 +756,16 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
         }
         & input {
             width: 300px;
-            font-family: monospace;
-        }
-        & * {
-            margin: 0px;
         }
         & > label > span {
             grid-column: 1;
         }
         & [type=checkbox] {
-            filter: invert(80%);
-            width: 16px;
+            filter: invert(83%) hue-rotate(180deg);
+            width: 36px;
             height: 16px;
-            margin: 7px;
+            margin-top: 8px;
+            margin-bottom: 8px;
             margin-right: auto;
             cursor: pointer;
         }
@@ -765,18 +773,20 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
 
     m = Store(default_provenance='cookie')
     if not path:
-        plates = m.var(Str())
-        start_from_pfa = m.var(Bool(name='start from pfa'))
+        plates = m.var(Str(desc='The number of plates per batch, separated by comma. Example: 6,6'))
+        start_from_pfa = m.var(Bool(name='start from pfa', desc='Skip mito and start with PFA (from pre-PFA wash). Plates start on their output positions.'))
         simulate = m.var(Bool())
+        incu = m.var(Str(name='incubation times', value='20:00', desc='The incubation times in seconds or minutes:seconds, separated by comma. If too few values are specified, the last value is repeated. Example: 21:00,20:00'))
 
         yield div(
-            *form(m, plates, start_from_pfa, simulate),
+            *form(m, plates, incu, start_from_pfa, simulate),
             button(
                 V.raw(triangle.strip()), ' ', 'start',
                 onclick=start.call(
                     batch_sizes=plates.value,
                     simulate=simulate.value,
                     start_from_pfa=start_from_pfa.value,
+                    incu=incu.value,
                 ),
                 css='''
                   & .svg-triangle {
@@ -787,15 +797,22 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
                   }
 
                   & .svg-triangle polygon {
-                    fill:var(--green);
+                    fill: var(--green);
                   }
                 '''
             ),
+            height='100%',
             # button('simulate', onclick=start.call(simulate=True)),
+            padding='80px 0',
             grid_area='header',
             user_select='none',
-            css='& *+* { margin-left: 8px }',
             css__=form_css,
+        )
+        yield div(
+            f'Running on {platform.node()} with config {config.name}',
+            grid_area='info-foot',
+            opacity='0.85',
+            margin='0 auto',
         )
     info = div(
         grid_area='info',
@@ -840,6 +857,7 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
         stderr = as_stderr(path).read_text()
         if df is not None:
             ar = AnalyzeResult.init(df)
+            print(f'{ar.completed=}')
     if df is None:
         if stderr:
             box = div(
@@ -993,14 +1011,15 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
         if ar.completed:
             text = ''
         elif ar.process_is_alive:
-            text = f'pid: {ar.pid}'
+            text = f'pid: {ar.pid} on {platform.node()} with config {config.name}'
         else:
-            text = f'pid: -'
+            text = f'pid: - on {platform.node()} with config {config.name}'
         if text:
             yield V.pre(text,
-                overflow_x='hidden',
                 grid_area='info-foot',
+                padding_top='0.5em',
                 user_select='none',
+                opacity='0.85',
             )
 
         skip = m.var(Str(desc='Single washes and dispenses to skip, separated by comma'))

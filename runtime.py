@@ -33,7 +33,7 @@ class Env:
 
 live_env = Env(
     robotarm_host = '10.10.0.112',
-    incu_url      = 'http://10.10.0.56:5050',
+    incu_url      = 'http://10.10.0.56:5050/incu',
     biotek_url    = 'http://10.10.0.56:5050',
 )
 
@@ -215,6 +215,8 @@ class Runtime:
             signal.signal(signal.SIGABRT, handle_signal)
 
             print('Signal handlers installed')
+
+        self.set_robotarm_speed(self.config.robotarm_speed)
 
     def kill(self):
         self.stop_arm()

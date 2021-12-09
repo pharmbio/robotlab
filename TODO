@@ -1,3 +1,18 @@
+w49, before Amelie's painting:
+[x] compile the new biotek runner
+[x] copy files
+[x] run with other incu times
+[x] start gui with config
+    [x] this affects robotarm as well as argument passed to process
+
+w50, kinase inhibitors:
+[x] run the new incubator program
+[ ] add to gui protocol to load incubator (note: need to be able to load 18 plates)
+
+questions from the presentation:
+[ ] slack notifications
+[ ] temperature etc (of room, of incubator) periodically put into the log (?)
+
 w44:
 [ ] robustness: raise gripper if close more than expected
 [ ] moves:
@@ -7,7 +22,7 @@ w44:
     [ ] check that all LHC protocol files exist before starting, also associate their timings with their last modification date (and perhaps hash?)
     [ ] overview before starting, make a little summary of LHC files before starting
 [ ] start & resume
-    [ ] add 'prep' move before 'transfer' or remove initial 'return' move
+    [x] add 'prep' move before 'transfer' or remove initial 'return' move
     [ ] test resuming
     [x] make it easy to put the robot in the right place. freedrive and travel between known safe coordinates
     [x] make it easy to start freedrive to put the robot in place
@@ -16,7 +31,7 @@ w44:
 [ ] archive log
     [ ] use biotek pdfs
     [ ] what to generate? excel? pdf? webpage?
-[ ] improve commands:
+[ ] improve command names:
     [ ] Duration -> TimeSince
     [ ] exactly ... at_least ... at_most ...
 [ ] improve logging code:

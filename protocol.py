@@ -1029,7 +1029,7 @@ def cell_paint_program(batch_sizes: list[int], protocol_config: ProtocolConfig, 
     world0 = initial_world(plates, protocol_config)
     program = Sequence(
         Checkpoint('run'),
-        test_comm_program,
+        test_comm_program(with_incu=not protocol_config.start_from_PFA),
         *cmds,
         Duration('run')
     )
@@ -1070,22 +1070,23 @@ def test_circuit(config: RuntimeConfig) -> None:
     ''')
     execute_program(config, program, metadata={'program': 'test_circuit'})
 
-test_comm_program: Command = Sequence(
-    DispFork(cmd='TestCommunications', protocol_path=None),
-    IncuFork(action='get_climate', incu_loc=None),
-    RobotarmCmd('gripper check'),
-    WaitForResource('disp'),
-    WashFork(cmd='TestCommunications', protocol_path=None),
-    WaitForResource('incu'),
-    WaitForResource('wash'),
-).with_metadata(step='test comm')
+def test_comm_program(with_incu: bool=True) -> Command:
+    return Sequence(
+        DispFork(cmd='TestCommunications', protocol_path=None),
+        IncuFork(action='get_climate', incu_loc=None) if with_incu else Idle(),
+        RobotarmCmd('gripper check'),
+        WaitForResource('disp'),
+        WashFork(cmd='TestCommunications', protocol_path=None),
+        WaitForResource('incu') if with_incu else Idle(),
+        WaitForResource('wash'),
+    ).with_metadata(step='test comm')
 
 def test_comm(config: RuntimeConfig):
     '''
     Test communication with robotarm, washer, dispenser and incubator.
     '''
     print('Testing communication with robotarm, washer, dispenser and incubator.')
-    execute_program(config, test_comm_program, {'program': 'test_comm'})
+    execute_program(config, test_comm_program(), {'program': 'test_comm'})
     print('Communication tests ok.')
 
 def cell_paint(config: RuntimeConfig, protocol_config: ProtocolConfig, *, batch_sizes: list[int]) -> None:
