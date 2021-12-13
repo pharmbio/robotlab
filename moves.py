@@ -53,10 +53,11 @@ class MoveLin(Move):
     '''
     xyz: list[float]
     yaw: float
+    name: str = ""
     tag: str | None = None
 
     def to_script(self) -> str:
-        return call('MoveLinBg', *self.xyz, self.yaw)
+        return call('MoveLin', *self.xyz, self.yaw)
 
 @dataclass(frozen=True)
 class MoveRel(Move):
@@ -73,10 +74,11 @@ class MoveRel(Move):
     '''
     xyz: list[float]
     yaw: float
+    name: str = ""
     slow: bool = False
 
     def to_script(self) -> str:
-        return call('MoveLinRelBg', *self.xyz, self.yaw)
+        return call('MoveLinRel', *self.xyz, self.yaw)
 
 @dataclass(frozen=True)
 class MoveJoint(Move):
@@ -88,7 +90,7 @@ class MoveJoint(Move):
     slow: bool = False
 
     def to_script(self) -> str:
-        return call('MoveJointBg', *self.joints)
+        return call('MoveJoint', *self.joints)
 
 @dataclass(frozen=True)
 class GripperMove(Move):

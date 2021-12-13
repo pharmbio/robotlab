@@ -2,22 +2,22 @@ Module imx_helper
     Public Sub Main()
         Console.WriteLine("log Main()")
     End Sub
+    Public Sub Run()
+        Console.WriteLine("log Run()")
+    End Sub
     Public Sub JSON(ByVal k As String, ByVal v_raw As String)
         Console.WriteLine("{" & repr(k) & ":" & v_raw & "}")
     End Sub
-    Public Sub Run()
-        Console.WriteLine("log Run")
+    Public Sub Init()
         If Controller.PowerState() = 7 Then
             Controller.PowerEnabled = 1
+            Robot.Attached = 1
+            Robot.HomeAll()
         End If
         JSON("power_state", CStr(Controller.PowerState()))
-        whereami()
-        Attach()
-    End Sub
-    Public Sub Attach()
-        Robot.Attached = 1
     End Sub
     Public Sub Freedrive()
+        Robot.Attached = 1
         Move.StartJogMode()
         Move.SetJogCommand(4, -1, 1)
         Thread.Sleep(120000)
@@ -57,6 +57,7 @@ Module imx_helper
         Dim profile As New Profile
         p.XYZ(x, y, z, yaw, 90, -180)
         profile.Straight = True
+        Robot.Attached = 1
         Move.Loc(p, profile)
     End Sub
     Public Sub MoveLinRelBg(ByVal dx As Double, ByVal dy As Double, ByVal dz As Double, ByVal dyaw As Double)
@@ -74,6 +75,7 @@ Module imx_helper
         Dim profile As New Profile
         q.Angles(q1, q2, q3, q4, q5)
         profile.Straight = False
+        Robot.Attached = 1
         Move.Loc(q, profile)
     End Sub
     Public Sub MoveJointRelBg(ByVal dq1 As Double, ByVal dq2 As Double, ByVal dq3 As Double, ByVal dq4 As Double)
@@ -82,6 +84,7 @@ Module imx_helper
         q = Robot.WhereAngles()
         q.Angles(q.Angle(1) + dq1, q.Angle(2) + dq2, q.Angle(3) + dq3, q.Angle(4) + dq4, q.Angle(5))
         profile.Straight = False
+        Robot.Attached = 1
         Move.Loc(q, profile)
     End Sub
     Public Sub MoveJointBg(ByVal q1 As Double, ByVal q2 As Double, ByVal q3 As Double, ByVal q4 As Double)

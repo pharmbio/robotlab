@@ -26,7 +26,7 @@ class Robotarm:
 
     def flash(self):
         end_of_text = '\u0003'
-        self.send('execute File.CreateDirectory("/flash/projects/imx_helper")')
+        self.execute('File.CreateDirectory("/flash/projects/imx_helper")')
         files = [
             'Project.gpr',
             'Main.gpl',
@@ -36,8 +36,14 @@ class Robotarm:
             self.send(f'create /flash/projects/imx_helper/{name}\n{content}{end_of_text}')
         self.send('unload -all')
         self.send('load /flash/projects/imx_helper -compile')
+        self.send('stop Tcp_cmd_server_pf400')
+        self.send('stop TcpCom1')
+        self.send('stop TcpCom2')
+        self.send('stop TcpCom3')
+        self.send('stop TcpCom4')
+        self.execute('Init()')
         self.log('flash done')
-        self.recv_until('flash done')
+        self.recv_until('log flash done')
 
     def quit(self):
         self.send('quit')
@@ -53,8 +59,6 @@ class Robotarm:
         while True:
             b = self.sock.recv(4096)
             data += b.decode(errors='replace')
-            if '\n' in data:
-                print(data.splitlines())
             if data.startswith(line_start):
                 break
             if ('\n' + line_start) in data:
@@ -80,26 +84,27 @@ class Robotarm:
         msg += '\n'
         self.sock.sendall(msg.encode())
 
+    def execute(self, stmt: str):
+        self.send(f'execute {stmt}')
+
     def log(self, msg: str):
         assert '"' not in msg
-        self.send(f'execute Console.WriteLine("log {msg}")')
+        self.execute(f'Console.WriteLine("log {msg}")')
 
     def close(self):
         self.sock.close()
 
-    def set_speed(self, value: int) -> Robotarm:
+    def set_speed(self, value: int):
         if not (0 < value <= 100):
             raise ValueError
-        self.send(f'execute Controller.SystemSpeed = {value}')
-        return self
+        self.execute(f'Controller.SystemSpeed = {value}')
 
     def execute_moves(self, movelist: list[Move], name: str='script') -> None:
         for move in movelist:
-            self.send(f'execute {move.to_script()}')
+            self.execute(move.to_script())
         name = name.replace('/', '_of_')
         name = name.replace(' ', '_')
         name = name.replace('-', '_')
-        self.send(f'execute Move.WaitForEOM()')
         self.log(f'{name} done')
         self.recv_until(f'log {name} done')
 

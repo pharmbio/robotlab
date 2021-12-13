@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from robotarm import Robotarm, flash
+from robotarm import Robotarm
 
 def main():
     arm = Robotarm.init()
     arm.flash()
-    arm.send('execute Run()')
+    arm.execute('Demo()')
     arm.quit()
 
 if __name__ == '__main__':

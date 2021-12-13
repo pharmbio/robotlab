@@ -11,7 +11,7 @@ import re
 
 from moves import Move, MoveList
 import moves
-from robotarm import Robotarm, flash
+from robotarm import Robotarm
 import utils
 
 from viable import head, serve, esc, css_esc, trim, button, pre, js
@@ -31,6 +31,13 @@ def save_info(info: Any):
 
 arm = Robotarm.init(on_json=save_info)
 arm.flash()
+print('flashed')
+
+def poll():
+    # todo: where to start this
+    arm.execute('whereami()')
+    arm.log('there')
+    arm.recv_until('log there')
 
 @serve.expose
 def arm_do(*ms: Move):
@@ -74,12 +81,12 @@ def keydown(program_name: str, args: dict[str, Any]):
         deg = 90.0
     k = str(args['key'])
     keymap = {
-        'ArrowRight': moves.MoveRel(xyz=[ mm, 0, 0], yaw=00),
-        'ArrowLeft':  moves.MoveRel(xyz=[-mm, 0, 0], yaw=00),
-        'ArrowUp':    moves.MoveRel(xyz=[0,  mm, 0], yaw=00),
-        'ArrowDown':  moves.MoveRel(xyz=[0, -mm, 0], yaw=00),
-        'PageUp':     moves.MoveRel(xyz=[0, 0,  mm], yaw=00),
-        'PageDown':   moves.MoveRel(xyz=[0, 0, -mm], yaw=00),
+        'ArrowRight': moves.MoveRel(xyz=[0,  mm, 0], yaw=0),
+        'ArrowLeft':  moves.MoveRel(xyz=[0, -mm, 0], yaw=0),
+        'ArrowUp':    moves.MoveRel(xyz=[-mm, 0, 0], yaw=0),
+        'ArrowDown':  moves.MoveRel(xyz=[ mm, 0, 0], yaw=0),
+        'PageUp':     moves.MoveRel(xyz=[0, 0,  mm], yaw=0),
+        'PageDown':   moves.MoveRel(xyz=[0, 0, -mm], yaw=0),
         '[':          moves.MoveRel(xyz=[0, 0, 0], yaw=-deg),
         ']':          moves.MoveRel(xyz=[0, 0, 0], yaw= deg),
         'Insert':     moves.MoveRel(xyz=[0, 0, 0], yaw=-deg),
@@ -108,8 +115,8 @@ def update(program_name: str, i: int):
     m = ml[i]
     if isinstance(m, (moves.MoveLin, moves.MoveRel)):
         v = asdict(m)
-        v['xyz'] = [utils.round_nnz(v, 1) for v in polled_info['xyz']]
-        v['rpy'] = [utils.round_nnz(v, 1) for v in polled_info['rpy']]
+        v['xyz'] = [utils.round_nnz(v, 3) for v in polled_info['xyz']]
+        v['rpy'] = utils.round_nnz(polled_info['yaw'], 3)
         ml = MoveList(ml)
         ml[i] = moves.MoveLin(**v)
         ml.write_jsonl(filename)
@@ -121,7 +128,7 @@ def update(program_name: str, i: int):
         ml.write_jsonl(filename)
     elif isinstance(m, (moves.MoveJoint)):
         v = asdict(m)
-        v['joints'] = [utils.round_nnz(v, 2) for v in polled_info['joints']]
+        v['joints'] = [utils.round_nnz(v, 3) for v in polled_info['joints']]
         ml = MoveList(ml)
         ml[i] = moves.MoveJoint(**v)
         ml.write_jsonl(filename)
@@ -216,9 +223,9 @@ def index() -> Iterator[Tag | dict[str, str]]:
 
     info: dict[str, list[float]] = {
         k: [
-            utils.round_nnz(v, 2)
+            utils.round_nnz(float(v), 2)
             for v in (cast(list[Any], vs) if isinstance(vs, list) else [vs])
-            if isinstance(v, float)
+            if isinstance(v, float | int | bool)
         ]
         for k, vs in polled_info.items()
     }
@@ -453,13 +460,8 @@ def index() -> Iterator[Tag | dict[str, str]]:
                 text-align: left;
             }
         """)
-        btns += button('yaw -> {deg}°', tabindex='-1', onclick=arm_do.call(moves.RawCode(f"MoveYawBg({deg})")))
+        btns += button(f'yaw -> {deg}°', tabindex='-1', onclick=arm_do.call(moves.RawCode(f"MoveYawBg({deg})")))
         foot += btns
-
-    info = {
-        k: [utils.round_nnz(v, 2) for v in vs]
-        for k, vs in polled_info.items()
-    }
 
     from pprint import pformat
 
@@ -488,3 +490,5 @@ def index() -> Iterator[Tag | dict[str, str]]:
     for speed in [20, 40, 60, 80, 100]:
         speed_btns += button(f'set speed to {speed}', tabindex='-1', onclick=arm_set_speed.call(speed))
     foot += speed_btns
+
+    yield V.queue_refresh(150)
