@@ -2,7 +2,7 @@ Module imx_helper
     Public Sub Main()
         Console.WriteLine("log Main()")
     End Sub
-    Public Sub Object(ByVal k As String, ByVal v_raw As String)
+    Public Sub JSON(ByVal k As String, ByVal v_raw As String)
         Console.WriteLine("{" & repr(k) & ":" & v_raw & "}")
     End Sub
     Public Sub Run()
@@ -10,7 +10,7 @@ Module imx_helper
         If Controller.PowerState() = 7 Then
             Controller.PowerEnabled = 1
         End If
-        Object("power_state", CStr(Controller.PowerState()))
+        JSON("power_state", CStr(Controller.PowerState()))
         whereami()
         Attach()
     End Sub
@@ -47,9 +47,9 @@ Module imx_helper
     End Function
 
     Public Sub WaitForEndOfMove()
-        Object("status", repr("moving"))
+        JSON("status", repr("moving"))
         Move.WaitForEOM()
-        Object("status", repr("idle"))
+        JSON("status", repr("idle"))
     End Sub
 
     Public Sub MoveLinBg(ByVal x As Double, ByVal y As Double, ByVal z As Double, ByVal yaw As Double)
@@ -63,6 +63,11 @@ Module imx_helper
         Dim p As Location
         p = Robot.Where()
         MoveLinBg(p.X + dx, p.Y + dy, p.Z + dz, p.Yaw + dyaw)
+    End Sub
+    Public Sub MoveYawBg(ByVal yaw As Double)
+        Dim p As Location
+        p = Robot.Where()
+        MoveLinBg(p.X, p.Y, p.Z, yaw)
     End Sub
     Public Sub MoveJointFullBg(ByVal q1 As Double, ByVal q2 As Double, ByVal q3 As Double, ByVal q4 As Double, ByVal q5 As Double)
         Dim q As New Location

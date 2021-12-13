@@ -1,0 +1,210 @@
+'''
+robotarm moves
+'''
+from __future__ import annotations
+from dataclasses import *
+from typing import *
+
+from pathlib import Path
+import abc
+import json
+import re
+import textwrap
+import utils
+
+class Move(abc.ABC):
+    def to_dict(self) -> dict[str, Any]:
+        data = {
+            k: v
+            for field in fields(self)
+            for k in [field.name]
+            for v in [getattr(self, k)]
+            if v != field.default
+        }
+        return {'type': self.__class__.__name__, **data}
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> Move:
+        subs = {c.__name__: c for c in cls.__subclasses__()}
+        d = d.copy()
+        return subs[d.pop('type')](**d) # type: ignore
+
+    @abc.abstractmethod
+    def to_script(self) -> str:
+        raise NotImplementedError
+
+    def try_name(self) -> str:
+        if hasattr(self, 'name'):
+            return getattr(self, 'name')
+        else:
+            return ""
+
+def call(name: str, *args: Any) -> str:
+    strs = [str(arg) for arg in args]
+    return name + '(' + ', '.join(strs) + ')'
+
+@dataclass(frozen=True)
+class MoveLin(Move):
+    '''
+    Move linearly to an absolute position in the room reference frame.
+
+    xyz in mm
+    yaw in in degrees
+    '''
+    xyz: list[float]
+    yaw: float
+    tag: str | None = None
+
+    def to_script(self) -> str:
+        return call('MoveLinBg', *self.xyz, self.yaw)
+
+@dataclass(frozen=True)
+class MoveRel(Move):
+    '''
+    Move linearly to a position relative to the current position.
+
+    xyz in mm
+    rpy in degrees
+
+    xyz applied in rotation of room reference frame, unaffected by any rpy, so:
+
+    xyz' = xyz + Δxyz
+    rpy' = rpy + Δrpy
+    '''
+    xyz: list[float]
+    yaw: float
+    slow: bool = False
+
+    def to_script(self) -> str:
+        return call('MoveLinRelBg', *self.xyz, self.yaw)
+
+@dataclass(frozen=True)
+class MoveJoint(Move):
+    '''
+    Joint rotations in degrees
+    '''
+    joints: list[float]
+    name: str = ""
+    slow: bool = False
+
+    def to_script(self) -> str:
+        return call('MoveJointBg', *self.joints)
+
+@dataclass(frozen=True)
+class GripperMove(Move):
+    pos: int
+    def to_script(self) -> str:
+        return call('GripperMove', self.pos)
+
+@dataclass(frozen=True)
+class Section(Move):
+    sections: list[str]
+    def to_script(self) -> str:
+        return textwrap.indent(', '.join(self.sections), '# ')
+
+@dataclass(frozen=True)
+class RawCode(Move):
+    '''
+    Send a raw piece of code, used only in the gui and available at the cli.
+    '''
+    code: str
+    def to_script(self) -> str:
+        return self.code
+
+class MoveList(list[Move]):
+    '''
+    Utility class for dealing with moves in a list
+    '''
+
+    @staticmethod
+    def from_jsonl_file(filename: str | Path) -> MoveList:
+        return MoveList([
+            Move.from_dict(m)
+            for m in utils.read_json_lines(str(filename))
+        ])
+
+    def write_jsonl(self, filename: str | Path) -> None:
+        with open(filename, 'w') as f:
+            for m in self:
+                print(json.dumps(m.to_dict()), file=f)
+
+    def adjust_tagged(self, tag: str, *, dz: float) -> MoveList:
+        '''
+        Adjusts the z in room reference frame for all MoveLin with the given tag.
+        '''
+        out = MoveList()
+        for m in self:
+            if isinstance(m, MoveLin) and m.tag == tag:
+                x, y, z = list(m.xyz)
+                out += [replace(m, tag=None, xyz=[x, y, round(z + dz, 1)])]
+            elif hasattr(m, 'tag') and getattr(m, 'tag') == tag:
+                raise ValueError('Tagged move must be MoveLin for adjust_tagged')
+            else:
+                out += [m]
+        return out
+
+    def tags(self) -> list[str]:
+        out: list[str] = []
+        for m in self:
+            if hasattr(m, 'tag'):
+                tag = getattr(m, 'tag')
+                if tag is not None:
+                    out += [tag]
+        return out
+
+    def with_sections(self, include_Section: bool=False) -> list[tuple[tuple[str, ...], Move]]:
+        out: list[tuple[tuple[str, ...], Move]] = []
+        active: tuple[str, ...] = tuple()
+        for i, move in enumerate(self):
+            if isinstance(move, Section):
+                active = tuple(move.sections)
+                if include_Section:
+                    out += [(active, move)]
+            else:
+                out += [(active, move)]
+        return out
+
+    def expand_sections(self, base_name: str, include_self: bool=True) -> dict[str, MoveList]:
+        with_section = self.with_sections()
+        sections: set[tuple[str, ...]] = {
+            sect
+            for sect, move in with_section
+            if sect
+        }
+
+        out: dict[str, MoveList] = {}
+        if include_self:
+            out[base_name] = self
+        for section in sections:
+            pos = {i for i, (active, _) in enumerate(with_section) if section == active[:len(section)]}
+            maxi = max(pos)
+            assert all(i == maxi or i + 1 in pos for i in pos), f'section {section} not contiguous'
+
+            name = ' '.join([base_name, *section])
+            out[name] = MoveList(m for active, m in with_section if section == active[:len(section)])
+
+        return out
+
+    def describe(self) -> str:
+        return '\n'.join([
+            m.__class__.__name__ + ' ' +
+            (m.try_name() or utils.catch(lambda: str(getattr(m, 'pos')), ''))
+            for m in self
+        ])
+
+def read_and_expand(filename: Path) -> dict[str, MoveList]:
+    ml = MoveList.from_jsonl_file(filename)
+    name = filename.stem
+    expanded = ml.expand_sections(name, include_self=name == 'wash_to_disp')
+    return expanded
+
+def read_movelists() -> dict[str, MoveList]:
+    expanded: dict[str, MoveList] = {}
+    for filename in Path('./movelists').glob('*.jsonl'):
+        expanded |= read_and_expand(filename)
+
+    return expanded
+
+movelists: dict[str, MoveList]
+movelists = read_movelists()
+
