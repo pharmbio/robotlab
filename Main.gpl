@@ -1,0 +1,169 @@
+Module imx_helper
+    Public Sub Main()
+        Console.WriteLine("log Main()")
+    End Sub
+    Public Sub Object(ByVal k As String, ByVal v_raw As String)
+        Console.WriteLine("{" & repr(k) & ":" & v_raw & "}")
+    End Sub
+    Public Sub Run()
+        Console.WriteLine("log Run")
+        If Controller.PowerState() = 7 Then
+            Controller.PowerEnabled = 1
+        End If
+        Object("power_state", CStr(Controller.PowerState()))
+        whereami()
+        Attach()
+    End Sub
+    Public Sub Attach()
+        Robot.Attached = 1
+    End Sub
+    Public Sub Freedrive()
+        Move.StartJogMode()
+        Move.SetJogCommand(4, -1, 1)
+        Thread.Sleep(120000)
+        Move.StopSpecialModes()
+    End Sub
+    Public Sub Demo()
+        Controller.SystemSpeed = 100
+        MoveLinRel(0,0,-20,0)
+        MoveLinRel(0,-20,0,0)
+        MoveLinRel(-20,0,0,0)
+        MoveLinRel(0,0,20,0)
+        MoveLinRel(0,20,0,0)
+        MoveLinRel(20,0,0,0)
+        Controller.SystemSpeed = 25
+        MoveLinRel(0,0,0,15)
+        MoveLinRel(0,0,0,-15)
+        whereami()
+    End Sub
+    Public Sub whereami()
+        Console.WriteLine(fmt_pq())
+    End Sub
+
+    Public Function GripperPos() As Double
+        Dim q As New Location
+        q = Robot.WhereAngles()
+        Return q.Angle(5)
+    End Function
+
+    Public Sub WaitForEndOfMove()
+        Object("status", repr("moving"))
+        Move.WaitForEOM()
+        Object("status", repr("idle"))
+    End Sub
+
+    Public Sub MoveLinBg(ByVal x As Double, ByVal y As Double, ByVal z As Double, ByVal yaw As Double)
+        Dim p As New Location
+        Dim profile As New Profile
+        p.XYZ(x, y, z, yaw, 90, -180)
+        profile.Straight = True
+        Move.Loc(p, profile)
+    End Sub
+    Public Sub MoveLinRelBg(ByVal dx As Double, ByVal dy As Double, ByVal dz As Double, ByVal dyaw As Double)
+        Dim p As Location
+        p = Robot.Where()
+        MoveLinBg(p.X + dx, p.Y + dy, p.Z + dz, p.Yaw + dyaw)
+    End Sub
+    Public Sub MoveJointFullBg(ByVal q1 As Double, ByVal q2 As Double, ByVal q3 As Double, ByVal q4 As Double, ByVal q5 As Double)
+        Dim q As New Location
+        Dim profile As New Profile
+        q.Angles(q1, q2, q3, q4, q5)
+        profile.Straight = False
+        Move.Loc(q, profile)
+    End Sub
+    Public Sub MoveJointRelBg(ByVal dq1 As Double, ByVal dq2 As Double, ByVal dq3 As Double, ByVal dq4 As Double)
+        Dim q As New Location
+        Dim profile As New Profile
+        q = Robot.WhereAngles()
+        q.Angles(q.Angle(1) + dq1, q.Angle(2) + dq2, q.Angle(3) + dq3, q.Angle(4) + dq4, q.Angle(5))
+        profile.Straight = False
+        Move.Loc(q, profile)
+    End Sub
+    Public Sub MoveJointBg(ByVal q1 As Double, ByVal q2 As Double, ByVal q3 As Double, ByVal q4 As Double)
+        MoveJointFullBg(q1, q2, q3, q4, GripperPos())
+    End Sub
+    Public Sub MoveGripperBg(ByVal q5 As Double)
+        Dim q As New Location
+        q = Robot.WhereAngles()
+        MoveJointFullBg(q.Angle(1), q.Angle(2), q.Angle(3), q.Angle(4), q5)
+    End Sub
+    Public Sub MoveGripperRelBg(ByVal dq5 As Double)
+        Dim q As New Location
+        q = Robot.WhereAngles()
+        MoveGripperBg(q.Angle(5) + dq5)
+    End Sub
+    Public Sub GripperCloseBg()
+        MoveGripperBg(110)
+    End Sub
+    Public Sub GripperOpenBg()
+        MoveGripperBg(126)
+    End Sub
+
+    Public Sub MoveLin(ByVal x As Double, ByVal y As Double, ByVal z As Double, ByVal yaw As Double)
+        MoveLinBg(x, y, z, yaw)
+        WaitForEndOfMove()
+    End Sub
+    Public Sub MoveLinRel(ByVal dx As Double, ByVal dy As Double, ByVal dz As Double, ByVal dyaw As Double)
+        MoveLinRelBg(dx, dy, dz, dyaw)
+        WaitForEndOfMove()
+    End Sub
+    Public Sub MoveJointFull(ByVal q1 As Double, ByVal q2 As Double, ByVal q3 As Double, ByVal q4 As Double, ByVal q5 As Double)
+        MoveJointFullBg(q1, q2, q3, q4, q5)
+        WaitForEndOfMove()
+    End Sub
+    Public Sub MoveJoint(ByVal q1 As Double, ByVal q2 As Double, ByVal q3 As Double, ByVal q4 As Double)
+        MoveJointBg(q1, q2, q3, q4)
+        WaitForEndOfMove()
+    End Sub
+    Public Sub MoveJointRel(ByVal dq1 As Double, ByVal dq2 As Double, ByVal dq3 As Double, ByVal dq4 As Double)
+        MoveJointRelBg(dq1, dq2, dq3, dq4)
+        WaitForEndOfMove()
+    End Sub
+    Public Sub MoveGripper(ByVal q5 As Double)
+        MoveGripperBg(q5)
+        WaitForEndOfMove()
+    End Sub
+    Public Sub MoveGripperRel(ByVal dq5 As Double)
+        MoveGripperRelBg(dq5)
+        WaitForEndOfMove()
+    End Sub
+    Public Sub GripperClose()
+        GripperCloseBg()
+        WaitForEndOfMove()
+    End Sub
+    Public Sub GripperOpen()
+        GripperOpenBg()
+        WaitForEndOfMove()
+    End Sub
+
+    Public Function fmt_pq() As String
+        Dim p As Location
+        Dim q As Location
+        Dim msg As String
+        p = Robot.Where()
+        q = Robot.WhereAngles()
+        msg = "{"
+        msg = msg & repr("x")   & ":" & fmt(p.X,        2) & ","
+        msg = msg & repr("y")   & ":" & fmt(p.Y,        2) & ","
+        msg = msg & repr("z")   & ":" & fmt(p.Z,        2) & ","
+        msg = msg & repr("yaw") & ":" & fmt(p.Yaw,      2) & ","
+        msg = msg & repr("q1")  & ":" & fmt(q.Angle(1), 2) & ","
+        msg = msg & repr("q2")  & ":" & fmt(q.Angle(2), 2) & ","
+        msg = msg & repr("q3")  & ":" & fmt(q.Angle(3), 2) & ","
+        msg = msg & repr("q4")  & ":" & fmt(q.Angle(4), 2) & ","
+        msg = msg & repr("q5")  & ":" & fmt(q.Angle(5), 2)
+        msg = msg & "}"
+        Return msg
+    End Function
+    Public Function round(ByVal value As Double, ByVal num_digits As Integer) As Double
+        Dim scale As Double
+        scale = Math.Pow(10, num_digits)
+        Return Math.Floor(value * scale + 0.5) / scale
+    End Function
+    Public Function fmt(ByVal value As Double, ByVal num_digits As Integer) As String
+        Return CStr(round(value, num_digits))
+    End Function
+    Public Function repr(ByVal s As String) As String
+        Return """" & s & """"
+    End Function
+End Module

@@ -7,8 +7,6 @@ import re
 import socket
 import json
 
-import guidance_code
-
 @dataclass(frozen=True)
 class Robotarm:
     sock: socket.socket
@@ -18,7 +16,7 @@ class Robotarm:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.connect((host, port))
         res = Robotarm(sock)
-        res.send('Help')
+        res.send(password)
         res.wait_for_ready()
         return res
 
@@ -32,17 +30,17 @@ class Robotarm:
             b = self.sock.recv(4096)
             data += b.decode(errors='replace')
         for line in data.splitlines():
-            if re.match(r'\S+:\d', line):
-                print(line)
-            elif line.startswith('log'):
-                print(line)
-            else:
-                try:
-                    v = json.loads(line)
-                    print(v)
-                except ValueError:
-                    pass
-        # print(data, end='')
+            try:
+                v = json.loads(line)
+                print(v)
+            except ValueError:
+                if re.match(r'\S+:\d', line):
+                    print(line)
+                elif line.startswith('log'):
+                    print(line)
+                elif line.startswith('*'):
+                    print(line)
+        # print(data, end='', flush=True)
         return data
 
     def send(self, msg: str):
@@ -52,20 +50,17 @@ class Robotarm:
     def close(self):
         self.sock.close()
 
-project = '''
-ProjectBegin
-ProjectName="imx_helper"
-ProjectStart="Main"
-ProjectSource="Main.gpl"
-ProjectEnd
-'''
-
 def main():
     arm = Robotarm.init('10.10.0.98')
     end_of_text = '\u0003'
     arm.send('execute File.CreateDirectory("/flash/projects/imx_helper")')
-    arm.send('create /flash/projects/imx_helper/Project.gpr' + '\n' + project + '\n' + end_of_text)
-    arm.send('create /flash/projects/imx_helper/Main.gpl' + '\n' + guidance_code.module + '\n' + end_of_text)
+    files = [
+        'Project.gpr',
+        'Main.gpl',
+    ]
+    for name in files:
+        content = open(name, 'r').read()
+        arm.send(f'create /flash/projects/imx_helper/{name}\n{content}{end_of_text}')
     arm.send('unload -all')
     arm.send('load /flash/projects/imx_helper -compile')
     arm.send('execute Run()')
