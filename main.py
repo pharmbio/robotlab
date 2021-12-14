@@ -5,7 +5,7 @@ from robotarm import Robotarm
 def main():
     arm = Robotarm.init()
     arm.flash()
-    arm.execute('Demo()')
+    arm.execute('Main()')
     arm.quit()
 
 if __name__ == '__main__':
