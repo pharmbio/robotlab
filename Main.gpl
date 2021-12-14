@@ -2,25 +2,38 @@ Module imx_helper
     Public Sub Main()
         Console.WriteLine("log Main()")
     End Sub
-    Public Sub Run()
-        Console.WriteLine("log Run()")
-    End Sub
     Public Sub JSON(ByVal k As String, ByVal v_raw As String)
         Console.WriteLine("{" & repr(k) & ":" & v_raw & "}")
     End Sub
     Public Sub Init()
+        Console.WriteLine("log start Init()")
+        Dim th As New Thread("Poller")
+        th.Start()
+        Console.WriteLine("log done Init()")
+    End Sub
+    Public Sub Poller()
+        While True
+            whereami()
+            Thread.Sleep(100)
+        End While
+    End Sub
+    Public Sub PowerOn()
+        Console.WriteLine("log start PowerOn()")
         If Controller.PowerState() = 7 Then
+            Console.WriteLine("log enabling power")
             Controller.PowerEnabled = 1
-            Robot.Attached = 1
+            Console.WriteLine("log homing all")
             Robot.HomeAll()
+            Console.WriteLine("log init ok")
         End If
+        Console.WriteLine("log done PowerOn()")
         JSON("power_state", CStr(Controller.PowerState()))
     End Sub
     Public Sub Freedrive()
         Robot.Attached = 1
         Move.StartJogMode()
         Move.SetJogCommand(4, -1, 1)
-        Thread.Sleep(120000)
+        Thread.Sleep(60000)
         Move.StopSpecialModes()
     End Sub
     Public Sub Demo()
@@ -37,7 +50,7 @@ Module imx_helper
         whereami()
     End Sub
     Public Sub whereami()
-        Console.WriteLine(fmt_pq())
+        Console.WriteLine(Chr(13) & fmt_pq() & Chr(13))
     End Sub
 
     Public Function GripperPos() As Double
@@ -151,15 +164,17 @@ Module imx_helper
         p = Robot.Where()
         q = Robot.WhereAngles()
         msg = "{"
-        msg = msg & repr("x")   & ":" & fmt(p.X,        2) & ","
-        msg = msg & repr("y")   & ":" & fmt(p.Y,        2) & ","
-        msg = msg & repr("z")   & ":" & fmt(p.Z,        2) & ","
-        msg = msg & repr("yaw") & ":" & fmt(p.Yaw,      2) & ","
-        msg = msg & repr("q1")  & ":" & fmt(q.Angle(1), 2) & ","
-        msg = msg & repr("q2")  & ":" & fmt(q.Angle(2), 2) & ","
-        msg = msg & repr("q3")  & ":" & fmt(q.Angle(3), 2) & ","
-        msg = msg & repr("q4")  & ":" & fmt(q.Angle(4), 2) & ","
-        msg = msg & repr("q5")  & ":" & fmt(q.Angle(5), 2)
+        msg = msg & repr("type")  & ":" & repr("whereami") & ","
+        msg = msg & repr("x")     & ":" & fmt(p.X,        2) & ","
+        msg = msg & repr("y")     & ":" & fmt(p.Y,        2) & ","
+        msg = msg & repr("z")     & ":" & fmt(p.Z,        2) & ","
+        msg = msg & repr("yaw")   & ":" & fmt(p.Yaw,      2) & ","
+        msg = msg & repr("q1")    & ":" & fmt(q.Angle(1), 2) & ","
+        msg = msg & repr("q2")    & ":" & fmt(q.Angle(2), 2) & ","
+        msg = msg & repr("q3")    & ":" & fmt(q.Angle(3), 2) & ","
+        msg = msg & repr("q4")    & ":" & fmt(q.Angle(4), 2) & ","
+        msg = msg & repr("q5")    & ":" & fmt(q.Angle(5), 2) & ","
+        msg = msg & repr("speed") & ":" & CStr(Controller.SystemSpeed)
         msg = msg & "}"
         Return msg
     End Function

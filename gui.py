@@ -21,23 +21,20 @@ import viable as V
 serve.suppress_flask_logging()
 
 import sys
+import atexit
 
 polled_info: dict[str, Any] = {}
 
 def save_info(info: Any):
-    print(info)
+    # print(info)
     if isinstance(info, dict):
-        polled_info.update(cast(Any, info))
+        info = cast(dict[str, Any], info)
+        if info.get('type') == 'whereami':
+            polled_info.update(info)
 
 arm = Robotarm.init(on_json=save_info)
 arm.flash()
-print('flashed')
-
-def poll():
-    # todo: where to start this
-    arm.execute('whereami()')
-    arm.log('there')
-    arm.recv_until('log there')
+atexit.register(arm.close)
 
 @serve.expose
 def arm_do(*ms: Move):
@@ -63,10 +60,17 @@ def edit_at(program_name: str, i: int, changes: dict[str, Any]):
     ml.write_jsonl(filename)
     return {'refresh': True}
 
+def cos(deg: float) -> float:
+    return math.cos(deg / 180 * math.pi)
+
+def sin(deg: float) -> float:
+    return math.sin(deg / 180 * math.pi)
+
 @serve.expose
 def keydown(program_name: str, args: dict[str, Any]):
     mm: float = 1.0
     deg: float = 1.0
+    yaw: float = polled_info.get('yaw', 0.0)
 
     Alt = bool(args.get('altKey'))
     Shift = bool(args.get('shiftKey'))
@@ -87,10 +91,12 @@ def keydown(program_name: str, args: dict[str, Any]):
         'ArrowDown':  moves.MoveRel(xyz=[ mm, 0, 0], yaw=0),
         'PageUp':     moves.MoveRel(xyz=[0, 0,  mm], yaw=0),
         'PageDown':   moves.MoveRel(xyz=[0, 0, -mm], yaw=0),
+        'Home':       moves.MoveRel(xyz=[mm * cos(yaw + 90),  mm * sin(yaw + 90),  0], yaw=0),
+        'End':        moves.MoveRel(xyz=[mm * cos(yaw + 180), mm * sin(yaw + 180), 0], yaw=0),
+        'Insert':     moves.MoveRel(xyz=[mm * cos(yaw),       mm * sin(yaw),       0], yaw=0),
+        'Delete':     moves.MoveRel(xyz=[mm * cos(yaw - 90),  mm * sin(yaw - 90),  0], yaw=0),
         '[':          moves.MoveRel(xyz=[0, 0, 0], yaw=-deg),
         ']':          moves.MoveRel(xyz=[0, 0, 0], yaw= deg),
-        'Insert':     moves.MoveRel(xyz=[0, 0, 0], yaw=-deg),
-        'Delete':     moves.MoveRel(xyz=[0, 0, 0], yaw= deg),
         '-':          moves.RawCode(f'MoveGripperRelBg({-int(mm)})'),
         '+':          moves.RawCode(f'MoveGripperRelBg({int(mm)})'),
     }
@@ -115,20 +121,22 @@ def update(program_name: str, i: int):
     m = ml[i]
     if isinstance(m, (moves.MoveLin, moves.MoveRel)):
         v = asdict(m)
-        v['xyz'] = [utils.round_nnz(v, 3) for v in polled_info['xyz']]
-        v['rpy'] = utils.round_nnz(polled_info['yaw'], 3)
+        xyz = [polled_info[k] for k in 'xyz']
+        v['xyz'] = [utils.round_nnz(v, 3) for v in xyz]
+        v['yaw'] = utils.round_nnz(polled_info['yaw'], 3)
         ml = MoveList(ml)
         ml[i] = moves.MoveLin(**v)
         ml.write_jsonl(filename)
     elif isinstance(m, (moves.GripperMove)):
         v = asdict(m)
-        v['pos'] = polled_info['pos'][0]
+        v['pos'] = utils.round_nnz(polled_info['q5'], 3)
         ml = MoveList(ml)
         ml[i] = moves.GripperMove(**v)
         ml.write_jsonl(filename)
     elif isinstance(m, (moves.MoveJoint)):
         v = asdict(m)
-        v['joints'] = [utils.round_nnz(v, 3) for v in polled_info['joints']]
+        joints = [polled_info[k] for k in 'q1 q2 q3 q4'.split()]
+        v['joints'] = [utils.round_nnz(v, 3) for v in joints]
         ml = MoveList(ml)
         ml[i] = moves.MoveJoint(**v)
         ml.write_jsonl(filename)
@@ -221,13 +229,10 @@ def index() -> Iterator[Tag | dict[str, str]]:
             ''')
     yield header
 
-    info: dict[str, list[float]] = {
-        k: [
-            utils.round_nnz(float(v), 2)
-            for v in (cast(list[Any], vs) if isinstance(vs, list) else [vs])
-            if isinstance(v, float | int | bool)
-        ]
-        for k, vs in polled_info.items()
+    info: dict[str, float] = {
+        k: utils.round_nnz(float(v), 2)
+        for k, v in polled_info.items()
+        if isinstance(v, float | int | bool)
     }
 
     grid = div(css='''
@@ -310,7 +315,11 @@ def index() -> Iterator[Tag | dict[str, str]]:
                 )
             continue
 
-        if isinstance(m, moves.MoveLin) and (xyz := info.get("xyz")):
+        try:
+            xyz = [polled_info[k] for k in 'xyz']
+        except:
+            xyz = None
+        if isinstance(m, moves.MoveLin) and xyz is not None:
             dx, dy, dz = dxyz = utils.zip_sub(m.xyz, xyz, ndigits=6)
             dist = math.sqrt(sum(c*c for c in dxyz))
             buttons = [

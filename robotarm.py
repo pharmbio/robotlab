@@ -10,8 +10,15 @@ from moves import Move
 from utils import Mutable
 from queue import Queue
 from threading import Thread, Lock
+from contextlib import contextmanager
 
 DEFAULT_HOST='10.10.0.98'
+
+from ftplib import FTP
+import io
+
+def ftp_store(ftp: FTP, filename: str, data: bytes):
+    ftp.storbinary(f'STOR {filename}', io.BytesIO(data))
 
 @dataclass(frozen=True)
 class Robotarm:
@@ -35,13 +42,19 @@ class Robotarm:
     def recv_worker(self):
         data = ''
         while True:
-            b = self.sock.recv(4096)
-            data += b.decode(errors='replace')
+            try:
+                b = self.sock.recv(4096)
+            except OSError as e:
+                print(e)
+                break
+            data += b.decode(errors='replace').replace('\r\n', '\n').replace('\r', '\n')
             lines = data.splitlines(keepends=True)
             next_data = ''
             for line in lines:
                 if '\n' in line:
-                    self.handle_line(line)
+                    line = line.rstrip()
+                    if line:
+                        self.handle_line(line)
                 else:
                     if next_data:
                         print('warning: multiple "lines" without newline ending:', lines)
@@ -59,6 +72,8 @@ class Robotarm:
             with self.lock_listeners:
                 for ear in self.listeners:
                     ear.put_nowait(line)
+            print('<<<', line)
+            return
             if re.match(r'\S+:\d', line):
                 print(line)
             elif line.startswith('log'):
@@ -67,48 +82,55 @@ class Robotarm:
                 print(line)
 
     def flash(self):
-        end_of_text = '\u0003'
-        self.execute('File.CreateDirectory("/flash/projects/imx_helper")')
-        files = '''
-            Project.gpr
-            Main.gpl
-        '''
-        for name in files.split():
-            content = open(name, 'r').read()
-            self.send(f'create /flash/projects/imx_helper/{name}\n{content}{end_of_text}')
-        self.send('unload -all')
-        self.send('load /flash/projects/imx_helper -compile')
-        self.send('stop Tcp_cmd_server_pf400')
-        self.send('stop TcpCom1')
-        self.send('stop TcpCom2')
-        self.send('stop TcpCom3')
-        self.send('stop TcpCom4')
-        self.execute('Init()')
-        self.wait_for_ready('flash done')
+        project = 'imx_helper'
+        dir = f'/flash/projects/{project}'
+        self.execute(f'File.CreateDirectory("{dir}")')
+        self.wait_for_ready('mkdir')
+        with FTP('10.10.0.98') as ftp:
+            ftp.login()
+            for filename in '''
+                Project.gpr
+                Main.gpl
+            '''.split():
+                with open(filename, 'rb') as fp:
+                    data = fp.read()
+                ftp_store(ftp, f'{dir}/{filename}', data)
+        for cmd in [
+            'stop -all',
+            f'unload {project}',
+            f'load {dir} -compile',
+            'execute PowerOn()',
+        ]:
+            self.send(cmd)
+            self.wait_for_ready(cmd.split(' ')[0])
 
     def quit(self):
-        self.send('quit')
-        self.recv_until('Exiting console task')
+        with self.recv_until('Exiting console task'):
+            self.send('quit')
         self.close()
 
     def wait_for_ready(self, msg: str='ready'):
         self.nonces.value += 1
         i = self.nonces.value
-        self.log(f'{msg} {i}')
-        self.recv_until(f'log {msg} {i}')
+        with self.recv_until(f'log {msg} {i}'):
+            self.log(f'{msg} {i}')
 
+    @contextmanager
     def recv_until(self, line_start: str):
         q = Queue[str]()
         with self.lock_listeners:
             self.listeners.append(q)
+        yield
         while True:
             msg = q.get()
             if msg.startswith(line_start):
+                # print('|||', msg)
                 break
         with self.lock_listeners:
             self.listeners.remove(q)
 
     def send(self, msg: str):
+        print('>>>', msg)
         msg += '\n'
         self.sock.sendall(msg.encode())
 

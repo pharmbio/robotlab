@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from robotarm import Robotarm
+import utils
 
 def main():
     arm = Robotarm.init()

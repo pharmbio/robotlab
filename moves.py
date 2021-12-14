@@ -96,7 +96,7 @@ class MoveJoint(Move):
 class GripperMove(Move):
     pos: int
     def to_script(self) -> str:
-        return call('GripperMove', self.pos)
+        return call('MoveGripper', self.pos)
 
 @dataclass(frozen=True)
 class Section(Move):
