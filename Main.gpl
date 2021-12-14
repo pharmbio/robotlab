@@ -114,10 +114,10 @@ Module imx_helper
         MoveGripperBg(q.Angle(5) + dq5)
     End Sub
     Public Sub GripperCloseBg()
-        MoveGripperBg(110)
+        MoveGripperBg(76)
     End Sub
     Public Sub GripperOpenBg()
-        MoveGripperBg(126)
+        MoveGripperBg(90)
     End Sub
 
     Public Sub MoveLin(ByVal x As Double, ByVal y As Double, ByVal z As Double, ByVal yaw As Double)
@@ -155,6 +155,26 @@ Module imx_helper
     Public Sub GripperOpen()
         GripperOpenBg()
         WaitForEndOfMove()
+    End Sub
+
+    Public Sub Shake()
+        Dim w As Double
+        w = -0.2
+                  MoveLinRel(w, w, w, w/4)
+        w =  0.4
+                  MoveLinRel(w, w, w, w/4)
+        w = -0.2
+                  MoveLinRel(w, w, w, w/4)
+    End Sub
+    Public Sub GripperTest()
+        Dim q5 As Double
+        q5 = GripperPos()
+        GripperClose()
+                         MoveLinRel(0, 0,  14.0,       0)
+        Shake()
+                         MoveLinRel(0, 0, -14.0 + 0.5, 0)
+        MoveGripper(q5)
+                         MoveLinRel(0, 0,        -0.5, 0)
     End Sub
 
     Public Function fmt_pq() As String
