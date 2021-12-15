@@ -84,7 +84,7 @@ def start(batch_sizes: str, start_from_pfa: bool, simulate: bool, incu: str):
     interleave = N >= 7
     two_final_washes = N >= 8
     lockstep = N >= 10
-    if incu == '1200' or incu == '20:00' and N >= 10:
+    if incu in {'1200', '20:00', ''} and N >= 8:
         incu = '1200,1200,1200,1200,X'
     log_filename = 'logs/' + utils.now_str_for_filename() + '-from-gui.jsonl'
     args = Args(
@@ -207,7 +207,7 @@ def cleanup(d):
     d = d[~d.arg.fillna('').str.contains('Validate ')].copy()
     d.arg = d.arg.str.replace('RunValidated ', '', regex=False)
     d.arg = d.arg.str.replace('Run ', '', regex=False)
-    d.arg = d.arg.str.replace('automation_v3.1/', '', regex=False)
+    d.arg = d.arg.str.replace(r'automation_v[\d\.]+/', '', regex=True)
     return d
 
 def countdown_str(s: Series):
@@ -857,7 +857,6 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
         stderr = as_stderr(path).read_text()
         if df is not None:
             ar = AnalyzeResult.init(df)
-            print(f'{ar.completed=}')
     if df is None:
         if stderr:
             box = div(

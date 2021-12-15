@@ -8,6 +8,8 @@ w49, before Amelie's painting:
 w50, kinase inhibitors:
 [x] run the new incubator program
 [ ] add to gui protocol to load incubator (note: need to be able to load 18 plates)
+[ ] batch sep ?
+[ ] "incubation" time after Wash 1
 
 questions from the presentation:
 [ ] slack notifications

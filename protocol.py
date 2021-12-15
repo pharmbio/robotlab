@@ -295,8 +295,10 @@ class ProtocolConfig:
         for ilv in self.interleavings:
             assert ilv in Interleavings
 
+# import sys
 def make_v3(*, incu_csv: str, interleave: bool, six: bool = False, lockstep: bool = False, start_from_PFA: bool = False):
     N = 6 if six else 5
+    # print(incu_csv, utils.read_commasep(incu_csv), file=sys.stderr)
 
     incu = [
         Symbolic.wrap(
@@ -453,9 +455,8 @@ def scratch_program(config: RuntimeConfig):
     '''
     The scratch program. Currently times put and get to the output hotel.
     '''
-    N = 2
     arm: list[Command] = []
-    for out_loc in Out_locs[:N]:
+    for out_loc in 'b5 b7 b9 b11 c3'.upper().split(): # ['B5', 'B7', Out_locs[:N]:
         plate = Plate('1', '', '', '', out_loc=out_loc, batch_index=1)
         arm += [
             *RobotarmCmds(plate.out_put),
@@ -654,7 +655,6 @@ def Early(secs: float):
     return Idle(secs=secs, only_for_scheduling=True)
 
 def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
-
     p = protocol_config
 
     prep_wash = WashFork(p.prep_wash) if p.prep_wash else Idle()
@@ -699,7 +699,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
         for plate in batch:
             lid_loc = lid_locs[lid_index % len(lid_locs)]
             lid_index += 1
-            plate_with_corrected_lid_pos= replace(plate, lid_loc=lid_loc)
+            plate_with_corrected_lid_pos = replace(plate, lid_loc=lid_loc)
             ix = i + 1
             plate_desc = f'plate {plate.id}'
 
@@ -718,7 +718,10 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                 ]
                 wash_delay = [
                     Early(2),
-                    (WaitForCheckpoint(f'{plate_desc} incubation {ix-1}') + p.incu[i-1]).with_metadata(log_sleep=True)
+                    (
+                        WaitForCheckpoint(f'{plate_desc} incubation {ix-1}') + p.incu[i-1]
+                        # .rename('batch_index', str(batch_index))
+                    ).with_metadata(log_sleep=True)
                 ]
 
             lid_off = [

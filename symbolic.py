@@ -31,6 +31,12 @@ class Symbolic:
             float(self.offset + other.offset),
         )
 
+    def rename(self, old: str, new: str) -> Symbolic:
+        return Symbolic(
+            [v.replace(old, new) for v in self.var_names],
+            self.offset,
+        )
+
     def resolve(self, env: dict[str, float] = {}) -> float:
         return sum(env[x] for x in self.var_names) + self.offset
 
