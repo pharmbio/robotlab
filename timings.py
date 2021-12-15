@@ -36,6 +36,12 @@ overrides: dict[Estimated, float] = {
     ('robotarm', 'B1 put return'):   7.5,
     ('robotarm', 'B3 put transfer'): 7.5,
     ('robotarm', 'B3 put return'):   7.5,
+
+    ('robotarm', 'B3 put return'):   7.5,
+    ('robotarm', 'B3 put return'):   7.5,
+
+    ('disp', 'Validate automation_v3.1/2_D_P1_20ul_mito.LHC'): 4.2,
+    ('disp', 'RunValidated automation_v3.1/2_D_P1_20ul_mito.LHC'): 24.2,
 }
 # utils.pr({k: (Estimates.get(k, None), '->', v) for k, v in overrides.items()})
 Estimates.update(overrides)

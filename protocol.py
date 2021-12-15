@@ -359,7 +359,7 @@ def make_v3(*, incu_csv: str, interleave: bool, six: bool = False, lockstep: boo
             '',
         ][:N],
         disp = [
-            'automation_v3.1/2_D_P1_40ul_mito.LHC',
+            'automation_v3.1/2_D_P1_20ul_mito.LHC',
             'automation_v3.1/4_D_SA_384_80ul_PFA.LHC',
             'automation_v3.1/6_D_SB_384_80ul_TRITON.LHC',
             'automation_v3.1/8_D_P2_20ul_stains.LHC',
