@@ -19,6 +19,7 @@ questions from the presentation:
 january:
 [ ] batch sep
 [ ] load up to 18 plates
+[ ] add the pause/slowdown button
 
 w44:
 [ ] robustness: raise gripper if close more than expected
