@@ -5,7 +5,7 @@ w49, before Amelie's painting:
 [x] start gui with config
     [x] this affects robotarm as well as argument passed to process
 
-w50, kinase inhibitors:
+w50, SPECs:
 [x] run the new incubator program
 [ ] add to gui protocol to load incubator (note: need to be able to load 18 plates)
 [ ] batch sep ?
@@ -14,6 +14,11 @@ w50, kinase inhibitors:
 questions from the presentation:
 [ ] slack notifications
 [ ] temperature etc (of room, of incubator) periodically put into the log (?)
+    anders seems to have had such a system at some point with an arduino, ask!
+
+january:
+[ ] batch sep
+[ ] load up to 18 plates
 
 w44:
 [ ] robustness: raise gripper if close more than expected

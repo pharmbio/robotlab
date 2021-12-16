@@ -185,10 +185,10 @@ def iterate_with_full_context(xs: list[A]) -> list[tuple[list[A], A, list[A]]]:
     ]
 
 assert test(iterate_with_full_context([1,2,3,4])) == [
-  ([], 1, [2, 3, 4]),
-  ([1], 2, [3, 4]),
-  ([1, 2], 3, [4]),
-  ([1, 2, 3], 4, []),
+    ([], 1, [2, 3, 4]),
+    ([1], 2, [3, 4]),
+    ([1, 2], 3, [4]),
+    ([1, 2, 3], 4, []),
 ]
 
 def iterate_with_context(xs: list[A]) -> list[tuple[A | None, A, A | None]]:

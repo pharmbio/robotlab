@@ -453,17 +453,31 @@ def time_bioteks(config: RuntimeConfig, protocol_config: ProtocolConfig):
 
 def scratch_program(config: RuntimeConfig):
     '''
-    The scratch program. Currently times put and get to the output hotel.
+    The scratch program.
     '''
-    arm: list[Command] = []
-    for out_loc in 'b5 b7 b9 b11 c3'.upper().split(): # ['B5', 'B7', Out_locs[:N]:
-        plate = Plate('1', '', '', '', out_loc=out_loc, batch_index=1)
-        arm += [
-            *RobotarmCmds(plate.out_put),
-            *RobotarmCmds(plate.out_get),
-        ]
-    program = Sequence(*arm)
-    execute_program(config, program, metadata={'program': 'scratch'})
+    if 1:
+        # shuffle around plates in the incubator. L7-L12 goes to L1-L6
+        cmds: list[Command] = []
+        for dest, src in zip(Incu_locs[:6], Incu_locs[6:]):
+            cmds += [
+                IncuFork('get', src),
+                WaitForResource('incu'),
+                IncuFork('put', dest),
+                WaitForResource('incu'),
+            ]
+        program = Sequence(*cmds)
+        execute_program(config, program, metadata={'program': 'scratch'})
+    if 0:
+        # do some timings that were missing
+        cmds: list[Command] = []
+        for out_loc in 'b5 b7 b9 b11 c3'.upper().split():
+            plate = Plate('1', '', '', '', out_loc=out_loc, batch_index=1)
+            cmds += [
+                *RobotarmCmds(plate.out_put),
+                *RobotarmCmds(plate.out_get),
+            ]
+        program = Sequence(*cmds)
+        execute_program(config, program, metadata={'program': 'scratch'})
 
 def time_arm_incu(config: RuntimeConfig):
     '''

@@ -265,6 +265,7 @@ class AnalyzeResult:
             t_now = df.t.max() + 1
 
         estimates = load_from_pickle(runtime_metadata['estimates_pickle_file'])
+        estimates = estimates.copy()
         estimates['finished'] = True
         estimates['running'] = False
         estimates['current'] = False
