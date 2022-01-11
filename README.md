@@ -12,24 +12,36 @@ ip           | computer
 
 ### PreciseFlex notes
 
-The webpage with documentation is at http://preciseautomation.com/ but under a password. A copy of it is stored on the devserver password manager.
+The webpage with documentation is at http://preciseautomation.com/ but behind a password,
+so I put a copy on the nfs under `/share/data/manuals_and_software/preciseflex`.
 
-The robot can be communicated with on telnet. Install rlwrap and netcat and run:
+The robotarm can be communicated with on telnet. Install rlwrap and netcat and run:
 
 ```sh
 rlwrap nc 10.10.0.98 23
 ```
 
-The password is `Help` (the default). The supported commands are documented under _Controller Software/Software Reference/Console Command Summary_.
+The password is `Help` (the default). The supported commands are documented under
+_Controller Software/Software Reference/Console Command Summary_.
 
-The robot has an ftp server. It can be mounted using curlftpfs:
+The robotarm has an ftp server. It can be mounted using curlftpfs:
 
 ```sh
 mkdir -p flash
 curlftpfs 10.10.0.98 flash
 ```
 
-The robot programming language is a dialect of VisualBasic. It is called _Guidance Programming Language_ (GDS).
+The robotarm has a web server for configuring it. You can forward it to localhost:1280 with:
+
+```sh
+ssh -N -L 1280:10.10.0.98:80 robotlab-ubuntu
+```
+
+The robotarm IP can be changed there, see _Control Panels/Communication/Network_.
+There is also a virtual pendant.
+
+The robotarm programming language is a dialect of VisualBasic.
+It is called _Guidance Programming Language_ (GDS).
 We use a TCP server written in GDS by PreciseAutomation called Tcp_cmd_server,
 or TCS for short, with some small modifications to control the arm.
 Using the telnet method is too brittle.
