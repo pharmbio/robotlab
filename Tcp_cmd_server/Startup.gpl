@@ -19,8 +19,8 @@
 
 Module Startup
 
-    Public Const NumRobots As Integer = 4
-    Public Const NumStatusPorts As Integer = 1
+    Public Const NumRobots As Integer = 1
+    Public Const NumStatusPorts As Integer = 4
 
     ' CommType determines the type of communications
     ' 0 = TCP/IP communications over Ethernet.
@@ -107,16 +107,12 @@ Module Startup
                     cThread.Start
                 Next ii
 
-                For ii = 2 To NumStatusPorts
+                For ii = 1 To NumStatusPorts
                     cThread = New Thread("TcpStatus" & CStr(ii))
                     cThread.Start
                 Next ii
 
                 cThread = Nothing
-
-                If NumStatusPorts > 0 Then
-                    TcpComMain(0,Status1Port) ' 1st status, does not return
-                End If
 
       ' Start up Serial communications
 
@@ -183,6 +179,10 @@ Module Startup
 
     Public Sub TcpCom8
         TcpComMain(8,Robot8Port)
+    End Sub
+
+    Public Sub TcpStatus1
+        TcpComMain(0,Status1Port)
     End Sub
 
     Public Sub TcpStatus2
