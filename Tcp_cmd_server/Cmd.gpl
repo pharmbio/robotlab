@@ -116,7 +116,17 @@ Module Cmd
         If (index < 1) OrElse (index > N_PROF) Then
             Reply = EcInvProfIdx        'Invalid profile index
         ElseIf Cmd.Rob.RobProf(index) Is Nothing Then
-            Reply = EcUndefProf         'Undefined profile
+            ' Reply = EcUndefProf
+            Cmd.Rob.RobProf(index) = New Profile
+            Cmd.Rob.RobProf(index).Speed = 50
+            Cmd.Rob.RobProf(index).Speed2 = 0
+            Cmd.Rob.RobProf(index).Accel = 100
+            Cmd.Rob.RobProf(index).Decel = 100
+            Cmd.Rob.RobProf(index).AccelRamp = 0.1
+            Cmd.Rob.RobProf(index).DecelRamp = 0.1
+            Cmd.Rob.RobProf(index).inRange = 10
+            Cmd.Rob.RobProf(index).Straight = False
+            ret = 0 ' Success, now defined!
         Else
             ret = 0                     ' Success
         End If
