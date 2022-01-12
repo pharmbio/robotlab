@@ -1,0 +1,268 @@
+' Tcp Command Server
+'
+' Copyright (c) 2006-2015 by Precise Automation, Inc.  All rights reserved.
+' =======================================================================
+' Permission is granted to customers of Precise Automation to use this
+' software for any purpose, including commercial applications, and to
+' alter it and redistribute it freely, so long as this notice is included
+' with any modified or unmodified version of this software.
+'
+' This software is provided "as is," without warranty of any kind, express or
+' implied.  In no event shall Precise Automation be held liable for any
+' direct, indirect, incidental, special or consequential damages arising
+' out of the use of or inability to use this software.
+' =======================================================================
+'
+' NOTES:
+' ---------------
+' Requires GPL 3.1 Release or higher
+
+Module Startup
+
+    Public Const NumRobots As Integer = 4
+    Public Const NumStatusPorts As Integer = 1
+
+    ' CommType determines the type of communications
+    ' 0 = TCP/IP communications over Ethernet.
+    ' 1 = Serial communications with no echoing input.
+    ' 2 = Serial communications with echoing of input.
+
+    Public Const CommType As Integer = 0
+
+    '=================================
+    ' Global Declarations for serial communications
+    '=================================
+
+    Public Const SerialPort As String = "/dev/com1"    ' Serial port
+
+    '=================================
+    ' Global Declarations for TCP communications
+    '=================================
+
+    Public Const Status1Port As Integer = 10000
+    Public Const Status2Port As Integer = 10001
+    Public Const Status3Port As Integer = 10002
+    Public Const Status4Port As Integer = 10003
+    Public Const Robot1Port As Integer = 10100
+    Public Const Robot2Port As Integer = 10200
+    Public Const Robot3Port As Integer = 10300
+    Public Const Robot4Port As Integer = 10400
+    Public Const Robot5Port As Integer = 10500
+    Public Const Robot6Port As Integer = 10600
+    Public Const Robot7Port As Integer = 10700
+    Public Const Robot8Port As Integer = 10800
+
+
+'=================================
+' Global Entry Point for project.
+'=================================
+
+' -- StartMain --------------------------------------------------------------
+'
+' ABSTRACT: TCP Command Server startup routine.
+'
+'   This method serves as a launching point for supporting multiple
+'   robots.  For each robot in a system, a different PORT number is
+'   defined to communicate to it.
+'
+'   Each robot is run from a seperate thread and is completely
+'   asyncronous from other robots.
+'
+'   In addition an optional status port is opened.  This port can be
+'   used to service common commands or be used to monitor the system
+'   status.  Motion threads will block during execution of some instructions
+'   but the status thread is dedicated to retrieving information which
+'   will not block.
+'
+'   It is suggested that common operations (high power, calibration) be
+'   performed from the status port.
+'
+' INPUTS:   none
+'
+' OUTPUTS:  none
+'
+
+    Public Sub StartMain
+        Dim cThread As Thread
+        Dim ii As Integer
+
+        ' send out a system message
+        Controller.SystemMessage(Globals.Version)
+
+    ' -- Set the operation mode
+        bTelnetMode = False             ' Set to PC mode
+
+        ' Create the robot handler threads
+
+        For ii = 1 To NumRobots
+            rbThread(ii) = New Thread("Rob" & CStr(ii)) ' Create Rob1, Rob2 etc
+        Next ii
+
+
+        ' Start up TCP communications
+
+            If CommType = 0 Then
+                For ii = 1 To NumRobots
+                    cThread = New Thread("TcpCom" & CStr(ii))
+                    cThread.Start
+                Next ii
+
+                For ii = 2 To NumStatusPorts
+                    cThread = New Thread("TcpStatus" & CStr(ii))
+                    cThread.Start
+                Next ii
+
+                cThread = Nothing
+
+                If NumStatusPorts > 0 Then
+                    TcpComMain(0,Status1Port) ' 1st status, does not return
+                End If
+
+      ' Start up Serial communications
+
+            Else
+
+                For ii = 1 To NumRobots
+                    cThread = New Thread("SerialCom" & CStr(ii))
+                    SerialCmdList(ii) = New StringList(cThread, CommEvent)
+                    cThread.Start
+                Next ii
+
+                If NumStatusPorts > 0 Then
+                    SerialCmdList(0) = New StringList(Thread.CurrentThread, _
+                                 CommEvent)
+                End If
+
+                ' Start up serial I/O threads
+
+                cThread = New Thread("SerialSender")
+                SerialReplyList = New StringList(cThread, CommEvent)
+                cThread.Start
+
+                cThread = New Thread("SerialReceiver")
+                cThread.Start
+
+                cThread = Nothing
+
+                If NumStatusPorts > 0 Then
+                    SerialComMain(0)    ' Does not return
+                End If
+            End If
+
+    End Sub
+
+' TCP communications
+
+    Public Sub TcpCom1
+        TcpComMain(1,Robot1Port)
+    End Sub
+
+    Public Sub TcpCom2
+        TcpComMain(2,Robot2Port)
+    End Sub
+
+    Public Sub TcpCom3
+        TcpComMain(3,Robot3Port)
+    End Sub
+
+    Public Sub TcpCom4
+        TcpComMain(4,Robot4Port)
+    End Sub
+
+    Public Sub TcpCom5
+        TcpComMain(5,Robot5Port)
+    End Sub
+
+    Public Sub TcpCom6
+        TcpComMain(6,Robot6Port)
+    End Sub
+
+    Public Sub TcpCom7
+        TcpComMain(7,Robot7Port)
+    End Sub
+
+    Public Sub TcpCom8
+        TcpComMain(8,Robot8Port)
+    End Sub
+
+    Public Sub TcpStatus2
+        TcpComMain(0,Status2Port)
+    End Sub
+
+    Public Sub TcpStatus3
+        TcpComMain(0,Status3Port)
+    End Sub
+
+    Public Sub TcpStatus4
+        TcpComMain(0,Status4Port)
+    End Sub
+
+' Serial communications
+
+    Public Sub SerialCom1
+        SerialComMain(1)
+    End Sub
+
+    Public Sub SerialCom2
+        SerialComMain(2)
+    End Sub
+
+    Public Sub SerialCom3
+        SerialComMain(3)
+    End Sub
+
+    Public Sub SerialCom4
+        SerialComMain(4)
+    End Sub
+
+    Public Sub SerialCom5
+        SerialComMain(5)
+    End Sub
+
+    Public Sub SerialCom6
+        SerialComMain(6)
+    End Sub
+
+    Public Sub SerialCom7
+        SerialComMain(7)
+    End Sub
+
+    Public Sub SerialCom8
+        SerialComMain(8)
+    End Sub
+
+' Robot command handlers
+
+    Public Sub Rob1
+        RobMain(1)
+    End Sub
+
+    Public Sub Rob2
+        RobMain(2)
+    End Sub
+
+    Public Sub Rob3
+        RobMain(3)
+    End Sub
+
+    Public Sub Rob4
+        RobMain(4)
+    End Sub
+
+    Public Sub Rob5
+        RobMain(5)
+    End Sub
+
+    Public Sub Rob6
+        RobMain(6)
+    End Sub
+
+    Public Sub Rob7
+        RobMain(7)
+    End Sub
+
+    Public Sub Rob8
+        RobMain(8)
+    End Sub
+
+End Module

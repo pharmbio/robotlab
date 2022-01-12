@@ -1,0 +1,177 @@
+' Copyright (c) 2012-2014 by Precise Automation, Inc.
+' All rights reserved.
+' =======================================================================
+' Permission is granted to customers of Precise Automation to use this
+' software for any purpose, including commercial applications, and to
+' alter it and redistribute it freely, so long as this notice is included
+' with any modified or unmodified version of this software.
+'
+' This software is provided "as is," without warranty of any kind, express or
+' implied.  In no event shall Precise Automation be held liable for any
+' direct, indirect, incidental, special or consequential damages arising
+' out of the use of or inability to use this software.
+
+#Region "Class StringList"
+
+' StringList Class
+
+Public Class StringList
+    Private first_item As StringListItem
+    Private last_item As StringListItem
+    Private item_count As Integer
+    Private list_lock As Integer
+    Private recv_thread As Thread
+    Private recv_event As Integer
+
+    ' Internal class to hold a list item
+
+    Private Class StringListItem
+        Public data As String
+        Public next_item As StringListItem
+    End Class
+
+#End Region
+#Region "New"
+    ' New - StringList Constructor
+    '
+    ' ABSTRACT:  Constructor for StringList
+    '
+    ' INPUTS:   thread_arg      The thread to be signalled
+    '                           when an item is placed on the list'
+    '                           Set to Nothing if no thread.
+    '           event_arg       The event to be asserted when an item
+    '                           is places on the list.  Only used if
+    '                           thread_arg is not Nothing
+
+    Public Sub New(ByVal thread_arg As Thread, ByVal event_arg As Integer)
+        recv_thread = thread_arg
+        recv_event = event_arg
+    End Sub
+
+#End Region
+#Region "Flush"
+    ' Flush - Remove all items from list
+    '
+    ' ABSTRACT:  Remove all items from a list
+    '
+    ' INPUTS:   none
+    '
+    ' OUTPUTS:  none
+    '
+    ' RETURNS:  none
+    '
+
+    Public Sub Flush ()
+        While Thread.TestAndSet(list_lock, 1) <> 0
+            Thread.Sleep(0)
+        End While
+        last_item = Nothing
+        first_item = Nothing
+        item_count = 0
+        list_lock = 0
+    End Sub
+
+#End Region
+#Region "PutList"
+    ' PutList - Put a string on the tail of the list
+    '
+    ' ABSTRACT:  Put an item at the end of the list.
+    '
+    ' INPUTS:   Str     The string value to be put on the list.
+    '
+    ' OUTPUTS:  none
+    '
+    ' RETURNS:  none
+    '
+
+    Public Sub PutList(ByVal Str As String)
+        Dim new_item As StringListItem
+
+        While Thread.TestAndSet(list_lock, 1) <> 0
+            Thread.Sleep(0)
+        End While
+
+        new_item = New StringListItem
+        new_item.data = Str
+
+        If last_item Is Nothing Then
+            first_item = new_item
+        Else
+            last_item.next_item = new_item
+        End If
+
+        last_item = new_item
+        item_count += 1
+
+        list_lock = 0
+
+        If Not recv_thread Is Nothing Then
+            recv_thread.SendEvent(recv_event) ' Signal receiver
+        End If
+
+        Return
+    End Sub
+
+#End Region
+#Region "GetList"
+    ' GetList - Get an item from the head of a list
+    '
+    ' ABSTRACT:  Returns the next item from the list, if any.
+    '
+    ' INPUTS:   none
+    '
+    ' OUTPUTS:  value   A string variable that receives the string
+    '
+    ' RETURNS: True if success, False if the list was empty
+
+    Public Function GetList(ByRef value As String) As Boolean
+        Dim bFound As Boolean           ' Default is False
+        Dim item As StringListItem
+
+        While Thread.TestAndSet(list_lock, 1) <> 0
+            Thread.Sleep(0)
+        End While
+
+        item = first_item
+        If Not item Is Nothing Then
+            value = item.data
+            first_item = item.next_item
+            If first_item Is Nothing Then
+                last_item = Nothing
+            End If
+            item.next_item = Nothing
+            item_count -= 1
+            bFound = True
+        End If
+
+        list_lock = 0
+
+        Return bFound
+    End Function
+#End Region
+#Region "GetListWait"
+    ' GetListWait - Wait and get an item from the head of a list
+    '
+    ' ABSTRACT:  This routine waits for the indicated receiver
+    '       event and then returns an item from the list
+    '
+    '       Must be called from the thread "recv_thread".
+    '
+    '       Does not return unless an item is received.
+    '
+    ' INPUTS:   none
+    '
+    ' OUTPUTS:  value   A string variable that receives the string
+    '
+    ' RETURNS:  none
+
+    Public Sub GetListWait(ByRef value As String)
+
+        While GetList(value) = False
+            Thread.WaitEvent(recv_event, -1)
+        End While
+
+    End Sub
+
+End Class
+#End Region

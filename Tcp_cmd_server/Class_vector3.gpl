@@ -1,0 +1,304 @@
+' Copyright (c) 2015 by Precise Automation, Inc.
+' All rights reserved.
+' =======================================================================
+' Permission is granted to customers of Precise Automation to use this
+' software for any purpose, including commercial applications, and to
+' alter it and redistribute it freely, so long as this notice is included
+' with any modified or unmodified version of this software.
+'
+' This software is provided "as is," without warranty of any kind, express or
+' implied.  In no event shall Precise Automation be held liable for any
+' direct, indirect, incidental, special or consequential damages arising
+' out of the use of or inability to use this software.
+'
+' DESCRIPTION:
+'
+'       Class to handle 3-dimensional vectors
+
+#Region "Class Vector3"
+
+' Vector3 Class
+
+Public Class Vector3
+    Public X As Double
+    Public Y As Double
+    Public Z As Double
+#End Region
+
+#Region "New"
+' New - Vector3 Constructor
+'
+' ABSTRACT:  Constructor for Vector3
+'
+' INPUTS:   x_arg, y_arg, z_arg
+'           The X, Y and Z coordinates of the vector
+
+    Public Sub New(ByVal x_arg As Double, _
+           ByVal y_arg As Double, _
+           ByVal z_arg As Double)
+
+        X = x_arg
+        Y = y_arg
+        Z = z_arg
+
+    End Sub
+
+#End Region
+
+#Region "Clone"
+' Clone - Vector3 Constructor
+'
+' ABSTRACT:  Constructor for Vector3
+'
+' INPUTS:   x_arg, y_arg, z_arg
+'           The X, Y and Z coordinates of the vector
+
+    Public Function Clone() As Vector3
+        Dim v As Vector3
+        v = New Vector3(X, Y, Z)
+        Return v
+    End Function
+
+#End Region
+
+#Region "Dot"
+' vDot - Dot product
+'
+' ABSTRACT:  Return the dot product of the current vector
+'       With a 2nd vector
+'
+' INPUTS:   v2      The 2nd vector
+'
+' RETURNS:  The dot product
+
+    Public Function vDot(ByVal v2 As Vector3) As Double
+        Return X*v2.X + Y*v2.Y + Z*v2.Z
+    End Function
+
+#End Region
+
+#Region "Cross"
+' vCross - Cross product
+'
+' ABSTRACT:  Return the cross product of the current vector
+'       With a 2nd vector
+'
+' INPUTS:   v2      The 2nd vector
+'
+' RETURNS:  A vector containing the cross product
+
+    Public Function vCross(ByVal v2 As Vector3) As Vector3
+        Dim v As Vector3
+        v = New Vector3( _
+          Y*v2.Z - Z*v2.Y, _
+          Z*v2.X - X*v2.Z, _
+          X*v2.Y - Y*v2.X)
+        Return v
+    End Function
+
+#End Region
+
+#Region "Mag"
+' vMag - Magnitude of a vector
+'
+' ABSTRACT:  Return the magnitude of a vector
+'
+' INPUTS:   None
+'
+' RETURNS:  The magnitude
+
+    Public Function vMag() As Double
+        Return Math.Sqrt(X*X + Y*Y + Z*Z)
+    End Function
+
+#End Region
+
+#Region "vNorm"
+' vNorm - Normalize a vectors
+'
+' ABSTRACT:  Return current a normalized copy of the current vector,
+'       so that its magnitude is 1.
+'
+' INPUTS:   none
+'
+' RETURNS:  The scaled vector
+
+    Public Function vNorm() As Vector3
+        Dim v As Vector3
+        Dim mag As Double = Math.Sqrt(X*X + Y*Y + Z*Z)
+        If mag > 0.000001 Then
+            v = New Vector3( _
+              X/mag, _
+              Y/mag, _
+              Z/mag)
+        Else
+            v = Me.Clone                ' Cannot normalize
+        End If
+        Return v
+    End Function
+
+#End Region
+
+#Region "vAdd"
+' Add - vAdd vectors
+'
+' ABSTRACT:  Return the sum of the current vector with a 2nd vector
+'
+' INPUTS:   v2      The 2nd vector
+'
+' RETURNS:  A vector containing the sum
+
+    Public Function vAdd(ByVal v2 As Vector3) As Vector3
+        Dim v As Vector3
+        v = New Vector3( _
+          X + v2.X, _
+          Y + v2.Y, _
+          Z + v2.Z)
+        Return v
+    End Function
+
+#End Region
+
+#Region "vSub"
+' vSub - Subtract vectors
+'
+' ABSTRACT:  Return current vector minus a 2nd vector
+'
+' INPUTS:   v2      The 2nd vector
+'
+' RETURNS:  A vector containing the difference
+
+    Public Function vSub(ByVal v2 As Vector3) As Vector3
+        Dim v As Vector3
+        v = New Vector3( _
+          X - v2.X, _
+          Y - v2.Y, _
+          Z - v2.Z)
+        Return v
+    End Function
+
+#End Region
+
+#Region "vScale"
+' vScale - Scale vectors by scalar
+'
+' ABSTRACT:  Return current vector time a scalar value
+'
+' INPUTS:   scale      The scale factor
+'
+' RETURNS:  The scaled vector
+
+    Public Function vScale(ByVal scale As Double) As Vector3
+        Dim v As Vector3
+        v = New Vector3( _
+          X*scale, _
+          Y*scale, _
+          Z*scale)
+        Return v
+    End Function
+
+#End Region
+
+#Region "UnitX"
+' UnitX - Unit vector in the X direction of a location
+'
+' ABSTRACT:  Returns a unit vector that points in the
+'       X direction of the input location.
+'
+' INPUTS:   loc_arg         The input location
+'
+' RETURNS:  The unit vector
+
+    Public Shared Function UnitX(ByVal loc_arg As Location) As Vector3
+        Dim l1 As Location = loc_arg.Clone
+        Dim l2 As Location
+        Dim v As Vector3
+
+        l1.XYZInc(-l1.X, -l1.Y, -l1.Z) ' Get only rotation
+        l2 = l1.Mul(Location.XYZValue(1, 0, 0)) ' Mult by X unit vector
+        v = New Vector3(l2.X, l2.Y, l2.Z)
+        Return v
+    End Function
+
+#End Region
+
+#Region "UnitY"
+' UnitY - Unit vector in the Y direction of a location
+'
+' ABSTRACT:  Returns a unit vector that points in the
+'       Y direction of the input location.
+'
+' INPUTS:   loc_arg         The input location
+'
+' RETURNS:  The unit vector
+
+    Public Shared Function UnitY(ByVal loc_arg As Location) As Vector3
+        Dim l1 As Location = loc_arg.Clone
+        Dim l2 As Location
+        Dim v As Vector3
+
+        l1.XYZInc(-l1.X, -l1.Y, -l1.Z) ' Get only rotation
+        l2 = l1.Mul(Location.XYZValue(0, 1, 0)) ' Mult by Y unit vector
+        v = New Vector3(l2.X, l2.Y, l2.Z)
+        Return v
+    End Function
+
+#End Region
+
+#Region "UnitZ"
+' UnitZ - Unit vector in the Z direction of a location
+'
+' ABSTRACT:  Returns a unit vector that points in the
+'       Z direction of the input location.
+'
+' INPUTS:   loc_arg         The input location
+'
+' RETURNS:  The unit vector
+
+    Public Shared Function UnitZ(ByVal loc_arg As Location) As Vector3
+        Dim l1 As Location = loc_arg.Clone
+        Dim l2 As Location
+        Dim v As Vector3
+
+        l1.XYZInc(-l1.X, -l1.Y, -l1.Z) ' Get only rotation
+        l2 = l1.Mul(Location.XYZValue(0, 0, 1)) ' Mult by Z unit vector
+        v = New Vector3(l2.X, l2.Y, l2.Z)
+        Return v
+    End Function
+
+#End Region
+
+#Region "Loc"
+' Loc - Create a location from a vector
+'
+' ABSTRACT:  Returns a location with the X Y Z from the vector
+'       and null rotation
+'
+' INPUTS:   none
+'
+' RETURNS:  The location
+
+    Public Function Loc() As Location
+        Return Location.XYZValue(X, Y, Z)
+    End Function
+
+#End Region
+
+#Region "XYZ"
+' XYZ - Create a vector from a location
+'
+' ABSTRACT:  Returns a vector with the X Y Z values of a location
+'
+' INPUTS:   loc_arg         The input location
+'
+' RETURNS:  The vector
+
+    Public Shared Function XYZ(ByVal loc_arg As Location) As Vector3
+        Dim v As Vector3
+        v = New Vector3(loc_arg.X, loc_arg.Y, loc_arg.Z)
+        Return v
+    End Function
+
+#End Region
+
+End Class ' Vector3

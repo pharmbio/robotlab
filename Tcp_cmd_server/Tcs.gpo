@@ -1,0 +1,679 @@
+'GPL Generated Code.  Please do not manually edit
+'Created: 8/12/2015 5:30:41 PM
+'
+Module Tcs
+  Public tcs_sta_frame_1(20) As RefFrame
+  Public tcs_sta_loc_1(20) As Location
+  Public tcs_prof_1(20) As Profile
+  Public tcs_sta_flags_1(20) As Integer
+  Public tcs_sta_rail_1(20) As Double
+  Public tcs_sta_z_above_1(20) As Double
+  Public tcs_sta_z_grasp_offset_1(20) As Double
+
+  Public Sub Init
+    '<IntegerVariable>tcs_sta_flags_1,20
+    tcs_sta_flags_1(0) = 0
+    tcs_sta_flags_1(1) = 0
+    tcs_sta_flags_1(2) = 0
+    tcs_sta_flags_1(3) = 0
+    tcs_sta_flags_1(4) = 0
+    tcs_sta_flags_1(5) = 0
+    tcs_sta_flags_1(6) = 0
+    tcs_sta_flags_1(7) = 0
+    tcs_sta_flags_1(8) = 0
+    tcs_sta_flags_1(9) = 0
+    tcs_sta_flags_1(10) = 0
+    tcs_sta_flags_1(11) = 0
+    tcs_sta_flags_1(12) = 0
+    tcs_sta_flags_1(13) = 0
+    tcs_sta_flags_1(14) = 0
+    tcs_sta_flags_1(15) = 0
+    tcs_sta_flags_1(16) = 0
+    tcs_sta_flags_1(17) = 0
+    tcs_sta_flags_1(18) = 0
+    tcs_sta_flags_1(19) = 0
+    tcs_sta_flags_1(20) = 0
+    '</IntegerVariable>
+
+    '<DoubleVariable>tcs_sta_rail_1,20
+    tcs_sta_rail_1(0) = 0.0
+    tcs_sta_rail_1(1) = 0.0
+    tcs_sta_rail_1(2) = 0.0
+    tcs_sta_rail_1(3) = 0.0
+    tcs_sta_rail_1(4) = 0.0
+    tcs_sta_rail_1(5) = 0.0
+    tcs_sta_rail_1(6) = 0.0
+    tcs_sta_rail_1(7) = 0.0
+    tcs_sta_rail_1(8) = 0.0
+    tcs_sta_rail_1(9) = 0.0
+    tcs_sta_rail_1(10) = 0.0
+    tcs_sta_rail_1(11) = 0.0
+    tcs_sta_rail_1(12) = 0.0
+    tcs_sta_rail_1(13) = 0.0
+    tcs_sta_rail_1(14) = 0.0
+    tcs_sta_rail_1(15) = 0.0
+    tcs_sta_rail_1(16) = 0.0
+    tcs_sta_rail_1(17) = 0.0
+    tcs_sta_rail_1(18) = 0.0
+    tcs_sta_rail_1(19) = 0.0
+    tcs_sta_rail_1(20) = 0.0
+    '</DoubleVariable>
+
+    '<DoubleVariable>tcs_sta_z_above_1,20
+    tcs_sta_z_above_1(0) = 0.0
+    tcs_sta_z_above_1(1) = 0.0
+    tcs_sta_z_above_1(2) = 0.0
+    tcs_sta_z_above_1(3) = 0.0
+    tcs_sta_z_above_1(4) = 0.0
+    tcs_sta_z_above_1(5) = 0.0
+    tcs_sta_z_above_1(6) = 0.0
+    tcs_sta_z_above_1(7) = 0.0
+    tcs_sta_z_above_1(8) = 0.0
+    tcs_sta_z_above_1(9) = 0.0
+    tcs_sta_z_above_1(10) = 0.0
+    tcs_sta_z_above_1(11) = 0.0
+    tcs_sta_z_above_1(12) = 0.0
+    tcs_sta_z_above_1(13) = 0.0
+    tcs_sta_z_above_1(14) = 0.0
+    tcs_sta_z_above_1(15) = 0.0
+    tcs_sta_z_above_1(16) = 0.0
+    tcs_sta_z_above_1(17) = 0.0
+    tcs_sta_z_above_1(18) = 0.0
+    tcs_sta_z_above_1(19) = 0.0
+    tcs_sta_z_above_1(20) = 0.0
+    '</DoubleVariable>
+
+    '<DoubleVariable>tcs_sta_z_grasp_offset_1,20
+    tcs_sta_z_grasp_offset_1(0) = 0.0
+    tcs_sta_z_grasp_offset_1(1) = 0.0
+    tcs_sta_z_grasp_offset_1(2) = 0.0
+    tcs_sta_z_grasp_offset_1(3) = 0.0
+    tcs_sta_z_grasp_offset_1(4) = 0.0
+    tcs_sta_z_grasp_offset_1(5) = 0.0
+    tcs_sta_z_grasp_offset_1(6) = 0.0
+    tcs_sta_z_grasp_offset_1(7) = 0.0
+    tcs_sta_z_grasp_offset_1(8) = 0.0
+    tcs_sta_z_grasp_offset_1(9) = 0.0
+    tcs_sta_z_grasp_offset_1(10) = 0.0
+    tcs_sta_z_grasp_offset_1(11) = 0.0
+    tcs_sta_z_grasp_offset_1(12) = 0.0
+    tcs_sta_z_grasp_offset_1(13) = 0.0
+    tcs_sta_z_grasp_offset_1(14) = 0.0
+    tcs_sta_z_grasp_offset_1(15) = 0.0
+    tcs_sta_z_grasp_offset_1(16) = 0.0
+    tcs_sta_z_grasp_offset_1(17) = 0.0
+    tcs_sta_z_grasp_offset_1(18) = 0.0
+    tcs_sta_z_grasp_offset_1(19) = 0.0
+    tcs_sta_z_grasp_offset_1(20) = 0.0
+    '</DoubleVariable>
+
+    '<MotionFrame>tcs_sta_frame_1,20
+    tcs_sta_frame_1(0) = New RefFrame
+    tcs_sta_frame_1(0).Type = 0
+    tcs_sta_frame_1(0).Loc.XYZ(0,0,0,0,0,0)
+    '</MotionFrame>
+
+    '<MotionFrame>tcs_sta_frame_1,20
+    tcs_sta_frame_1(1) = New RefFrame
+    tcs_sta_frame_1(1).Type = 0
+    tcs_sta_frame_1(1).Loc.XYZ(0,0,0,0,0,0)
+    '</MotionFrame>
+
+    '<MotionFrame>tcs_sta_frame_1,20
+    tcs_sta_frame_1(2) = New RefFrame
+    tcs_sta_frame_1(2).Type = 0
+    tcs_sta_frame_1(2).Loc.XYZ(0,0,0,0,0,0)
+    '</MotionFrame>
+
+    '<MotionFrame>tcs_sta_frame_1,20
+    tcs_sta_frame_1(3) = New RefFrame
+    tcs_sta_frame_1(3).Type = 0
+    tcs_sta_frame_1(3).Loc.XYZ(0,0,0,0,0,0)
+    '</MotionFrame>
+
+    '<MotionFrame>tcs_sta_frame_1,20
+    tcs_sta_frame_1(4) = New RefFrame
+    tcs_sta_frame_1(4).Type = 0
+    tcs_sta_frame_1(4).Loc.XYZ(0,0,0,0,0,0)
+    '</MotionFrame>
+
+    '<MotionFrame>tcs_sta_frame_1,20
+    tcs_sta_frame_1(5) = New RefFrame
+    tcs_sta_frame_1(5).Type = 0
+    tcs_sta_frame_1(5).Loc.XYZ(0,0,0,0,0,0)
+    '</MotionFrame>
+
+    '<MotionFrame>tcs_sta_frame_1,20
+    tcs_sta_frame_1(6) = New RefFrame
+    tcs_sta_frame_1(6).Type = 0
+    tcs_sta_frame_1(6).Loc.XYZ(0,0,0,0,0,0)
+    '</MotionFrame>
+
+    '<MotionFrame>tcs_sta_frame_1,20
+    tcs_sta_frame_1(7) = New RefFrame
+    tcs_sta_frame_1(7).Type = 0
+    tcs_sta_frame_1(7).Loc.XYZ(0,0,0,0,0,0)
+    '</MotionFrame>
+
+    '<MotionFrame>tcs_sta_frame_1,20
+    tcs_sta_frame_1(8) = New RefFrame
+    tcs_sta_frame_1(8).Type = 0
+    tcs_sta_frame_1(8).Loc.XYZ(0,0,0,0,0,0)
+    '</MotionFrame>
+
+    '<MotionFrame>tcs_sta_frame_1,20
+    tcs_sta_frame_1(9) = New RefFrame
+    tcs_sta_frame_1(9).Type = 0
+    tcs_sta_frame_1(9).Loc.XYZ(0,0,0,0,0,0)
+    '</MotionFrame>
+
+    '<MotionFrame>tcs_sta_frame_1,20
+    tcs_sta_frame_1(10) = New RefFrame
+    tcs_sta_frame_1(10).Type = 0
+    tcs_sta_frame_1(10).Loc.XYZ(0,0,0,0,0,0)
+    '</MotionFrame>
+
+    '<MotionFrame>tcs_sta_frame_1,20
+    tcs_sta_frame_1(11) = New RefFrame
+    tcs_sta_frame_1(11).Type = 0
+    tcs_sta_frame_1(11).Loc.XYZ(0,0,0,0,0,0)
+    '</MotionFrame>
+
+    '<MotionFrame>tcs_sta_frame_1,20
+    tcs_sta_frame_1(12) = New RefFrame
+    tcs_sta_frame_1(12).Type = 0
+    tcs_sta_frame_1(12).Loc.XYZ(0,0,0,0,0,0)
+    '</MotionFrame>
+
+    '<MotionFrame>tcs_sta_frame_1,20
+    tcs_sta_frame_1(13) = New RefFrame
+    tcs_sta_frame_1(13).Type = 0
+    tcs_sta_frame_1(13).Loc.XYZ(0,0,0,0,0,0)
+    '</MotionFrame>
+
+    '<MotionFrame>tcs_sta_frame_1,20
+    tcs_sta_frame_1(14) = New RefFrame
+    tcs_sta_frame_1(14).Type = 0
+    tcs_sta_frame_1(14).Loc.XYZ(0,0,0,0,0,0)
+    '</MotionFrame>
+
+    '<MotionFrame>tcs_sta_frame_1,20
+    tcs_sta_frame_1(15) = New RefFrame
+    tcs_sta_frame_1(15).Type = 0
+    tcs_sta_frame_1(15).Loc.XYZ(0,0,0,0,0,0)
+    '</MotionFrame>
+
+    '<MotionFrame>tcs_sta_frame_1,20
+    tcs_sta_frame_1(16) = New RefFrame
+    tcs_sta_frame_1(16).Type = 0
+    tcs_sta_frame_1(16).Loc.XYZ(0,0,0,0,0,0)
+    '</MotionFrame>
+
+    '<MotionFrame>tcs_sta_frame_1,20
+    tcs_sta_frame_1(17) = New RefFrame
+    tcs_sta_frame_1(17).Type = 0
+    tcs_sta_frame_1(17).Loc.XYZ(0,0,0,0,0,0)
+    '</MotionFrame>
+
+    '<MotionFrame>tcs_sta_frame_1,20
+    tcs_sta_frame_1(18) = New RefFrame
+    tcs_sta_frame_1(18).Type = 0
+    tcs_sta_frame_1(18).Loc.XYZ(0,0,0,0,0,0)
+    '</MotionFrame>
+
+    '<MotionFrame>tcs_sta_frame_1,20
+    tcs_sta_frame_1(19) = New RefFrame
+    tcs_sta_frame_1(19).Type = 0
+    tcs_sta_frame_1(19).Loc.XYZ(0,0,0,0,0,0)
+    '</MotionFrame>
+
+    '<MotionFrame>tcs_sta_frame_1,20
+    tcs_sta_frame_1(20) = New RefFrame
+    tcs_sta_frame_1(20).Type = 0
+    tcs_sta_frame_1(20).Loc.XYZ(0,0,0,0,0,0)
+    '</MotionFrame>
+
+    '<MotionLocation>tcs_sta_loc_1,20
+    tcs_sta_loc_1(0) = New Location
+    tcs_sta_loc_1(0).Type = 0
+    tcs_sta_loc_1(0).XYZ(0,0,0,0,0,0)
+    tcs_sta_loc_1(0).ZWorld = False
+    tcs_sta_loc_1(0).ZClearance = 1E+32
+    tcs_sta_loc_1(0).Config = 0
+    '</MotionLocation>
+
+    '<MotionLocation>tcs_sta_loc_1,20
+    tcs_sta_loc_1(1) = New Location
+    tcs_sta_loc_1(1).Type = 0
+    tcs_sta_loc_1(1).XYZ(0,0,0,0,0,0)
+    tcs_sta_loc_1(1).ZWorld = False
+    tcs_sta_loc_1(1).ZClearance = 1E+32
+    tcs_sta_loc_1(1).Config = 1
+    '</MotionLocation>
+
+    '<MotionLocation>tcs_sta_loc_1,20
+    tcs_sta_loc_1(2) = New Location
+    tcs_sta_loc_1(2).Type = 0
+    tcs_sta_loc_1(2).XYZ(0,0,0,0,0,0)
+    tcs_sta_loc_1(2).ZWorld = False
+    tcs_sta_loc_1(2).ZClearance = 1E+32
+    tcs_sta_loc_1(2).Config = 0
+    '</MotionLocation>
+
+    '<MotionLocation>tcs_sta_loc_1,20
+    tcs_sta_loc_1(3) = New Location
+    tcs_sta_loc_1(3).Type = 0
+    tcs_sta_loc_1(3).XYZ(0,0,0,0,0,0)
+    tcs_sta_loc_1(3).ZWorld = False
+    tcs_sta_loc_1(3).ZClearance = 1E+32
+    tcs_sta_loc_1(3).Config = 0
+    '</MotionLocation>
+
+    '<MotionLocation>tcs_sta_loc_1,20
+    tcs_sta_loc_1(4) = New Location
+    tcs_sta_loc_1(4).Type = 0
+    tcs_sta_loc_1(4).XYZ(0,0,0,0,0,0)
+    tcs_sta_loc_1(4).ZWorld = False
+    tcs_sta_loc_1(4).ZClearance = 1E+32
+    tcs_sta_loc_1(4).Config = 0
+    '</MotionLocation>
+
+    '<MotionLocation>tcs_sta_loc_1,20
+    tcs_sta_loc_1(5) = New Location
+    tcs_sta_loc_1(5).Type = 0
+    tcs_sta_loc_1(5).XYZ(0,0,0,0,0,0)
+    tcs_sta_loc_1(5).ZWorld = False
+    tcs_sta_loc_1(5).ZClearance = 1E+32
+    tcs_sta_loc_1(5).Config = 0
+    '</MotionLocation>
+
+    '<MotionLocation>tcs_sta_loc_1,20
+    tcs_sta_loc_1(6) = New Location
+    tcs_sta_loc_1(6).Type = 0
+    tcs_sta_loc_1(6).XYZ(0,0,0,0,0,0)
+    tcs_sta_loc_1(6).ZWorld = False
+    tcs_sta_loc_1(6).ZClearance = 1E+32
+    tcs_sta_loc_1(6).Config = 0
+    '</MotionLocation>
+
+    '<MotionLocation>tcs_sta_loc_1,20
+    tcs_sta_loc_1(7) = New Location
+    tcs_sta_loc_1(7).Type = 0
+    tcs_sta_loc_1(7).XYZ(0,0,0,0,0,0)
+    tcs_sta_loc_1(7).ZWorld = False
+    tcs_sta_loc_1(7).ZClearance = 1E+32
+    tcs_sta_loc_1(7).Config = 0
+    '</MotionLocation>
+
+    '<MotionLocation>tcs_sta_loc_1,20
+    tcs_sta_loc_1(8) = New Location
+    tcs_sta_loc_1(8).Type = 0
+    tcs_sta_loc_1(8).XYZ(0,0,0,0,0,0)
+    tcs_sta_loc_1(8).ZWorld = False
+    tcs_sta_loc_1(8).ZClearance = 1E+32
+    tcs_sta_loc_1(8).Config = 0
+    '</MotionLocation>
+
+    '<MotionLocation>tcs_sta_loc_1,20
+    tcs_sta_loc_1(9) = New Location
+    tcs_sta_loc_1(9).Type = 0
+    tcs_sta_loc_1(9).XYZ(0,0,0,0,0,0)
+    tcs_sta_loc_1(9).ZWorld = False
+    tcs_sta_loc_1(9).ZClearance = 1E+32
+    tcs_sta_loc_1(9).Config = 0
+    '</MotionLocation>
+
+    '<MotionLocation>tcs_sta_loc_1,20
+    tcs_sta_loc_1(10) = New Location
+    tcs_sta_loc_1(10).Type = 0
+    tcs_sta_loc_1(10).XYZ(0,0,0,0,0,0)
+    tcs_sta_loc_1(10).ZWorld = False
+    tcs_sta_loc_1(10).ZClearance = 1E+32
+    tcs_sta_loc_1(10).Config = 0
+    '</MotionLocation>
+
+    '<MotionLocation>tcs_sta_loc_1,20
+    tcs_sta_loc_1(11) = New Location
+    tcs_sta_loc_1(11).Type = 0
+    tcs_sta_loc_1(11).XYZ(0,0,0,0,0,0)
+    tcs_sta_loc_1(11).ZWorld = False
+    tcs_sta_loc_1(11).ZClearance = 1E+32
+    tcs_sta_loc_1(11).Config = 0
+    '</MotionLocation>
+
+    '<MotionLocation>tcs_sta_loc_1,20
+    tcs_sta_loc_1(12) = New Location
+    tcs_sta_loc_1(12).Type = 0
+    tcs_sta_loc_1(12).XYZ(0,0,0,0,0,0)
+    tcs_sta_loc_1(12).ZWorld = False
+    tcs_sta_loc_1(12).ZClearance = 1E+32
+    tcs_sta_loc_1(12).Config = 0
+    '</MotionLocation>
+
+    '<MotionLocation>tcs_sta_loc_1,20
+    tcs_sta_loc_1(13) = New Location
+    tcs_sta_loc_1(13).Type = 0
+    tcs_sta_loc_1(13).XYZ(0,0,0,0,0,0)
+    tcs_sta_loc_1(13).ZWorld = False
+    tcs_sta_loc_1(13).ZClearance = 1E+32
+    tcs_sta_loc_1(13).Config = 0
+    '</MotionLocation>
+
+    '<MotionLocation>tcs_sta_loc_1,20
+    tcs_sta_loc_1(14) = New Location
+    tcs_sta_loc_1(14).Type = 0
+    tcs_sta_loc_1(14).XYZ(0,0,0,0,0,0)
+    tcs_sta_loc_1(14).ZWorld = False
+    tcs_sta_loc_1(14).ZClearance = 1E+32
+    tcs_sta_loc_1(14).Config = 0
+    '</MotionLocation>
+
+    '<MotionLocation>tcs_sta_loc_1,20
+    tcs_sta_loc_1(15) = New Location
+    tcs_sta_loc_1(15).Type = 0
+    tcs_sta_loc_1(15).XYZ(0,0,0,0,0,0)
+    tcs_sta_loc_1(15).ZWorld = False
+    tcs_sta_loc_1(15).ZClearance = 1E+32
+    tcs_sta_loc_1(15).Config = 0
+    '</MotionLocation>
+
+    '<MotionLocation>tcs_sta_loc_1,20
+    tcs_sta_loc_1(16) = New Location
+    tcs_sta_loc_1(16).Type = 0
+    tcs_sta_loc_1(16).XYZ(0,0,0,0,0,0)
+    tcs_sta_loc_1(16).ZWorld = False
+    tcs_sta_loc_1(16).ZClearance = 1E+32
+    tcs_sta_loc_1(16).Config = 0
+    '</MotionLocation>
+
+    '<MotionLocation>tcs_sta_loc_1,20
+    tcs_sta_loc_1(17) = New Location
+    tcs_sta_loc_1(17).Type = 0
+    tcs_sta_loc_1(17).XYZ(0,0,0,0,0,0)
+    tcs_sta_loc_1(17).ZWorld = False
+    tcs_sta_loc_1(17).ZClearance = 1E+32
+    tcs_sta_loc_1(17).Config = 0
+    '</MotionLocation>
+
+    '<MotionLocation>tcs_sta_loc_1,20
+    tcs_sta_loc_1(18) = New Location
+    tcs_sta_loc_1(18).Type = 0
+    tcs_sta_loc_1(18).XYZ(0,0,0,0,0,0)
+    tcs_sta_loc_1(18).ZWorld = False
+    tcs_sta_loc_1(18).ZClearance = 1E+32
+    tcs_sta_loc_1(18).Config = 0
+    '</MotionLocation>
+
+    '<MotionLocation>tcs_sta_loc_1,20
+    tcs_sta_loc_1(19) = New Location
+    tcs_sta_loc_1(19).Type = 0
+    tcs_sta_loc_1(19).XYZ(0,0,0,0,0,0)
+    tcs_sta_loc_1(19).ZWorld = False
+    tcs_sta_loc_1(19).ZClearance = 1E+32
+    tcs_sta_loc_1(19).Config = 0
+    '</MotionLocation>
+
+    '<MotionLocation>tcs_sta_loc_1,20
+    tcs_sta_loc_1(20) = New Location
+    tcs_sta_loc_1(20).Type = 0
+    tcs_sta_loc_1(20).XYZ(0,0,0,0,0,0)
+    tcs_sta_loc_1(20).ZWorld = False
+    tcs_sta_loc_1(20).ZClearance = 1E+32
+    tcs_sta_loc_1(20).Config = 0
+    '</MotionLocation>
+
+    '<MotionProfile>tcs_prof_1,20
+    tcs_prof_1(0) = New Profile
+    tcs_prof_1(0).Speed = 25
+    tcs_prof_1(0).Speed2 = 0
+    tcs_prof_1(0).Accel = 50
+    tcs_prof_1(0).Decel = 50
+    tcs_prof_1(0).AccelRamp = 0.1
+    tcs_prof_1(0).DecelRamp = 0.1
+    tcs_prof_1(0).Straight = True
+    tcs_prof_1(0).InRange = 10
+    '</MotionProfile>
+
+    '<MotionProfile>tcs_prof_1,20
+    tcs_prof_1(1) = New Profile
+    tcs_prof_1(1).Speed = 25
+    tcs_prof_1(1).Speed2 = 0
+    tcs_prof_1(1).Accel = 50
+    tcs_prof_1(1).Decel = 50
+    tcs_prof_1(1).AccelRamp = 0.1
+    tcs_prof_1(1).DecelRamp = 0.1
+    tcs_prof_1(1).Straight = True
+    tcs_prof_1(1).InRange = 10
+    '</MotionProfile>
+
+    '<MotionProfile>tcs_prof_1,20
+    tcs_prof_1(2) = New Profile
+    tcs_prof_1(2).Speed = 25
+    tcs_prof_1(2).Speed2 = 0
+    tcs_prof_1(2).Accel = 50
+    tcs_prof_1(2).Decel = 50
+    tcs_prof_1(2).AccelRamp = 0.1
+    tcs_prof_1(2).DecelRamp = 0.1
+    tcs_prof_1(2).Straight = True
+    tcs_prof_1(2).InRange = 10
+    '</MotionProfile>
+
+    '<MotionProfile>tcs_prof_1,20
+    tcs_prof_1(3) = New Profile
+    tcs_prof_1(3).Speed = 25
+    tcs_prof_1(3).Speed2 = 0
+    tcs_prof_1(3).Accel = 50
+    tcs_prof_1(3).Decel = 50
+    tcs_prof_1(3).AccelRamp = 0.1
+    tcs_prof_1(3).DecelRamp = 0.1
+    tcs_prof_1(3).Straight = True
+    tcs_prof_1(3).InRange = 10
+    '</MotionProfile>
+
+    '<MotionProfile>tcs_prof_1,20
+    tcs_prof_1(4) = New Profile
+    tcs_prof_1(4).Speed = 25
+    tcs_prof_1(4).Speed2 = 0
+    tcs_prof_1(4).Accel = 50
+    tcs_prof_1(4).Decel = 50
+    tcs_prof_1(4).AccelRamp = 0.1
+    tcs_prof_1(4).DecelRamp = 0.1
+    tcs_prof_1(4).Straight = True
+    tcs_prof_1(4).InRange = 10
+    '</MotionProfile>
+
+    '<MotionProfile>tcs_prof_1,20
+    tcs_prof_1(5) = New Profile
+    tcs_prof_1(5).Speed = 25
+    tcs_prof_1(5).Speed2 = 0
+    tcs_prof_1(5).Accel = 50
+    tcs_prof_1(5).Decel = 50
+    tcs_prof_1(5).AccelRamp = 0.1
+    tcs_prof_1(5).DecelRamp = 0.1
+    tcs_prof_1(5).Straight = True
+    tcs_prof_1(5).InRange = 10
+    '</MotionProfile>
+
+    '<MotionProfile>tcs_prof_1,20
+    tcs_prof_1(6) = New Profile
+    tcs_prof_1(6).Speed = 25
+    tcs_prof_1(6).Speed2 = 0
+    tcs_prof_1(6).Accel = 50
+    tcs_prof_1(6).Decel = 50
+    tcs_prof_1(6).AccelRamp = 0.1
+    tcs_prof_1(6).DecelRamp = 0.1
+    tcs_prof_1(6).Straight = True
+    tcs_prof_1(6).InRange = 10
+    '</MotionProfile>
+
+    '<MotionProfile>tcs_prof_1,20
+    tcs_prof_1(7) = New Profile
+    tcs_prof_1(7).Speed = 25
+    tcs_prof_1(7).Speed2 = 0
+    tcs_prof_1(7).Accel = 50
+    tcs_prof_1(7).Decel = 50
+    tcs_prof_1(7).AccelRamp = 0.1
+    tcs_prof_1(7).DecelRamp = 0.1
+    tcs_prof_1(7).Straight = True
+    tcs_prof_1(7).InRange = 10
+    '</MotionProfile>
+
+    '<MotionProfile>tcs_prof_1,20
+    tcs_prof_1(8) = New Profile
+    tcs_prof_1(8).Speed = 25
+    tcs_prof_1(8).Speed2 = 0
+    tcs_prof_1(8).Accel = 50
+    tcs_prof_1(8).Decel = 50
+    tcs_prof_1(8).AccelRamp = 0.1
+    tcs_prof_1(8).DecelRamp = 0.1
+    tcs_prof_1(8).Straight = True
+    tcs_prof_1(8).InRange = 10
+    '</MotionProfile>
+
+    '<MotionProfile>tcs_prof_1,20
+    tcs_prof_1(9) = New Profile
+    tcs_prof_1(9).Speed = 25
+    tcs_prof_1(9).Speed2 = 0
+    tcs_prof_1(9).Accel = 50
+    tcs_prof_1(9).Decel = 50
+    tcs_prof_1(9).AccelRamp = 0.1
+    tcs_prof_1(9).DecelRamp = 0.1
+    tcs_prof_1(9).Straight = True
+    tcs_prof_1(9).InRange = 10
+    '</MotionProfile>
+
+    '<MotionProfile>tcs_prof_1,20
+    tcs_prof_1(10) = New Profile
+    tcs_prof_1(10).Speed = 25
+    tcs_prof_1(10).Speed2 = 0
+    tcs_prof_1(10).Accel = 50
+    tcs_prof_1(10).Decel = 50
+    tcs_prof_1(10).AccelRamp = 0.1
+    tcs_prof_1(10).DecelRamp = 0.1
+    tcs_prof_1(10).Straight = True
+    tcs_prof_1(10).InRange = 10
+    '</MotionProfile>
+
+    '<MotionProfile>tcs_prof_1,20
+    tcs_prof_1(11) = New Profile
+    tcs_prof_1(11).Speed = 25
+    tcs_prof_1(11).Speed2 = 0
+    tcs_prof_1(11).Accel = 50
+    tcs_prof_1(11).Decel = 50
+    tcs_prof_1(11).AccelRamp = 0.1
+    tcs_prof_1(11).DecelRamp = 0.1
+    tcs_prof_1(11).Straight = True
+    tcs_prof_1(11).InRange = 10
+    '</MotionProfile>
+
+    '<MotionProfile>tcs_prof_1,20
+    tcs_prof_1(12) = New Profile
+    tcs_prof_1(12).Speed = 25
+    tcs_prof_1(12).Speed2 = 0
+    tcs_prof_1(12).Accel = 50
+    tcs_prof_1(12).Decel = 50
+    tcs_prof_1(12).AccelRamp = 0.1
+    tcs_prof_1(12).DecelRamp = 0.1
+    tcs_prof_1(12).Straight = True
+    tcs_prof_1(12).InRange = 10
+    '</MotionProfile>
+
+    '<MotionProfile>tcs_prof_1,20
+    tcs_prof_1(13) = New Profile
+    tcs_prof_1(13).Speed = 25
+    tcs_prof_1(13).Speed2 = 0
+    tcs_prof_1(13).Accel = 50
+    tcs_prof_1(13).Decel = 50
+    tcs_prof_1(13).AccelRamp = 0.1
+    tcs_prof_1(13).DecelRamp = 0.1
+    tcs_prof_1(13).Straight = True
+    tcs_prof_1(13).InRange = 10
+    '</MotionProfile>
+
+    '<MotionProfile>tcs_prof_1,20
+    tcs_prof_1(14) = New Profile
+    tcs_prof_1(14).Speed = 25
+    tcs_prof_1(14).Speed2 = 0
+    tcs_prof_1(14).Accel = 50
+    tcs_prof_1(14).Decel = 50
+    tcs_prof_1(14).AccelRamp = 0.1
+    tcs_prof_1(14).DecelRamp = 0.1
+    tcs_prof_1(14).Straight = True
+    tcs_prof_1(14).InRange = 10
+    '</MotionProfile>
+
+    '<MotionProfile>tcs_prof_1,20
+    tcs_prof_1(15) = New Profile
+    tcs_prof_1(15).Speed = 25
+    tcs_prof_1(15).Speed2 = 0
+    tcs_prof_1(15).Accel = 50
+    tcs_prof_1(15).Decel = 50
+    tcs_prof_1(15).AccelRamp = 0.1
+    tcs_prof_1(15).DecelRamp = 0.1
+    tcs_prof_1(15).Straight = True
+    tcs_prof_1(15).InRange = 10
+    '</MotionProfile>
+
+    '<MotionProfile>tcs_prof_1,20
+    tcs_prof_1(16) = New Profile
+    tcs_prof_1(16).Speed = 25
+    tcs_prof_1(16).Speed2 = 0
+    tcs_prof_1(16).Accel = 50
+    tcs_prof_1(16).Decel = 50
+    tcs_prof_1(16).AccelRamp = 0.1
+    tcs_prof_1(16).DecelRamp = 0.1
+    tcs_prof_1(16).Straight = True
+    tcs_prof_1(16).InRange = 10
+    '</MotionProfile>
+
+    '<MotionProfile>tcs_prof_1,20
+    tcs_prof_1(17) = New Profile
+    tcs_prof_1(17).Speed = 25
+    tcs_prof_1(17).Speed2 = 0
+    tcs_prof_1(17).Accel = 50
+    tcs_prof_1(17).Decel = 50
+    tcs_prof_1(17).AccelRamp = 0.1
+    tcs_prof_1(17).DecelRamp = 0.1
+    tcs_prof_1(17).Straight = True
+    tcs_prof_1(17).InRange = 10
+    '</MotionProfile>
+
+    '<MotionProfile>tcs_prof_1,20
+    tcs_prof_1(18) = New Profile
+    tcs_prof_1(18).Speed = 25
+    tcs_prof_1(18).Speed2 = 0
+    tcs_prof_1(18).Accel = 50
+    tcs_prof_1(18).Decel = 50
+    tcs_prof_1(18).AccelRamp = 0.1
+    tcs_prof_1(18).DecelRamp = 0.1
+    tcs_prof_1(18).Straight = True
+    tcs_prof_1(18).InRange = 10
+    '</MotionProfile>
+
+    '<MotionProfile>tcs_prof_1,20
+    tcs_prof_1(19) = New Profile
+    tcs_prof_1(19).Speed = 25
+    tcs_prof_1(19).Speed2 = 0
+    tcs_prof_1(19).Accel = 50
+    tcs_prof_1(19).Decel = 50
+    tcs_prof_1(19).AccelRamp = 0.1
+    tcs_prof_1(19).DecelRamp = 0.1
+    tcs_prof_1(19).Straight = True
+    tcs_prof_1(19).InRange = 10
+    '</MotionProfile>
+
+    '<MotionProfile>tcs_prof_1,20
+    tcs_prof_1(20) = New Profile
+    tcs_prof_1(20).Speed = 25
+    tcs_prof_1(20).Speed2 = 0
+    tcs_prof_1(20).Accel = 50
+    tcs_prof_1(20).Decel = 50
+    tcs_prof_1(20).AccelRamp = 0.1
+    tcs_prof_1(20).DecelRamp = 0.1
+    tcs_prof_1(20).Straight = True
+    tcs_prof_1(20).InRange = 10
+    '</MotionProfile>
+
+  End Sub
+End Module
+

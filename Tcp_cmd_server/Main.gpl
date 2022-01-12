@@ -1,0 +1,646 @@
+' Copyright (c) 2006-2007, 2012, 2015, 2019 by Precise Automation, Inc.
+' All rights reserved.
+' =======================================================================
+' Permission is granted to customers of Precise Automation to use this
+' software for any purpose, including commercial applications, and to
+' alter it and redistribute it freely, so long as this notice is included
+' with any modified or unmodified version of this software.
+'
+' This software is provided "as is," without warranty of any kind, express or
+' implied.  In no event shall Precise Automation be held liable for any
+' direct, indirect, incidental, special or consequential damages arising
+' out of the use of or inability to use this software.
+' =======================================================================
+' DESCRIPTION:   This is an example application that allows remote motion
+'   commands to be initiated from a specified TCP port.
+'
+Module Main
+
+#Region "TcpComMain"
+    ' ---------------------------------------------------------------------------
+    ' TcpComMain()
+    '
+    ' ABSTRACT: TCP Command Server main communications routine.
+    '
+    ' INPUTS:   robNumArg       The number of the robot initially handled
+    '                           by this thread or zero if this is the
+    '                           status thread
+    '
+    '           Port            The TCP/IP port used to communicate to
+    '                           this thread
+    '
+    ' OUTPUTS: <none>
+    '
+    Public Sub TcpComMain(ByVal robNumArg As Integer, ByVal Port As Integer)
+
+        Dim ii As Integer
+        Dim recv, send, msg As String
+        Dim lf As String = Chr(GPL_LF)
+        Dim cr As String = Chr(GPL_CR)
+        Dim ret As String = cr & lf
+        Dim ws As String = " "
+        Dim lf_pos As Integer
+
+        ' -- Telnet-like TCP server, listening on port 1234.
+        Dim TcpIpe As New IPEndPoint("",Port)
+        Dim TcpTl As New TcpListener(TcpIpe)
+        Dim TcpSock As Socket
+        Dim ex As New Exception
+        Dim dummy As String
+
+        Dim cCount As Integer = 0
+        Dim Cmd As Command
+
+        ' White space used in Telnet mode.
+        For ii = 1 To 80
+            ws &= " "
+        Next
+
+        Cmd = New Command               ' Create command object
+        Cmd.NewRobNum = robNumArg       ' Use this robot
+        If robNumArg = 0 Then
+            Cmd.IsStatus = True
+        End If
+
+        While True
+
+            ' In case of some unknown error, wrap the entire
+            ' server in an error handler
+
+            Try
+
+                ' -- Start listening and wait for a connection.
+    listen:
+                TcpTl.Start()
+                While Not TcpTl.Pending()
+                    Thread.Sleep(500)
+                End While
+
+                msg = "Connection request port " & CStr(Port)
+                If robNumArg > 0 Then
+                    msg &= " robot " & CStr(robNumArg)
+                End If
+                If cCount > 0 Then
+                    msg = CStr(cCount) & " " & msg
+                End If
+                Controller.SystemMessage(msg)
+
+                TcpSock = TcpTl.AcceptSocket()      ' Get the socket
+                TcpSock.KeepAlive = True
+                TcpTl.Stop()                        ' Only service one
+
+                '-- Read from client and echo back messages.
+                msg = ""
+                While True
+
+                    ' Check if associated robot has changed
+
+                    If Cmd.NewRobNum >= 0 Then
+                        robNumArg = Cmd.NewRobNum
+                        Cmd.NewRobNum = -1
+
+                        If RobObject(robNumArg) Is Nothing Then
+                            RobObject(robNumArg) = New RobData(robNumArg)
+                            Cmd.Rob = RobObject(robNumArg) ' Assign robot
+                            Cmd.RunPluginHook("Hook_InitCommand", dummy)
+                        Else
+                            Cmd.Rob = RobObject(robNumArg) ' Assign robot
+                        End If
+
+                        ' Start up the robot thread if not active
+
+                        If (Not Cmd.IsStatus) AndAlso (robNumArg > 0) Then
+                            comThread(robNumArg) = Thread.CurrentThread
+                            If rbThread(robNumArg).ThreadState <> 2 Then
+                                rbMailBox(robNumArg) = Nothing
+                                rbThread(robNumArg).Start
+                            End If
+                        End If
+
+                    End If
+
+                    ' -- Retrieve any inbound string
+                    ii = TcpSock.Receive(recv, 1000)
+                    If ii = 0 Then
+                        TcpSock.Close
+                        msg = " Connection closed port " & CStr(Port)
+                        Controller.SystemMessage(msg)
+                        cCount += 1
+                        GoTo listen ' Loop to listen for new connection
+                    End If
+
+' Uncomment following lines for low-level display of TCP/IP messages
+'                    For ii = 1 To recv.Length
+'                        Console.Write(" " & Hex(Asc(Mid(recv, ii, 1))))
+'                    Next ii
+'                    Console.Writeline("")
+
+                    msg &= recv         ' Accummulate received message
+
+                    ' Check for a complete command
+
+                    lf_pos = msg.IndexOf(lf) ' Get position of lf
+
+                    ' Loop for each LF found in message
+
+                    Do
+
+                        ' If Telnet mode, process simple line editing
+
+                        If bTelnetMode Then
+
+                            While True
+                                ii = msg.IndexOf(Chr(127)) ' Get pos of DEL
+                                If ii < 0 Then
+                                    ii = msg.IndexOf(Chr(8)) ' Get pos of BS
+                                End If
+
+                                If (ii<0) OrElse ((lf_pos >= 0) AndAlso (ii > lf_pos)) Then
+                                    Exit While
+                                End If
+
+                                ' -- Received a [BS] or [DEL]
+                                Backspace(ii, msg)
+                                lf_pos = msg.IndexOf(lf) ' Get new position of lf
+
+                            End While
+
+                            ii = msg.IndexOf(Chr(21)) ' Get position of [Ctrl-U]
+                            If (ii >= 0) AndAlso ((lf_pos < 0) OrElse (ii < lf_pos)) Then
+
+                                ' -- Received [Ctrl-U]
+
+                                TcpSock.Send(cr & ws)
+                                TcpSock.Send(cr & prompt)
+                                If ii < (msg.Length-1) Then
+                                    msg = msg.Substring(ii+1)
+                                Else
+                                    msg = ""
+                                End If
+                                lf_pos = msg.IndexOf(lf) ' Get new position of lf
+                            End If
+
+                        End If
+
+                        ' If received a [LF] process the command
+
+                        If lf_pos >= 0 Then
+
+                            ' Remove cr optionally preceding lf
+
+                            Dim end_pos As Integer = lf_pos
+                            If (lf_pos > 0) AndAlso _
+                               (msg.Substring(lf_pos-1, 1) = cr) Then
+                                end_pos -= 1
+                            End If
+
+                            ' Post the command for execution
+
+                            Cmd.InMsg = msg.Substring(0, end_pos)
+
+                            If Cmd.IsStatus Then
+                                Cmd.Handler() ' Call status handler locally
+                            Else
+                                rbMailBox(Cmd.Rob.RobNum) = Cmd ' Post command
+                                rbThread(Cmd.Rob.RobNum).SendEvent(CommEvent)
+
+                                While Not rbMailBox(Cmd.Rob.RobNum) Is Nothing
+                                    Thread.WaitEvent(CommEvent, -1)
+                                End While
+                            End If
+
+                            ' Handle special response to close this connection
+
+                            If Cmd.Reply = "exit" Then
+                                ex.ErrorCode = -1708    'connection closed exception
+                                Throw ex
+                            End If
+
+                            ' Respond back to sender
+
+                            If bTelnetMode Then
+                                TcpSock.Send(ret & Cmd.Reply)
+                                TcpSock.Send(ret & prompt)
+                            Else
+                                TcpSock.Send(Cmd.Reply & ret)
+                            End If
+
+                            ' Save any unprocessed part of msg for next loop
+
+                            If lf_pos < (msg.Length-1) Then
+                                msg = msg.Substring(lf_pos+1)
+                                lf_pos = msg.IndexOf(lf) ' Get position of LF
+                            Else
+                                msg = ""
+                                lf_pos = -1 ' No LF possible
+                            End If
+                        End If
+
+                    Loop While lf_pos >= 0
+
+                End While
+
+            Catch ex
+
+                ' -- Output error to error log
+                Controller.SystemMessage(CStr(ex.ErrorCode) & " " & ex.Message _
+                          & " Robot:" & CStr(RobNumArg))
+
+                TcpSock.Close()
+                Thread.Sleep(500)       ' Do not overload system
+
+            End Try
+
+        End While
+
+    End Sub
+
+#End Region
+#Region "SerialComMain"
+    ' SerialComMain
+    '
+    ' ABSTRACT: Command server serial communications handler
+    '
+    ' INPUTS:   robNumArg       The number of the robot handled by this thread
+    '                           or zero if this is the status thread
+    '
+    ' OUTPUTS: <none>
+    '
+    Public Sub SerialComMain(ByVal robNumArg As Integer)
+        Dim Cmd As Command
+        Dim ex As Exception
+        Dim ret As String = Chr(GPL_CR) & Chr(GPL_LF)
+        Dim prefix As String = CStr(robNumArg) & " "
+        Dim CmdList As StringList = SerialCmdList(robNumArg)
+        Dim dummy As String
+
+        Cmd = New Command               ' Create command object
+        Cmd.NewRobNum = robNumArg       ' Use this robot
+        If robNumArg = 0 Then
+            Cmd.IsStatus = True
+        End If
+
+        While True
+
+            ' In case of some unknown error, wrap the entire
+            ' server in an error handler
+
+            Try
+
+                While True
+
+                    ' Check if associated robot has changed
+
+                    If Cmd.NewRobNum >= 0 Then
+                        robNumArg = Cmd.NewRobNum
+                        Cmd.NewRobNum = -1
+
+                         If RobObject(robNumArg) Is Nothing Then
+                            RobObject(robNumArg) = New RobData(robNumArg)
+                            Cmd.Rob = RobObject(robNumArg) ' Assign robot
+                            Cmd.RunPluginHook("Hook_InitCommand", dummy)
+                        Else
+                            Cmd.Rob = RobObject(robNumArg) ' Assign robot
+                        End If
+
+                        ' Start up the robot thread if not active
+
+                        If (Not Cmd.IsStatus) AndAlso (robNumArg > 0) Then
+                            comThread(robNumArg) = Thread.CurrentThread
+                            If rbThread(robNumArg).ThreadState <> 2 Then
+                                rbMailBox(robNumArg) = Nothing
+                                rbThread(robNumArg).Start
+                            End If
+                        End If
+
+                    End If
+
+                    ' Wait for the next command message
+
+                    CmdList.GetListWait(Cmd.InMsg)
+
+                    If Cmd.IsStatus Then
+                        Cmd.Handler() ' Call status handler locally
+                    Else
+                        rbMailBox(Cmd.Rob.RobNum) = Cmd ' Post the command
+                        rbThread(Cmd.Rob.RobNum).SendEvent(CommEvent) 'Wake handler
+
+                        While Not rbMailBox(Cmd.Rob.RobNum) Is Nothing
+                            Thread.WaitEvent(CommEvent, -1)
+                        End While
+                    End If
+
+                    ' Respond back to sender
+
+                    If bTelnetMode Then
+                        SerialReplyList.PutList( _
+                            ret & prefix & Cmd.Reply & ret & prompt)
+                    Else
+                        SerialReplyList.PutList( _
+                            prefix & Cmd.Reply & ret)
+                    End If
+
+                End While
+
+            Catch ex
+
+                ' -- Output error to error log
+                Controller.SystemMessage("SerialComMain " _
+                          & CStr(RobNumArg) & ": " _
+                          & CStr(ex.ErrorCode) & " " & ex.Message)
+                Thread.Sleep(500)       ' Do not overload system
+
+            End Try
+
+        End While
+
+    End Sub
+
+#End Region
+#Region "SerialReceiver"
+    ' SerialReceiver -- Task to receive all serial communications
+    '
+    ' ABSTRACT: Serial communications server
+    '
+    ' INPUTS:   <none>
+    '
+    ' OUTPUTS: <none>
+    '
+    Public Sub SerialReceiver()
+
+        Dim i As StreamReader
+        Dim c As Integer
+        Dim msg As String
+        Dim ss As String
+        Dim cmd_pos As Integer
+        Dim robNum As Integer
+        Dim ii As Integer
+        Dim ex As Exception
+        Dim ret As String = Chr(GPL_CR) & Chr(GPL_LF)
+        Dim bs As String = Chr(8) & " " & Chr(8)
+        Dim ws As String = " "
+        Dim cr As String = CHR(GPL_CR)
+        Dim reply As String
+        Dim bEchoSerial As Boolean = (CommType = 2)
+
+        ' White space used in echo mode.
+        For ii = 1 To 78
+            ws &= " "
+        Next
+
+
+        Try
+
+            ' Open up the serial port for Read
+
+            i = New StreamReader(Startup.SerialPort)
+
+            ' Flush any pending input
+
+            While i.Peek() >= 0
+                c = i.Read()
+            End While
+
+            ' Loop to handle inbound messages.
+
+            While True
+                Try
+                    While True
+
+                        ' Telnet mode
+
+                        If bTelnetMode Then
+                            msg = ""
+                            While True
+                                c = i.Read()
+                                If c >= &H20 AndAlso c < &H7F Then
+                                    msg &= Chr(c)
+                                    If bEchoSerial Then
+                                        SerialReplyList.PutList(Chr(c))
+                                    End If
+                                Else
+
+                                    ' Ignore control characters not in select
+
+                                    Select c
+
+                                    Case GPL_LF
+                                        Exit while
+
+                                    Case 8, 127 ' Backspace
+                                        If msg.Length > 0 Then
+                                            msg = msg.SubString(0, msg.Length-1)
+                                            If bEchoSerial Then
+                                                SerialReplyList.PutList(bs)
+                                            End If
+                                        End If
+
+                                    Case 21 ' Ctrl-U
+                                        If msg.Length > 0 Then
+                                            msg = ""
+                                            If bEchoSerial Then
+                                                SerialReplyList.PutList( _
+                                                    cr & ws & cr & prompt)
+                                            End If
+                                        End If
+
+                                    End Select
+                                End If
+                            End While
+
+                        ' Not TelNet mode
+
+                        Else
+                            msg = i.ReadLine()
+                        End If
+
+                        ' Get the robot number prefix
+
+                        msg = msg.Trim
+                        If msg.Length = 0 Then
+                            reply = ""
+                            GoTo send_reply ' Ignore empty line
+                        End If
+
+                        cmd_pos = msg.IndexOf(" ")
+                        If cmd_pos < 1 Then
+                            GoTo bad_robnum
+                        End If
+                        ss = msg.SubString(0, cmd_pos)
+                        If ss.TrimStart("0123456789").Length <> 0 Then
+                            GoTo bad_robnum
+                        End If
+
+                        robNum = CStr(ss)
+                        If robNum > N_ROB Then
+                            GoTo bad_robnum
+                        End If
+
+                        If msg.Length < (cmd_pos+1) Then
+                            GoTo bad_syntax
+                        End If
+
+                        ' Post received message
+
+                        SerialCmdList(robNum).PutList(msg.SubString(cmd_pos+1))
+                    End While
+
+    bad_syntax:
+                    reply = EcInvSerCmd
+                    GoTo send_reply
+    bad_robnum:
+                    reply = EcInvRobNum
+                    GoTo send_reply
+
+    send_reply:
+                    If bTelnetMode Then
+                        If reply.Length > 0 Then
+                            reply = ret & reply
+                        End If
+                        reply &= ret & prompt
+                    Else
+                        reply &= ret
+                    End If
+                    SerialReplyList.PutList(reply)
+
+    continue:
+                Catch ex
+                    Select ex.ErrorCode
+                    Case -707
+                        SerialReplyList.PutList(EcInvSerCmd &ret)
+
+                    Case Else
+                        Throw ex
+                    End Select
+
+                End Try
+            End While
+
+
+        Catch ex
+            Controller.SystemMessage("SerialReceiver stopping: " _
+                      & CStr(ex.ErrorCode) & " " & ex.Message)
+        End Try
+
+    End Sub
+
+#End Region
+#Region "SerialSender"
+    ' SerialSender -- Task to send all serial communications
+    '
+    ' ABSTRACT: Server communications server
+    '
+    ' INPUTS:   <none>
+    '
+    ' OUTPUTS: <none>
+    '
+    Public Sub SerialSender()
+        Dim o As StreamWriter
+        Dim reply As String
+        Dim ex As Exception
+
+        Try
+
+            ' Open up the serial port for Read
+
+            o = New StreamWriter(Startup.SerialPort)
+
+            While True
+                SerialReplyList.GetListWait(reply)
+                o.Write(reply)
+            End While
+
+        Catch ex
+            Controller.SystemMessage("SerialSender stopping: " _
+                      & CStr(ex.ErrorCode) & " " & ex.Message)
+        End Try
+
+    End Sub
+
+#End Region
+#Region "RobMain"
+    ' RobMain -- Robot command handler
+    '
+    ' ABSTRACT: Robot command handler for TCP command server.
+    '
+    '       To prevent robot errors from causing execptions in the communications
+    '       routines, all commands for robots are processed in a separate thread.
+    '
+    ' INPUTS:   robNumArg       The number of the robot handled by this thread
+    '
+    ' OUTPUTS: <none>
+
+
+    Public Sub RobMain(ByVal robNumArg As Integer)
+        Dim Cmd As Command
+        Dim ex As Exception
+        Dim pending As Exception
+
+        While True
+
+            Try
+
+                While True
+
+                    ' Wait for a command in the mailbox
+
+                    While rbMailBox(robNumArg) Is Nothing
+                        Thread.WaitEvent(CommEvent, -1)
+                    End While
+
+                    Cmd = rbMailBox(robNumArg)
+
+                    ' Reply with any pending errors
+
+                    If Not pending Is Nothing Then
+                        ex = pending
+                        pending = Nothing
+                        Throw ex
+                    End If
+
+                    ' Handle the command
+
+                    Cmd.Handler()               ' Call handler
+
+                    Cmd = Nothing
+                    rbMailBox(robNumArg) = Nothing ' Depost the command
+                    comThread(robNumArg).SendEvent(CommEvent) 'Wake the caller
+
+                End While
+
+            ' If we get an exception while processing a command, reply with the error
+            ' Otherwise ignore the exception.
+
+            Catch ex
+
+            ' If asynchronous error, attempt to find the underlying code
+
+                If (ex.ErrorCode = -1029) _
+                   OrElse (ex.ErrorCode = -1030) _
+                   OrElse (ex.ErrorCode = -1043) Then
+                    Thread.Sleep(10)
+                    ex.UpdateErrorCode
+                End If
+
+                If Cmd Is Nothing Then
+                    pending = ex
+                Else
+                    Cmd.Reply = CStr(ex.ErrorCode)
+                    If bTelnetMode Then
+                        Cmd.Reply &= " " & ex.Message
+                    End If
+                    Cmd = Nothing
+                    rbMailBox(robNumArg) = Nothing ' Depost the command
+                    comThread(robNumArg).SendEvent(CommEvent) 'Wake the caller
+                End If
+            End Try
+
+        End While
+
+    End Sub
+
+
+#End Region
+
+
+End Module
