@@ -3,11 +3,11 @@ from __future__ import annotations
 from dataclasses import *
 from typing import *
 
-from moves import Move
+from .moves import Move
 
 import re
 import socket
-import gripper
+from . import gripper
 
 prelude = '''
     # Set TCP so that RPY makes sense
@@ -227,6 +227,10 @@ class Robotarm:
             end
         '''))
         return self
+
+    def stop(self):
+        self.send('textmsg("log quit")\n')
+        self.recv_until('quit')
 
     def execute_moves(self, movelist: list[Move], name: str='script', allow_partial_completion: bool=False) -> None:
         name = name.replace('/', '_of_')

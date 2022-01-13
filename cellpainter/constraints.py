@@ -2,8 +2,8 @@ from __future__ import annotations
 from typing import *
 from dataclasses import *
 
-from symbolic import Symbolic
-from commands import (
+from .symbolic import Symbolic
+from .commands import (
     Command,
     Seq,
     Fork,
@@ -20,9 +20,9 @@ from commands import (
 from z3 import Sum, If, Optimize, Real, Int, Or # type: ignore
 
 from collections import defaultdict
-import timings
+from . import timings
 
-import utils
+from . import utils
 
 def optimize(cmd: Command) -> tuple[Command, dict[str, float]]:
     cmd = cmd.make_resource_checkpoints()
@@ -146,7 +146,7 @@ def optimal_env(cmd: Command) -> OptimalResult:
 
     run(cmd, Symbolic.const(0), is_main=True)
 
-    # batch_sep = 120 # for v3 jump
+    # batch_sep = 180 # for specs jump
     # constrain('batch sep', '==', batch_sep * 60)
 
     maximize = Sum(*[  # type: ignore

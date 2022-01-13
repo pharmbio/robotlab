@@ -9,16 +9,16 @@ import ast
 import math
 import re
 
-from moves import Move, MoveList
-from runtime import RuntimeConfig, config_lookup
-import moves
-import robotarm
-import runtime
-import utils
+from .moves import Move, MoveList
+from .runtime import RuntimeConfig, config_lookup
+from . import moves
+from . import robotarm
+from . import runtime
+from . import utils
 
-from viable import head, serve, esc, css_esc, trim, button, pre, js
-from viable import Tag, div, span, label, img, raw, input
-import viable as V
+from .viable import head, serve, esc, css_esc, trim, button, pre, js
+from .viable import Tag, div, span, label, img, raw, input
+from . import viable as V
 
 serve.suppress_flask_logging()
 

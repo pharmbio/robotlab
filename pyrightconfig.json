@@ -1,5 +1,7 @@
 {
+    "include": ["src"],
     "pythonVersion": "3.10",
+    "pythonPlatform": "Linux",
     "typeCheckingMode": "strict",
     "useLibraryCodeForTypes": true,
     "reportWildcardImportFromLibrary": "none",

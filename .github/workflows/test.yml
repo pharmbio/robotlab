@@ -8,18 +8,23 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    name: main
+    strategy:
+      matrix:
+        pip_install:
+          - "pip install"
+          - "pip install --editable"
+    name: main ${{ matrix.pip_install }}
     steps:
       - uses: actions/checkout@v2
-      - uses: deadsnakes/action@v2.1.1
+      - uses: actions/setup-python@v2
         with:
           python-version: '3.10'
       - run: pip install pyright
-      - run: pip install z3-solver
-      - run: python cli.py --list-imports | tee /dev/stderr | xargs pyright
-      - run: python cli.py --cell-paint 6,6,6
-      - run: python cli.py --cell-paint 7,7 --interleave
-      - run: python cli.py --cell-paint 8,8 --interleave --incu 1245,1205
-      - run: python cli.py --cell-paint 8,8 --interleave --two-final-washes
-      - run: python cli.py --cell-paint 9,9 --interleave --two-final-washes
-      - run: python cli.py --cell-paint 10 --interleave --two-final-washes --lockstep --incu 1200,1200,1200,1200,X
+      - run: ${{ matrix.pip_install }} .
+      - run: cellpainter --cell-paint 6,6,6
+      - run: cellpainter --cell-paint 7,7 --interleave
+      - run: cellpainter --cell-paint 8,8 --interleave --incu 1245,1205
+      - run: cellpainter --cell-paint 8,8 --interleave --two-final-washes
+      - run: cellpainter --cell-paint 9,9 --interleave --two-final-washes
+      - run: cellpainter --cell-paint 10 --interleave --two-final-washes --lockstep --incu 1200,1200,1200,1200,X
+      - run: cellpainter --list-imports | tee /dev/stderr | xargs pyright

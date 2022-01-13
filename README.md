@@ -1,8 +1,32 @@
 # robot remote control
 
-dependencies: python 3.9, flask (for gui), pandas (for analyzing log)
+dependencies: python 3.10
 
 optional dev dependencies: pyright, entr
+
+## installation
+
+```
+pip install --editable .
+```
+
+## test
+
+```
+cellpainter --cell-paint 6,6
+```
+
+configs:
+
+```
+--live
+--dry-run
+--dry-wall
+--simulator
+--forward
+```
+
+## network
 
 machine        | ip
 ---            | ---
@@ -10,15 +34,9 @@ Ubuntu NUC     | 10.0.0.55
 Windows NUC    | 10.0.0.56
 UR control box | 10.0.0.112
 
-The command line interface, `cli.py`, accepts the following configurations:
+The windows nuc runs the labrobots http endpoint on `10.10.0.56:5050`.
 
-config name   | timers   | disp & wash   | incu         | robotarm
----           | ---      | ---           | ---          | ---
-live          | wall     | execute       | execute      | execute
-test-all      | simulate | execute       | execute      | execute
-test-arm-incu | simulate | instant noop  | execute      | execute
-simulator     | simulate | instant noop  | instant noop | execute-no-gripper
-dry-run       | simulate | instant noop  | instant noop | instant noop
+## file overview
 
 | filename       | description
 | ---            | ---
@@ -35,38 +53,8 @@ dry-run       | simulate | instant noop  | instant noop | instant noop
 |                | _the other lab robots_
 | robots.py      | uniform control over the washer, dispenser, incubator and the robotarm
 | protocol.py    | cell painting protocol
-| analyze_log.py | timings statistics for a cell painting log
 |                | _utils_
 | utils.py       | pretty printing and other small utils
 | viable.py      | a viable alternative to front-end programming
 |                |
 
-### Liquid handling robots
-
-Possible ways the dispenser could fail:
-* no liquid in bottle (only washer has a sensor for this, dispenser will just not dispense anything if liquids run out)
-* plate is not correctly inserted (tilted)
-    * get stuck when moving plate
-    * liquids are dispensed in wrong row/column
-* some tips have changed direction, clogged or having droplets
-* bacterial/other types of contamination
-* liquid does not run away properly and will overflood (vacuum of tube getting to waste)
-* liquids runs back in tubing if standing idle for longer than 20 minutes:
-    * for cheap solutions (e.g. PFA, TritonX100 and mitotracker: prime)
-    * for expensive solutions (stains coctail: pump back (purge) the liquid and prime again)
-* liquids need to be primed. Each cassette has a different dead volume and might need different priming protocol.
-* wrong waste bottle is connected --> PFA needs to be disposed in  appropiate container”
-* plate dropped down blocking the moving parts
-* waste bottle is full (liquids will not run off and overflood)
-* liquids (e..g stains) stay too long in tubing
-* cassettes remain attached which will damage the plastic of the tubing --> remove cassettes after running experiment
-* plate is put wrong way around (unlikely with robot though)
-
-Possible ways the washer could fail:
-* no liquid in bottle (washer has a sensor for this and will throw an error)
-* plate is not correctly inserted
-    * get stuck when moving plate
-* Z-offset is set wrong for plate (washed off cells or crashes into plate)
-* Wrong bottle is selected and wrong liquid is dispensed
-* waste bottle is full
-* tips are clogged (commonly happens, need to be cleaned by pinching with a needle each of the pins)

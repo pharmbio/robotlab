@@ -4,3 +4,4 @@
 !*.jsonl
 !*.txt
 !movelists/*
+!cellpainter/*.py

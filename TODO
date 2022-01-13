@@ -29,6 +29,7 @@ w44:
     [ ] Validate all protocols before starting cell paint
     [ ] check that all LHC protocol files exist before starting, also associate their timings with their last modification date (and perhaps hash?)
     [ ] overview before starting, make a little summary of LHC files before starting
+    [ ] make it easier to work with the windows computer? right now you have to change user...
 [ ] start & resume
     [x] add 'prep' move before 'transfer' or remove initial 'return' move
     [ ] test resuming
@@ -48,6 +49,7 @@ w44:
     [ ] "arg", ... introduce a name for time estimations
     [ ] "info"
     [ ] "idle" "wait"
+[ ] Use timings_v3.1.json ... or not?
 [ ] replace fast-forward time with standard time but all estimates shorter
 [ ] resume: remove removed plate from the world
 

@@ -65,7 +65,7 @@ def show(x: Any, show_key: Any=show_key, width: int=80, use_color: bool=sys.stdo
                 for k, v in x.items():
                     yield from go(indent, color.none(show_key(k)) + ': ', v, ',')
                 yield dent + '}' + post
-        elif (is_tuple or is_list or is_set or has_iter) and not primlike(x):
+        elif not primlike(x) and (is_tuple or is_list or is_set or has_iter):
             if is_list:
                 begin, end = '[', ']'
             elif is_tuple:
@@ -76,7 +76,7 @@ def show(x: Any, show_key: Any=show_key, width: int=80, use_color: bool=sys.stdo
                 begin, end = '*(', ')'
             else:
                 raise ValueError
-            values = list(x)
+            values: list[Any] = list(cast(Any, x))
             if len(values) == 0:
                 yield dent + pre + begin + end + post
             else:
@@ -369,6 +369,32 @@ def timeit(desc: str='') -> ContextManager[None]:
             raise e
         else:
             print(f'{T:.3f}', desc)
+
+    return worker()
+
+import os
+import subprocess
+
+def rss(pid: int = os.getpid()):
+    bs = subprocess.check_output(f'ps --no-headers -e -o rss -q {pid}'.split())
+    return int(bs)
+
+def memstamp(desc: str='', last_of: dict[str, int] = defaultdict(int)):
+    import gc
+    a = last_of[desc]
+    b = last_of[desc] = rss()
+    print(f'{desc: <12} {b: >9} {b-a: >9}', len(gc.get_objects()))
+
+def memit(desc: str='') -> ContextManager[None]:
+    # The inferred type for the decorated function is wrong hence this wrapper to get the correct type
+    import gc
+
+    @contextmanager
+    def worker():
+        a = rss()
+        yield
+        b = rss()
+        print(f'{desc: <12} {a: >9} {b: >9} {b-a: >9}', len(gc.get_objects()))
 
     return worker()
 

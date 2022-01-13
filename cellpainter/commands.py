@@ -3,16 +3,16 @@ from dataclasses import *
 from typing import *
 
 import abc
-from moves import movelists, MoveList
-import utils
-from utils import Mutable
+from .moves import movelists, MoveList
+from . import utils
+from .utils import Mutable
 
-from symbolic import Symbolic
-from runtime import Runtime
-import bioteks
-from bioteks import BiotekCommand
-import incubator
-import timings
+from .symbolic import Symbolic
+from .runtime import Runtime
+from . import bioteks
+from .bioteks import BiotekCommand
+from . import incubator
+from . import timings
 
 from collections import defaultdict
 
@@ -248,11 +248,10 @@ class RuntimeMetadata(TypedDict, total=True):
     estimates_pickle_file: str
     program_pickle_file: str
     host: str
-    speedup: float  # remove?
 
 def merge_two(m1: Metadata, m2: Metadata) -> Metadata:
-    u1 = m1.get('untyped', {})
-    u2 = m2.get('untyped', {})
+    u1 = m1.get('untyped', dict[str, Any]())
+    u2 = m2.get('untyped', dict[str, Any]())
     if not u1 and not u2:
         return {**m1, **m2}  # type: ignore
     else:
@@ -422,6 +421,7 @@ class Fork(Command):
         fork_metadata = {**metadata, 'thread': thread_name, 'resource': self.resource}
         @runtime.spawn
         def fork():
+            assert thread_name
             runtime.register_thread(thread_name)
             self.command.execute(runtime, metadata=fork_metadata)
             runtime.thread_done()

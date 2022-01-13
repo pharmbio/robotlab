@@ -2,7 +2,7 @@ from __future__ import annotations
 from dataclasses import *
 from typing import *
 
-import utils
+from . import utils
 
 from collections import defaultdict
 

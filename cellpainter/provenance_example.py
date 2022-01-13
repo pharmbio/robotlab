@@ -12,11 +12,11 @@ import inspect
 import json
 import re
 
-from provenance import Var, Int, Str, Store, DB
-from viable import js, serve, button, input, div, span, pre, label, app
-import viable as V
+from .provenance import Var, Int, Str, Store, DB
+from .viable import js, serve, button, input, div, span, pre, label, app
+from . import viable as V
 
-import utils
+from . import utils
 
 def form(m: Store, *vs: Int | Str):
     d = div()

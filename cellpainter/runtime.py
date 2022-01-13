@@ -12,13 +12,13 @@ from queue import Queue
 from contextlib import contextmanager
 from threading import RLock
 
-from robotarm import Robotarm
-import utils
-from utils import pp_secs
+from .robotarm import Robotarm
+from . import utils
+from .utils import pp_secs
 
-from timelike import Timelike, WallTime, SimulatedTime, FastForwardTime
+from .timelike import Timelike, WallTime, SimulatedTime
 from collections import defaultdict
-from moves import World
+from .moves import World
 
 import os
 import sys
@@ -35,11 +35,6 @@ live_env = Env(
     robotarm_host = '10.10.0.112',
     incu_url      = 'http://10.10.0.56:5050/incu',
     biotek_url    = 'http://10.10.0.56:5050',
-)
-
-live_arm_incu = Env(
-    robotarm_host = live_env.robotarm_host,
-    incu_url      = live_env.incu_url,
 )
 
 simulator_env = Env(
@@ -101,8 +96,6 @@ class RuntimeConfig:
         if resume_config:
             if self.timelike_factory is WallTime:
                 return WallTime(start_time=time.monotonic() - resume_config.secs_ago)
-            elif self.timelike_factory is FastForwardTime:
-                return FastForwardTime(start_time=time.monotonic() - resume_config.secs_ago)
             elif self.timelike_factory is SimulatedTime:
                 return SimulatedTime(skipped_time=resume_config.secs_ago)
             else:
@@ -111,10 +104,10 @@ class RuntimeConfig:
             return self.timelike_factory()
 
     def replace(self,
-        robotarm_speed: int |                 Keep = keep,
-        log_filename:   str | None |          Keep = keep,
-        log_to_file:    bool |                Keep = keep,
-        resume_config:  ResumeConfig | None | Keep = keep,
+        robotarm_speed: Keep | int                 = keep,
+        log_filename:   Keep | str | None          = keep,
+        log_to_file:    Keep | bool                = keep,
+        resume_config:  Keep | ResumeConfig | None = keep,
     ):
         next = self
         updates = dict(
@@ -136,11 +129,8 @@ configs: list[RuntimeConfig]
 configs = [
     RuntimeConfig('live',          WallTime,        disp_and_wash_mode='execute', incu_mode='execute', robotarm_mode='execute',            env=live_env),
     RuntimeConfig('live-no-incu',  WallTime,        disp_and_wash_mode='execute', incu_mode='noop',    robotarm_mode='execute',            env=live_env),
-    RuntimeConfig('test-all',      WallTime,        disp_and_wash_mode='execute', incu_mode='execute', robotarm_mode='execute',            env=live_env),
-    RuntimeConfig('test-arm-incu', WallTime,        disp_and_wash_mode='noop',    incu_mode='execute', robotarm_mode='execute',            env=live_arm_incu),
     RuntimeConfig('simulator',     WallTime,        disp_and_wash_mode='noop',    incu_mode='noop',    robotarm_mode='execute no gripper', env=simulator_env),
     RuntimeConfig('forward',       WallTime,        disp_and_wash_mode='noop',    incu_mode='noop',    robotarm_mode='execute',            env=forward_env),
-    RuntimeConfig('dry-ff',        FastForwardTime, disp_and_wash_mode='noop',    incu_mode='noop',    robotarm_mode='noop',               env=dry_env),
     RuntimeConfig('dry-wall',      WallTime,        disp_and_wash_mode='noop',    incu_mode='noop',    robotarm_mode='noop',               env=dry_env),
     RuntimeConfig('dry-run',       SimulatedTime,   disp_and_wash_mode='noop',    incu_mode='noop',    robotarm_mode='noop',               env=dry_env),
 ]
@@ -228,8 +218,7 @@ class Runtime:
 
     def stop_arm(self):
         arm = self.get_robotarm(quiet=False, include_gripper=False)
-        arm.send('textmsg("log quit")\n')
-        arm.recv_until('quit')
+        arm.stop()
         arm.close()
 
     def set_robotarm_speed(self, speed: int):
@@ -464,9 +453,6 @@ class Runtime:
 
     def thread_done(self):
         return self.timelike.thread_done()
-
-    def speedup(self) -> float:
-        return self.timelike.speedup()
 
     def checkpoint(self, name: str, *, metadata: dict[str, Any] = {}):
         with self.time_lock:

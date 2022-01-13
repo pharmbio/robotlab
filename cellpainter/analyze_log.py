@@ -1,7 +1,7 @@
 from typing import *
 import json
 import sys
-from utils import pr
+from .utils import pr
 import pandas as pd
 
 import sqlite3

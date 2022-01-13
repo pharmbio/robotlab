@@ -1,12 +1,12 @@
 from __future__ import annotations
 from dataclasses import *
 
-import utils
+from . import utils
 from datetime import datetime
 import pickle
 import shutil
 import os
-from commands import (
+from .commands import (
     Checkpoint,
     WaitForCheckpoint,
     Command,
@@ -14,9 +14,10 @@ from commands import (
     Meta,
     RobotarmCmd,
 )
-from runtime import RuntimeConfig, ResumeConfig
-import protocol
-import moves
+from .runtime import RuntimeConfig, ResumeConfig
+from .execute import execute_program
+from . import protocol
+from . import moves
 
 def resume_program(config: RuntimeConfig, log_filename_in: str, skip: list[str]=[], drop: list[str]=[]):
     entries = list(utils.read_json_lines(log_filename_in))
@@ -150,4 +151,4 @@ def resume_program(config: RuntimeConfig, log_filename_in: str, skip: list[str]=
             checkpoint_times=checkpoint_times,
         )
     )
-    protocol.execute_program(config, program, {})
+    execute_program(config, program, {})

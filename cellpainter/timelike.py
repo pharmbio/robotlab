@@ -8,15 +8,11 @@ import threading
 from queue import Queue
 from threading import Lock
 
-from utils import pp_secs
+from .utils import pp_secs
 
 A = TypeVar('A')
 
 class Timelike(abc.ABC):
-    @abc.abstractmethod
-    def speedup(self) -> float:
-        pass
-
     @abc.abstractmethod
     def monotonic(self) -> float:
         pass
@@ -62,9 +58,6 @@ class SimulatedTime(Timelike):
     skipped_time: float = 0.0
     lock: Lock = field(default_factory=Lock)
     qsize: dict[int, int] = field(default_factory=lambda: defaultdict[int, int](int))
-
-    def speedup(self) -> float:
-        return 1.0
 
     def log(self):
         return
@@ -183,11 +176,8 @@ class SimulatedTime(Timelike):
 class WallTime(Timelike):
     start_time: float = field(default_factory=time.monotonic)
 
-    def speedup(self) -> float:
-        return 1.0
-
     def monotonic(self):
-        return (time.monotonic() - self.start_time) * self.speedup()
+        return time.monotonic() - self.start_time
 
     def register_thread(self, name: str):
         pass
@@ -203,12 +193,8 @@ class WallTime(Timelike):
 
     def sleep(self, seconds: float):
         if seconds > 0:
-            time.sleep(seconds / self.speedup())
+            time.sleep(seconds)
 
     def thread_done(self):
         pass
-
-class FastForwardTime(WallTime):
-    def speedup(self) -> float:
-        return 10.0
 

@@ -1,4 +1,4 @@
-from protocol import ProtocolConfig, Steps
+from .protocol import ProtocolConfig, Steps
 
 v1 = ProtocolConfig(
     wash = Steps(

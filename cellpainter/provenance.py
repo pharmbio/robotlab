@@ -10,11 +10,11 @@ from sorcery import spell, no_spells
 import abc
 import json
 
-from viable import js, serve, button, input, div, span, pre, label, app
-import viable as V
+from .viable import js, serve, button, input, div, span, pre, label, app
+from . import viable as V
 from flask import after_this_request
 
-import utils
+from . import utils
 
 def lhs() -> str:
     @spell
@@ -124,12 +124,23 @@ def init_store() -> dict[Provenance, Callable[[str, Any], Any]]:
         'query': request.args.get,
     }
 
+def empty() -> dict[Provenance, Callable[[str, Any], Any]]:
+    return {
+        'server': lambda _a, _b: None,
+        'cookie': lambda _a, _b: None,
+        'query':  lambda _a, _b: None,
+    }
+
 @dataclass(frozen=True)
 class Store:
     default_provenance: Provenance = 'cookie'
     store: dict[Provenance, Callable[[str, Any], Any]] = field(default_factory=init_store)
     values: dict[Var[Any], StoredValue] = field(default_factory=dict)
     sub_prefix: str = ''
+
+    @staticmethod
+    def empty(default_provenance: Provenance = 'cookie'):
+        return Store(default_provenance=default_provenance, store=empty())
 
     def __post_init__(self):
         no_spells(Store.var)

@@ -439,3 +439,32 @@ to update and `OBJ` to go from 3 into 0. When the motion is completed it is at 3
 * `OBJ == 0x02`: Fingers have stopped due to a contact while closing before requested position. Object detected closing.
 * `OBJ == 0x03`: Fingers are at requested position. No object detected or object has been loss / dropped.
 
+### Liquid handling robots
+
+Possible ways the dispenser could fail:
+* no liquid in bottle (only washer has a sensor for this, dispenser will just not dispense anything if liquids run out)
+* plate is not correctly inserted (tilted)
+    * get stuck when moving plate
+    * liquids are dispensed in wrong row/column
+* some tips have changed direction, clogged or having droplets
+* bacterial/other types of contamination
+* liquid does not run away properly and will overflood (vacuum of tube getting to waste)
+* liquids runs back in tubing if standing idle for longer than 20 minutes:
+    * for cheap solutions (e.g. PFA, TritonX100 and mitotracker: prime)
+    * for expensive solutions (stains coctail: pump back (purge) the liquid and prime again)
+* liquids need to be primed. Each cassette has a different dead volume and might need different priming protocol.
+* wrong waste bottle is connected --> PFA needs to be disposed in  appropiate container”
+* plate dropped down blocking the moving parts
+* waste bottle is full (liquids will not run off and overflood)
+* liquids (e..g stains) stay too long in tubing
+* cassettes remain attached which will damage the plastic of the tubing --> remove cassettes after running experiment
+* plate is put wrong way around (unlikely with robot though)
+
+Possible ways the washer could fail:
+* no liquid in bottle (washer has a sensor for this and will throw an error)
+* plate is not correctly inserted
+    * get stuck when moving plate
+* Z-offset is set wrong for plate (washed off cells or crashes into plate)
+* Wrong bottle is selected and wrong liquid is dispensed
+* waste bottle is full
+* tips are clogged (commonly happens, need to be cleaned by pinching with a needle each of the pins)

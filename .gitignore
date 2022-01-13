@@ -1,5 +1,4 @@
-scripts
-generated
 *pdf
 cobot/
 logs/
+*egg-info

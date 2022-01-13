@@ -1,21 +1,20 @@
-
 from __future__ import annotations
 from typing import *
 
-from viable import app, js
-from viable import head, serve, esc, css_esc, trim, button, pre
-from viable import Tag, div, span, label, img, raw, Input, input
-import viable as V
+from .viable import app, js
+from .viable import head, serve, esc, css_esc, trim, button, pre
+from .viable import Tag, div, span, label, img, raw, Input, input
+from . import viable as V
 
 from flask import request
 from collections import *
 
-import utils
+from . import utils
 import random
 
 import threading
 
-from cli import Args
+from .cli import Args
 import dataclasses
 import json
 
@@ -23,14 +22,14 @@ from subprocess import Popen, DEVNULL, check_output
 import pickle
 import signal
 import os
-from runtime import config_lookup, get_robotarm, RuntimeConfig
-import moves
-from moves import RawCode, Move
+from .runtime import config_lookup, get_robotarm, RuntimeConfig
+from . import moves
+from .moves import RawCode, Move
 import sys
 import platform
 
-from provenance import Var, Int, Str, Store, DB, Bool
-from protocol import Incu_locs, A_locs, B_locs, C_locs
+from .provenance import Var, Int, Str, Store, DB, Bool
+from .protocol import Incu_locs, A_locs, B_locs, C_locs
 
 if '--live' in sys.argv:
     config: RuntimeConfig = config_lookup('live')
@@ -271,12 +270,11 @@ class AnalyzeResult:
         first_row = df.iloc[meta.index[-1], :]
         zero_time = first_row.log_time.to_pydatetime() - timedelta(seconds=first_row.t)
         t_now = (datetime.now() - zero_time).total_seconds()
-        t_now *= runtime_metadata['speedup']
 
         if completed:
             t_now = df.t.max() + 1
 
-        estimates = load_from_pickle(runtime_metadata['estimates_pickle_file'])
+        estimates = load_from_pickle(runtime_metadata['estimates_pickle_file']) # could just add this at the top of the log instead
         estimates = estimates.copy()
         estimates['finished'] = True
         estimates['running'] = False

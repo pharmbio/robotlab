@@ -10,7 +10,7 @@ import abc
 import json
 import re
 import textwrap
-import utils
+from . import utils
 
 class Move(abc.ABC):
     def to_dict(self) -> dict[str, Any]:

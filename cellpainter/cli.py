@@ -5,20 +5,25 @@ import typing
 import argparse
 import os
 import sys
-
-from runtime import RuntimeConfig, configs, config_lookup
-from utils import show
-
-import commands
-import moves
-from moves import movelists
-import timings
-import protocol
-import resume
-
-import utils
-from dataclasses import dataclass, field, fields, Field
 import json
+import textwrap
+import shlex
+
+from .runtime import RuntimeConfig, configs, config_lookup
+from .utils import show
+from .moves import movelists
+
+from . import commands
+from . import moves
+from . import timings
+from . import protocol
+from . import resume
+from .execute import execute_program
+
+from .small_protocols import small_protocols
+
+from . import utils
+from dataclasses import dataclass, field, fields, Field, replace
 
 A = TypeVar('A')
 
@@ -56,7 +61,7 @@ class Arg:
             self.enums[f] = enum
         return f # type: ignore
 
-    def parse_args(self, as_type: Type[A], **kws: Any) -> tuple[A, argparse.ArgumentParser]:
+    def parse_args(self, as_type: Type[A], args: None | list[str] = None, **kws: Any) -> tuple[A, argparse.ArgumentParser]:
         parser = argparse.ArgumentParser(**kws)
         for f in fields(as_type):
             enum = self.enums.get(f)
@@ -65,7 +70,8 @@ class Arg:
             if enum:
                 parser.add_argument(name, default=default, help=argparse.SUPPRESS)
                 for opt in enum:
-                    parser.add_argument('--' + opt.name, dest=f.name, action="store_const", const=opt.value, help=opt.help)
+                    opt_name = '--' + opt.name.replace('_', '-')
+                    parser.add_argument(opt_name, dest=f.name, action="store_const", const=opt.value, help=opt.help)
             else:
                 f_type = eval(f.type)
                 if f_type == list or typing.get_origin(f_type) == list:
@@ -75,10 +81,25 @@ class Arg:
                     parser.add_argument(name, default=bool(default), action=action, help=self.helps.get(f))
                 else:
                     parser.add_argument(name, default=default, metavar='X', type=f_type, help=self.helps.get(f))
-        v = parser.parse_args()
+        v = parser.parse_args(args)
         return as_type(**v.__dict__), parser
 
 arg = Arg()
+
+def ATTENTION(s: str):
+    color = utils.Color()
+    print(color.red('*' * 80))
+    print()
+    print(textwrap.indent(textwrap.dedent(s.strip('\n')), '    ').rstrip('\n'))
+    print()
+    print(color.red('*' * 80))
+    v = input('Continue? [y/n] ')
+    if v.strip() != 'y':
+        raise ValueError('Program aborted by user')
+    else:
+        print('continuing...')
+
+small_kvs = {p.__name__: p for p in small_protocols}
 
 @dataclass(frozen=True)
 class Args:
@@ -86,7 +107,7 @@ class Args:
         'dry-run',
         enum=[option(c.name, c.name, help='Run with config ' + c.name) for c in configs]
     )
-    test_comm:                 bool = arg(help=(protocol.test_comm.__doc__ or '').strip())
+    test_comm:                 bool = arg(help=protocol.test_comm_program)
 
     cell_paint:                str  = arg(help='Cell paint with batch sizes of BS, separated by comma (such as 6,6 for 2x6). Plates start stored in incubator L1, L2, ..')
     incu:                      str  = arg(default='1200,1200,1200,1200,1200', help='Incubation times in seconds, separated by comma')
@@ -95,15 +116,15 @@ class Args:
     lockstep:                  bool = arg(help='Allow steps to overlap: first plate PFA starts before last plate Mito finished and so on, required for 10 plate batches')
     start_from_pfa:            bool = arg(help='Start from PFA (in room temperature). Use this if you have done Mito manually beforehand')
     log_filename:              str  = arg(help='Manually set the log filename instead of having a generated name based on date')
-
-    test_circuit:              bool = arg(help='Test circuit: start with one plate with lid on incubator transfer door, and all other positions empty!')
     time_bioteks:              bool = arg(help=protocol.time_bioteks)
-    time_arm_incu:             bool = arg(help=protocol.time_arm_incu)
-    load_incu:                 int  = arg(help=protocol.load_incu)
-    unload_incu:               int  = arg(help=protocol.unload_incu)
-    lid_stress_test:           bool = arg(help=protocol.lid_stress_test)
-    scratch_program:           bool = arg(help=protocol.scratch_program)
-    validate_all_protocols:    bool = arg(help=protocol.validate_all_protocols)
+
+    small_protocol:            str  = arg(
+        enum=[
+            option(name, name, help=(p.__doc__ or '').strip().splitlines()[0])
+            for name, p in small_kvs.items()
+        ]
+    )
+    num_plates:                int  = arg(help='For some protocols only: number of plates')
 
     resume:                    str  = arg(help='Resume program given a log file')
     resume_skip:               str  = arg(help='Comma-separated list of simple_id:s to skip (washes and dispenses)')
@@ -114,6 +135,8 @@ class Args:
     prime:                     str  = arg(help='Run a priming program on the dispenser')
     incu_put:                  str  = arg(help='Put the plate in the transfer station to the argument position POS (L1, .., R1, ..).')
     incu_get:                  str  = arg(help='Get the plate in the argument position POS. It ends up in the transfer station.')
+
+    visualize:                 bool = arg(help='Run visualizer')
 
     list_imports:              bool = arg(help='Print the imported python modules for type checking.')
 
@@ -146,48 +169,23 @@ def main():
 
     print('config =', show(config))
 
-    v3 = protocol.make_v3(
-        incu_csv=args.incu,
-        interleave=args.interleave,
-        six=args.two_final_washes,
-        lockstep=args.lockstep,
-        start_from_PFA=args.start_from_pfa,
-    )
+    v3 = protocol.make_v3(args)
 
-    if args.cell_paint:
-        batch_sizes = utils.read_commasep(args.cell_paint, int)
-        protocol.cell_paint(
-            config=config,
-            batch_sizes=batch_sizes,
-            protocol_config=v3,
-        )
+    if args.visualize:
+        from . import protocol_vis as pv
+        cmdname, *argv = [arg for arg in sys.argv if not arg.startswith('--vi')]
+        cmdline = shlex.join(argv)
+        def cmdline_to_events(cmdline: str):
+            args, _ = arg.parse_args(Args, args=[cmdname, *shlex.split(cmdline)])
+            p = args_to_program(args)
+            assert p
+            return execute_program(config, p.program, {}, for_visualizer=True)
+        pv.start(cmdline, cmdline_to_events)
 
-    elif args.test_circuit:
-        protocol.test_circuit(config=config)
-
-    elif args.time_bioteks:
-        protocol.time_bioteks(config=config, protocol_config=v3)
-
-    elif args.time_arm_incu:
-        protocol.time_arm_incu(config=config)
-
-    elif args.load_incu:
-        protocol.load_incu(config=config, num_plates=args.load_incu)
-
-    elif args.unload_incu:
-        protocol.unload_incu(config=config, num_plates=args.unload_incu)
-
-    elif args.lid_stress_test:
-        protocol.lid_stress_test(config=config)
-
-    elif args.test_comm:
-        protocol.test_comm(config)
-
-    elif args.validate_all_protocols:
-        protocol.validate_all_protocols(config)
-
-    elif args.scratch_program:
-        protocol.scratch_program(config)
+    elif p := args_to_program(args):
+        if config.name != 'dry-run' and p.doc:
+            ATTENTION(p.doc)
+        execute_program(config, p.program, p.metadata)
 
     elif args.robotarm:
         runtime = config.make_runtime()
@@ -220,7 +218,7 @@ def main():
         runtime = config.make_runtime()
         path = v3.wash[int(args.wash)]
         assert path, utils.pr(v3.wash)
-        protocol.execute_program(config, commands.Sequence(
+        return Program(commands.Sequence(
             commands.WashCmd(path, cmd='Validate'),
             commands.WashCmd(path, cmd='RunValidated'),
         ), {'program': 'wash'})
@@ -259,6 +257,57 @@ def main():
     if timings.Guesses:
         print('Guessed these times:')
         utils.pr(timings.Guesses)
+
+if __name__ == '__main__':
+    main()
+
+@dataclass(frozen=True)
+class Program:
+    program: commands.Command
+    metadata: dict[str, Any]
+    doc: str | None = None
+
+def args_to_program(args: Args) -> Program | None:
+    v3 = protocol.make_v3(args)
+
+    if args.cell_paint:
+        batch_sizes = utils.read_commasep(args.cell_paint, int)
+        program = protocol.cell_paint_program(
+            batch_sizes=batch_sizes,
+            protocol_config=v3,
+        )
+        return Program(program, {
+            'program': 'cell_paint',
+            'batch_sizes': ','.join(str(bs) for bs in batch_sizes),
+        })
+
+    elif args.time_bioteks:
+        program = protocol.time_bioteks(protocol_config=v3)
+        return Program(program, {'program': 'time_bioteks'}, doc=protocol.time_bioteks.__doc__)
+
+    elif args.test_comm:
+        program = protocol.test_comm_program()
+        return Program(program, {'program': 'test_comm'}, doc=protocol.test_comm_program.__doc__)
+
+    elif args.small_protocol:
+        name = args.small_protocol.replace('-', '_')
+        p = small_kvs.get(name)
+        if p:
+            program = p(args)
+            return Program(program, {'program': p.__name__}, doc=p.__doc__)
+        else:
+            raise ValueError(f'Unknown protocol: {name} (available: {", ".join(p.__name__ for p in small_protocols)})')
+
+    elif args.wash:
+        path = v3.wash[int(args.wash)]
+        assert path, utils.pr(v3.wash)
+        return Program(commands.Sequence(
+            commands.WashCmd(path, cmd='Validate'),
+            commands.WashCmd(path, cmd='RunValidated'),
+        ), {'program': 'wash'})
+
+    else:
+        return None
 
 if __name__ == '__main__':
     main()
