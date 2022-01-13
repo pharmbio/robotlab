@@ -240,6 +240,157 @@ function simulator-entr-gui {
     ls *py | entr -c -r python gui.py "$@" --simulator
 }
 
+note '
+    8-bot reference run
+'
+function to-gripper {
+    o11='"log (1 1) home / close"'
+    o10='"log (1 0) open portrait"'
+    o01='"log (0 1) open landscape"'
+    o00='"log (0 0) power off"'
+    s11='"log (1 1) moving"'
+    s10='"log (1 0) reached portrait"'
+    s01='"log (0 1) reached landscape"'
+    s00='"log (0 0) error or powered off"'
+    unk='"log (? ?) unknown status"'
+    send "
+        def gripper():
+            set_tool_communication(False, 9600, 0, 1, 1.0, 0.0)
+            set_tool_voltage(24)
+            set_tool_digital_out(0, True)
+            set_tool_digital_out(1, True)
+            set_tool_digital_output_mode(0, 1) ## 1: Sinking NPN
+            set_tool_digital_output_mode(1, 1) ## 1: Sinking NPN
+            set_tool_output_mode(0) ## 0: digital output mode (1: dual pin)
+            def outputting():
+                t0 = 0
+                t1 = 0
+                if get_tool_digital_out(0):
+                    t0 = 1
+                end
+                if get_tool_digital_out(1):
+                    t1 = 1
+                end
+
+                if t0 == 1 and t1 == 1:
+                    textmsg($o11)
+                elif t0 == 1 and t1 == 0:
+                    textmsg($o10)
+                elif t0 == 0 and t1 == 1:
+                    textmsg($o01)
+                elif t0 == 0 and t1 == 0:
+                    textmsg($o00)
+                else:
+                    textmsg($unk)
+                end
+            end
+            def status():
+                t0 = 0
+                t1 = 0
+                if get_tool_digital_in(0):
+                    t0 = 1
+                end
+                if get_tool_digital_in(1):
+                    t1 = 1
+                end
+
+                if t0 == 1 and t1 == 1:
+                    textmsg($s11)
+                elif t0 == 1 and t1 == 0:
+                    textmsg($s10)
+                elif t0 == 0 and t1 == 1:
+                    textmsg($s01)
+                elif t0 == 0 and t1 == 0:
+                    textmsg($s00)
+                else:
+                    textmsg($unk)
+                end
+            end
+            def set(t0, t1):
+                b0 = False
+                b1 = False
+                if t0 != 0:
+                    b0 = True
+                end
+                if t1 != 0:
+                    b1 = True
+                end
+                outputting()
+                set_tool_digital_out(0, b0)
+                set_tool_digital_out(1, b1)
+                outputting()
+                sleep(0.1)
+                outputting()
+            end
+            def home():
+                # To start a reference run, set first TO[0] and TO[1] both to
+                # logical 0 (0,0) for 2 seconds. Afterwards set TO[0] and TO[1]
+                # to (1,1). Keep the status (1,1) as long as the reference
+                # run is performed. In case the reference run is interrupted,
+                # it has to be started again.
+                set(0, 0)
+                sleep(2.5)
+                set(1, 1)
+            end
+            def power_off():
+                set(0, 0)
+            end
+            def open_landscape():
+                set(0, 1)
+            end
+            def open_portrait():
+                set(1, 0)
+            end
+            def close():
+                set(1, 1)
+            end
+            $*
+        end
+    "
+}
+
+note '
+    gripper status
+'
+function gripper-status {
+    to-gripper 'status()'
+}
+
+note '
+    gripper open wide (landscape)
+'
+function gripper-open-wide {
+    to-gripper 'open_landscape()'
+}
+
+note '
+    gripper open (portrait)
+'
+function gripper-open {
+    to-gripper 'open_portrait()'
+}
+
+note '
+    gripper close
+'
+function gripper-close {
+    to-gripper 'close()'
+}
+
+note '
+    gripper landscape
+'
+function gripper-power-off {
+    to-gripper 'power_off()'
+}
+
+note '
+    gripper home (reference run)
+'
+function gripper-home {
+    to-gripper 'home()'
+}
+
 main () {
     if test "$#" -gt 0 && test "$(type -t -- "$1")" = 'function'; then
         "$@"
