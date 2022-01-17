@@ -22,7 +22,7 @@ from z3 import Sum, If, Optimize, Real, Int, Or # type: ignore
 from collections import defaultdict
 from . import timings
 
-from . import utils
+from . import utils # type: ignore
 
 def optimize(cmd: Command) -> tuple[Command, dict[str, float]]:
     cmd = cmd.make_resource_checkpoints()
@@ -133,7 +133,7 @@ def optimal_env(cmd: Command) -> OptimalResult:
                 return end
             case Meta():
                 end = run(cmd.command, begin, is_main=is_main)
-                if cmd_id := cmd.metadata.get('id'):
+                if cmd_id := cmd.metadata.id:
                     assert isinstance(cmd_id, str)
                     ends[cmd_id] = end
                 return end

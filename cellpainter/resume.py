@@ -13,10 +13,10 @@ from .commands import (
     Sequence,
     Meta,
     RobotarmCmd,
+    Metadata,
 )
 from .runtime import RuntimeConfig, ResumeConfig
 from .execute import execute_program
-from . import protocol
 from . import moves
 
 def resume_program(config: RuntimeConfig, log_filename_in: str, skip: list[str]=[], drop: list[str]=[]):
@@ -67,10 +67,10 @@ def resume_program(config: RuntimeConfig, log_filename_in: str, skip: list[str]=
 
     drop_ids: set[str] = set()
     for cmd in program.universe():
-        if isinstance(cmd, Meta) and cmd.metadata.get('plate_id') in drop:
+        if isinstance(cmd, Meta) and cmd.metadata.plate_id in drop:
             for c2 in cmd.universe():
-                if isinstance(c2, Meta) and 'id' in c2.metadata:
-                    drop_ids.add(c2.metadata['id'])
+                if isinstance(c2, Meta) and c2.metadata.id:
+                    drop_ids.add(c2.metadata.id)
 
     finished_ids |= drop_ids
     def Filter(cmd: Command):
@@ -80,9 +80,9 @@ def resume_program(config: RuntimeConfig, log_filename_in: str, skip: list[str]=
                     return Sequence()
                 else:
                     return cmd
-            case Meta() if cmd.metadata.get('id') in finished_ids:
+            case Meta() if cmd.metadata.id in finished_ids:
                 return Sequence()
-            case Meta() if cmd.metadata.get('simple_id') in skip:
+            case Meta() if cmd.metadata.simple_id in skip:
                 return Sequence()
             case WaitForCheckpoint() if not cmd.plus_secs and cmd.name in checkpoint_times:
                 return Sequence()
@@ -114,7 +114,7 @@ def resume_program(config: RuntimeConfig, log_filename_in: str, skip: list[str]=
                 replacement = Sequence()
             else:
                 prep = [
-                    RobotarmCmd(p).with_metadata(id=str(i + next_id), effect={})
+                    RobotarmCmd(p).add(Metadata(id=str(i + next_id)))
                     for i, p in enumerate(tagged.prep)
                 ]
                 replacement = Sequence(*prep, cmd)

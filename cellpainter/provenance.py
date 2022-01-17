@@ -103,10 +103,13 @@ class Str(Var[str]):
     def from_str(self, s: str):
         return s
 
-    def input(self, m: Store):
+    def update_handler(self, m: Store, iff:str|None=None):
+        return m.update_untyped({self: js('this.value')}).goto(iff=iff)
+
+    def input(self, m: Store, iff:str|None=None):
         return input(
             value=str(self.value),
-            oninput=m.update_untyped({self: js('this.value')}).goto()
+            oninput=self.update_handler(m, iff=iff),
         )
 
 @dataclass(frozen=True)
@@ -191,7 +194,7 @@ class Store:
         assert x.name is not None
         return x.name
 
-    def goto(self) -> str:
+    def goto(self, iff: str | None=None) -> str:
         updated = [
             (k, v)
             for k, v in self.values.items()
@@ -224,7 +227,11 @@ class Store:
             )
         else:
             s_str = ''
-        return (q_str + ';' + s_str).strip(';')
+        out = (q_str + ';' + s_str).strip(';')
+        if iff:
+            return 'if (' + iff + ') {' + out + '}'
+        else:
+            return out
 
     def goto_script(self) -> V.Node:
         script = self.goto()

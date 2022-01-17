@@ -2,27 +2,28 @@ from __future__ import annotations
 from dataclasses import *
 from typing import *
 
-from datetime import datetime, timedelta
-from urllib.request import urlopen
-
 import json
+import os
+import signal
+import sys
 import threading
 import traceback
-from queue import Queue
+
+from collections import defaultdict
 from contextlib import contextmanager
+from datetime import datetime, timedelta
+from queue import Queue
 from threading import RLock
+from urllib.request import urlopen
 
 from .robotarm import Robotarm
 from . import utils
 from .utils import pp_secs
 
 from .timelike import Timelike, WallTime, SimulatedTime
-from collections import defaultdict
-from .moves import World
+from .moves import World, Effect
 
-import os
-import sys
-import signal
+from .log import LogEntry, Metadata, Error, Running
 
 @dataclass(frozen=True)
 class Env:
@@ -75,6 +76,30 @@ class RuntimeConfig:
     log_filename: str | None = None
     log_to_file: bool = True
     resume_config: ResumeConfig | None = None
+
+    ''' add:
+    running: list[LogEntry] or list[id]
+    restarts: int
+
+    important in log:
+        - begin...running...end
+            arm, incu, disp, wash
+            wait, idle
+            - for protocol_vis
+        - begin
+            checkpoint
+            section (for overview gui)
+            resumption + runtime metadata
+        - stamp
+            errors
+            completed
+        - end
+            duration
+        - current:
+            running
+            sections ?
+            world
+    '''
 
     def make_runtime(self) -> Runtime:
         resume_config = self.resume_config
@@ -173,16 +198,19 @@ def get_robotarm(config: RuntimeConfig, quiet: bool = False, include_gripper: bo
         with_gripper = False
     return Robotarm.init(config.env.robotarm_host, config.env.robotarm_port, with_gripper, quiet=quiet)
 
+import typing
+class CheckpointLike(typing.Protocol):
+    name: str
+
 A = TypeVar('A')
 
-@dataclass(frozen=True)
+@dataclass
 class Runtime:
     config: RuntimeConfig
     timelike: Timelike
-    log_entries: list[dict[str, Any]] = field(default_factory=list)
+    log_entries: list[LogEntry] = field(default_factory=list)
     log_lock: RLock  = field(default_factory=RLock)
     time_lock: RLock = field(default_factory=RLock)
-    times: dict[str, list[float]] = field(default_factory=lambda: cast(Any, defaultdict(list)))
 
     start_time: datetime = field(default_factory=datetime.now)
 
@@ -196,7 +224,7 @@ class Runtime:
 
         if self.config.name != 'dry-run':
             def handle_signal(signum: int, _frame: Any):
-                self.log('error', 'system', f'Received {signal.strsignal(signum)}, shutting down', {'signum': signum})
+                self.log(LogEntry(err=Error(f'Received {signal.strsignal(signum)}, shutting down')))
                 self.stop_arm()
                 sys.exit(1)
 
@@ -238,7 +266,7 @@ class Runtime:
             yield
         except BaseException as e:
             import reprlib
-            self.log('error', 'exception', reprlib.repr(e), {'traceback': traceback.format_exc(), 'repr': repr(e)})
+            self.log(LogEntry(err=Error(reprlib.repr(e), traceback.format_exc())))
             if not isinstance(e, SystemExit):
                 os.kill(os.getpid(), signal.SIGINT)
 
@@ -249,32 +277,15 @@ class Runtime:
         '''
         return self.config.env
 
-    def log(self,
-        kind: Literal['begin', 'end', 'info', 'warn', 'error'],
-        source: str,
-        arg: str | int | None = None,
-        metadata: dict[str, Any] = {},
-        t0: None | float = None
-    ) -> float:
+    def log(self, entry: LogEntry, t0: float | None = None) -> LogEntry:
         with self.time_lock:
             t = round(self.monotonic(), 3)
             log_time = self.now()
-        if isinstance(t0, (float, int)):
-            duration = round(t - t0, 3)
-        else:
-            duration = None
-        entry = {
-            'log_time': str(log_time),
-            't': t,
-            't0': t0,
-            'duration': duration,
-            'kind': kind,
-            'source': source,
-            'arg': arg,
-            **metadata,
-        }
-        if source == 'duration' and kind == 'end' and duration is not None:
-            self.times[str(arg)].append(duration)
+        entry = entry.init(
+            log_time=str(log_time),
+            t=t,
+            t0=t0,
+        )
 
         # the logging logic is quite convoluted so let's safeguard against software errors in it
         try:
@@ -289,135 +300,131 @@ class Runtime:
 
         if 0:
             utils.pr(entry)
-        if tb := entry.get('traceback'):
-            print(tb)
+        if entry.err and entry.err.traceback:
+            print(entry.err.traceback)
         log_filename = self.config.log_filename
         if log_filename:
             with self.log_lock:
                 with open(log_filename, 'a') as fp:
-                    json.dump(entry, fp)
+                    d = utils.to_json(entry)
+                    assert entry == utils.from_json(d)
+                    json.dump(d, fp)
                     fp.write('\n')
+                # with open(log_filename + '.pkl', 'ab') as fp:
+                    # pickle.dump(entry, fp)
+                # with utils.timeit('read pkl'):
+                #     print(len(list(utils.read_pickles(log_filename + '.pkl'))), end=' ')
+                # with utils.timeit('read json'):
+                #     print(len(list(utils.read_json_lines(log_filename))), end=' ')
+        self.log_entries.append(entry)
+        return entry
+
+    def apply_effect(self, effect: Effect, entry: LogEntry | None = None):
+        with self.running_lock:
+            try:
+                next = effect.apply(self.world)
+            except Exception as e:
+                import traceback as tb
+                fatal = self.config.name == 'dry-run'
+                self.log(LogEntry(
+                    cmd=entry.cmd if entry else None,
+                    err=Error(str(e), tb.format_exc(), fatal=fatal)
+                ))
+            else:
+                if next != self.world:
+                    self.world = next
+                    self.log_running()
+
+    def log_entry_to_line(self, entry: LogEntry) -> str | None:
+
+        if entry.cmd is None and entry.running:
+            return
+
+        if not self.config.log_filename:
+            return
+        m = entry.metadata
+        if m.dry_run_sleep:
+            return
+        t = self.pp_time_offset(entry.t)
+        if entry.cmd:
+            desc = ', '.join(f'{k}={v}' for k, v in utils.nub(entry.cmd).items() if k != 'machine')
         else:
-            self.log_entries.append(entry)
-        return t
-
-    active: set[str] = field(default_factory=set)
-
-    def log_entry_to_line(self, entry: dict[str, Any]) -> str | None:
-        kind = entry.get('kind') or ''
-        step = entry.get('step') or ''
-        source = entry.get('source') or ''
-        plate_id = entry.get('plate_id') or ''
-
-        log_filename = self.config.log_filename
-
-        if not log_filename:
+            desc = ''
+        if entry.msg:
+            desc = entry.msg
+        machine = entry.machine() or entry.cmd.__class__.__name__
+        if entry.cmd is None:
+            machine = ''
+        if machine in ('WaitForCheckpoint', 'Idle'):
+            machine = 'wait'
+        if machine in ('robotarm', 'wait') and entry.is_end():
             return
-        if entry.get('silent'):
-            return
-        if source == 'robotarm' and kind == 'end':
-            return
-        if source in ('wait', 'idle') and 0:
-            if kind != 'info':
-                return
-            if entry.get('thread'):
-                if entry.get('log_sleep'):
-                    pass
-                else:
-                    return
-        if source == 'checkpoint' and 0:
-            return
-
-        t = entry.get('t')
-        if isinstance(t, (int, float)):
-            t = self.pp_time_offset(t)
-        else:
-            t = '--:--:--'
-
-        arg = str(entry.get('arg'))
-        last = ' '
-        if source == 'duration' and kind == 'end':
-            secs = float(entry.get("duration", 0.0) or 0.0)
-            arg = f'`{arg}` = {utils.pp_secs(secs)}'
-        elif (incu_loc := entry.get("incu_loc")):
-            arg = f'{arg} {incu_loc} {kind}'
-        elif source in ('wash', 'disp'):
-            if 'Validate ' in arg and kind == 'begin':
-                return
-            arg = arg.replace('RunValidated ', '')
-            arg = arg.replace('Run ', '')
-            arg = trim_LHC_filenames(arg)
-            arg = arg + ' '
-            arg = f'{arg:─<50}'
-            if (T := entry.get('duration')):
-                r = f'─ {utils.pp_secs(T)}s ─'
-            else:
-                r = ''
-            arg = arg[:len(arg)-len(r)] + r
-            last = '─'
-
-        def color(src: str, s: str):
-            if src == 'wash':
-                return utils.Color().cyan(s)
-            elif src == 'disp':
-                return utils.Color().lightred(s)
-            else:
-                return utils.Color().none(s)
-
-        if source in ('idle', 'wait'):
-            for machine in ('wash', 'disp', 'incu'):
-                thread = str(entry.get('thread', ''))
-                if thread.startswith(machine):
-                    source = machine + ' ' + source
-
-        column_order = 'disp wash'.split()
-        columns = ''
-        for c in column_order:
-            s = source if 'Validate ' not in arg else ''
-            if s == c and kind == 'begin':
-                self.active.add(c)
-                columns += color(c, '┬')
-            elif s == c and kind == 'end':
-                self.active.remove(c)
-                columns += color(c, '┴')
-            elif c in self.active:
-                columns += color(c, '│')
-            else:
-                columns += color(source, last)
-            columns += color(source, last)
-
-        src = dict(
-            wash='washer',
-            incu='incubator',
-            disp='dispenser',
-        ).get(source, source)
-
-        diff = entry.get('effect')
-
+        if entry.is_end() and machine in ('wash', 'disp', 'incu'):
+            machine += ' done'
+        machine = machine.lower()
+        if machine == 'duration':
+            desc = f"`{getattr(entry.cmd, 'name', '?')}` = {utils.pp_secs(entry.duration or 0)}"
+        import re
+        desc = re.sub('automation_v.*?/', '', desc)
+        desc = re.sub(r'\.LHC', '', desc)
+        desc = re.sub(r'\w*path=', '', desc)
+        desc = re.sub(r'\w*name=', '', desc)
+        if not desc:
+            desc = str(utils.nub(entry.metadata))
+        with self.running_lock:
+            w = ','.join(f'{k}:{v}' for k, v in self.world.items())
+            r = ', '.join(
+                f'{e.metadata.thread_resource or "main"}:{c.__class__.__name__}'
+                for e in self.running_entries
+                if (c := e.cmd)
+                if not e.metadata.dry_run_sleep
+            )
         parts = [
             t,
-            f'{src     : <9}',
-            f'{arg     : <50}' + columns,
-            f'{plate_id: >2}',
-            f'{entry.get("id", "None"): >4}',
-            f'{step    : <6}',
-            f'{diff}',
+            f'{machine[:12]     : <12}',
+            f'{desc[:50]        : <50}',
+            f'{m.plate_id or "" : >2}',
+            f'{m.step           : <6}',
+            f'{w                : <30}',
+            f'{r                     }',
         ]
+        # with self.log_lock:
+        #     utils.pr(entry, sep='', indentchars='')
+        return ' | '.join(parts)
 
-        parts = [color(source, part) for part in parts]
-        line = color(source, ' | ').join(parts)
-        return line
+    running_lock: RLock = field(default_factory=RLock)
+    running_entries: list[LogEntry] = field(default_factory=list)
+    world: World = field(default_factory=dict)
 
-    def timeit(self, source: str, arg: str | int | None = None, metadata: dict[str, Any] = {}) -> ContextManager[None]:
+    def log_running(self):
+        with self.running_lock:
+            self.log(
+                LogEntry(
+                    running=Running(
+                        entries=self.running_entries,
+                        world=self.world,
+                    )))
+
+    def timeit(self, entry: LogEntry) -> ContextManager[None]:
         # The inferred type for the decorated function is wrong hence this wrapper to get the correct type
 
         @contextmanager
-        def worker(source: str, arg: str | int | None, metadata: dict[str, Any]):
-            t0 = self.log('begin', source, arg=arg, metadata=metadata)
+        def worker():
+            e0 = self.log(entry)
+            with self.running_lock:
+                self.running_entries.append(e0)
+                G = utils.group_by(self.running_entries, key=lambda e: e.metadata.thread_resource)
+                if self.config.name == 'dry-run':
+                    for _k, v in G.items():
+                        assert len(v) <= 1
+            self.log_running()
             yield
-            self.log('end', source, arg=arg, metadata=metadata, t0=t0)
+            self.log(entry, t0=e0.t)
+            with self.running_lock:
+                self.running_entries.remove(e0)
+            self.log_running()
 
-        return worker(source, arg, metadata)
+        return worker()
 
     def pp_time_offset(self, secs: int | float):
         dt = self.start_time + timedelta(seconds=secs)
@@ -429,15 +436,17 @@ class Runtime:
     def monotonic(self) -> float:
         return self.timelike.monotonic()
 
-    def sleep(self, secs: float, metadata: dict[str, Any]):
+    def sleep(self, secs: float, entry: LogEntry):
+        secs = round(secs, 3)
+        entry = entry.add(Metadata(sleep_secs=secs))
         if abs(secs) < 0.1:
-            self.log('info', 'wait', f'on time {pp_secs(secs)}s', metadata={**metadata, 'secs': secs})
+            self.log(entry.add(msg=f'on time {pp_secs(secs)}s'))
         elif secs < 0:
-            self.log('info', 'wait', f'behind time {pp_secs(secs)}s', metadata={**metadata, 'secs': secs})
+            self.log(entry.add(msg=f'behind time {pp_secs(secs)}s'))
         else:
             to = self.pp_time_offset(self.monotonic() + secs)
-            with self.timeit('wait', f'sleeping to {to} ({pp_secs(secs)}s)', metadata={**metadata, 'secs': secs}):
-                self.timelike.sleep(secs)
+            self.log(entry.add(msg=f'sleeping to {to} ({pp_secs(secs)}s)'))
+            self.timelike.sleep(secs)
 
     def queue_get(self, queue: Queue[A]) -> A:
         return self.timelike.queue_get(queue)
@@ -454,10 +463,10 @@ class Runtime:
     def thread_done(self):
         return self.timelike.thread_done()
 
-    def checkpoint(self, name: str, *, metadata: dict[str, Any] = {}):
+    def checkpoint(self, name: str, entry: LogEntry):
         with self.time_lock:
             assert name not in self.checkpoint_times, f'{name!r} already checkpointed in {utils.show(self.checkpoint_times, use_color=False)}'
-            self.checkpoint_times[name] = self.log('info', 'checkpoint', str(name), metadata=metadata)
+            self.checkpoint_times[name] = self.log(entry).t
             for q in self.checkpoint_waits[name]:
                 self.queue_put_nowait(q, None)
             self.checkpoint_waits[name].clear()

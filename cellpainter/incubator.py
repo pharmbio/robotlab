@@ -4,12 +4,13 @@ from typing import *
 
 from .runtime import Runtime, curl
 from . import timings
+from .log import Metadata, LogEntry, Error
 
 def execute(
     runtime: Runtime,
+    entry: LogEntry,
     action: Literal['put', 'get', 'get_climate'],
     incu_loc: str | None,
-    metadata: dict[str, Any] = {},
 ):
     '''
     Run the incubator.
@@ -32,38 +33,32 @@ def execute(
           "success": False
         }
     '''
-    if incu_loc is not None:
-        metadata = {**metadata, 'incu_loc': incu_loc}
-        arg = action # + ' ' + incu_loc
+    assert action in {'put', 'get', 'get_climate'}
+    if runtime.config.incu_mode == 'noop':
+        est = timings.estimate('incu', action)
+        runtime.sleep(est, entry.add(Metadata(dry_run_sleep=True)))
+        res: Any = {"success":True,"lines":[]}
     else:
-        arg = action
-    with runtime.timeit('incu', arg, metadata):
-        assert action in {'put', 'get', 'get_climate'}
-        if runtime.config.incu_mode == 'noop':
-            est = timings.estimate('incu', arg)
-            runtime.sleep(est, {**metadata, 'silent': True})
-            res: Any = {"success":True,"lines":[]}
+        assert runtime.config.incu_mode == 'execute'
+        if action == 'put':
+            assert incu_loc is not None
+            action_path = 'put/' + incu_loc
+        elif action == 'get':
+            assert incu_loc is not None
+            action_path = 'get/' + incu_loc
+        elif action == 'get_climate':
+            assert incu_loc is None
+            action_path = 'get_climate'
         else:
-            assert runtime.config.incu_mode == 'execute'
-            if action == 'put':
-                assert incu_loc is not None
-                action_path = 'put/' + incu_loc
-            elif action == 'get':
-                assert incu_loc is not None
-                action_path = 'get/' + incu_loc
-            elif action == 'get_climate':
-                assert incu_loc is None
-                action_path = 'get_climate'
-            else:
-                raise ValueError
-            url = runtime.env.incu_url + '/' + action_path
-            res = curl(url)
-        success: bool = res.get('success', False)
-        lines: list[str] = res.get('lines', [])
-        if success:
-            return
-        else:
-            machine = 'incu'
-            for line in lines or ['']:
-                runtime.log('error', machine, f'{machine}: {line}')
-            raise ValueError(res)
+            raise ValueError
+        url = runtime.env.incu_url + '/' + action_path
+        res = curl(url)
+    success: bool = res.get('success', False)
+    lines: list[str] = res.get('lines', [])
+    if success:
+        return
+    else:
+        machine = 'incu'
+        for line in lines or ['']:
+            runtime.log(entry.add(err=Error(f'{machine}: {line}')))
+        raise ValueError(res)

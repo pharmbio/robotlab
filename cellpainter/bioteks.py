@@ -5,19 +5,15 @@ from typing import *
 from .runtime import Runtime, curl
 from . import timings
 
-BiotekCommand = Literal[
-    'Run',
-    'Validate',
-    'RunValidated',
-    'TestCommunications',
-]
+from .log import Metadata, LogEntry, Error
+from .commands import BiotekAction
 
 def execute(
     runtime: Runtime,
+    entry: LogEntry,
     machine: Literal['wash', 'disp'],
     protocol_path: str | None,
-    cmd: BiotekCommand = 'Run',
-    metadata: dict[str, Any] = {},
+    action: BiotekAction = 'Run',
 ):
     '''
     Repeatedly try to run the protocol until it succeeds or we get an unknown error.
@@ -61,41 +57,36 @@ def execute(
         }
 
     '''
-    if cmd == 'TestCommunications':
-        log_arg: str = cmd
+    if action == 'TestCommunications':
+        log_arg: str = action
     else:
         assert protocol_path
-        log_arg: str = cmd + ' ' + protocol_path
-    with runtime.timeit(machine, log_arg, metadata=metadata):
-        while True:
-            if runtime.config.disp_and_wash_mode == 'noop':
-                est = timings.estimate(machine, log_arg)
-                runtime.sleep(est, {**metadata, 'silent': True})
-                res: Any = {"success":True,"lines":[]}
-            else:
-                assert runtime.config.disp_and_wash_mode == 'execute'
-                url = (
-                    runtime.env.biotek_url +
-                    '/' + machine +
-                    '/' + cmd +
-                    '/' + (protocol_path or '')
-                )
-                url = url.rstrip('/')
-                res: Any = curl(url)
-            if 0:
-                import random
-                if random.random() > 0.95 and runtime.config.name == 'dry-ff':
-                    res: Any = {"success":False,"lines":["error biotek broken"]}
-            success: bool = res.get('success', False)
-            lines: list[str] = res.get('lines', [])
-            details = '\n'.join(lines)
-            if success:
-                break
-            elif 'Error code: 6061' in details:
-                for line in lines:
-                    runtime.log('warn', machine, line)
-                runtime.log('warn', machine, 'got error code 6061, retrying...', {**metadata, **res})
-            else:
-                for line in lines or ['']:
-                    runtime.log('error', machine, f'{machine}: {line}')
-                raise ValueError(res)
+        log_arg: str = action + ' ' + protocol_path
+    while True:
+        if runtime.config.disp_and_wash_mode == 'noop':
+            est = timings.estimate(machine, log_arg)
+            runtime.sleep(est, entry.add(Metadata(dry_run_sleep=True)))
+            res: Any = {"success":True,"lines":[]}
+        else:
+            assert runtime.config.disp_and_wash_mode == 'execute'
+            url = (
+                runtime.env.biotek_url +
+                '/' + machine +
+                '/' + action +
+                '/' + (protocol_path or '')
+            )
+            url = url.rstrip('/')
+            res: Any = curl(url)
+        success: bool = res.get('success', False)
+        lines: list[str] = res.get('lines', [])
+        details = '\n'.join(lines)
+        if success:
+            break
+        elif 'Error code: 6061' in details:
+            for line in lines:
+                runtime.log(entry.add(err=Error(f'{machine}: {line}', fatal=False)))
+            runtime.log(entry.add(err=Error(f'{machine} got error code 6061, retrying...', fatal=False)))
+        else:
+            for line in lines or ['']:
+                runtime.log(entry.add(err=Error(f'{machine}: {line}')))
+            raise ValueError(res)

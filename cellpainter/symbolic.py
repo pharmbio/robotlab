@@ -2,6 +2,8 @@ from __future__ import annotations
 from dataclasses import *
 from typing import *
 
+from . import utils
+
 import re
 
 @dataclass(frozen=True)
@@ -60,3 +62,8 @@ class Symbolic:
         else:
             return Symbolic.const(float(s))
 
+    def unwrap(self) -> float:
+        assert not self.var_names
+        return self.offset
+
+utils.serializer.register(globals())

@@ -5,6 +5,11 @@ from .viable import app
 from .viable import head, serve, esc, css_esc, trim, button, pre
 from .viable import Tag, div, span, label, img, raw, Input, input
 from . import viable as V
+from .provenance import Store, Str, Int
+
+from .log import LogEntry
+from .analyze_log import Log
+from . import commands
 
 from collections import *
 
@@ -76,7 +81,10 @@ stripes_dn_faint = b64svg(stripes_dn_faint)
 coords = ''
 n = 0
 
-def start(cmdline0: str, cmdline_to_entries: Callable[[str], list[dict[str, Any]]]):
+from functools import lru_cache
+
+def start(cmdline0: str, cmdline_to_log: Callable[[str], Log]):
+    cmdline_to_log = lru_cache(cmdline_to_log)
 
     @serve.one('/')
     def index() -> Iterator[Tag | dict[str, str]]:
@@ -85,29 +93,15 @@ def start(cmdline0: str, cmdline_to_entries: Callable[[str], list[dict[str, Any]
             'sheet': '''
                 body, html {
                     font-family: monospace;
-                    font-size: 12px;
                 }
             '''
         }
         yield {
-            'onkeydown': '''
-                if (event.key == 'Enter') {
-                    update_query(input_values())
-                    refresh()
-                }
-            ''',
-            'oninput': '''
-                if (event.target?.type != 'text') {
-                    update_query(input_values())
-                    refresh()
-                }
-            ''',
             'sheet': '''
                 label {
                     display: grid;
                     padding: 2px;
-                    width: 400px;
-                    grid-template-columns: 1fr 1fr;
+                    grid-template-columns: 150px 300px 50px ;
                     align-items: center;
                     grid-gap: 4px;
                 }
@@ -116,137 +110,161 @@ def start(cmdline0: str, cmdline_to_entries: Callable[[str], list[dict[str, Any]
                 }
             '''
         }
-        store: dict[str, str | bool] = {}
-        yield label(span('cmdline: '), Input(store, 'cmdline', type='text', default=cmdline0))
-        cmdline: str = utils.catch(lambda: str(store['cmdline']), cmdline0)
+        store = Store(default_provenance='query')
+        cmdline = store.var(Str(cmdline0))
+        zoom_int = store.var(Int(100, type='range', min=1, max=1000))
+        zoom = zoom_int.value / 100.0
+        yield label(span('cmdline: '), cmdline.input(store, iff='0').extend(onkeydown=cmdline.update_handler(store, iff='event.key == "Enter"')))
+        yield label(span('zoom: '), zoom_int.input(store), span(str(zoom_int.value)))
 
         try:
-            entries = cmdline_to_entries(cmdline)
+            entries = cmdline_to_log(cmdline.value)
         except:
             import traceback
+            traceback.print_exc()
             yield pre(traceback.format_exc())
             return
 
         from . import timings
-        utils.pr(timings.Guesses)
+        if timings.Guesses:
+            utils.pr(timings.Guesses)
 
-        # txt: list[str] = []
-        # for k, vs in execute.group_times(runtime.times).items():
-        #     if '37C' in k:
-        #         txt += [' '.join((k, *vs))]
-        #     if 'active' in k:
-        #         txt += [' '.join((k, *vs))]
-        #     if 'incubation' in k:
-        #         txt += [' '.join((k, *vs))]
-        #     if 'transfer' in k:
-        #         txt += [' '.join((k, *vs))]
-        #     if 'lid' in k:
-        #         txt += [' '.join((k, *vs))]
-        #     if 'batch' in k:
-        #         txt += [' '.join((k, *vs))]
-        # yield pre('\n'.join(txt))
+        yield pre('\n'.join(entries.group_durations_for_display()))
 
-        zoom = 1.0
-
-        with utils.timeit('area'):
-            area = div(style=f'''
-                width: 100%;
-                height: {zoom * max(e.get('t', 0) for e in entries)}px;
-            ''', css='''
-                position: relative;
-            ''')
-            for e in entries:
-                try:
-                    slot     = e.get('slot')
-                    plate    = utils.catch(lambda: int(e.get('plate_id', 0)), 0)
-                    t0       = e['t0']
-                    t        = e['t']
-                    source   = e['source']
-                    resource = e.get('resource')
-                    arg      = e['arg']
-                except:
-                    continue
-                if t0 is None:
-                    continue
-                color_map = {
-                    'wait': 'color3',
-                    'idle': 'color3',
-                    'robotarm': 'color4',
-                    'wash': 'color6',
-                    'disp': 'color5',
-                    'incu': 'color2',
-                    'timer': 'color3',
-                }
-                if slot is None:
-                    slot = {
-                        'incu': 1,
-                        'wash': 2,
-                        'disp': 3,
-                    }.get(resource or '', 1)
-                slot = 2 * slot - 2
-                if resource in ('wash', 'disp', 'incu'):
-                    slot += 1
-                if source == 'duration':
-                    slot = 10 + plate
-                color = colors.get(color_map.get(source, ''), '#ccc')
-                width = 14
-                my_width = 14
-                my_offset = 0
-                z_index = 0
-                if source == 'duration':
-                    my_width = 4
-                    z_index = 1
-                    if 'transfer' in arg:
-                        color = colors.get('color1')
-                        z_index = 2
-                    if 'lid' in arg:
-                        my_offset += 4
-                    if 'pre disp' in arg:
-                        my_offset += 8
-                    if '37C' in arg:
-                        my_offset += 4
-                        color = colors.get(color_map['incu'])
-                if source == 'wait':
-                    my_width = 7
-                    z_index = 1
-                if source == 'idle':
-                    my_width = 7
-                    z_index = 2
-                if source == 'run':
-                    continue
-                area += div(
-                    str(plate) if t - t0 > 9.0 and my_width > 4 and plate else '',
-                    css='''
-                        position: absolute;
+        area = div(style=f'''
+            width: 100%;
+            height: {zoom * max(e.t for e in entries)}px;
+        ''', css='''
+            position: relative;
+        ''')
+        for e in entries:
+            t0 = e.t0
+            t = e.t
+            cmd = e.cmd
+            m = e.metadata
+            slot = m.slot
+            plate = utils.catch(lambda: int(m.plate_id or '0'), 0)
+            machine = e.machine() or ''
+            sources: dict[Any, str] = {
+                commands.Idle: 'idle',
+                commands.WaitForCheckpoint: 'wait',
+                commands.Duration: 'duration',
+            }
+            source = sources.get(e.cmd.__class__, machine) or ''
+            if t0 is None:
+                continue
+            if slot is None:
+                slot = {
+                    'incu': 1,
+                    'wash': 2,
+                    'disp': 3,
+                }.get(machine, 1)
+            slot = 2 * slot
+            if machine in ('wash', 'disp', 'incu'):
+                slot += 1
+            if source == 'duration':
+                slot = 18 + plate
+            color_map = {
+                'wait': 'color3',
+                'idle': 'color3',
+                'robotarm': 'color4',
+                'wash': 'color6',
+                'disp': 'color5',
+                'incu': 'color2',
+            }
+            color = colors.get(color_map.get(source, ''), '#ccc')
+            fg_color = '#000'
+            if color == colors.get('color4'):
+                fg_color = '#fff'
+            width = 14
+            my_width = 14
+            my_offset = 0
+            if isinstance(cmd, commands.Duration):
+                my_width = 4
+                if 'transfer' in cmd.name:
+                    color = colors.get('color1')
+                if 'lid' in cmd.name:
+                    my_offset += 4
+                if 'pre disp' in cmd.name:
+                    my_offset += 8
+                if '37C' in cmd.name:
+                    my_offset += 4
+                    color = colors.get(color_map['incu'])
+            if source == 'wait':
+                my_width = 7
+            if source == 'idle':
+                my_width = 7
+            if source == 'run':
+                continue
+            width *= 2
+            my_width *= 2
+            my_offset *= 2
+            for_show = utils.nub(e) | dict(
+                t=utils.pp_secs(t),
+                t0=utils.pp_secs(t0),
+                machine=machine,
+                source=source,
+                duration=utils.pp_secs(e.duration or 0.0),
+                slot=slot,
+            )
+            area += div(
+                str(plate) if t - t0 > 9.0 and my_width > 4 and plate else '',
+                css='''
+                    position: absolute;
+                    border-radius: 2px;
+                    border: 1px #0005 solid;
+                    display: grid;
+                    place-items: center;
+                    font-size: 12px;
+                    background: var(--bg-color);
+                ''',
+                css_='''
+                    &:hover::after, &:hover::before {
+                        white-space: pre;
+                        padding: 2px 4px;
                         border-radius: 2px;
                         border: 1px #0005 solid;
-                        display: grid;
-                        place-items: center;
-                        font-size: 0.8em;
-                    ''',
-                    style=trim(f'''
-                        left: {slot * width + my_offset:.1f}px;
-                        width: {my_width - 2:.1f}px;
-                        top: {zoom * t0:.1f}px;
-                        height: {zoom * (t - t0) - 1:.1f}px;
-                        background: {color};
-                        z-index: {z_index};
-                    '''),
-                    data_info=utils.show({
-                        k: utils.pp_secs(v) if k in 't t0 duration'.split() else v
-                        for k, v in e.items()
-                    }, use_color=False)
-                )
+                        background: var(--bg-color);
+                        color: var(--fg-color);
+                        z-index: 1;
+                        font-size: 16px;
+                    }
+                    &:hover::after {
+                        position: fixed;
+                        right: 0;
+                        top: 0;
+                        content: attr(data-info);
+                    }
+                    &:hover::before {
+                        position: absolute;
+                        left: calc(100% + 1px);
+                        top: -1px;
+                        content: attr(data-short-info);
+                    }
+                ''',
+                css__=f'''
+                    --bg-color: {color};
+                    --fg-color: {fg_color};
+                ''',
+                style=trim(f'''
+                    left: {slot * width + my_offset:.1f}px;
+                    width: {my_width - 2:.1f}px;
+                    top: {zoom * t0:.1f}px;
+                    height: {max(zoom * (t - t0) - 1, 2):.1f}px;
+                '''),
+                data_info=utils.show(for_show, use_color=False),
+                data_short_info=str(e.cmd),
+            )
 
-        area.onmouseover += """
-            if (event.target.dataset.info)
-                document.querySelector('#info').innerHTML = event.target.dataset.info.trim()
-        """
+        # area.onmouseover += """
+        #     if (event.target.dataset.info)
+        #         document.querySelector('#info').innerHTML = event.target.dataset.info.trim()
+        # """
 
-        area.onmouseout += """
-            if (event.target.dataset.info)
-                document.querySelector('#info').innerHTML = ''
-        """
+        # area.onmouseout += """
+        #     if (event.target.dataset.info)
+        #         document.querySelector('#info').innerHTML = ''
+        # """
         # yield zoom_input
         # yield batch_size_input
         yield area

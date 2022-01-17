@@ -2,45 +2,45 @@ from __future__ import annotations
 from typing import *
 
 from .viable import app, js
-from .viable import head, serve, esc, css_esc, trim, button, pre
-from .viable import Tag, div, span, label, img, raw, Input, input
+from .viable import serve, trim, button, pre
+from .viable import Tag, div, span, label
 from . import viable as V
 
-from flask import request
 from collections import *
+from dataclasses import dataclass, replace
+from datetime import datetime, timedelta
+from functools import lru_cache
 
-from . import utils
-import random
-
-import threading
-
-from .cli import Args
-import dataclasses
+from pathlib import Path
+from subprocess import Popen, DEVNULL
 import json
-
-from subprocess import Popen, DEVNULL, check_output
-import pickle
-import signal
+import math
 import os
-from .runtime import config_lookup, get_robotarm, RuntimeConfig
-from . import moves
-from .moves import RawCode, Move
-import sys
+import pickle
 import platform
+import signal
+import sys
 
+from .analyze_log import Log
+from .cli import Args
+
+from . import commands
+from . import moves
+from . import runtime
+from . import utils
+from .log import LogEntry, Metadata, RuntimeMetadata, Error, countdown
+from .moves import RawCode, Move
+from .protocol import Locations
 from .provenance import Var, Int, Str, Store, DB, Bool
-from .protocol import Incu_locs, A_locs, B_locs, C_locs
+from .runtime import get_robotarm, RuntimeConfig
 
-if '--live' in sys.argv:
-    config: RuntimeConfig = config_lookup('live')
-elif '--live-no-incu' in sys.argv:
-    config: RuntimeConfig = config_lookup('live-no-incu')
-elif '--simulator' in sys.argv:
-    config = config_lookup('simulator')
-elif '--dry-wall' in sys.argv:
-    config = config_lookup('dry-wall')
+config: RuntimeConfig
+for c in runtime.configs:
+    if '--' + c.name in sys.argv:
+        config = c
+        break
 else:
-    raise ValueError('Start with --live, --simulator or --dry-wall')
+    raise ValueError('Start with one of ' + ', '.join('--' + c.name for c in runtime.configs))
 
 print(f'Running with {config.name=}')
 
@@ -95,11 +95,12 @@ def start(batch_sizes: str, start_from_pfa: bool, simulate: bool, incu: str):
     interleave = N >= 7
     two_final_washes = N >= 8
     lockstep = N >= 10
+    config_name='dry-run' if simulate else config.name
     if incu in {'1200', '20:00', ''} and N >= 8:
         incu = '1200,1200,1200,1200,X'
-    log_filename = 'logs/' + utils.now_str_for_filename() + '-from-gui.jsonl'
+    log_filename = 'logs/' + utils.now_str_for_filename() + f'-{config_name}-from-gui.jsonl'
     args = Args(
-        config_name='dry-run' if simulate else config.name,
+        config_name=config_name,
         log_filename=log_filename,
         cell_paint=batch_sizes,
         interleave=interleave,
@@ -107,13 +108,13 @@ def start(batch_sizes: str, start_from_pfa: bool, simulate: bool, incu: str):
         lockstep=lockstep,
         start_from_pfa=start_from_pfa,
         incu=incu,
-        # load_incu=11,
+        yes=True,
     )
     cmd = [
         'sh', '-c',
-        'yes | python3.10 cli.py --json-arg "$1" 2>"$2"',
+        'cellpainter --json-arg "$1" 2>"$2"',
         '--',
-        json.dumps(dataclasses.asdict(args)),
+        json.dumps(utils.nub(args)),
         as_stderr(log_filename),
     ]
     Popen(cmd, start_new_session=True, stdout=DEVNULL, stderr=DEVNULL, stdin=DEVNULL)
@@ -131,12 +132,13 @@ def resume(log_filename_in: str, skip: list[str], drop: list[str]):
         log_filename=log_filename_new,
         resume_skip=','.join(skip),
         resume_drop=','.join(drop),
+        yes=True,
     )
     cmd = [
         'sh', '-c',
-        'python3.10 cli.py --json-arg "$1" 2>"$2"',
+        'cellpainter --json-arg "$1" 2>"$2"',
         '--',
-        json.dumps(dataclasses.asdict(args)),
+        json.dumps(utils.nub(args)),
         as_stderr(log_filename_new),
     ]
     Popen(cmd, start_new_session=True, stdout=DEVNULL, stderr=sys.stderr, stdin=DEVNULL)
@@ -146,429 +148,290 @@ def resume(log_filename_in: str, skip: list[str], drop: list[str]):
     }
 
 serve.suppress_flask_logging()
-import pandas as pd
-
-import numpy as np
-from datetime import datetime, timedelta
-from functools import lru_cache
-from dataclasses import dataclass
-from pathlib import Path
-
 @lru_cache
-def load_from_pickle(filepath: str) -> Any:
+def load_from_pickle(filepath: str) -> Log:
     with open(filepath, 'rb') as fp:
-        rs = pickle.load(fp)
-    return prep(pd.DataFrame.from_records(rs))
+        res = pickle.load(fp)
+    return Log(res).drop_boring()
 
 @lru_cache(maxsize=1)
-def _jsonl_to_df(path: str, mtime_ns: int) -> pd.DataFrame | None:
+def _jsonl_to_log(path: str, mtime_ns: int) -> Log | None:
     try:
-        df = pd.read_json(path, lines=True)
+        return Log(utils.serializer.from_json_lines(path)).drop_boring()
     except:
         return None
-    return prep(df)
 
-def jsonl_to_df(path: str) -> pd.DataFrame | None:
+def jsonl_to_log(path: str) -> Log | None:
     p = Path(path)
     try:
         stat = p.stat()
     except FileNotFoundError:
         return None
-    df = _jsonl_to_df(path, stat.st_mtime_ns)
-    if df is not None:
-        return df.copy()
-    else:
-        return None
+    return _jsonl_to_log(path, stat.st_mtime_ns)
 
-def to_int(s: pd.Series, fill: int=0) -> pd.Series:
-    return pd.to_numeric(s, errors='coerce').fillna(fill).astype(int)
+def pp_secs(secs: int | float, zero: str='0'):
+    dt = timedelta(seconds=math.ceil(secs))
+    if dt < timedelta(seconds=0):
+        return zero
+    s = str(dt)
+    s = s.lstrip('0:')
+    return s or zero
 
-def prep(df: pd.DataFrame):
-    if 'id' in df:
-        df.id = to_int(df.id, fill=-1)
-    else:
-        df.id = -1
-    if 'plate_id' in df:
-        df.plate_id = to_int(df.plate_id)
-    else:
-        df['plate_id'] = 0
-    if 'batch_index' in df:
-        df.batch_index = to_int(df.batch_index)
-    else:
-        df['batch_index'] = 0
-    if 'simple_id' not in df:
-        df['simple_id'] = None
-    if 'report_behind_time' in df:
-        df.report_behind_time = df.report_behind_time.fillna(0.0) == 1.0
-    else:
-        df['report_behind_time'] = False
-    if 'incu_loc' in df:
-        df.loc[~df.incu_loc.isna(), 'arg'] = df.arg + ' ' + df.incu_loc
-    if 'section' not in df:
-        df['section'] = None
-    if 'resource' in df:
-        df.resource = df.resource.fillna('main')
-    else:
-        df['resource'] = 'main'
-    if 'step' not in df:
-        df['step'] = None
-    return df
-
-def cleanup(d):
-    d = d[~d.arg.fillna('').str.contains('Validate ')].copy()
-    d.arg = d.arg.str.replace('RunValidated ', '', regex=False)
-    d.arg = d.arg.str.replace('Run ', '', regex=False)
-    d.arg = d.arg.str.replace(r'automation_v[\d\.]+/', '', regex=True)
-    return d
-
-def countdown_str(s: Series):
-    if s.isna().all():
-        return s
-    s = s.clip(0)
-    s = pd.to_datetime(s, unit='s')
-    s = s.dt.strftime('%H:%M:%S')
-    s = s.str.lstrip('0:')
-    s[s == ''] = '0'
-    return s
+def make_table(rows: list[dict[str, Any]], header: bool=True):
+    columns = list({
+        k: ()
+        for row in rows
+        for k, _ in row.items()
+    }.keys())
+    head_tr = V.tr()
+    head = V.thead(head_tr)
+    for c in columns:
+        head_tr += V.th(c)
+    body = V.tbody()
+    for row in rows:
+        tr = V.tr()
+        for c in columns:
+            v = row.get(c)
+            if v is None:
+                v = ''
+            tr += V.td(str(v) or '\u200b')
+        body += tr
+    return V.table(head, body)
 
 @dataclass(frozen=True, kw_only=True)
 class AnalyzeResult:
     zero_time: datetime
     t_now: float
-    pid: int
-    process_is_alive: bool
+    runtime_metadata: RuntimeMetadata
     completed: bool
-    log_filename: str
-    df: pd.DataFrame
-    r: pd.DataFrame
-    vis: pd.DataFrame
-    sections: pd.DataFrame
-    errors: pd.DataFrame
-    world: dict[str, Any]
+    sections: dict[str, Log]
+    running_entries: list[LogEntry]
+    errors: list[tuple[Error, LogEntry]]
+    world: dict[str, str]
     num_plates: int
 
     def has_error(self):
         if self.completed:
             return False
-        return not self.process_is_alive or self.errors.size > 0
+        return not self.process_is_alive() or self.errors
 
-    @staticmethod
-    def init(df: Any) -> AnalyzeResult:
-        completed = 'completed' in df and df.completed.any()
-
-        meta = df.runtime_metadata # .iloc[-1]
-        meta = meta[~meta.isna()]
-        runtime_metadata = meta.iloc[-1]
-
-        df['current'] = df.index >= meta.index[-1]
-
-        try:
-            world0: dict[str, str] = df.effect.dropna().iloc[0]
-        except:
-            world0 = {}
-
-        first_row = df.iloc[meta.index[-1], :]
-        zero_time = first_row.log_time.to_pydatetime() - timedelta(seconds=first_row.t)
-        t_now = (datetime.now() - zero_time).total_seconds()
-
-        if completed:
-            t_now = df.t.max() + 1
-
-        estimates = load_from_pickle(runtime_metadata['estimates_pickle_file']) # could just add this at the top of the log instead
-        estimates = estimates.copy()
-        estimates['finished'] = True
-        estimates['running'] = False
-        estimates['current'] = False
-        pid = runtime_metadata['pid']
-        log_filename = runtime_metadata['log_filename']
-
-        errors = df[(df.kind == 'error') & df.current]
-
-        num_plates = max(
-            df.plate_id.astype(float).max(),
-            estimates.plate_id.astype(float).max(),
-        )
-        num_plates = int(num_plates)
-
+    def process_is_alive(self) -> bool:
+        pid = self.runtime_metadata.pid
+        log_filename = self.runtime_metadata.log_filename
         if pid:
             try:
                 with open(f'/proc/{pid}/cmdline', 'r') as fp:
                     cmdline = fp.read()
             except FileNotFoundError:
                 cmdline = ''
-            process_is_alive = log_filename in cmdline
+            return log_filename in cmdline
         else:
-            process_is_alive = False
+            return False
 
+    @staticmethod
+    def init(m: Log, until: float | None = None) -> AnalyzeResult | None:
 
-        if errors.size:
-            t_now = df.t.max()
+        completed = m.is_completed()
 
-        r = df
-        r_sections = r[~r.section.isna()]
-        r_sections = r_sections.copy()
-        r = r[r.kind.isin(('begin', 'end'))]
-        r = r.copy()
-        r['finished'] = r.id.isin(r[r.kind == 'end'].id)
-        r['running'] = (r.kind == 'begin') & ~r.finished & r.current
+        runtime_metadata = m.runtime_metadata()
+        if not runtime_metadata:
+            return None
+        zero_time = m.zero_time()
+        t_now = (datetime.now() - zero_time).total_seconds()
 
-        try:
-            effects = r[r.finished & r.source.isin(('incu', 'robotarm')) & r.kind.eq('end')].effect.dropna()
-            world: dict[str, str] = {**world0}
-            for effect in effects:
-                world = {
-                    k: v
-                    for k, v in {**world, **effect}.items()
-                    if v is not None
-                }
-            assert isinstance(world, dict)
-        except:
-            world = {}
+        if completed:
+            t_now = m.max_t() + 1
 
-        r = r[
-            r.source.isin(('wash', 'disp', 'incu'))
-            | r.report_behind_time
-            | ((r.source == 'robotarm') & r.running)
+        errors = m.errors()
+        if errors:
+            t_now = Log(e for _, e in errors).max_t() + 1
+
+        if until is not None:
+            t_now = until
+            m = Log([e for e in m if e.t < until])
+
+        running = m.running()
+        if not running:
+            return None
+
+        estimates = load_from_pickle(runtime_metadata.estimates_pickle_file)
+        num_plates = max(m.num_plates(), estimates.num_plates())
+
+        finished_ids = m.finished()
+        running_ids = Log(running.entries).ids()
+        live_ids = finished_ids | running_ids
+
+        running_entries = [
+            e.init(
+                log_time=e.log_time,
+                t0=e.t,
+                t=e.t + (e.metadata.est or e.metadata.sleep_secs or 0.0)
+            ).add(Metadata(is_estimate=True))
+            for e in running.entries
         ]
-        r = r[~r.arg.str.contains('Validate ')]
-        if 'secs' not in r:
-            r['secs'] = float('NaN')
-        r.loc[~r.finished, 't0'] = r.t
-        r.loc[~r.finished, 't'] = r.t + r.est.fillna(r.secs)
-        r.loc[~r.finished, 'duration'] = r.t - r.t0
-        r.loc[~r.finished, 'countdown'] = np.ceil(r.t) - t_now
-        r = r[~r.finished | (r.kind == 'end')]
-        r = r.copy()
-        if 't0' not in r:
-            r['t0'] = r.t
-        r['is_estimate'] = False
-        r.loc[r.running, 'is_estimate'] = True
 
-        r['t_ts'] = zero_time + pd.to_timedelta(r.t, unit='seconds')
-        r.t_ts = r.t_ts.dt.strftime('%H:%M:%S')
-        r.loc[~r.secs.isna(), 'arg'] = 'sleeping'
-        r.loc[~r.secs.isna(), 'arg'] = r.arg + ' to ' + r.t_ts
+        estimates = estimates.where(lambda e: e.is_end_or_section())
+        estimates = estimates.where(lambda e: e.metadata.id not in live_ids)
+        estimates = estimates.add(Metadata(is_estimate=True))
 
-        r = r.sort_values('t')
-        r = r.reset_index(drop=True)
-
-        r_sections['is_estimate'] = False
-        est = estimates
-        est['is_estimate'] = True
-        est = est[(est.kind == 'end') | est.section]
-        est = est[~est.id.isin(r.id)]
-        est = est[~est.section.isin(r_sections.section)]
-        vis = pd.concat([r, r_sections, est], axis=0).reset_index(drop=True)
-        vis = vis.sort_values('t')
-        vis = vis.reset_index(drop=True)
-
-        r = cleanup(r)
-        vis = cleanup(vis)
-
-        if vis.section.dropna().empty:
-            vis.loc[0, 'section'] = 'begin'
-
-        sections = vis[~vis.section.isna()]
-        sections = sections['batch_index t is_estimate section'.split()]
-        sections = sections.append([
-            {
-                't': vis.t.max(),
-                'is_estimate': True,
-                'section': 'end',
-                'batch_index': sections.batch_index.max()
-            }
-        ], ignore_index=True)
-        sections.loc[0, 't'] = 0
-        sections = sections.sort_values('t')
-        sections = sections.reset_index(drop=True)
-        sections['length'] = sections.t.diff()[1:].reset_index(drop=True)
-        sections['t0'] = sections.t
-        sections['t'] = sections.t0 + sections.length
-        sections['finished'] = sections.t0 < t_now
-        sections.loc[~sections.finished, 'countdown'] = (np.ceil(sections.t0) - t_now)
-
-        cols = '''
-            step
-            t0
-            t
-            source
-            resource
-            arg
-            countdown
-            is_estimate
-            batch_index
-            plate_id
-            running
-            finished
-            current
-            id
-            simple_id
-        '''.split()
+        vis = Log(m + running_entries + estimates)
+        vis = vis.where(lambda e: e.is_end_or_section())
+        end = LogEntry(t=vis.max_t(), metadata=Metadata(section='end'))
+        vis = Log(vis + [end])
+        sections = vis.group_by_section()
 
         return AnalyzeResult(
             zero_time=zero_time,
             t_now=t_now,
-            pid=pid,
-            process_is_alive=process_is_alive,
+            runtime_metadata=runtime_metadata,
             completed=completed,
-            log_filename=log_filename,
-            df=df,
-            r=r[cols].fillna(''),
-            vis=vis[cols].fillna(''),
+            running_entries=running_entries,
             sections=sections,
             errors=errors,
-            world=world,
+            world=running.world,
             num_plates=num_plates,
         )
 
-    def durations(self) -> pd.DataFrame:
-        d = self.df.copy()
-        d['t_ts'] = self.zero_time + pd.to_timedelta(d.t, unit='seconds')
-        d.t_ts = d.t_ts.dt.strftime('%H:%M:%S')
-        d0 = d.copy()
-        d = d[d.source == 'duration']
-        d = pd.concat([d, d.arg.str.extract(r'plate \d+ (?P<checkpoint>.*)$')], axis=1)
-        d = d[~d.checkpoint.isna()]
-        d = d['t0 t t_ts duration arg step plate_id checkpoint'.split()]
-        d = d[~d.checkpoint.str.contains('pre disp done')]
-        d = d[
-              (d.checkpoint == '37C')
-            | d.checkpoint.str.contains('incubation')
-            # | d.checkpoint.str.contains('transfer')
-        ]
-        d.checkpoint = d.checkpoint.str.replace('incubation', 'incu', regex=False)
-        d.checkpoint = d.checkpoint.str.replace('transfer', 'xfer', regex=False)
-        d = d.rename(columns={'plate_id': 'plate'})
-        pivot = d.pivot(index=['plate'], columns='checkpoint')
-        d = d.drop(columns=['arg', 't0', 't'])
-        d = d.rename(columns={'checkpoint': 'arg'})
+    def entry_desc(self, e: LogEntry):
+        cmd = e.cmd
+        match cmd:
+            case commands.RobotarmCmd():
+                return cmd.program_name
+            case commands.BiotekCmd():
+                if cmd.action == 'TestCommunications':
+                    return cmd.action
+                else:
+                    return cmd.protocol_path
+            case commands.IncuCmd():
+                if cmd.incu_loc:
+                    return cmd.action + ' ' + cmd.incu_loc
+                else:
+                    return cmd.action
+            case commands.WaitForCheckpoint() if cmd.plus_seconds.unwrap() > 0.5:
+                return f'sleeping to {self.pp_time_at(e.t)}'
+            case commands.WaitForCheckpoint():
+                return f'waiting for {cmd.name}'
+            case commands.Idle() if e.t0:
+                return f'sleeping to {self.pp_time_at(e.t)}'
+            case _:
+                return str(e)
 
-        d2 = cleanup(d0)
-        d2 = d2[d2.source.isin(('disp', 'wash'))]
-        d2 = d2[d2.kind == 'end']
-        d2 = d2[d2.plate_id != 0]
-        d2.arg = d2.source + ' ' + d2.arg
-        d2 = d2.rename(columns={'plate_id': 'plate'})
-
-        d = d.append(d2)
-
-        d = d['t_ts duration arg plate'.split()]
-        d.duration = countdown_str(d.duration) #pd.to_datetime(d.duration, unit='s')
-        # d.duration = d.duration.dt.strftime('%M:%S')
-        d = d.sort_values(['plate', 't_ts'])
-        d = d.rename(columns={'t_ts': 't'})
-        return d
-
-        # if not pivot.empty:
-        #     return pivot.duration.fillna('')
-        # else:
-        #     return None
-
-    def running(self) -> pd.DataFrame:
-        r = self.r
-        zero_time = self.zero_time
-        r.resource = r.resource.str.replace('main', 'arm', regex=False)
-        r = r[r.running]
-        r = r['resource t countdown arg plate_id'.split()]
-        r.countdown = countdown_str(r.countdown)
-        resources = 'arm disp wash incu'.split()
+    def running(self):
+        d: dict[str, LogEntry | None] = {}
+        resources = 'main disp wash incu'.split()
+        G = utils.group_by(self.running_entries, key=lambda e: e.metadata.thread_resource)
+        G['main'] = G['']
         for resource in resources:
-            if not (r.resource == resource).any():
-                r = r.append({'resource': resource}, ignore_index=True)
-        order = {v: i for i, v in enumerate(resources)}
-        r['order'] = r.resource.replace(order)
-        r = r.sort_values('order')
-        r = r.drop(columns=['order', 't'])
-        r = r.rename(columns={'plate_id': 'plate'})
-        r.plate = r.plate.fillna(0).astype(int)
-        r.loc[r.plate == 0, 'plate'] = pd.NA
-        r = r.fillna('')
-        return r
+            es = G.get(resource, [])
+            if es:
+                d[resource] = es[0]
+            else:
+                d[resource] = None
+            if len(es) > 2:
+                print(f'{len(es)} from {resource=}?')
 
-    def pretty_sections(self) -> pd.DataFrame:
-        zero_time = self.zero_time
-        sections = self.sections.copy()
-        sections.section = sections.section.replace(r' \d*$', '', regex=True)
-        sections.t0 = zero_time + pd.to_timedelta(sections.t0, unit='seconds')
-        sections.t0 = sections.t0.dt.strftime('%H:%M:%S')
-        sections.countdown = countdown_str(sections.countdown)
-        sections.length = pd.to_datetime(sections.length, unit='s')
-        sections.length = sections.length.dt.strftime('%M:%S')
-        sections = sections.fillna('')
-        return sections
+        table: list[dict[str, str | float | int | None]] = []
+        for resource, e in d.items():
+            table.append({
+                'resource':  resource,
+                'countdown': e and pp_secs(e.countdown(self.t_now)),
+                'desc':      e and self.entry_desc(e),
+                'plate':     e and e.metadata.plate_id,
+            })
+        return table
+
+    def time_at(self, secs: float):
+        return self.zero_time + timedelta(seconds=secs)
+
+    def pp_time_at(self, secs: float):
+        return self.time_at(secs).strftime('%H:%M:%S')
+
+    def countdown(self, to: float):
+        return countdown(self.t_now, to)
+
+    def pp_countdown(self, to: float, zero: str=''):
+        return pp_secs(self.countdown(to), zero=zero)
+
+    def pretty_sections(self):
+        table: list[dict[str, str | float | int]] = []
+        for name, entries in self.sections.items():
+            if entries:
+                table.append({
+                    'batch':     entries[-1].metadata.batch_index + 1,
+                    'section':   name.strip(' 0123456789'),
+                    'countdown': self.pp_countdown(entries.min_t(), zero=''),
+                    't0':        self.pp_time_at(entries.min_t()),
+                    'length':    pp_secs(math.ceil(entries.length()), zero=''),
+                })
+        return table
 
     def make_vis(self) -> Tag:
         t_now = self.t_now
-        r = self.vis
-        sections = self.sections
+        sections = {
+            k: v
+            for k, v in self.sections.items()
+            if len(v) > 1
+        }
 
-        start_times = sections.t0
-        max_length = sections.length.max()
+        start_times = [s.min_t() for _, s in sections.items()]
+        max_length = max(s.length() for _, s in sections.items())
 
-        r = r[r.source.isin(('wash', 'disp'))]
-        r = r[~r.batch_index.isna()]
-        r = r[r.finished | r.current]
+        @dataclass
+        class Row:
+            t0: float
+            t: float
+            is_estimate: bool
+            source: str
+            column: int
+            plate_id: str = ''
+            simple_id: str = ''
+            id: str = ''
+            msg: str = ''
+            entry: LogEntry | None = None
 
-        bg_rows: list[dict[str, Any]] = []
-        for i, (_, section) in enumerate(sections.iterrows()):
-            if pd.isna(section.length):
-                continue
-            bg_rows += [{
-                't0': section.t0,
-                't': section.t,
-                'is_estimate': False,
-                'source': 'marker',
-                'arg': '',
-                'plate_id': 0,
-            }]
-        bg_rows = pd.DataFrame.from_records(bg_rows)
+        bg_rows: list[Row] = []
+        for i, (name, section) in enumerate(sections.items()):
+            bg_rows += [Row(
+                t0          = section.min_t(),
+                t           = section.max_t(),
+                is_estimate = False,
+                source      = 'bg',
+                column      = i,
+            )]
 
-        now_row: list[dict[str, Any]] = []
-        if 0 <= t_now <= start_times.max() and not self.completed:
-            now_row += [{
-                't0': t_now,
-                't': t_now,
-                'is_estimate': False,
-                'source': 'now',
-                'arg': '',
-                'plate_id': 0,
-            }]
-        now_row = pd.DataFrame.from_records(now_row)
+        now_row: list[Row] = []
+        for i, (_section_name, section) in reversed(list(enumerate(sections.items()))):
+            if section.min_t() <= t_now <= section.max_t():
+                now_row += [Row(
+                    t0          = t_now,
+                    t           = t_now,
+                    is_estimate = False,
+                    source      = 'now',
+                    column      = i
+                )]
+                break
 
-        r = pd.concat([bg_rows, r, now_row], ignore_index=True)
-        r['slot'] = 0
-        for i, (_, section) in enumerate(sections.iterrows()):
-            r.loc[r.t0 >= section.t0, 'slot'] = i
-            r.loc[r.t0 >= section.t0, 'section'] = section.section
+        rows: list[Row] = [
+            Row(
+                t0          = e.t0 or e.t,
+                t           = e.t,
+                is_estimate = e.metadata.is_estimate,
+                source      = e.machine() or '?',
+                plate_id    = e.metadata.plate_id or '',
+                column      = i,
+                id          = e.metadata.id,
+                simple_id   = e.metadata.simple_id,
+                msg         = getattr(e.cmd, 'protocol_path', ''),
+                entry       = e,
+            )
+            for i, (_, entries) in enumerate(sections.items())
+            for e in entries
+            if isinstance(e.cmd, commands.BiotekCmd) #  machine() in ('wash', 'disp')
+        ]
 
-        r['slot_start'] = r.slot.replace(start_times)
+        rows = bg_rows + rows + now_row
 
-        r['color'] = r.source.replace({
-            'wash': 'var(--cyan)',
-            'disp': 'var(--purple)',
-            'incu': 'var(--green)',
-            'now': '#fff',
-            'marker': 'var(--bg-bright)',
-        })
-        r['machine_slot'] = r.source.replace({
-            'wash': 0,
-            'disp': 1,
-            'now': 0,
-            'marker': 0,
-        })
-        r['machine_width'] = r.source.replace({
-            'wash': 1,
-            'disp': 1,
-            'now': 2,
-            'marker': 2,
-        })
-        r['can_hover']=~r.source.isin(('now', 'marker'))
-
-        r['y0'] = (r.t0 - r.slot_start) / max_length
-        r['y1'] = (r.t - r.slot_start) / max_length
-        r['h'] = r.y1 - r.y0
-
-        r.simple_id = r.simple_id.fillna('')
+        width = 23
 
         area = div(css='''
             & {
@@ -604,8 +467,7 @@ class AnalyzeResult:
                 margin: 0;
                 border-radius: 0 5px 5px 5px;
                 content: var(--info);
-                left: 100%;
-                transform: translateX(1px);
+                left: calc(100% + 1px);
                 opacity: 1.0;
                 top: 0;
                 background: var(--row-color);
@@ -614,28 +476,48 @@ class AnalyzeResult:
             }
         ''')
 
-        width = 23
-        for _, row in r.iterrows():
-            est = 1 if row.is_estimate else 0
+        for row in rows:
+            slot = 0
+            if row.source == 'disp':
+                slot = 1
+            my_width = 1
+            if row.source in ('now', 'bg'):
+                my_width = 2
+
+            color = {
+                'wash': 'var(--cyan)',
+                'disp': 'var(--purple)',
+                'incu': 'var(--green)',
+                'now': '#fff',
+                'bg': 'var(--bg-bright)',
+            }[row.source]
+            can_hover = row.source not in ('now', 'bg')
+
+            column_start = start_times[row.column]
+            y0 = (row.t0 - column_start) / (max_length or 1.0)
+            y1 = (row.t - column_start) / (max_length or 1.0)
+            h = y1 - y0
+
+            info = f'{row.msg} ({row.simple_id})'
             area += div(
-                str(row.plate_id) if row.plate_id else '',
+                row.plate_id,
                 is_estimate=row.is_estimate,
-                can_hover=row.can_hover,
+                can_hover=can_hover,
                 style=trim(f'''
-                    left:{(row.slot*2.3 + row.machine_slot) * width:.0f}px;
-                    top:{  row.y0 * 100:.3f}%;
-                    height:{row.h * 100:.3f}%;
-                    --row-color:{row.color};
-                    --info:{repr(str(row.arg) + ' (' + str(row.simple_id) + ')')};
+                    left:{(row.column*2.3 + slot) * width:.0f}px;
+                    top:{  y0 * 100:.3f}%;
+                    height:{h * 100:.3f}%;
+                    --row-color:{color};
+                    --info:{repr(info)};
                 ''', sep=''),
                 css_=f'''
-                    width: {row.machine_width * width - 2}px;
+                    width: {width * my_width - 2}px;
                 ''',
                 data_simple_id=str(row.simple_id) or None,
                 data_plate_id=str(row.plate_id),
             )
 
-        area.width += f'{width*(r.slot.max()+1)*2.3}px'
+        area.width += f'{width*(len(sections)+1)*2.3}px'
         area.height += '100%'
 
         return area
@@ -720,6 +602,23 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
     }
     yield V.head(V.title('cell painter - ', path or ''))
 
+    inverted_inputs_css = '''
+        & input[type=range] {
+            transform: translateY(3px);
+            margin: 0 8px;
+            filter: invert(83%) hue-rotate(135deg);
+        }
+        & input[type=checkbox] {
+            filter: invert(83%) hue-rotate(180deg);
+            cursor: pointer;
+            width: 36px;
+            height: 16px;
+            margin-top: 8px;
+            margin-bottom: 8px;
+            margin-right: auto;
+        }
+    '''
+
     form_css = '''
         & {
             display: grid;
@@ -771,16 +670,7 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
         & > label > span {
             grid-column: 1;
         }
-        & [type=checkbox] {
-            filter: invert(83%) hue-rotate(180deg);
-            width: 36px;
-            height: 16px;
-            margin-top: 8px;
-            margin-bottom: 8px;
-            margin-right: auto;
-            cursor: pointer;
-        }
-    '''
+    ''' + inverted_inputs_css
 
     m = Store(default_provenance='cookie')
     if not path:
@@ -836,20 +726,14 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
             }
         ''')
     yield info
-    df: pd.DataFrame | None = None
-    stderr: list[str] = []
+    log: Log | None = None
+    stderr: str = ''
     vis = div()
     ar: AnalyzeResult | None = None
 
     def sections(ar: AnalyzeResult):
-        s = ar.pretty_sections()
-        s = s['batch_index section countdown t0 length'.split()]
-        s = s.rename(columns={'batch_index': 'batch'})
-        s.batch += 1
         return div(
-            V.raw(
-                s.to_html(index=False, border=0)
-            ),
+            make_table(ar.pretty_sections()),
             css='''
                 & table {
                     margin: auto;
@@ -863,12 +747,25 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
             '''
         )
 
+    t_end_form: div | None = None
     if path:
-        df = jsonl_to_df(path)
+        log = jsonl_to_log(path)
         stderr = as_stderr(path).read_text()
-        if df is not None:
-            ar = AnalyzeResult.init(df)
-    if df is None:
+        if log is not None:
+            ar = AnalyzeResult.init(log)
+        if log and ar and ar.completed and 'dry' in config.name:
+            t_min = int(log.min_t()) + 1
+            t_max = int(log.max_t()) + 1
+            t_end = m.var(Int(t_max, type='range', min=t_min, max=t_max))
+            t_end_form = div(
+                div(*form(m, t_end),
+                    str(timedelta(seconds=t_end.value)),
+                    css=inverted_inputs_css,
+                    css_='& input { width: 700px; }'),
+                margin='0 auto',
+            )
+            ar = AnalyzeResult.init(log, until=float(t_end.value))
+    if log is None:
         if stderr:
             box = div(
                 border='2px var(--red) solid',
@@ -885,63 +782,50 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
             box += pre(stderr)
             info += box
     elif ar is not None:
-        if not ar.completed:
-            r = ar.running()
-            r = r.rename(columns={'arg': 'info', 'resource': 'machine'})
-            r = r['machine countdown info plate'.split()]
-            info += div(
-                V.raw(
-                    # d.head(50).to_html(index=False, border=0, justify='left')
-                    r.to_html(index=False, border=0, justify='left')
-                ),
-                css='''
-                    & table {
-                        width: 100%
-                    }
-                    & table td:nth-child(3) {
-                        width: 100%
-                    }
-                    & table td:nth-child(2),
-                    & table td:nth-child(4)
-                    {
-                        text-align: right
-                    }
-                '''
-            )
+        info += div(
+            make_table(ar.running()),
+            css='''
+                & table {
+                    width: 100%
+                }
+                & table td:nth-child(3) {
+                    width: 100%
+                }
+                & table td:nth-child(2),
+                & table td:nth-child(4)
+                {
+                    text-align: right
+                }
+            '''
+        )
         info += sections(ar)
         if 1:
             vis = ar.make_vis()
         if 1:
             world = ar.world
             world = {k: v if 'lid' in v else 'plate ' + v for k, v in world.items()}
-            incu_df = pd.DataFrame.from_records([
+            incu_table = [
                 {
                     'location': k,
                     'incu': world.get(k),
                 }
-                for k in Incu_locs[:ar.num_plates][::-1]
-            ], index='location')
-            incu_df.index.name = None
-
-            rest_df = pd.DataFrame.from_records([
+                for k in Locations.Incu[:ar.num_plates][::-1]
+            ]
+            rest_table = [
                 {
-                    'location': k,
-                    'thing': world.get(k),
+                    k: world.get(k)
+                    for k in 'incu wash disp'.split()
                 }
-                for k in 'incu wash disp'.split()
-            ], index='location')
-            rest_df.index.name = None
-
-            ABC_df = pd.DataFrame.from_records([
+            ]
+            ABC_table = [
                 {
                     'z': int(a.strip('A')),
                     'A': world.get(a),
                     'B': world.get(b),
                     'C': world.get(c),
                 }
-                for a, b, c in zip(A_locs, B_locs, C_locs)
-            ], index='z')
-            ABC_df.index.name = None
+                for a, b, c in zip(Locations.A, Locations.B, Locations.C)
+            ]
 
             if ar.num_plates >= 14:
                 grid = '''
@@ -958,15 +842,12 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
             info += div(
                 css='display: grid; place-items: center'
             ).append(div(
-                V.raw(
-                    incu_df.fillna('').to_html(index=1, border=0, table_id='incu', classes='even' if ar.num_plates % 2 == 0 else [])
-                ),
-                V.raw(
-                    ABC_df.fillna('').to_html(index=1, border=0, table_id='ABC')
-                ),
-                V.raw(
-                    rest_df.T.fillna('\u200b').to_html(index=0, border=0, table_id='rest')
-                ),
+                make_table(incu_table).extend(id='incu', class_='even' if ar.num_plates % 2 == 0 else None),
+                # incu_df.fillna('').to_html(index=1, border=0, table_id='incu', classes='even' if ar.num_plates % 2 == 0 else [])
+                make_table(ABC_table).extend(id='ABC'),
+                # ABC_df.fillna('').to_html(index=1, border=0, table_id='ABC')
+                make_table(rest_table).extend(id='rest'),
+                # rest_df.T.fillna('\u200b').to_html(index=0, border=0, table_id='rest')
                 css='''
                     & {
                         display: grid;
@@ -1006,22 +887,26 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
                     }
                 '''
             )
-            for i, row in ar.errors.iterrows():
+            for err, entry in ar.errors:
                 try:
-                    tb = row.traceback
+                    tb = err.traceback
                 except:
                     tb = None
                 if not isinstance(tb, str):
                     tb = None
-                box += pre(f'[{row.log_time.strftime("%H:%M:%S")}] {row.arg} {"(...)" if tb else ""}', title=tb)
-            if not ar.process_is_alive:
+                box += pre(f'[{entry.strftime("%H:%M:%S")}] {err.message} {"(...)" if tb else ""}', title=tb)
+            if not ar.process_is_alive():
                 box += pre('Controller process has terminated.')
             info += box
 
         if ar.completed:
             text = ''
-        elif ar.process_is_alive:
-            text = f'pid: {ar.pid} on {platform.node()} with config {config.name}'
+            if t_end_form:
+                yield t_end_form.extend(
+                    grid_area='info-foot',
+                )
+        elif ar.process_is_alive():
+            text = f'pid: {ar.runtime_metadata.pid} on {platform.node()} with config {config.name}'
         else:
             text = f'pid: - on {platform.node()} with config {config.name}'
         if text:
@@ -1072,7 +957,7 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
                 ),
                 button(
                     'stop',
-                    onclick='confirm("Stop?")&&' + sigint.call(ar.pid),
+                    onclick='confirm("Stop?")&&' + sigint.call(ar.runtime_metadata.pid),
                     css='''
                         & {
                             font-size: 2rem;
@@ -1088,11 +973,8 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
                         }
                     '''
                 ),
-                grid_area='stop',
             )
         else:
-            buttons: list[Tag] = []
-
             skipped = utils.read_commasep(skip.value)
             dropped = utils.read_commasep(drop.value)
 
@@ -1139,7 +1021,7 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
                 button('resume' ,
                     onclick=
                         f'confirm("Resume?" + {json.dumps(resume_text)})&&' +
-                        resume.call(ar.log_filename, skip=skipped, drop=dropped),
+                        resume.call(ar.runtime_metadata.log_filename, skip=skipped, drop=dropped),
                     title=resume_text),
                 grid_area='stop',
                 css=form_css,
@@ -1148,6 +1030,7 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
     yield vis.extend(grid_area='vis')
 
     if ar is not None and ar.completed:
+        """
         d = ar.durations()
         if d is not None:
             yield div(
@@ -1168,9 +1051,10 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
                     }
                 '''
             )
+        """
 
-    if path:
-        yield V.queue_refresh(150)
+    if path and not (ar and ar.completed):
+        yield V.queue_refresh(100)
 
 def form(m: Store, *vs: Int | Str | Bool):
     for v in vs:
@@ -1180,4 +1064,8 @@ def form(m: Store, *vs: Int | Str | Bool):
             title=v.desc,
         )
 
-serve.run()
+def main():
+    serve.run()
+
+if __name__ == '__main__':
+    main()

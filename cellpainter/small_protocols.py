@@ -1,31 +1,31 @@
 from __future__ import annotations
-from typing import Any, Callable, Protocol
+from typing import Callable, Protocol, cast
 from dataclasses import *
 
 from .commands import (
-    Command,
-    Fork,
-    Info,
-    Meta,
-    Checkpoint,
-    Duration,
-    Idle,
-    Sequence,
-    WashCmd,
-    DispCmd,
-    IncuCmd,
-    WashFork,
-    DispFork,
-    IncuFork,
-    BiotekCmd,
-    RobotarmCmd,
-    WaitForCheckpoint,
-    WaitForResource,
+    Command,            # type: ignore
+    Fork,               # type: ignore
+    Info,               # type: ignore
+    Meta,               # type: ignore
+    Checkpoint,         # type: ignore
+    Duration,           # type: ignore
+    Idle,               # type: ignore
+    Sequence,           # type: ignore
+    WashCmd,            # type: ignore
+    DispCmd,            # type: ignore
+    IncuCmd,            # type: ignore
+    WashFork,           # type: ignore
+    DispFork,           # type: ignore
+    IncuFork,           # type: ignore
+    BiotekCmd,          # type: ignore
+    RobotarmCmd,        # type: ignore
+    WaitForCheckpoint,  # type: ignore
+    WaitForResource,    # type: ignore
 )
 from . import commands
-from . import moves
 
 from . import utils
+from .log import Metadata
 
 from .protocol import (
     Locations,
@@ -41,6 +41,7 @@ from .protocol import (
 
 class ArgsLike(Protocol):
     num_plates: int
+    params: list[str]
 
 small_protocols: list[Callable[[ArgsLike], Command]] = []
 
@@ -138,7 +139,7 @@ def time_arm_incu(_: ArgsLike):
         *RobotarmCmds(plate.rt_get),
     ]
     cmds: list[Command] = [
-        Fork(Sequence(*incu), resource='incu'),
+        Fork(Sequence(*incu)),
         *arm,
         WaitForResource('incu'),
         sleek_program(Sequence(*arm2)),
@@ -161,7 +162,7 @@ def lid_stress_test(_: ArgsLike):
         5. gripper:     sufficiently open to grab a plate
     '''
     cmds: list[Command] = []
-    for i, (lid, A, C) in enumerate(zip(Locations.Lid, Locations.A, Locations.C)):
+    for _i, (lid, A, C) in enumerate(zip(Locations.Lid, Locations.A, Locations.C)):
         p = Plate('p', incu_loc='', rt_loc=C, lid_loc=lid, out_loc=A, batch_index=1)
         cmds += [
             *RobotarmCmds(p.lid_put),
@@ -213,7 +214,7 @@ def load_incu(args: ArgsLike):
                 RobotarmCmd(f'incu_A{pos} put transfer from drop neu'),
                 IncuFork('put', p.incu_loc),
                 RobotarmCmd(f'incu_A{pos} put return'),
-            ]).with_metadata(plate_id=p.id)
+            ]).add(Metadata(plate_id=p.id))
         ]
     program = Sequence(*[
         RobotarmCmd('incu_A21 put-prep'),
@@ -276,10 +277,10 @@ def test_circuit(_: ArgsLike):
     program = cell_paint_program([1], protocol_config=v3)
     program = Sequence(
         *[
-            cmd.with_metadata(metadata)
+            cmd.add(metadata)
             for cmd, metadata in program.collect()
             if isinstance(cmd, RobotarmCmd)
-            if metadata.get('step') not in {'Triton', 'Stains'}
+            if metadata.step not in {'Triton', 'Stains'}
         ],
         *RobotarmCmds(plate.out_get),
         *RobotarmCmds('incu put'),
@@ -288,7 +289,7 @@ def test_circuit(_: ArgsLike):
     return program
 
 @small_protocols.append
-def validate_all_protocols(_: ArgsLike) -> None:
+def validate_all_protocols(_: ArgsLike):
     '''
     Validate all biotek protocols.
     '''
@@ -304,11 +305,60 @@ def validate_all_protocols(_: ArgsLike) -> None:
         if p
     ]
     program = Sequence(
-        Fork(Sequence(*wash), resource='wash'),
-        Fork(Sequence(*disp), resource='disp'),
+        Fork(Sequence(*wash)),
+        Fork(Sequence(*disp)),
         WaitForResource('wash'),
         WaitForResource('disp'),
     )
     return program
 
+@small_protocols.append
+def run_biotek(args: ArgsLike):
+    v3 = make_v3(cast(ProtocolArgs, args))
+    wash = [*v3.wash, v3.prep_wash or '']
+    disp = [*v3.disp, *v3.pre_disp, *v3.prime, v3.prep_disp or '']
+    protocols = [
+        *[(p, 'wash') for p in wash if p],
+        *[(p, 'disp') for p in disp if p],
+    ]
+    protocols = sorted(set(protocols))
+    print('Available:', end=' ')
+    utils.pr([p for p, _ in protocols])
+    cmds: list[Command] = []
+    for x in args.params:
+        for p, machine in protocols:
+            if f'/{x.lower()}' in p.lower():
+                cmds += [
+                    Fork(BiotekCmd(machine, p)),
+                    WaitForResource(machine)
+                ]
+    return Sequence(*cmds)
 
+@small_protocols.append
+def incu_put(args: ArgsLike):
+    cmds: list[Command] = []
+    for x in args.params:
+        cmds += [
+            IncuFork('put', x),
+            WaitForResource('incu'),
+        ]
+    return Sequence(*cmds)
+
+@small_protocols.append
+def incu_get(args: ArgsLike):
+    cmds: list[Command] = []
+    for x in args.params:
+        cmds += [
+            IncuFork('get', x),
+            WaitForResource('incu'),
+        ]
+    return Sequence(*cmds)
+
+@small_protocols.append
+def robotarm(args: ArgsLike):
+    cmds: list[Command] = []
+    for x in args.params:
+        cmds += [
+            RobotarmCmd(x.replace('-', ' ')),
+        ]
+    return Sequence(*cmds)

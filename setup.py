@@ -3,11 +3,11 @@ from setuptools import setup
 requirements = '''
     z3-solver
     flask
-    pandas
 '''
 
 console_scripts = '''
     cellpainter=cellpainter.cli:main
+    cellpainter-gui=cellpainter.main:main
 '''
 
 setup(

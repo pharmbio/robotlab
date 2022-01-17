@@ -8,6 +8,7 @@ import sys
 import json
 import textwrap
 import shlex
+import re
 
 from .runtime import RuntimeConfig, configs, config_lookup
 from .utils import show
@@ -23,7 +24,9 @@ from .execute import execute_program
 from .small_protocols import small_protocols
 
 from . import utils
-from dataclasses import dataclass, field, fields, Field, replace
+from dataclasses import dataclass, field, fields, Field
+
+from . import make_uml
 
 A = TypeVar('A')
 
@@ -56,7 +59,7 @@ class Arg:
         if callable(help):
             help = help.__doc__
         if help:
-            self.helps[f] = help.strip().splitlines()[0]
+            self.helps[f] = doc_header(help)
         if enum:
             self.enums[f] = enum
         return f # type: ignore
@@ -81,7 +84,9 @@ class Arg:
                     parser.add_argument(name, default=bool(default), action=action, help=self.helps.get(f))
                 else:
                     parser.add_argument(name, default=default, metavar='X', type=f_type, help=self.helps.get(f))
-        v = parser.parse_args(args)
+        v, unknown = parser.parse_known_args(args)
+        if unknown:
+            raise ValueError('Unknown args: ' + '\n'.join(unknown))
         return as_type(**v.__dict__), parser
 
 arg = Arg()
@@ -100,6 +105,17 @@ def ATTENTION(s: str):
         print('continuing...')
 
 small_kvs = {p.__name__: p for p in small_protocols}
+
+def doc_header(f: Any):
+    if isinstance(f, str):
+        s = f
+    else:
+        s = f.__doc__
+        assert isinstance(s, str | None)
+    if s:
+        return s.strip().splitlines()[0]
+    else:
+        return ''
 
 @dataclass(frozen=True)
 class Args:
@@ -120,21 +136,16 @@ class Args:
 
     small_protocol:            str  = arg(
         enum=[
-            option(name, name, help=(p.__doc__ or '').strip().splitlines()[0])
+            option(name, name, help=doc_header(p))
             for name, p in small_kvs.items()
         ]
     )
     num_plates:                int  = arg(help='For some protocols only: number of plates')
+    params:                    list[str] = arg(help='For some protocols only: more parameters')
 
     resume:                    str  = arg(help='Resume program given a log file')
     resume_skip:               str  = arg(help='Comma-separated list of simple_id:s to skip (washes and dispenses)')
     resume_drop:               str  = arg(help='Comma-separated list of plate_id:s to drop')
-
-    wash:                      str  = arg(help='Run a program on the washer')
-    disp:                      str  = arg(help='Run a program on the dispenser')
-    prime:                     str  = arg(help='Run a priming program on the dispenser')
-    incu_put:                  str  = arg(help='Put the plate in the transfer station to the argument position POS (L1, .., R1, ..).')
-    incu_get:                  str  = arg(help='Get the plate in the argument position POS. It ends up in the transfer station.')
 
     visualize:                 bool = arg(help='Run visualizer')
 
@@ -142,16 +153,20 @@ class Args:
 
     list_robotarm_programs:    bool = arg(help='List the robot arm programs')
     inspect_robotarm_programs: bool = arg(help='Inspect steps of robotarm programs')
-    robotarm:                  bool = arg(help='Run robot arm')
     robotarm_send:             str  = arg(help='Send a raw program to the robot arm')
     robotarm_speed:            int  = arg(default=100, help='Robot arm speed [1-100]')
-    program_names:             list[str] = arg(help='Robot arm program name to run')
     json_arg:                  str  = arg(help='Give arguments as json on the command line')
+    yes:                       bool = arg(help='Assume yes in confirmation questions')
+    make_uml:                  str  = arg(help='Write uml in dot format to the given path and exit')
 
 def main():
     args, parser = arg.parse_args(Args, description='Make the lab robots do things.')
     if args.json_arg:
         args = Args(**json.loads(args.json_arg))
+
+    if args.make_uml:
+        make_uml.visualize_modules(args.make_uml)
+        sys.exit(0)
 
     if args.list_imports:
         my_dir = os.path.dirname(__file__)
@@ -169,31 +184,21 @@ def main():
 
     print('config =', show(config))
 
-    v3 = protocol.make_v3(args)
-
     if args.visualize:
         from . import protocol_vis as pv
         cmdname, *argv = [arg for arg in sys.argv if not arg.startswith('--vi')]
         cmdline = shlex.join(argv)
-        def cmdline_to_events(cmdline: str):
-            args, _ = arg.parse_args(Args, args=[cmdname, *shlex.split(cmdline)])
+        def cmdline_to_log(cmdline: str):
+            args, _ = arg.parse_args(Args, args=[cmdname, *shlex.split(cmdline)], exit_on_error=False)
             p = args_to_program(args)
-            assert p
+            assert p, 'no program from these arguments!'
             return execute_program(config, p.program, {}, for_visualizer=True)
-        pv.start(cmdline, cmdline_to_events)
+        pv.start(cmdline, cmdline_to_log)
 
     elif p := args_to_program(args):
-        if config.name != 'dry-run' and p.doc:
+        if config.name != 'dry-run' and p.doc and not args.yes:
             ATTENTION(p.doc)
         execute_program(config, p.program, p.metadata)
-
-    elif args.robotarm:
-        runtime = config.make_runtime()
-        for name in args.program_names:
-            if name in movelists:
-                commands.RobotarmCmd(name).execute(runtime, {})
-            else:
-                raise ValueError(f'Unknown program: {name}')
 
     elif args.robotarm_send:
         runtime = config.make_runtime()
@@ -207,41 +212,10 @@ def main():
 
     elif args.inspect_robotarm_programs:
         for k, v in movelists.items():
-            import re
             m = re.search(r'\d+', k)
             if not m or m.group(0) in {"19", "21"}:
-                import textwrap
                 print()
                 print(k + ':\n' + textwrap.indent(v.describe(), '  '))
-
-    elif args.wash:
-        runtime = config.make_runtime()
-        path = v3.wash[int(args.wash)]
-        assert path, utils.pr(v3.wash)
-        return Program(commands.Sequence(
-            commands.WashCmd(path, cmd='Validate'),
-            commands.WashCmd(path, cmd='RunValidated'),
-        ), {'program': 'wash'})
-
-    elif args.disp:
-        runtime = config.make_runtime()
-        path = v3.disp[int(args.disp)]
-        assert path, utils.pr(v3.disp)
-        commands.DispCmd(path).execute(runtime, {})
-
-    elif args.prime:
-        runtime = config.make_runtime()
-        path = v3.prime[int(args.prime)]
-        assert path, utils.pr(v3.prime)
-        commands.DispCmd(path).execute(runtime, {})
-
-    elif args.incu_put:
-        runtime = config.make_runtime()
-        commands.IncuCmd('put', args.incu_put).execute(runtime, {})
-
-    elif args.incu_get:
-        runtime = config.make_runtime()
-        commands.IncuCmd('get', args.incu_get).execute(runtime, {})
 
     elif args.resume:
         resume.resume_program(
@@ -257,9 +231,6 @@ def main():
     if timings.Guesses:
         print('Guessed these times:')
         utils.pr(timings.Guesses)
-
-if __name__ == '__main__':
-    main()
 
 @dataclass(frozen=True)
 class Program:
@@ -298,16 +269,10 @@ def args_to_program(args: Args) -> Program | None:
         else:
             raise ValueError(f'Unknown protocol: {name} (available: {", ".join(p.__name__ for p in small_protocols)})')
 
-    elif args.wash:
-        path = v3.wash[int(args.wash)]
-        assert path, utils.pr(v3.wash)
-        return Program(commands.Sequence(
-            commands.WashCmd(path, cmd='Validate'),
-            commands.WashCmd(path, cmd='RunValidated'),
-        ), {'program': 'wash'})
-
     else:
         return None
 
 if __name__ == '__main__':
     main()
+
+

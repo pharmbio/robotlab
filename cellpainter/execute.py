@@ -1,44 +1,130 @@
 from __future__ import annotations
-from typing import Any, Iterator
-from dataclasses import *
+from typing import Iterator
 
 import contextlib
 import os
 import pickle
 import platform
 
+from . import commands
+
+from .log import (
+    RuntimeMetadata,
+    LogEntry,
+)
+
+from .analyze_log import Log
+
 from .commands import (
+    Metadata,
     Command,
+    BiotekCmd,
+    Checkpoint,
+    Duration,
+    Fork,
+    Idle,
+    IncuCmd,
     Info,
     Meta,
+    RobotarmCmd,
+    Seq,
     Sequence,
+    WaitForCheckpoint,
+    WaitForResource,
 )
 from .runtime import RuntimeConfig, Runtime, dry_run
 from . import commands
 from . import constraints
-
 from . import utils
+from .symbolic import Symbolic
+from .moves import movelists, MoveList
+from . import bioteks
+from . import incubator
 
-def group_times(times: dict[str, list[float]]):
-    groups = utils.group_by(list(times.items()), key=lambda s: s[0].rstrip(' 0123456789'))
-    out: dict[str, list[str]] = {}
-    def key(kv: tuple[str, Any]):
-        s, _ = kv
-        if s.startswith('plate'):
-            _plate, i, *what = s.split(' ')
-            return f' plate {" ".join(what)} {int(i):03}'
-        else:
-            return s
-    for k, vs in sorted(groups.items(), key=key):
-        if k.startswith('plate'):
-            _plate, i, *what = k.split(' ')
-            k = f'plate {int(i):>2} {" ".join(what)}'
-        out[k] = [utils.pp_secs(v) for _, [v] in vs]
-    return out
+def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
+    entry = LogEntry(cmd=cmd, metadata=metadata)
+    match cmd:
+        case Meta():
+            try:
+                m = Metadata(est=round(cmd.command.est(), 3))
+            except:
+                m = Metadata()
+            execute(cmd.command, runtime, metadata.merge(cmd.metadata, m))
 
-def display_times(times: dict[str, list[float]]):
-    for k, vs in group_times(times).items():
-        print(k, '[' + ', '.join(vs) + ']')
+        case Seq():
+            for c in cmd.commands:
+                execute(c, runtime, metadata)
+
+        case Info():
+            runtime.log(entry.add(msg=cmd.msg))
+
+        case Idle():
+            secs = cmd.secs
+            assert isinstance(secs, (float, int))
+            entry = entry.add(Metadata(sleep_secs=secs))
+            with runtime.timeit(entry):
+                runtime.sleep(secs, entry)
+
+        case Checkpoint():
+            runtime.checkpoint(cmd.name, entry)
+
+        case WaitForCheckpoint():
+            plus_secs = cmd.plus_secs
+            assert isinstance(plus_secs, (float, int))
+            msg = f'{Symbolic.var(str(cmd.name)) + plus_secs}'
+            t0 = runtime.wait_for_checkpoint(cmd.name)
+            desired_point_in_time = t0 + plus_secs
+            delay = desired_point_in_time - runtime.monotonic()
+            secs = round(delay, 3)
+            entry = entry.add(msg=msg, metadata=Metadata(sleep_secs=secs))
+            with runtime.timeit(entry):
+                runtime.sleep(delay, entry)
+
+        case Duration():
+            t0 = runtime.wait_for_checkpoint(cmd.name)
+            runtime.log(entry, t0=t0)
+
+        case Fork():
+            thread_name = cmd.thread_name
+            assert thread_name
+            fork_metadata = metadata.merge(Metadata(thread_name=thread_name, thread_resource=cmd.resource))
+            @runtime.spawn
+            def fork():
+                assert thread_name
+                runtime.register_thread(thread_name)
+                execute(cmd.command, runtime, fork_metadata)
+                runtime.thread_done()
+
+        case RobotarmCmd():
+            with runtime.timeit(entry):
+                if runtime.config.robotarm_mode == 'noop':
+                    runtime.sleep(cmd.est(), entry.add(Metadata(dry_run_sleep=True)))
+                else:
+                    movelist = MoveList(movelists[cmd.program_name])
+                    arm = runtime.get_robotarm(include_gripper=movelist.has_gripper())
+                    arm.execute_moves(movelist, name=cmd.program_name)
+                    arm.close()
+
+        case BiotekCmd():
+            with runtime.timeit(entry):
+                bioteks.execute(runtime, entry, cmd.machine, cmd.protocol_path, cmd.action)
+
+        case IncuCmd():
+            with runtime.timeit(entry):
+                incubator.execute(runtime, entry, cmd.action, cmd.incu_loc)
+
+        case WaitForResource():
+            raise ValueError('Cannot execute WaitForResource, run Command.make_resource_checkpoints first')
+
+        case _:
+            raise ValueError(cmd)
+
+    match cmd:
+        case IncuCmd() | RobotarmCmd() | Info():
+            if effect := metadata.effect:
+                runtime.apply_effect(effect, entry)
+        case _:
+            pass
 
 @contextlib.contextmanager
 def make_runtime(config: RuntimeConfig, metadata: dict[str, str]) -> Iterator[Runtime]:
@@ -55,6 +141,10 @@ def make_runtime(config: RuntimeConfig, metadata: dict[str, str]) -> Iterator[Ru
         abspath = os.path.abspath(log_filename)
         os.makedirs(os.path.dirname(abspath), exist_ok=True)
         print(f'{log_filename=}')
+        with open(log_filename, 'w') as fp:
+            fp.write('') # clear file
+        with open(log_filename + '.pkl', 'wb') as fp:
+            fp.write(b'') # clear file
     else:
         log_filename = None
 
@@ -65,15 +155,15 @@ def make_runtime(config: RuntimeConfig, metadata: dict[str, str]) -> Iterator[Ru
     with runtime.excepthook():
         yield runtime
 
-def check_correspondence(program: Command, est_entries: list[dict[str, Any]], expected_ends: dict[str, float]):
+def check_correspondence(program: Command, est_entries: list[LogEntry], expected_ends: dict[str, float]):
     matches = 0
     mismatches = 0
     seen: set[str] = set()
     for e in est_entries:
-        i = e.get('id')
-        if i and (e.get('kind') == 'end' or e.get('kind') == 'info' and e.get('source') == 'checkpoint'):
+        i = e.metadata.id
+        if i and (e.is_end() or isinstance(e.cmd, Checkpoint)):
             seen.add(i)
-            if abs(e['t'] - expected_ends[i]) > 0.1:
+            if abs(e.t - expected_ends[i]) > 0.1:
                 utils.pr(('no match!', i, e, expected_ends[i]))
                 mismatches += 1
             else:
@@ -83,7 +173,7 @@ def check_correspondence(program: Command, est_entries: list[dict[str, Any]], ex
         i: c
         for c in program.universe()
         if isinstance(c, commands.Meta)
-        if (i := c.metadata.get('id')) and isinstance(i, str)
+        if (i := c.metadata.id)
     }
 
     for i, e in expected_ends.items():
@@ -92,12 +182,14 @@ def check_correspondence(program: Command, est_entries: list[dict[str, Any]], ex
             match cmd:
                 case Meta(command=Info()):
                     continue
+                case _:
+                    pass
             print('not seen:', i, e, cmd, sep='\t')
 
     if mismatches or not matches:
         print(f'{matches=} {mismatches=} {len(expected_ends)=}')
 
-def execute_program(config: RuntimeConfig, program: Command, metadata: dict[str, str], for_visualizer: bool = False) -> list[dict[str, Any]]:
+def execute_program(config: RuntimeConfig, program: Command, metadata: dict[str, str], for_visualizer: bool = False) -> Log:
     program = program.remove_noops()
     resume_config = config.resume_config
     if not resume_config:
@@ -111,17 +203,15 @@ def execute_program(config: RuntimeConfig, program: Command, metadata: dict[str,
 
     with utils.timeit('estimates'):
         with make_runtime(dry_run.replace(log_to_file=False, resume_config=config.resume_config), {}) as runtime_est:
-            program.execute(runtime_est, {})
+            execute(program, runtime_est, Metadata())
         est_entries = runtime_est.log_entries
 
     if for_visualizer:
-        return est_entries
+        return Log(est_entries)
 
     if not resume_config:
         with utils.timeit('check correspondence'):
             check_correspondence(program, est_entries, expected_ends)
-
-    # if config is visualize, then just start visualizer here instead ... we already have the estimates
 
     with make_runtime(config, metadata) as runtime:
         try:
@@ -131,31 +221,34 @@ def execute_program(config: RuntimeConfig, program: Command, metadata: dict[str,
 
         program = program.remove_scheduling_idles()
 
-        runtime_metadata: dict[str, str | int | float | None] = {
-            'pid': os.getpid(),
-            'host': platform.node(),
-            'git_HEAD': utils.git_HEAD() or '',
-            'log_filename': config.log_filename,
-        }
-
         os.makedirs('cache/', exist_ok=True)
         base = 'cache/' + utils.now_str_for_filename() + '_'
         save = {
             'estimates_pickle_file': est_entries,
             'program_pickle_file': program,
         }
+        runtime_metadata = RuntimeMetadata(
+            pid          = os.getpid(),
+            host         = platform.node(),
+            git_HEAD     = utils.git_HEAD() or '',
+            log_filename = config.log_filename or '',
+            estimates_pickle_file = f'{base}estimates_pickle_file',
+            program_pickle_file   = f'{base}program_pickle_file',
+        )
+
         for k, v in save.items():
             with open(base + k, 'wb') as fp:
                 pickle.dump(v, fp)
-            runtime_metadata[k] = base + k
+            assert getattr(runtime_metadata, k) == base + k
 
-        runtime.log('info', 'system', None, {'runtime_metadata': runtime_metadata, 'silent': True})
-        program.execute(runtime, {})
-        runtime.log('info', 'system', None, {'completed': True, 'silent': True})
+        runtime.log(LogEntry(runtime_metadata=runtime_metadata))
+        execute(program, runtime, Metadata())
+        runtime.log(LogEntry(metadata=Metadata(completed=True)))
 
-        display_times(runtime.times)
+        for line in Log(runtime.log_entries).group_durations_for_display():
+            print(line)
 
-        return runtime.log_entries
+        return Log(runtime.log_entries)
 
 def RemoveBioteks(program: Command) -> Command:
     def Filter(cmd: Command) -> Command:

@@ -4,9 +4,11 @@ from typing import *
 
 from collections import defaultdict
 from pprint import pformat
+from pathlib import Path
+
+import json
 import re
 import sys
-import json
 
 prims: tuple[Any, ...] = (int, float, bool, str, bytes, type(None))
 
@@ -26,11 +28,11 @@ def primlike(x: object) -> bool:
 def show_key(x: object) -> str:
     if isinstance(x, (str, int)):
         k = str(x)
-        if re.match(r'\w*$', k):
+        if re.match(r'\w+$', k):
             return k
     return repr(x)
 
-def show(x: Any, show_key: Any=show_key, width: int=80, use_color: bool=sys.stdout.isatty()) -> str:
+def show(x: Any, show_key: Any=show_key, width: int=80, use_color: bool=sys.stdout.isatty(), sep: str='\n', indentchars: str='  ') -> str:
     color = Color(use_color)
     def go(dent: str, pre: str, x: Any, post: str) -> Iterator[str]:
         '''
@@ -38,7 +40,7 @@ def show(x: Any, show_key: Any=show_key, width: int=80, use_color: bool=sys.stdo
         then yield indent for each subsequent line
         finally yield (dent/indent +) post
         '''
-        indent = '  ' + dent
+        indent = indentchars + dent
         is_tuple = isinstance(x, tuple)
         is_list = isinstance(x, list)
         is_set = isinstance(x, (set, frozenset))
@@ -47,13 +49,12 @@ def show(x: Any, show_key: Any=show_key, width: int=80, use_color: bool=sys.stdo
             yield dent + pre + repr(x) + post
         elif is_dataclass(x):
             begin, end = color.none(x.__class__.__name__) + '(', ')'
-            if len(fields(x)) == 0:
+            vals = nub(x)
+            if len(vals) == 0:
                 yield dent + pre + begin + end + post
             else:
                 yield dent + pre + begin
-                for field in fields(x):
-                    k = field.name
-                    v = getattr(x, k)
+                for k, v in vals.items():
                     yield from go(indent, color.none(show_key(k)) + '=', v, ',')
                 yield dent + end + post
         elif isinstance(x, dict):
@@ -107,14 +108,13 @@ def show(x: Any, show_key: Any=show_key, width: int=80, use_color: bool=sys.stdo
                     yield indent + line
                 yield indent + last + post
 
-
-    return '\n'.join(go('', '', x, ''))
+    return sep.join(go('', '', x, ''))
 
 A = TypeVar('A')
 B = TypeVar('B')
 
-def pr(x: A) -> A:
-    print(show(x))
+def pr(x: A, sep: str='\n', indentchars: str='  ') -> A:
+    print(show(x, sep=sep, indentchars=indentchars))
     return x
 
 @dataclass(frozen=False)
@@ -263,12 +263,12 @@ def git_HEAD() -> str | None:
 def uniq(xs: Iterable[A]) -> Iterable[A]:
     return {x: None for x in xs}.keys()
 
-def read_json_lines(path: str) -> Iterator[Any]:
+def read_json_lines(path: str | Path) -> Iterator[Any]:
     with open(path, 'r') as f:
         for line in f:
             yield json.loads(line)
 
-def group_by(xs: list[A], key: Callable[[A], B]) -> dict[B, list[A]]:
+def group_by(xs: Iterable[A], key: Callable[[A], B]) -> dict[B, list[A]]:
     d: dict[B, list[A]] = defaultdict(list)
     for x in xs:
         d[key(x)] += [x]
@@ -416,3 +416,64 @@ def maybe(x: A | None, f: Callable[[A], B], b: B = None) -> B:
 def read_commasep(s: str, p: Callable[[str], A] = lambda x: x) -> list[A]:
     return [p(x.strip()) for x in s.strip().split(',') if x.strip()]
 
+def nub(x: Any) -> dict[str, Any]:
+    assert is_dataclass(x)
+    out: dict[str, Any] = {}
+    for f in fields(x):
+        a = getattr(x, f.name)
+        if (
+            isinstance(a, dict | set | list)
+            and not a
+            and f.default_factory is not MISSING
+            and not f.default_factory()
+        ):
+            continue
+        if a != f.default:
+            out[f.name] = a
+    return out
+
+@dataclass(frozen=True)
+class Serializer:
+    classes: dict[str, Any] = field(default_factory=dict)
+    def register(self, classes: dict[str, Any]):
+        self.classes.update({k: v for k, v in classes.items() if is_dataclass(v)})
+
+    def from_json(self, x: Any) -> Any:
+        if isinstance(x, dict):
+            x = cast(dict[str, Any], x)
+            if type := x.get('type'):
+                cls = self.classes[type]
+                return cls(**{k: self.from_json(v) for k, v in x.items() if k != "type"})
+            else:
+                return {k: self.from_json(v) for k, v in x.items()}
+        elif isinstance(x, list):
+            return [self.from_json(v) for v in cast(list[Any], x)]
+        elif isinstance(x, None | float | int | bool | str):
+            return x
+        else:
+            raise ValueError()
+
+    def from_json_lines(self, path: str | Path) -> Iterator[Any]:
+        with open(path, 'r') as f:
+            for line in f:
+                yield self.from_json(json.loads(line))
+
+    def to_json(self, x: Any) -> dict[str, Any] | list[Any] | None | float | int | bool | str:
+        if is_dataclass(x):
+            d = nub(x)
+            cls = x.__class__
+            type = cls.__name__
+            assert self.classes[type] == cls
+            return self.to_json({'type': type, **d})
+        elif isinstance(x, dict):
+            return {k: self.to_json(v) for k, v in cast(dict[str, Any], x).items()}
+        elif isinstance(x, list):
+            return [self.to_json(v) for v in cast(list[Any], x)]
+        elif isinstance(x, None | float | int | bool | str):
+            return x
+        else:
+            raise ValueError()
+
+serializer = Serializer()
+from_json = serializer.from_json
+to_json = serializer.to_json

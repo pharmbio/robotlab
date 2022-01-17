@@ -14,20 +14,13 @@ from . import utils
 
 class Move(abc.ABC):
     def to_dict(self) -> dict[str, Any]:
-        data = {
-            k: v
-            for field in fields(self)
-            for k in [field.name]
-            for v in [getattr(self, k)]
-            if v != field.default
-        }
-        return {'type': self.__class__.__name__, **data}
+        res = utils.to_json(self)
+        assert isinstance(res, dict)
+        return res
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> Move:
-        subs = {c.__name__: c for c in cls.__subclasses__()}
-        d = d.copy()
-        return subs[d.pop('type')](**d) # type: ignore
+        return utils.from_json(d)
 
     @abc.abstractmethod
     def to_script(self) -> str:
@@ -158,14 +151,14 @@ class MoveList(list[Move]):
     @staticmethod
     def from_jsonl_file(filename: str | Path) -> MoveList:
         return MoveList([
-            Move.from_dict(m)
-            for m in utils.read_json_lines(str(filename))
+            utils.from_json(m)
+            for m in utils.read_json_lines(filename)
         ])
 
     def write_jsonl(self, filename: str | Path) -> None:
         with open(filename, 'w') as f:
             for m in self:
-                print(json.dumps(m.to_dict()), file=f)
+                print(json.dumps(utils.to_json(m)), file=f)
 
     def adjust_tagged(self, tag: str, *, dname: str, dz: float) -> MoveList:
         '''
@@ -213,7 +206,7 @@ class MoveList(list[Move]):
     def with_sections(self, include_Section: bool=False) -> list[tuple[tuple[str, ...], Move]]:
         out: list[tuple[tuple[str, ...], Move]] = []
         active: tuple[str, ...] = tuple()
-        for i, move in enumerate(self):
+        for _i, move in enumerate(self):
             if isinstance(move, Section):
                 active = tuple(move.sections)
                 if include_Section:
@@ -226,7 +219,7 @@ class MoveList(list[Move]):
         with_section = self.with_sections()
         sections: set[tuple[str, ...]] = {
             sect
-            for sect, move in with_section
+            for sect, _move in with_section
             if sect
         }
 
@@ -425,18 +418,6 @@ def read_movelists() -> dict[str, TaggedMoveList]:
 
     return {v.name: v for v in out}
 
-tagged_movelists : dict[str, TaggedMoveList]
-tagged_movelists = read_movelists()
-
-for k, v in tagged_movelists.items():
-    for p in v.prep:
-        assert p in tagged_movelists
-    if v.is_ret:
-        assert 'return' in k
-
-movelists: dict[str, MoveList]
-movelists = {k: v.movelist for k, v in tagged_movelists.items()}
-
 World: TypeAlias = dict[str, str]
 
 class Effect(abc.ABC):
@@ -461,6 +442,13 @@ class NoEffect(Effect):
         return {}
 
 @dataclass(frozen=True)
+class InitialWorld(Effect):
+    world0: World
+    def effect(self, world: World) -> dict[str, str | None]:
+        assert not world
+        return {**self.world0}
+
+@dataclass(frozen=True)
 class MovePlate(Effect):
     source: str
     target: str
@@ -481,6 +469,20 @@ class PutLidOn(Effect):
     def effect(self, world: World) -> dict[str, str | None]:
         assert world[self.source] == 'lid ' + world[self.target]
         return {self.source: None}
+
+utils.serializer.register(globals())
+
+tagged_movelists : dict[str, TaggedMoveList]
+tagged_movelists = read_movelists()
+
+for k, v in tagged_movelists.items():
+    for p in v.prep:
+        assert p in tagged_movelists
+    if v.is_ret:
+        assert 'return' in k
+
+movelists: dict[str, MoveList]
+movelists = {k: v.movelist for k, v in tagged_movelists.items()}
 
 B21 = 'B21'
 effects: dict[str, Effect] = {}
@@ -520,3 +522,4 @@ for k in list(effects.keys()):
 for i in HotelLocs:
     Ai = f'A{i}'
     effects[f'incu_{Ai} put transfer from drop neu'] = MovePlate(source=Ai, target='incu')
+

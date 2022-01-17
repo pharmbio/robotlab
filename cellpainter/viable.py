@@ -522,7 +522,7 @@ class Serve:
             body_node += pre(traceback.format_exc())
         return self.view_body(body_node, title_str=title_str, include_hot=include_hot)
 
-    def view_body(self, body_node: Node, title_str: str, include_hot: bool=True) -> Response:
+    def view_body(self, body_node: Tag, title_str: str, include_hot: bool=True) -> Response:
         head_node = head()
         for i, node in enumerate(body_node.children):
             if isinstance(node, head):

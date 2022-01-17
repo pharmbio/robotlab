@@ -2,41 +2,68 @@ from __future__ import annotations
 from dataclasses import *
 from typing import *
 
-import abc
-from .moves import movelists, MoveList
-from . import utils
-from .utils import Mutable
-
-from .symbolic import Symbolic
-from .runtime import Runtime
-from . import bioteks
-from .bioteks import BiotekCommand
-from . import incubator
-from . import timings
-
 from collections import defaultdict
 
-class Command(abc.ABC):
-    @abc.abstractmethod
-    def execute(self, runtime: Runtime, metadata: dict[str, Any]) -> None:
-        raise NotImplementedError
+import abc
 
+from .moves import movelists, Effect
+from .utils import Mutable
+from .symbolic import Symbolic
+from . import timings
+from . import utils
+
+@dataclass(frozen=True)
+class Metadata:
+    id: str = ''
+    completed: bool = False
+    effect: Effect | None = None
+    report_behind_time: bool = False
+
+    batch_index: int = 0
+    plate_id: str | None = None
+    step: str = ''
+    substep: str = ''
+    slot: int = 0
+
+    simple_id: str = ''
+    thread_name: str | None = None
+    thread_resource: str = ''
+    predispense: bool = False
+
+    section: str = ''
+
+    dry_run_sleep: bool = False
+    log_sleep: bool = False
+
+    est:        float | None = None
+    sleep_secs: float | None = None
+
+    def is_sleep(self):
+        return self.sleep_secs is not None
+
+    is_estimate: bool = False
+
+    def merge(self, *others: Metadata) -> Metadata:
+        repl: dict[str, Any] = {}
+        for other in others:
+            repl.update(utils.nub(other))
+        out = replace(self, **repl)
+        return out
+
+class Command(abc.ABC):
     def est(self) -> float:
         raise ValueError(self.__class__)
 
-    def required_resource(self) -> str | None:
+    def required_resource(self) -> Literal['robotarm', 'incu', 'wash', 'disp'] | None:
         return None
 
-    def with_metadata(self, metadata: dict[str, Any]={}, **metadata_kws: Any):
-        metadata = {**metadata, **metadata_kws}
-        if not metadata:
-            return self
-        elif isinstance(self, Meta) and metadata.keys().isdisjoint(self.metadata.keys()):
-            return Meta(command=self.command, metadata={**metadata, **self.metadata})
+    def add(self, m: Metadata):
+        if isinstance(self, Meta):
+            return Meta(command=self.command, metadata=self.metadata.merge(m))
         else:
-            return Meta(command=self, metadata=metadata)
+            return Meta(command=self, metadata=m)
 
-    def collect(self: Command) -> list[tuple[Command, dict[str, Any]]]:
+    def collect(self: Command) -> list[tuple[Command, Metadata]]:
         match self:
             case Seq():
                 return [
@@ -46,11 +73,11 @@ class Command(abc.ABC):
                 ]
             case Meta():
                 return [
-                    (collected_cmd, {**self.metadata, **collected_metadata})
+                    (collected_cmd, collected_metadata.merge(self.metadata))
                     for collected_cmd, collected_metadata in self.command.collect()
                 ]
             case _:
-                return [(self, {})]
+                return [(self, Metadata())]
 
     def is_noop(self: Command) -> bool:
         match self:
@@ -79,19 +106,6 @@ class Command(abc.ABC):
             case _:
                 return f(self)
 
-    def transform_with_metadata(self: Command, f: Callable[[Command, dict[str, Any]], Command]) -> Command:
-        def go(cmd: Command, metadata: dict[str, Any]) -> Command:
-            match cmd:
-                case Seq():
-                    return f(cmd.replace(commands=[go(cmd, metadata) for cmd in cmd.commands]), metadata)
-                case Fork():
-                    return f(cmd.replace(command=go(cmd.command, metadata)), metadata)
-                case Meta():
-                    return f(cmd.replace(command=go(cmd.command, {**metadata, **cmd.metadata})), metadata)
-                case _:
-                    return f(cmd, metadata)
-        return go(self, {})
-
     def universe(self: Command) -> Iterator[Command]:
         '''
         Universe of all subterms a la "Uniform boilerplate and list processing"
@@ -104,6 +118,8 @@ class Command(abc.ABC):
                     yield from cmd.universe()
             case Fork() | Meta():
                 yield from self.command.universe()
+            case _:
+                pass
 
     def make_resource_checkpoints(self: Command) -> Command:
         counts: dict[str, int] = defaultdict(int)
@@ -123,6 +139,8 @@ class Command(abc.ABC):
                             assume = 'will wait'
                         case 'idle':
                             assume = 'no wait'
+                        case 'nothing':
+                            pass
                     prev_wait = F(WaitForResource(resource, assume=assume))
                     counts[resource] += 1
                     this = counts[resource]
@@ -142,7 +160,7 @@ class Command(abc.ABC):
     def next_id(self: Command) -> int:
         next = 0
         for cmd in self.universe():
-            if isinstance(cmd, Meta) and (i := cmd.metadata.get('id')):
+            if isinstance(cmd, Meta) and (i := cmd.metadata.id):
                 next = max(next, int(i) + 1)
         return next
 
@@ -156,16 +174,16 @@ class Command(abc.ABC):
                 case _:
                     id = str(count)
                     count += 1
-                    return cmd.with_metadata(id=id)
+                    return cmd.add(Metadata(id=id))
         by_type: dict[str, int] = defaultdict(int)
         def G(cmd: Command) -> Command:
             nonlocal by_type
             match cmd:
-                case BiotekCmd() if cmd.cmd == 'Run' or cmd.cmd == 'RunValidated':
+                case BiotekCmd() if cmd.action == 'Run' or cmd.action == 'RunValidated':
                     m = cmd.machine[0]
                     by_type[m] += 1
                     simple_id = m + str(by_type[m])
-                    return cmd.with_metadata(simple_id=simple_id)
+                    return cmd.add(Metadata(simple_id=simple_id))
                 case _:
                     return cmd
         return self.transform(F).transform(G)
@@ -186,8 +204,6 @@ class Command(abc.ABC):
                     return Sequence()
                 case Seq():
                     return Sequence(*(c for c in cmd.commands if not c.is_noop()))
-                case Fork() if all(isinstance(c, Meta | Checkpoint | Seq) for c in cmd.command.universe()):
-                    return cmd.command.with_metadata({'thread_name': cmd.thread_name, 'resource': cmd.resource})
                 case _:
                     return Sequence(cmd)
         return self.transform(F)
@@ -211,79 +227,20 @@ class Command(abc.ABC):
                     out |= cmd.seconds.var_set()
                 case WaitForCheckpoint():
                     out |= cmd.plus_seconds.var_set()
-        return out
-
-class Metadata(TypedDict, total=False):
-    # TODO: use this
-    id: str
-    completed: Literal[True]
-    effect: dict[str, str | None]
-    report_behind_time: bool
-
-    batch_index: str
-    plate_id: str
-    step: str
-    substep: str
-    slot: int
-
-    simple_id: str
-    thread_name: str
-    resource: str
-    predispense: bool
-
-    silent: bool
-    log_sleep: bool
-
-    prep: list[str] # remove?
-    is_ret: bool    # remove?
-    est: float      # add?
-
-    runtime_metadata: RuntimeMetadata
-    untyped: dict[str, Any]
-
-class RuntimeMetadata(TypedDict, total=True):
-    pid: int
-    git_HEAD: str
-    log_filename: str
-    estimates_pickle_file: str
-    program_pickle_file: str
-    host: str
-
-def merge_two(m1: Metadata, m2: Metadata) -> Metadata:
-    u1 = m1.get('untyped', dict[str, Any]())
-    u2 = m2.get('untyped', dict[str, Any]())
-    if not u1 and not u2:
-        return {**m1, **m2}  # type: ignore
-    else:
-        return {**m1, **m2, 'untyped': {**u1, **u2}} # type: ignore
-
-def merge(*ms: Metadata) -> Metadata:
-    if not ms:
-        return {}
-    else:
-        out = ms[0]
-        for m in ms[1:]:
-            out = merge_two(out, m)
+                case _:
+                    pass
         return out
 
 @dataclass(frozen=True, kw_only=True)
 class Meta(Command):
-    metadata: dict[str, Any] = field(default_factory=dict)
-    # typed_metadata: Metadata = field(default_factory=Metadata)
     command: Command
+    metadata: Metadata = field(default_factory=lambda: Metadata())
 
     def est(self) -> float:
         return self.command.est()
 
-    def execute(self, runtime: Runtime, metadata: dict[str, Any]) -> None:
-        try:
-            m = {'est': self.command.est()}
-        except:
-            m = {}
-        self.command.execute(runtime, {**m, **metadata, **self.metadata})
-
     def replace(self, command: Command):
-        return command.with_metadata(self.metadata)
+        return command.add(self.metadata)
 
 @dataclass(frozen=True)
 class Seq(Command):
@@ -294,10 +251,6 @@ class Seq(Command):
 
     def est(self) -> float:
         return sum((cmd.est() for cmd in self.commands), 0.0)
-
-    def execute(self, runtime: Runtime, metadata: dict[str, Any]) -> None:
-        for cmd in self.commands:
-            cmd.execute(runtime, metadata)
 
 def Sequence(*commands: Command) -> Command:
     flat: list[Command] = []
@@ -313,12 +266,9 @@ def Sequence(*commands: Command) -> Command:
 
 @dataclass(frozen=True)
 class Info(Command):
-    arg: str = ''
+    msg: str = ''
     def est(self):
         return 0.0
-
-    def execute(self, runtime: Runtime, metadata: dict[str, Any]) -> None:
-        runtime.log('info', 'system', self.arg, metadata=metadata)
 
 @dataclass(frozen=True)
 class Idle(Command):
@@ -332,20 +282,12 @@ class Idle(Command):
     def replace(self, secs: Symbolic | float | int) -> Idle:
         return replace(self, secs=secs)
 
-    def execute(self, runtime: Runtime, metadata: dict[str, Any]) -> None:
-        secs = self.secs
-        assert isinstance(secs, (float, int))
-        with runtime.timeit('idle', str(secs), metadata):
-            runtime.sleep(secs, metadata)
-
     def __add__(self, other: float | int | str | Symbolic) -> Idle:
         return self.replace(secs = self.seconds + other)
 
 @dataclass(frozen=True)
 class Checkpoint(Command):
     name: str
-    def execute(self, runtime: Runtime, metadata: dict[str, Any]) -> None:
-        runtime.checkpoint(self.name, metadata=metadata)
 
 WaitAssumption = Literal['nothing', 'will wait', 'no wait']
 
@@ -368,19 +310,6 @@ class WaitForCheckpoint(Command):
             next = replace(next, assume=assume)
         return next
 
-    def execute(self, runtime: Runtime, metadata: dict[str, Any]) -> None:
-        plus_secs = self.plus_secs
-        assert isinstance(plus_secs, (float, int))
-        arg = f'{Symbolic.var(str(self.name)) + plus_secs}'
-        with runtime.timeit('wait', arg, metadata):
-            t0 = runtime.wait_for_checkpoint(self.name)
-            desired_point_in_time = t0 + plus_secs
-            delay = desired_point_in_time - runtime.monotonic()
-            metadata = {'report_behind_time': self.report_behind_time, **metadata}
-            if delay < 1 and not self.report_behind_time:
-                metadata = {**metadata, 'silent': True}
-            runtime.sleep(delay, metadata)
-
     def __add__(self, other: float | int | str | Symbolic) -> WaitForCheckpoint:
         return self.replace(plus_secs=self.plus_seconds + other)
 
@@ -390,41 +319,34 @@ class Duration(Command):
     opt_weight: float = 0.0
     exactly: Symbolic | float | None = None
 
-    def execute(self, runtime: Runtime, metadata: dict[str, Any]) -> None:
-        t0 = runtime.wait_for_checkpoint(self.name)
-        runtime.log('end', 'duration', self.name, t0=t0, metadata=metadata)
-
 ForkAssumption = Literal['nothing', 'busy', 'idle']
 
 @dataclass(frozen=True)
 class Fork(Command):
     command: Command
-    resource: str
     thread_name: str | None = None
     assume: ForkAssumption = 'idle'
 
-    def __post_init__(self):
+    @property
+    def resource(self):
         for cmd, _ in self.command.collect():
             assert not isinstance(cmd, WaitForResource) # only the main thread can wait for resources
-            if self.resource is not None:
-                assert cmd.required_resource() in {None, self.resource}
+            if resource := cmd.required_resource():
+                return resource
+        raise ValueError
+
+    def __post_init__(self):
+        self_resource = self.resource
+        for cmd, _ in self.command.collect():
+            assert not isinstance(cmd, WaitForResource) # only the main thread can wait for resources
+            if resource := cmd.required_resource():
+                assert resource == self_resource
 
     def replace(self, command: Command, thread_name: str | None = None):
         if thread_name is not None:
             return replace(self, command=command, thread_name=thread_name)
         else:
             return replace(self, command=command)
-
-    def execute(self, runtime: Runtime, metadata: dict[str, Any]) -> None:
-        thread_name = self.thread_name
-        assert thread_name
-        fork_metadata = {**metadata, 'thread': thread_name, 'resource': self.resource}
-        @runtime.spawn
-        def fork():
-            assert thread_name
-            runtime.register_thread(thread_name)
-            self.command.execute(runtime, metadata=fork_metadata)
-            runtime.thread_done()
 
     def est(self) -> float:
         raise ValueError('Fork.est')
@@ -445,21 +367,11 @@ class WaitForResource(Command):
     resource: str
     assume: WaitAssumption = 'nothing'
 
-    def execute(self, runtime: Runtime, metadata: dict[str, Any]) -> None:
-        raise ValueError('Cannot execute WaitForResource, run Command.make_resource_checkpoints first')
-
 @dataclass(frozen=True)
 class RobotarmCmd(Command):
     program_name: str
-    def execute(self, runtime: Runtime, metadata: dict[str, Any]) -> None:
-        with runtime.timeit('robotarm', self.program_name, metadata):
-            if runtime.config.robotarm_mode == 'noop':
-                runtime.sleep(self.est(), {**metadata, 'silent': True})
-            else:
-                movelist = MoveList(movelists[self.program_name])
-                arm = runtime.get_robotarm(include_gripper=movelist.has_gripper())
-                arm.execute_moves(movelist, name=self.program_name)
-                arm.close()
+    def __post_init__(self):
+        assert self.program_name in movelists
 
     def est(self) -> float:
         return timings.estimate('robotarm', self.program_name)
@@ -467,20 +379,24 @@ class RobotarmCmd(Command):
     def required_resource(self):
         return 'robotarm'
 
+BiotekAction = Literal[
+    'Run',
+    'Validate',
+    'RunValidated',
+    'TestCommunications',
+]
+
 @dataclass(frozen=True)
 class BiotekCmd(Command):
     machine: Literal['wash', 'disp']
     protocol_path: str | None
-    cmd: BiotekCommand = 'Run'
-    def execute(self, runtime: Runtime, metadata: dict[str, Any]) -> None:
-        bioteks.execute(runtime, self.machine, self.protocol_path, self.cmd, metadata)
-
+    action: BiotekAction = 'Run'
     def est(self):
-        if self.cmd == 'TestCommunications':
-            log_arg: str = self.cmd
+        if self.action == 'TestCommunications':
+            log_arg: str = self.action
         else:
             assert self.protocol_path, self
-            log_arg: str = self.cmd + ' ' + self.protocol_path
+            log_arg: str = self.action + ' ' + self.protocol_path
         return timings.estimate(self.machine, log_arg)
 
     def required_resource(self):
@@ -488,37 +404,34 @@ class BiotekCmd(Command):
 
 def WashCmd(
     protocol_path: str | None,
-    cmd: BiotekCommand = 'Run',
+    cmd: BiotekAction = 'Run',
 ):
     return BiotekCmd('wash', protocol_path, cmd)
 
 def DispCmd(
     protocol_path: str | None,
-    cmd: BiotekCommand = 'Run',
+    cmd: BiotekAction = 'Run',
 ):
     return BiotekCmd('disp', protocol_path, cmd)
 
 def WashFork(
     protocol_path: str | None,
-    cmd: BiotekCommand = 'Run',
+    cmd: BiotekAction = 'Run',
     assume: ForkAssumption = 'nothing',
 ):
-    return Fork(WashCmd(protocol_path, cmd), resource='wash', assume=assume)
+    return Fork(WashCmd(protocol_path, cmd), assume=assume)
 
 def DispFork(
     protocol_path: str | None,
-    cmd: BiotekCommand = 'Run',
+    cmd: BiotekAction = 'Run',
     assume: ForkAssumption = 'nothing',
 ):
-    return Fork(DispCmd(protocol_path, cmd), resource='disp', assume=assume)
+    return Fork(DispCmd(protocol_path, cmd), assume=assume)
 
 @dataclass(frozen=True)
 class IncuCmd(Command):
     action: Literal['put', 'get', 'get_climate']
     incu_loc: str | None
-    def execute(self, runtime: Runtime, metadata: dict[str, Any]) -> None:
-        incubator.execute(runtime, self.action, self.incu_loc, metadata=metadata)
-
     def est(self):
         return timings.estimate('incu', self.action)
 
@@ -530,5 +443,6 @@ def IncuFork(
     incu_loc: str | None,
     assume: ForkAssumption = 'nothing',
 ):
-    return Fork(IncuCmd(action, incu_loc), resource='incu', assume=assume)
+    return Fork(IncuCmd(action, incu_loc), assume=assume)
 
+utils.serializer.register(globals())
