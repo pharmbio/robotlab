@@ -325,44 +325,50 @@ def make_v3(*, incu_csv: str, interleave: bool, six: bool = False, lockstep: boo
         else:
             interleavings = 'lin  lin  lin  lin  finlin'.split()
 
+
+
+
     p = ProtocolConfig(
-        prep_wash='automation_v3.1/0_W_D_PRIME.LHC',
+        prep_wash=
+            'automation_v4.0/0_W_D_PRIME.LHC',
         prep_disp=None,
         step_names=
             ['Mito', 'PFA', 'Triton', 'Stains', 'Wash 1', 'Final']
             if six else
             ['Mito', 'PFA', 'Triton', 'Stains', 'Final'],
         wash = [
-            'automation_v3.1/1_W-2X_beforeMito_leaves20ul.LHC',
-            'automation_v3.1/3_W-3X_beforeFixation_leaves20ul.LHC',
-            'automation_v3.1/5_W-3X_beforeTriton.LHC',
-            'automation_v3.1/7_W-3X_beforeStains.LHC',
-        ] + (
-            ['automation_v3.1/9_10_W-3X_NoFinalAspirate.LHC'] * 2
-            if six else
-            ['automation_v3.1/9_W-5X_NoFinalAspirate.LHC']
-        ),
+            'automation_v4.0/1_W-2X_beforeMito_leaves20ul.LHC',
+            'automation_v4.0/3_W-3X_beforeFixation_leaves20ul.LHC',
+            'automation_v4.0/5_W-3X_beforeTriton.LHC',
+            'automation_v4.0/7_W-3X_beforeStains.LHC',
+        ] +
+        ([
+            'automation_v4.0/9_10_W-3X_NoFinalAspirate.LHC',
+            'automation_v4.0/9_10_W-3X_NoFinalAspirate.LHC',
+        ] if six else [
+            'automation_v4.0/9_W-5X_NoFinalAspirate.LHC',
+        ]),
         prime = [
-            'automation_v3.1/1_D_P1_MIX_PRIME.LHC',
-            'automation_v3.1/3_D_SA_PRIME.LHC',
-            'automation_v3.1/5_D_SB_PRIME.LHC',
-            'automation_v3.1/7_D_P2_MIX_PRIME.LHC',
+            'automation_v4.0/2.1_D_SB_PRIME_MITO.LHC',
+            'automation_v4.0/4.1_D_SA_PRIME_PFA.LHC',
+            'automation_v4.0/6.1_D_P1_prime_TRITON.LHC',
+            'automation_v4.0/8.0_D_P2_MIX_PRIME.LHC',
             '',
             '',
         ][:N],
         pre_disp = [
-            'automation_v3.1/2_D_P1_purge_then_prime.LHC',
             '',
             '',
-            'automation_v3.1/8_D_P2_purge_then_prime.LHC',
+            '',
+            'automation_v4.0/8.1_D_P2_purge_then_prime.LHC',
             '',
             '',
         ][:N],
         disp = [
-            'automation_v3.1/2_D_P1_20ul_mito.LHC',
-            'automation_v3.1/4_D_SA_384_80ul_PFA.LHC',
-            'automation_v3.1/6_D_SB_384_80ul_TRITON.LHC',
-            'automation_v3.1/8_D_P2_20ul_stains.LHC',
+            'automation_v4.0/2.2_D_SB_384_40ul_MITO.LHC',
+            'automation_v4.0/4.2_D_SA_384_80ul_PFA.LHC',
+            'automation_v4.0/6.2_D_P1_TRITON_80ul.LHC',
+            'automation_v4.0/8.2_D_P2_20ul_stains.LHC',
             '',
             '',
         ][:N],
