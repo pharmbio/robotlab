@@ -135,6 +135,7 @@ class RuntimeConfig:
 configs: list[RuntimeConfig]
 configs = [
     RuntimeConfig('live',          WallTime,        disp_and_wash_mode='execute', incu_mode='execute', robotarm_mode='execute',            env=live_env),
+    RuntimeConfig('live-no-incu',  WallTime,        disp_and_wash_mode='execute', incu_mode='noop',    robotarm_mode='execute',            env=live_env),
     RuntimeConfig('test-all',      WallTime,        disp_and_wash_mode='execute', incu_mode='execute', robotarm_mode='execute',            env=live_env),
     RuntimeConfig('test-arm-incu', WallTime,        disp_and_wash_mode='noop',    incu_mode='execute', robotarm_mode='execute',            env=live_arm_incu),
     RuntimeConfig('simulator',     WallTime,        disp_and_wash_mode='noop',    incu_mode='noop',    robotarm_mode='execute no gripper', env=simulator_env),
