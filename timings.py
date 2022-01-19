@@ -70,6 +70,8 @@ def estimate(source: Literal['wash', 'disp', 'robotarm', 'incu'], arg: str) -> f
         guess = 2.5
         if 'Validate ' in arg:
             guess = 2.5
+        elif 'PRIME' in arg:
+            guess = 25.0
         elif source == 'wash':
             guess = 100.0
         elif source == 'disp':
