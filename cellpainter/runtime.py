@@ -209,8 +209,7 @@ class Runtime:
     config: RuntimeConfig
     timelike: Timelike
     log_entries: list[LogEntry] = field(default_factory=list)
-    log_lock: RLock  = field(default_factory=RLock)
-    time_lock: RLock = field(default_factory=RLock)
+    lock: RLock = field(default_factory=RLock)
 
     start_time: datetime = field(default_factory=datetime.now)
 
@@ -278,49 +277,45 @@ class Runtime:
         return self.config.env
 
     def log(self, entry: LogEntry, t0: float | None = None) -> LogEntry:
-        with self.time_lock:
+        with self.lock:
             t = round(self.monotonic(), 3)
             log_time = self.now()
-        entry = entry.init(
-            log_time=str(log_time),
-            t=t,
-            t0=t0,
-        )
-
-        # the logging logic is quite convoluted so let's safeguard against software errors in it
-        try:
-            line = self.log_entry_to_line(entry)
-        except BaseException:
-            traceback.print_exc()
-            utils.pr(entry)
-            line = None
-        if line:
-            with self.log_lock:
+            entry = entry.init(
+                log_time=str(log_time),
+                t=t,
+                t0=t0,
+            )
+            # the logging logic is quite convoluted so let's safeguard against software errors in it
+            try:
+                line = self.log_entry_to_line(entry)
+            except BaseException:
+                traceback.print_exc()
+                utils.pr(entry)
+                line = None
+            if line:
                 print(line)
-
-        if 0:
-            utils.pr(entry)
-        if entry.err and entry.err.traceback:
-            print(entry.err.traceback)
-        log_filename = self.config.log_filename
-        if log_filename:
-            with self.log_lock:
-                with open(log_filename, 'a') as fp:
-                    d = utils.to_json(entry)
-                    assert entry == utils.from_json(d)
-                    json.dump(d, fp)
-                    fp.write('\n')
-                # with open(log_filename + '.pkl', 'ab') as fp:
-                    # pickle.dump(entry, fp)
-                # with utils.timeit('read pkl'):
-                #     print(len(list(utils.read_pickles(log_filename + '.pkl'))), end=' ')
-                # with utils.timeit('read json'):
-                #     print(len(list(utils.read_json_lines(log_filename))), end=' ')
-        self.log_entries.append(entry)
-        return entry
+            if 0:
+                utils.pr(entry)
+            if entry.err and entry.err.traceback:
+                print(entry.err.traceback)
+            log_filename = self.config.log_filename
+            if log_filename:
+                    with open(log_filename, 'a') as fp:
+                        d = utils.to_json(entry)
+                        assert entry == utils.from_json(d)
+                        json.dump(d, fp)
+                        fp.write('\n')
+                    # with open(log_filename + '.pkl', 'ab') as fp:
+                        # pickle.dump(entry, fp)
+                    # with utils.timeit('read pkl'):
+                    #     print(len(list(utils.read_pickles(log_filename + '.pkl'))), end=' ')
+                    # with utils.timeit('read json'):
+                    #     print(len(list(utils.read_json_lines(log_filename))), end=' ')
+            self.log_entries.append(entry)
+            return entry
 
     def apply_effect(self, effect: Effect, entry: LogEntry | None = None):
-        with self.running_lock:
+        with self.lock:
             try:
                 next = effect.apply(self.world)
             except Exception as e:
@@ -336,42 +331,41 @@ class Runtime:
                     self.log_running()
 
     def log_entry_to_line(self, entry: LogEntry) -> str | None:
+        with self.lock:
+            if entry.cmd is None and entry.running:
+                return
+            if not self.config.log_filename:
+                return
+            m = entry.metadata
+            if m.dry_run_sleep:
+                return
+            t = self.pp_time_offset(entry.t)
+            if entry.cmd:
+                desc = ', '.join(f'{k}={v}' for k, v in utils.nub(entry.cmd).items() if k != 'machine')
+            else:
+                desc = ''
+            if entry.msg:
+                desc = entry.msg
+            machine = entry.machine() or entry.cmd.__class__.__name__
+            if entry.cmd is None:
+                machine = ''
+            if machine in ('WaitForCheckpoint', 'Idle'):
+                machine = 'wait'
+            if machine in ('robotarm', 'wait') and entry.is_end():
+                return
+            if entry.is_end() and machine in ('wash', 'disp', 'incu'):
+                machine += ' done'
+            machine = machine.lower()
+            if machine == 'duration':
+                desc = f"`{getattr(entry.cmd, 'name', '?')}` = {utils.pp_secs(entry.duration or 0)}"
+            import re
+            desc = re.sub('automation_v.*?/', '', desc)
+            desc = re.sub(r'\.LHC', '', desc)
+            desc = re.sub(r'\w*path=', '', desc)
+            desc = re.sub(r'\w*name=', '', desc)
+            if not desc:
+                desc = str(utils.nub(entry.metadata))
 
-        if entry.cmd is None and entry.running:
-            return
-
-        if not self.config.log_filename:
-            return
-        m = entry.metadata
-        if m.dry_run_sleep:
-            return
-        t = self.pp_time_offset(entry.t)
-        if entry.cmd:
-            desc = ', '.join(f'{k}={v}' for k, v in utils.nub(entry.cmd).items() if k != 'machine')
-        else:
-            desc = ''
-        if entry.msg:
-            desc = entry.msg
-        machine = entry.machine() or entry.cmd.__class__.__name__
-        if entry.cmd is None:
-            machine = ''
-        if machine in ('WaitForCheckpoint', 'Idle'):
-            machine = 'wait'
-        if machine in ('robotarm', 'wait') and entry.is_end():
-            return
-        if entry.is_end() and machine in ('wash', 'disp', 'incu'):
-            machine += ' done'
-        machine = machine.lower()
-        if machine == 'duration':
-            desc = f"`{getattr(entry.cmd, 'name', '?')}` = {utils.pp_secs(entry.duration or 0)}"
-        import re
-        desc = re.sub('automation_v.*?/', '', desc)
-        desc = re.sub(r'\.LHC', '', desc)
-        desc = re.sub(r'\w*path=', '', desc)
-        desc = re.sub(r'\w*name=', '', desc)
-        if not desc:
-            desc = str(utils.nub(entry.metadata))
-        with self.running_lock:
             w = ','.join(f'{k}:{v}' for k, v in self.world.items())
             r = ', '.join(
                 f'{e.metadata.thread_resource or "main"}:{c.__class__.__name__}'
@@ -379,50 +373,46 @@ class Runtime:
                 if (c := e.cmd)
                 if not e.metadata.dry_run_sleep
             )
-        parts = [
-            t,
-            f'{machine[:12]     : <12}',
-            f'{desc[:50]        : <50}',
-            f'{m.plate_id or "" : >2}',
-            f'{m.step           : <6}',
-            f'{w                : <30}',
-            f'{r                     }',
-        ]
-        # with self.log_lock:
-        #     utils.pr(entry, sep='', indentchars='')
-        return ' | '.join(parts)
+            parts = [
+                t,
+                f'{machine[:12]     : <12}',
+                f'{desc[:50]        : <50}',
+                f'{m.plate_id or "" : >2}',
+                f'{m.step           : <6}',
+                f'{w                : <30}',
+                f'{r                     }',
+            ]
+            return ' | '.join(parts)
 
-    running_lock: RLock = field(default_factory=RLock)
     running_entries: list[LogEntry] = field(default_factory=list)
     world: World = field(default_factory=dict)
 
     def log_running(self):
-        with self.running_lock:
-            self.log(
-                LogEntry(
-                    running=Running(
-                        entries=self.running_entries,
-                        world=self.world,
-                    )))
+        with self.lock:
+            running=Running(
+                entries=self.running_entries,
+                world=self.world,
+            )
+            self.log(LogEntry(running=running))
 
     def timeit(self, entry: LogEntry) -> ContextManager[None]:
         # The inferred type for the decorated function is wrong hence this wrapper to get the correct type
 
         @contextmanager
         def worker():
-            e0 = self.log(entry)
-            with self.running_lock:
+            with self.lock:
+                e0 = self.log(entry)
                 self.running_entries.append(e0)
                 G = utils.group_by(self.running_entries, key=lambda e: e.metadata.thread_resource)
                 if self.config.name == 'dry-run':
                     for _k, v in G.items():
                         assert len(v) <= 1
-            self.log_running()
+                self.log_running()
             yield
-            self.log(entry, t0=e0.t)
-            with self.running_lock:
+            with self.lock:
+                self.log(entry, t0=e0.t)
                 self.running_entries.remove(e0)
-            self.log_running()
+                self.log_running()
 
         return worker()
 
@@ -464,7 +454,7 @@ class Runtime:
         return self.timelike.thread_done()
 
     def checkpoint(self, name: str, entry: LogEntry):
-        with self.time_lock:
+        with self.lock:
             assert name not in self.checkpoint_times, f'{name!r} already checkpointed in {utils.show(self.checkpoint_times, use_color=False)}'
             self.checkpoint_times[name] = self.log(entry).t
             for q in self.checkpoint_waits[name]:
@@ -473,7 +463,7 @@ class Runtime:
 
     def enqueue_for_checkpoint(self, name: str):
         q: Queue[None] = Queue()
-        with self.time_lock:
+        with self.lock:
             if name in self.checkpoint_times:
                 self.queue_put_nowait(q, None) # prepopulate it
             else:
@@ -483,6 +473,6 @@ class Runtime:
     def wait_for_checkpoint(self, name: str):
         q = self.enqueue_for_checkpoint(name)
         self.queue_get(q)
-        with self.time_lock:
+        with self.lock:
             return self.checkpoint_times[name]
 
