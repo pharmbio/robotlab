@@ -160,7 +160,7 @@ def start(cmdline0: str, cmdline_to_log: Callable[[str], Log]):
                     'disp': 3,
                 }.get(machine, 1)
             slot = 2 * slot
-            if machine in ('wash', 'disp', 'incu'):
+            if m.thread_resource in ('wash', 'disp', 'incu'):
                 slot += 1
             if source == 'duration':
                 slot = 18 + plate
@@ -219,6 +219,9 @@ def start(cmdline0: str, cmdline_to_log: Callable[[str], Log]):
                     background: var(--bg-color);
                 ''',
                 css_='''
+                    &:hover {
+                        z-index: 1;
+                    }
                     &:hover::after, &:hover::before {
                         white-space: pre;
                         padding: 2px 4px;

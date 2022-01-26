@@ -617,20 +617,24 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                 disp_prime = None
 
             if p.disp[i] or disp_prime:
-                pre_disp = Fork(
-                    Sequence(
-                        WaitForCheckpoint(f'{plate_desc} pre disp {ix}', assume='nothing'),
-                        Idle() + f'{plate_desc} pre disp {ix} delay',
-                        DispCmd(disp_prime).add(Metadata(plate_id='')) if disp_prime else Idle(),
-                        DispCmd(p.pre_disp[i]).add(Metadata(predispense=True)) if p.pre_disp[i] else Idle(),
-                        DispCmd(p.disp[i], cmd='Validate'),
-                        Early(2),
-                        Checkpoint(f'{plate_desc} pre disp done {ix}'),
-                    ).add(Metadata(slot=3)),
-                    assume='nothing',
+                pre_disp_is_long = disp_prime or p.pre_disp[i]
+                pre_disp = Sequence(
+                    Checkpoint(f'{plate_desc} pre disp {ix} start wait'),
+                    Fork(
+                        Sequence(
+                            WaitForCheckpoint(f'{plate_desc} pre disp {ix} start wait') + f'{plate_desc} pre disp {ix} delay',
+                            DispCmd(disp_prime).add(Metadata(plate_id='')) if disp_prime else Idle(),
+                            DispCmd(p.pre_disp[i]).add(Metadata(predispense=True)) if p.pre_disp[i] else Idle(),
+                            DispCmd(p.disp[i], cmd='Validate'),
+                            Early(2),
+                            Checkpoint(f'{plate_desc} pre disp done {ix}'),
+                        ).add(Metadata(slot=3)),
+                        assume='nothing',
+                    ),
                 )
-                pre_disp_wait = Duration(f'{plate_desc} pre disp done {ix}', opt_weight=-1)
+                pre_disp_wait = WaitForCheckpoint(f'{plate_desc} pre disp done {ix}')
             else:
+                pre_disp_is_long = False
                 pre_disp = Idle()
                 pre_disp_wait = Idle()
 
@@ -638,11 +642,11 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                 RobotarmCmd('wash put prep'),
                 WashFork(p.wash[i], cmd='Validate', assume='idle').delay(1) if plate is first_plate else Idle(),
                 RobotarmCmd('wash put transfer'),
+                pre_disp if pre_disp_is_long else Idle(),
                 Fork(
                     Sequence(
                         *wash_delay,
                         Duration(f'{plate_desc} incubation {ix-1}', exactly=p.incu[i-1]) if i > 0 else Idle(),
-                        Checkpoint(f'{plate_desc} pre disp {ix}'),
                         WashCmd(p.wash[i], cmd='RunValidated'),
                         Checkpoint(f'{plate_desc} transfer {ix}')
                         if i < 4 else
@@ -650,7 +654,6 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                     ),
                     assume='nothing',
                 ),
-                pre_disp,
                 RobotarmCmd('wash put return'),
             ]
 
@@ -658,9 +661,10 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                 RobotarmCmd('wash_to_disp prep'),
                 Early(1),
                 WaitForResource('wash', assume='will wait'),
+                Idle() if pre_disp_is_long else pre_disp,
                 RobotarmCmd('wash_to_disp transfer'),
-                Duration(f'{plate_desc} transfer {ix}', exactly=RobotarmCmd('wash_to_disp transfer').est()),
                 pre_disp_wait,
+                Duration(f'{plate_desc} transfer {ix}', exactly=RobotarmCmd('wash_to_disp transfer').est()),
                 Fork(
                     Sequence(
                         DispCmd(p.disp[i], cmd='RunValidated'),
