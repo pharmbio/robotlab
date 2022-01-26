@@ -1060,7 +1060,7 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
                             min-width: 100px;
                             color:        var(--cyan);
                             border-color: var(--cyan);
-                            border-radius: 2px;
+                            border-radius: 4px;
                             opacity: 0.8;
                         }
                         & button:hover {
