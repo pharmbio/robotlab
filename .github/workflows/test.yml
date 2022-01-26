@@ -26,5 +26,5 @@ jobs:
       - run: cellpainter --cell-paint 8,8 --interleave --incu 1245,1205
       - run: cellpainter --cell-paint 8,8 --interleave --two-final-washes
       - run: cellpainter --cell-paint 9,9 --interleave --two-final-washes
-      - run: cellpainter --cell-paint 10 --interleave --two-final-washes --lockstep --incu 1200,1200,1200,1200,X
+      - run: cellpainter --cell-paint 10 --interleave --two-final-washes --lockstep --incu 1205,1200,1200,1200,X
       - run: cellpainter --list-imports | tee /dev/stderr | xargs pyright
