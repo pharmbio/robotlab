@@ -34,6 +34,8 @@ from protocol import Incu_locs, A_locs, B_locs, C_locs
 
 if '--live' in sys.argv:
     config: RuntimeConfig = config_lookup('live')
+elif '--live-no-incu' in sys.argv:
+    config: RuntimeConfig = config_lookup('live-no-incu')
 elif '--simulator' in sys.argv:
     config = config_lookup('simulator')
 elif '--dry-wall' in sys.argv:
