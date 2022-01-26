@@ -62,6 +62,16 @@ def robotarm_freedrive():
     robotarm_do([RawCode("freedrive_mode() sleep(3600)")])
 
 @serve.expose
+def robotarm_set_speed(pct: int):
+    '''
+    Sets the robotarm speed, in percentages
+    '''
+    print(pct)
+    arm = get_robotarm(config, quiet=False, include_gripper=True)
+    arm.set_speed(pct)
+    arm.close()
+
+@serve.expose
 def robotarm_to_neutral():
     '''
     Slowly moves in joint space to the neutral position by B21
@@ -1031,23 +1041,56 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
             pass
         elif not ar.has_error():
             yield m.defaults().goto_script()
-            yield button(
-                'stop',
-                onclick='confirm("Stop?")&&' + sigint.call(ar.pid),
+            yield div(
+                div(
+                    'robotarm speed: ',
+                    *[
+                        button(name, title=f'{pct}%', onclick=robotarm_set_speed.call(pct))
+                        for name, pct in {
+                            'normal': 100,
+                            'slow': 40,
+                            'slower': 10,
+                            'slowest': 1,
+                        }.items()
+                    ],
+                    css='''
+                        & button {
+                            margin: 10px 5px;
+                            padding: 10px;
+                            min-width: 100px;
+                            color:        var(--cyan);
+                            border-color: var(--cyan);
+                            border-radius: 2px;
+                            opacity: 0.8;
+                        }
+                        & button:hover {
+                            opacity: 1.0;
+                        }
+                        & {
+                            text-align: center;
+                            margin-bottom:
+                        }
+                    ''',
+                ),
+                button(
+                    'stop',
+                    onclick='confirm("Stop?")&&' + sigint.call(ar.pid),
+                    css='''
+                        & {
+                            font-size: 2rem;
+                            display: block;
+                            width: 100%;
+                            color: var(--red);
+                            border-color: var(--red);
+                            border-radius: 4px;
+                            padding: 15px;
+                        }
+                        &:focus {
+                            outline: 3px var(--red) solid;
+                        }
+                    '''
+                ),
                 grid_area='stop',
-                css='''
-                    & {
-                        font-size: 2rem;
-                        flex: 1 0 0;
-                        color: var(--red);
-                        border-color: var(--red);
-                        border-radius: 4px;
-                        padding: 15px;
-                    }
-                    &:focus {
-                        outline: 3px var(--red) solid;
-                    }
-                '''
             )
         else:
             buttons: list[Tag] = []
