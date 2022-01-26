@@ -103,6 +103,7 @@ class Args:
     unload_incu:               int  = arg(help=protocol.unload_incu)
     lid_stress_test:           bool = arg(help=protocol.lid_stress_test)
     scratch_program:           bool = arg(help=protocol.scratch_program)
+    validate_all_protocols:    bool = arg(help=protocol.validate_all_protocols)
 
     resume:                    str  = arg(help='Resume program given a log file')
     resume_skip:               str  = arg(help='Comma-separated list of simple_id:s to skip (washes and dispenses)')
@@ -181,6 +182,9 @@ def main():
 
     elif args.test_comm:
         protocol.test_comm(config)
+
+    elif args.validate_all_protocols:
+        protocol.validate_all_protocols(config)
 
     elif args.scratch_program:
         protocol.scratch_program(config)

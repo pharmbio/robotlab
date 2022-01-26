@@ -1077,7 +1077,7 @@ def cell_paint_program(batch_sizes: list[int], protocol_config: ProtocolConfig, 
 
 def test_circuit(config: RuntimeConfig) -> None:
     '''
-    Test circuit: Short test paint on one plate, without incubator
+    Test circuit: Short test paint on one plate, only robotarm, no incubator or bioteks
     '''
     plate, = define_plates([1])
     program = cell_paint_program([1], protocol_config=make_v3(incu_csv='s1,s2,s3,s4,s5', six=True, interleave=True))
@@ -1099,13 +1099,37 @@ def test_circuit(config: RuntimeConfig) -> None:
             1. hotel one:               empty!
             2. hotel two:               empty!
             3. hotel three:             empty!
-            4. biotek washer:           empty!
-            5. biotek dispenser:        empty!
+            4. biotek washer:           empty! (will not be used)
+            5. biotek dispenser:        empty! (will not be used)
             6. incubator transfer door: one plate with lid
             7. robotarm:                in neutral position by lid hotel
             8. gripper:                 sufficiently open to grab a plate
     ''')
     execute_program(config, program, metadata={'program': 'test_circuit'})
+
+def validate_all_protocols(config: RuntimeConfig) -> None:
+    '''
+    Validate all biotek protocols.
+    '''
+    v3 = make_v3(incu_csv='1200', interleave=False)
+    wash = [
+        WashCmd(p, cmd='Validate')
+        for p in set([*v3.wash, v3.prep_wash])
+        if p
+    ]
+    disp = [
+        DispCmd(p, cmd='Validate')
+        for p in set([*v3.disp, *v3.pre_disp, *v3.prime, v3.prep_disp])
+        if p
+    ]
+    program = Sequence(
+        Fork(Sequence(*wash), resource='wash'),
+        Fork(Sequence(*disp), resource='disp'),
+        WaitForResource('wash'),
+        WaitForResource('disp'),
+    )
+    execute_program(config, program, metadata={'program': 'validate_all_protocols'})
+
 
 def test_comm_program(with_incu: bool=True) -> Command:
     return Sequence(
