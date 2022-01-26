@@ -973,6 +973,7 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
                         }
                     '''
                 ),
+                grid_area='stop',
             )
         else:
             skipped = utils.read_commasep(skip.value)
