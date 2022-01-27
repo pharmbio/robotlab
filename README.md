@@ -8,7 +8,7 @@ A scheduler repeatedly talks to the PF and the IMX to keep them busy.
 
 A human operator can add entries to the scheduler.
 
-<img src=overview.svg/>
+<img src="images/overview.svg"/>
 
 ### IP numbers
 
