@@ -13,8 +13,8 @@ services:
     mem_reservation: 1G
     cpus: 4
     build:
-      context: './'
-      dockerfile: Dockerfile
+      context: ../
+      dockerfile: docker/Dockerfile
     ports:
       - 12001:5000
     networks:

@@ -152,6 +152,7 @@ class Args:
     test_resume_delay:         int  = arg(help='Test resume simulated delay')
 
     visualize:                 bool = arg(help='Run visualizer')
+    visualize_init_cmd:        str  = arg(help='Starting cmdline for visualizer')
 
     list_imports:              bool = arg(help='Print the imported python modules for type checking.')
 
@@ -169,7 +170,7 @@ def main():
         args = Args(**json.loads(args.json_arg))
     return main_with_args(args, parser)
 
-def main_with_args(args: Args, parser: argparse.ArgumentParser):
+def main_with_args(args: Args, parser: argparse.ArgumentParser | None=None):
 
     if args.make_uml:
         make_uml.visualize_modules(args.make_uml)
@@ -194,13 +195,16 @@ def main_with_args(args: Args, parser: argparse.ArgumentParser):
     if args.visualize:
         from . import protocol_vis as pv
         cmdname, *argv = [arg for arg in sys.argv if not arg.startswith('--vi')]
-        cmdline = shlex.join(argv)
+        if args.visualize_init_cmd:
+            cmdline0 = args.visualize_init_cmd
+        else:
+            cmdline0 = shlex.join(argv)
         def cmdline_to_log(cmdline: str):
             args, _ = arg.parse_args(Args, args=[cmdname, *shlex.split(cmdline)], exit_on_error=False)
             p = args_to_program(args)
             assert p, 'no program from these arguments!'
             return execute_program(config, p.program, {}, for_visualizer=True)
-        pv.start(cmdline, cmdline_to_log)
+        pv.start(cmdline0, cmdline_to_log)
 
     elif args.test_resume:
         file1 = 'logs/test_resume.jsonl'
@@ -252,6 +256,7 @@ def main_with_args(args: Args, parser: argparse.ArgumentParser):
                 print(k + ':\n' + textwrap.indent(v.describe(), '  '))
 
     else:
+        assert parser
         parser.print_help()
 
     if timings.Guesses:

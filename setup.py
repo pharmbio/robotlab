@@ -3,6 +3,7 @@ from setuptools import setup
 requirements = '''
     z3-solver
     flask
+    sorcery
 '''
 
 console_scripts = '''

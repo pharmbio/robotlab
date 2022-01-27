@@ -576,7 +576,7 @@ class Serve:
         except Exception as e:
             print('Not using flask_compress:', str(e), file=sys.stderr)
 
-        if bool(os.environ.get('VIABLE_RUN', 'true').lower()):
+        if os.environ.get('VIABLE_RUN', 'true').lower() == 'true':
             print('Running app...')
             host = os.environ.get('VIABLE_HOST')
             port = os.environ.get('VIABLE_PORT')

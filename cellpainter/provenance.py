@@ -76,8 +76,8 @@ class Int(Var[int]):
             value=str(self.value),
             oninput=m.update_untyped({self: js('this.value')}).goto(),
             type=self.type,
-            min=utils.maybe(self.min, str),
-            max=utils.maybe(self.max, str),
+            min=maybe(self.min, str),
+            max=maybe(self.max, str),
         )
 
 @dataclass(frozen=True)
