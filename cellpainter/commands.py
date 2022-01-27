@@ -172,8 +172,8 @@ class Command(abc.ABC):
                 case Seq() | Fork() | Meta():
                     return cmd
                 case _:
-                    id = str(count)
                     count += 1
+                    id = str(count)
                     return cmd.add(Metadata(id=id))
         by_type: dict[str, int] = defaultdict(int)
         def G(cmd: Command) -> Command:
@@ -333,7 +333,7 @@ class Fork(Command):
             assert not isinstance(cmd, WaitForResource) # only the main thread can wait for resources
             if resource := cmd.required_resource():
                 return resource
-        raise ValueError
+        return None
 
     def __post_init__(self):
         self_resource = self.resource
@@ -446,3 +446,4 @@ def IncuFork(
     return Fork(IncuCmd(action, incu_loc), assume=assume)
 
 utils.serializer.register(globals())
+

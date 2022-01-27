@@ -23,7 +23,7 @@ from .utils import pp_secs
 from .timelike import Timelike, WallTime, SimulatedTime
 from .moves import World, Effect
 
-from .log import LogEntry, Metadata, Error, Running
+from .log import LogEntry, Metadata, Error, Running, Log
 
 @dataclass(frozen=True)
 class Env:
@@ -50,13 +50,21 @@ dry_env = Env()
 
 import time
 
-@dataclass
+@dataclass(frozen=True)
 class ResumeConfig:
     start_time: datetime
     checkpoint_times: dict[str, float]
     secs_ago: float = 0.0
-    def __post_init__(self):
-        self.secs_ago = (datetime.now() - self.start_time).total_seconds()
+
+    @staticmethod
+    def init(log: Log, now: datetime | None | str=None):
+        if isinstance(now, str):
+            now = datetime.fromisoformat(now)
+        if now is None:
+            now = datetime.now()
+        start_time = log.zero_time()
+        secs_ago = (now - start_time).total_seconds()
+        return ResumeConfig(start_time, log.checkpoints(), secs_ago)
 
 @dataclass(frozen=True)
 class Keep:
@@ -76,30 +84,6 @@ class RuntimeConfig:
     log_filename: str | None = None
     log_to_file: bool = True
     resume_config: ResumeConfig | None = None
-
-    ''' add:
-    running: list[LogEntry] or list[id]
-    restarts: int
-
-    important in log:
-        - begin...running...end
-            arm, incu, disp, wash
-            wait, idle
-            - for protocol_vis
-        - begin
-            checkpoint
-            section (for overview gui)
-            resumption + runtime metadata
-        - stamp
-            errors
-            completed
-        - end
-            duration
-        - current:
-            running
-            sections ?
-            world
-    '''
 
     def make_runtime(self) -> Runtime:
         resume_config = self.resume_config
@@ -236,6 +220,9 @@ class Runtime:
 
         self.set_robotarm_speed(self.config.robotarm_speed)
 
+    def get_log(self) -> Log:
+        return Log(self.log_entries)
+
     def kill(self):
         self.stop_arm()
         os.kill(os.getpid(), signal.SIGINT)
@@ -297,7 +284,7 @@ class Runtime:
             if 0:
                 utils.pr(entry)
             if entry.err and entry.err.traceback:
-                print(entry.err.traceback)
+                print(entry.err.traceback, file=sys.stderr)
             log_filename = self.config.log_filename
             if log_filename:
                     with open(log_filename, 'a') as fp:
@@ -305,12 +292,6 @@ class Runtime:
                         assert entry == utils.from_json(d)
                         json.dump(d, fp)
                         fp.write('\n')
-                    # with open(log_filename + '.pkl', 'ab') as fp:
-                        # pickle.dump(entry, fp)
-                    # with utils.timeit('read pkl'):
-                    #     print(len(list(utils.read_pickles(log_filename + '.pkl'))), end=' ')
-                    # with utils.timeit('read json'):
-                    #     print(len(list(utils.read_json_lines(log_filename))), end=' ')
             self.log_entries.append(entry)
             return entry
 
@@ -375,6 +356,7 @@ class Runtime:
             )
             parts = [
                 t,
+                f'{m.id or ""       : >4}',
                 f'{machine[:12]     : <12}',
                 f'{desc[:50]        : <50}',
                 f'{m.plate_id or "" : >2}',

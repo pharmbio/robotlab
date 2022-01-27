@@ -263,11 +263,6 @@ def git_HEAD() -> str | None:
 def uniq(xs: Iterable[A]) -> Iterable[A]:
     return {x: None for x in xs}.keys()
 
-def read_json_lines(path: str | Path) -> Iterator[Any]:
-    with open(path, 'r') as f:
-        for line in f:
-            yield json.loads(line)
-
 def group_by(xs: Iterable[A], key: Callable[[A], B]) -> dict[B, list[A]]:
     d: dict[B, list[A]] = defaultdict(list)
     for x in xs:
@@ -406,12 +401,10 @@ import threading
 def spawn(f: Callable[[], None]) -> None:
     threading.Thread(target=f, daemon=True).start()
 
-B = TypeVar('B')
-def maybe(x: A | None, f: Callable[[A], B], b: B = None) -> B:
-    if x is None:
-        return b
-    else:
-        return f(x)
+def read_jsonl(path: str | Path) -> Iterator[Any]:
+    with open(path, 'r') as f:
+        for line in f:
+            yield json.loads(line)
 
 def read_commasep(s: str, p: Callable[[str], A] = lambda x: x) -> list[A]:
     return [p(x.strip()) for x in s.strip().split(',') if x.strip()]
@@ -453,11 +446,6 @@ class Serializer:
         else:
             raise ValueError()
 
-    def from_json_lines(self, path: str | Path) -> Iterator[Any]:
-        with open(path, 'r') as f:
-            for line in f:
-                yield self.from_json(json.loads(line))
-
     def to_json(self, x: Any) -> dict[str, Any] | list[Any] | None | float | int | bool | str:
         if is_dataclass(x):
             d = nub(x)
@@ -473,6 +461,17 @@ class Serializer:
             return x
         else:
             raise ValueError()
+
+    def from_jsonl(self, path: str | Path) -> Iterator[Any]:
+        with open(path, 'r') as f:
+            for line in f:
+                yield self.from_json(json.loads(line))
+
+    def write_jsonl(self, xs: Iterable[Any], path: str | Path):
+        with open(path, 'w') as f:
+            for x in xs:
+                json.dump(self.to_json(x), f)
+                f.write('\n')
 
 serializer = Serializer()
 from_json = serializer.from_json

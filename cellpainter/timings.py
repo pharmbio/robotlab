@@ -15,7 +15,7 @@ def estimates_from(path: str) -> dict[Estimated, float]:
         'robotarm',
         'incu',
     }
-    for v in utils.read_json_lines(path):
+    for v in utils.read_jsonl(path):
         duration = v.get('duration')
         source = v.get('source')
         arg = v.get('arg')

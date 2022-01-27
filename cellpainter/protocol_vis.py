@@ -7,8 +7,7 @@ from .viable import Tag, div, span, label, img, raw, Input, input
 from . import viable as V
 from .provenance import Store, Str, Int
 
-from .log import LogEntry
-from .analyze_log import Log
+from .log import Log
 from . import commands
 
 from collections import *
@@ -259,17 +258,6 @@ def start(cmdline0: str, cmdline_to_log: Callable[[str], Log]):
                 data_short_info=str(e.cmd),
             )
 
-        # area.onmouseover += """
-        #     if (event.target.dataset.info)
-        #         document.querySelector('#info').innerHTML = event.target.dataset.info.trim()
-        # """
-
-        # area.onmouseout += """
-        #     if (event.target.dataset.info)
-        #         document.querySelector('#info').innerHTML = ''
-        # """
-        # yield zoom_input
-        # yield batch_size_input
         yield area
 
         yield div(' ', style="height:400px")

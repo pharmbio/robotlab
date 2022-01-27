@@ -16,6 +16,14 @@ from flask import after_this_request
 
 from . import utils
 
+A = TypeVar('A')
+B = TypeVar('B')
+def maybe(x: A | None, f: Callable[[A], B], b: B = None) -> B:
+    if x is None:
+        return b
+    else:
+        return f(x)
+
 def lhs() -> str:
     @spell
     def inner(frame_info) -> str:
@@ -24,8 +32,6 @@ def lhs() -> str:
     return inner()
 
 no_spells(lhs)
-
-A = TypeVar('A')
 
 Provenance = Literal['query', 'cookie', 'server']
 

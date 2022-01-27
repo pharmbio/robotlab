@@ -97,7 +97,7 @@ def arm_set_speed(value: int) -> None:
 @serve.expose
 def edit_at(program_name: str, i: int, changes: dict[str, Any]):
     filename = get_programs()[program_name]
-    ml = MoveList.from_jsonl_file(filename)
+    ml = MoveList.from_jsonl(filename)
     m = ml[i]
     for k, v in changes.items():
         if k in 'rpy xyz joints name slow pos tag sections'.split():
@@ -163,7 +163,7 @@ def update(program_name: str, i: int):
         return
 
     filename = get_programs()[program_name]
-    ml = MoveList.from_jsonl_file(filename)
+    ml = MoveList.from_jsonl(filename)
     m = ml[i]
     if isinstance(m, (moves.MoveLin, moves.MoveRel)):
         v = asdict(m)
@@ -196,7 +196,7 @@ def index() -> Iterator[Tag | dict[str, str]]:
     programs = get_programs()
     program_name = request.args.get('program', next(iter(programs.keys())))
     section: tuple[str, ...] = tuple(request.args.get('section', "").split())
-    ml = MoveList.from_jsonl_file(programs[program_name])
+    ml = MoveList.from_jsonl(programs[program_name])
 
     yield V.title(' '.join([program_name, *section]))
 

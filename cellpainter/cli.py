@@ -10,23 +10,23 @@ import textwrap
 import shlex
 import re
 
-from .runtime import RuntimeConfig, configs, config_lookup
-from .utils import show
-from .moves import movelists
+from datetime import timedelta
+from dataclasses import dataclass, field, fields, Field, replace
 
 from . import commands
-from . import moves
-from . import timings
+from . import make_uml
 from . import protocol
 from . import resume
-from .execute import execute_program
-
-from .small_protocols import small_protocols
-
+from . import timings
 from . import utils
-from dataclasses import dataclass, field, fields, Field
+from . import moves
 
-from . import make_uml
+from .execute import execute_program
+from .log import Log
+from .moves import movelists
+from .runtime import RuntimeConfig, configs, config_lookup
+from .small_protocols import small_protocols
+from .utils import show
 
 A = TypeVar('A')
 
@@ -146,6 +146,10 @@ class Args:
     resume:                    str  = arg(help='Resume program given a log file')
     resume_skip:               str  = arg(help='Comma-separated list of simple_id:s to skip (washes and dispenses)')
     resume_drop:               str  = arg(help='Comma-separated list of plate_id:s to drop')
+    resume_time_now:           str  = arg(help='Use this time as current time instead of datetime.now()')
+
+    test_resume:               str  = arg(help='Test resume by running twice, second time by resuming from just before the argument id')
+    test_resume_delay:         int  = arg(help='Test resume simulated delay')
 
     visualize:                 bool = arg(help='Run visualizer')
 
@@ -163,6 +167,9 @@ def main():
     args, parser = arg.parse_args(Args, description='Make the lab robots do things.')
     if args.json_arg:
         args = Args(**json.loads(args.json_arg))
+    return main_with_args(args, parser)
+
+def main_with_args(args: Args, parser: argparse.ArgumentParser):
 
     if args.make_uml:
         make_uml.visualize_modules(args.make_uml)
@@ -195,6 +202,33 @@ def main():
             return execute_program(config, p.program, {}, for_visualizer=True)
         pv.start(cmdline, cmdline_to_log)
 
+    elif args.test_resume:
+        file1 = 'logs/test_resume.jsonl'
+        file2 = 'logs/test_resume_partial.jsonl'
+        args1 = replace(args, test_resume='', log_filename=file1)
+        main_with_args(args1, parser)
+        log = Log.from_jsonl(file1)
+        for i, e in enumerate(log):
+            if e.metadata.id:
+                if int(e.metadata.id) >= int(args.test_resume):
+                    log = Log(log[:i])
+                    break
+        else:
+            raise ValueError(f'Could not find id {args.test_resume!r}')
+        log.write_jsonl(file2)
+        resume_time_now = log.zero_time() + timedelta(seconds=log[-1].t) + timedelta(seconds=args.test_resume_delay)
+        args2 = replace(args, test_resume='', resume=file2, resume_time_now=str(resume_time_now))
+        main_with_args(args2, parser)
+
+    elif args.resume:
+        resume.execute_resume(
+            config,
+            args.resume,
+            resume_time_now=args.resume_time_now or None,
+            skip=utils.read_commasep(args.resume_skip),
+            drop=utils.read_commasep(args.resume_drop),
+        )
+
     elif p := args_to_program(args):
         if config.name != 'dry-run' and p.doc and not args.yes:
             ATTENTION(p.doc)
@@ -216,14 +250,6 @@ def main():
             if not m or m.group(0) in {"19", "21"}:
                 print()
                 print(k + ':\n' + textwrap.indent(v.describe(), '  '))
-
-    elif args.resume:
-        resume.resume_program(
-            config,
-            args.resume,
-            skip=utils.read_commasep(args.resume_skip),
-            drop=utils.read_commasep(args.resume_drop),
-        )
 
     else:
         parser.print_help()

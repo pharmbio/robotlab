@@ -21,7 +21,7 @@ import platform
 import signal
 import sys
 
-from .analyze_log import Log
+from .log import Log
 from .cli import Args
 
 from . import commands
@@ -157,7 +157,7 @@ def load_from_pickle(filepath: str) -> Log:
 @lru_cache(maxsize=1)
 def _jsonl_to_log(path: str, mtime_ns: int) -> Log | None:
     try:
-        return Log(utils.serializer.from_json_lines(path)).drop_boring()
+        return Log.from_jsonl(path).drop_boring()
     except:
         return None
 
@@ -270,12 +270,12 @@ class AnalyzeResult:
             for e in running.entries
         ]
 
-        estimates = estimates.where(lambda e: e.is_end_or_section())
+        estimates = estimates.where(lambda e: e.is_end_or_inf())
         estimates = estimates.where(lambda e: e.metadata.id not in live_ids)
         estimates = estimates.add(Metadata(is_estimate=True))
 
         vis = Log(m + running_entries + estimates)
-        vis = vis.where(lambda e: e.is_end_or_section())
+        vis = vis.where(lambda e: e.is_end_or_inf())
         end = LogEntry(t=vis.max_t(), metadata=Metadata(section='end'))
         vis = Log(vis + [end])
         sections = vis.group_by_section()

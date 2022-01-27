@@ -13,7 +13,7 @@ from .log import (
     LogEntry,
 )
 
-from .analyze_log import Log
+from .log import Log
 
 from .commands import (
     Metadata,
@@ -141,10 +141,9 @@ def make_runtime(config: RuntimeConfig, metadata: dict[str, str]) -> Iterator[Ru
         abspath = os.path.abspath(log_filename)
         os.makedirs(os.path.dirname(abspath), exist_ok=True)
         print(f'{log_filename=}')
-        with open(log_filename, 'w') as fp:
-            fp.write('') # clear file
-        with open(log_filename + '.pkl', 'wb') as fp:
-            fp.write(b'') # clear file
+        if not config.resume_config:
+            with open(log_filename, 'w') as fp:
+                fp.write('') # clear file
     else:
         log_filename = None
 
@@ -155,7 +154,7 @@ def make_runtime(config: RuntimeConfig, metadata: dict[str, str]) -> Iterator[Ru
     with runtime.excepthook():
         yield runtime
 
-def check_correspondence(program: Command, est_entries: list[LogEntry], expected_ends: dict[str, float]):
+def check_correspondence(program: Command, est_entries: Log, expected_ends: dict[str, float]):
     matches = 0
     mismatches = 0
     seen: set[str] = set()
@@ -163,7 +162,7 @@ def check_correspondence(program: Command, est_entries: list[LogEntry], expected
         i = e.metadata.id
         if i and (e.is_end() or isinstance(e.cmd, Checkpoint)):
             seen.add(i)
-            if abs(e.t - expected_ends[i]) > 0.1:
+            if abs(e.t - expected_ends[i]) > 0.3:
                 utils.pr(('no match!', i, e, expected_ends[i]))
                 mismatches += 1
             else:
@@ -204,10 +203,10 @@ def execute_program(config: RuntimeConfig, program: Command, metadata: dict[str,
     with utils.timeit('estimates'):
         with make_runtime(dry_run.replace(log_to_file=False, resume_config=config.resume_config), {}) as runtime_est:
             execute(program, runtime_est, Metadata())
-        est_entries = runtime_est.log_entries
+        est_entries = runtime_est.get_log()
 
     if for_visualizer:
-        return Log(est_entries)
+        return est_entries
 
     if not resume_config:
         with utils.timeit('check correspondence'):
@@ -245,21 +244,8 @@ def execute_program(config: RuntimeConfig, program: Command, metadata: dict[str,
         execute(program, runtime, Metadata())
         runtime.log(LogEntry(metadata=Metadata(completed=True)))
 
-        for line in Log(runtime.log_entries).group_durations_for_display():
+        for line in runtime.get_log().group_durations_for_display():
             print(line)
 
-        return Log(runtime.log_entries)
-
-def RemoveBioteks(program: Command) -> Command:
-    def Filter(cmd: Command) -> Command:
-        match cmd:
-            case commands.BiotekCmd() | commands.Idle():
-                return Sequence()
-            case commands.WaitForCheckpoint() if 'incu #' not in cmd.name:
-                return Sequence()
-            case _:
-                return cmd
-    program = program.transform(Filter)
-    program = program.remove_noops()
-    return program
+        return runtime.get_log()
 

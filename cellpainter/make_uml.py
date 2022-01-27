@@ -8,8 +8,6 @@ import re
 import sys
 import textwrap
 
-from . import analyze_log   # type: ignore
-
 def visualize_modules(out_path: str='cellpainter.dot'):
     my_dir = os.path.dirname(__file__)
     ms: list[ModuleType] = []
