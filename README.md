@@ -22,7 +22,7 @@ The http api wraps around vendor-specific api:s for communication.
 </table>
 
 The setup is outlined in the schematic below, which indicates the
-purpose of the three subdirectories in this repo, `biotek-cli/`, `biotek-server/` and `incubator-server/`.
+purpose of the three subdirectories in this repo, `biotek-cli/`, `incubator-cli/` and `cliwrapper-server/`.
 
 <img src=images/overview.svg>
 
