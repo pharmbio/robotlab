@@ -9,31 +9,30 @@ graph {
     incu [label="LiCONiC incubator"]
     rank=same {wash; disp; incu}
     dll [label="BTILHCCaller.dll"]
-    cli [label=<
+    biotek_cli [label=<
         LHC_Caller (C# cli)
         <BR/><BR/>
         <FONT FACE="Consolas">biotek-cli/</FONT>
     >, margin=0.2]
-    biotek_server [label=<
+    cliwrapper_server [label=<
         http server (python flask)
         <BR/><BR/>
-        <FONT FACE="Consolas">biotek-server/</FONT>
+        <FONT FACE="Consolas">cliwrapper-server/</FONT>
     >, margin=0.2]
     incu_java [label="STXdriver (Java)"]
-    incu_server [label=<
-        http server (python flask)
+    incu_cli [label=<
+        incubator "repl" (python)
         <BR/><BR/>
-        <FONT FACE="Consolas">incubator-server/</FONT>
+        <FONT FACE="Consolas">incubator-cli/</FONT>
     >, margin=0.2]
-    rank=same {biotek_server incu_server}
     wash -- dll [label="   USB"]
     disp -- dll [label="   USB"]
-    dll -- cli [label="  dll call"]
-    cli -- biotek_server [label="  subprocess"]
+    dll -- biotek_cli [label="  dll call"]
+    biotek_cli -- cliwrapper_server [label="  subprocess"]
     incu -- incu_java [label="  USB serial converter"]
-    incu_java -- incu_server [label="  TCP socket"]
+    incu_java -- incu_cli [label="  TCP socket"]
     controller [label="external use (robot controller system)"]
-    incu_server -- controller   [label="    http"]
-    biotek_server -- controller [label="    http"]
+    incu_cli -- cliwrapper_server [label="    subprocess"]
+    cliwrapper_server -- controller [label="   http"]
 }
 

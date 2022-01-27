@@ -1,7 +1,7 @@
 #
 # Startup script for webserver, to be installed and started as windows service
 #
-cd C:\pharmbio\robotlab-labrobots\biotek-server
+cd C:\pharmbio\robotlab-labrobots\cliwrapper-server
 
 echo "Activate venv"
 .\venv\Scripts\Activate.ps1

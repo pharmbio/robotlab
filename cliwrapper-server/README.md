@@ -1,12 +1,7 @@
-# biotek-server
+# cliwrapper-server
 
-Installation instructions for the BioTek server for controlling the washer and dispenser.
-The server is a python flask server which calls the biotek cli executable
+This server is a python flask server which calls the biotek cli executable and the liconic cli "repl"
 as a subprocess, which in turn communicates with the BioTek instruments.
-
-<img width=250 src=images/biotek-405-washer.jpg></img>
-<br><br>
-<img width=250 src=images/biotek-dispenser.jpg></img>
 
 ## Requirements
 
@@ -173,7 +168,7 @@ We workaround this by running the REST-servers as programs on a logged in user.
     ```
 
     - The desktop for this user is automatically locked via a ScheduledTask being run ONLOGON
-    - The REST-servers are started via a Powershell script as a ScheduledTask ONLOGON for this user
+    - The server is started via a Powershell script as a ScheduledTask ONLOGON for this user
 
     ```
     # Auto lock screen ONLOGON robot-services
