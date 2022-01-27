@@ -1,6 +1,14 @@
 # imx-pharmbio-automation
 
-Control of the PreciseFlex robotarm and the MolDev ImageXpress (IMX) microscope.
+Control of the PreciseFlex (PF) robotarm and the MolDev ImageXpress (IMX) microscope.
+
+We use the same kind of cliwrapper as for the bioteks to wrap both the PF and the IMX.
+
+A scheduler repeatedly talks to the PF and the IMX to keep them busy.
+
+A human operator can add entries to the scheduler.
+
+<img src=overview.svg/>
 
 ### IP numbers
 

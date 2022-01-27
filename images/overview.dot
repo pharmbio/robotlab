@@ -1,0 +1,32 @@
+# Build the svg with:
+# dot overview.dot -Tsvg -o overview.svg
+graph {
+    # graph [bgcolor="#2d2d2d"]
+    # node [color="#d3d0c8" fontcolor="#d3d0c8"]
+    # edge [color="#d3d0c8" fontcolor="#d3d0c8"]
+
+    node [fontname="Roboto", fontsize=12]
+    edge [fontname="Roboto", fontsize=12]
+    node [shape=box]
+    imx  [label=< <BR/> ImageXpress (IMX) <BR/> >, margin=0.2]
+    pf   [label=< PreciseFlex (PF) <BR/><BR/> 10.10.0.98:{20,21,23,10000,10100} >, margin=0.2]
+
+    rank=same {imx; pf}
+
+    imx_repl               [label=< imx repl (python) <BR/><BR/> <FONT FACE="Consolas">imx_repl/</FONT> >, margin=0.2]
+    imx_server             [label=< cliwrapper (python flask) <BR/><BR/> on imx windows 10.10.0.99:5050 >, margin=0.2]
+    pf_repl                [label=< pf repl (python) <BR/><BR/> <FONT FACE="Consolas">pf_repl/</FONT> >, margin=0.2]
+    pf_server              [label=< cliwrapper (python flask) <BR/><BR/> on robotlab-ubuntu 10.10.0.55:5050 >, margin=0.2]
+
+    imx -- imx_repl        [label="  COM port"]
+    imx_repl -- imx_server [label="  subprocess"]
+    pf -- pf_repl          [label="  TCP, telnet, FTP"]
+    pf_repl -- pf_server   [label="  subprocess"]
+
+    scheduler [label=< scheduler <BR/><BR/> on robotlab-ubuntu (10.10.0.55) >, margin=0.2]
+    imx_server -- scheduler [label="  http"]
+    pf_server  -- scheduler [label="  http"]
+
+    scheduler -- scheduler_ui [label="  filesystem on robotlab-ubuntu"]
+    scheduler_ui [label=< scheduler user interface <BR/><BR/> on robotlab-ubuntu (10.10.0.55:5080) >, margin=0.2]
+}
