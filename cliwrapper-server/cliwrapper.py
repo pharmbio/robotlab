@@ -122,7 +122,7 @@ def main(test: bool):
             ),
             'incu': Machine(
                 'incu',
-                args=["python", "-u", "../incubator-repl/incubator.py"],
+                args=["python", "-u", "../incubator-cli/incubator.py"],
             ),
         }
 
