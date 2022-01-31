@@ -4,7 +4,7 @@ Module Pharmbio
 '
 '  No parameters
     Public Sub Cmd_WhereJson(ByVal Cmd As Command, ByRef Reply As String)
-        reply &= fmt_pq(Cmd.Rob.RobNum)
+        reply = fmt_pq(Cmd.Rob.RobNum)
     End Sub
 
     Public Function fmt_pq(ByVal RobNum As Integer) As String

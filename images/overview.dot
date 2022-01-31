@@ -8,20 +8,16 @@ graph {
     node [fontname="Roboto", fontsize=12]
     edge [fontname="Roboto", fontsize=12]
     node [shape=box]
-    imx  [label=< <BR/> ImageXpress (IMX) <BR/> >, margin=0.2]
-    pf   [label=< PreciseFlex (PF) <BR/><BR/> 10.10.0.98:{20,21,23,10000,10100} >, margin=0.2]
+    imx  [label=< <BR/> ImageXpress (IMX) microscope <BR/> >, margin=0.2]
+    pf   [label=< PreciseFlex (PF) robotarm <BR/><BR/> 10.10.0.98:{20,21,23,10000,10100} >, margin=0.2]
 
     rank=same {imx; pf}
 
-    imx_repl               [label=< imx repl (python) <BR/><BR/> <FONT FACE="Consolas">imx_repl/</FONT> >, margin=0.2]
-    imx_server             [label=< cliwrapper (python flask) <BR/><BR/> on imx windows 10.10.0.99:5050 >, margin=0.2]
-    pf_repl                [label=< pf repl (python) <BR/><BR/> <FONT FACE="Consolas">pf_repl/</FONT> >, margin=0.2]
-    pf_server              [label=< cliwrapper (python flask) <BR/><BR/> on robotlab-ubuntu 10.10.0.55:5050 >, margin=0.2]
+    imx_server             [label=< python flask server <BR/><BR/> imx windows 10.10.0.99:5050 >, margin=0.2]
+    pf_server              [label=< python flask server <BR/><BR/> robotlab-ubuntu 10.10.0.55:5050 >, margin=0.2]
 
-    imx -- imx_repl        [label="  COM port"]
-    imx_repl -- imx_server [label="  subprocess"]
-    pf -- pf_repl          [label="  TCP, telnet, FTP"]
-    pf_repl -- pf_server   [label="  subprocess"]
+    imx -- imx_server [label="  COM port"]
+    pf -- pf_server   [label="  TCP: socket, telnet, FTP"]
 
     scheduler [label=< scheduler <BR/><BR/> on robotlab-ubuntu (10.10.0.55) >, margin=0.2]
     imx_server -- scheduler [label="  http"]

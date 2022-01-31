@@ -2,14 +2,42 @@
 
 ...
 
+## Tcp_cmd_server, modified
+
+These commands are added:
+
+```
+' Cmd_WhereJson -- Gets the robot positions in json
+' Cmd_MoveJ_NoGripper -- Move to a location defined by angles, excluding the gripper joint (5)
+' Cmd_MoveGripper -- Move the gripper joint (5)
+' Cmd_MoveJ_Rel -- Move joints relative
+' Cmd_MoveC_Rel -- Move cartesian relative
+```
+
+Try them on port 10.10.0.98:10100, but first put verbose, power on, attach and home:
+
+```sh
+rlwrap nc 10.10.0.98 10100
+```
+```
+mode 1
+hp 1
+attach 1
+home
+MoveJ_Rel 1 0 0 0 0 -10
+MoveC_Rel 1 10 0 0 0 0 0
+```
+
+See the documentation pdf for more info.
+
 ## Flashing the PreciseFlex
 
-We flash a modified version of the ./Tcp_cmd_server/ to the robot arm on the telnet port 23.
+We flash the modified version of the ./Tcp_cmd_server/ to the robot arm on the telnet port 23.
 Because this port is so brittle we keep one connection open by following the tail of a fifo.
 
 Run `python flash.py` and follow the instructions:
 
-```
+```sh
 dan@NUC-robotlab:~/imx-pharmbio-automation/pf_repl$ python flash.py
 
         Using pf23.fifo as fifo. If the fifo is not connected then run:
@@ -27,7 +55,7 @@ dan@NUC-robotlab:~/imx-pharmbio-automation/pf_repl$ python flash.py
 
 Concurrently, we run nc in another terminal as per the instructions:
 
-```
+```sh
 dan@NUC-robotlab:~/imx-pharmbio-automation/pf_repl$ tail -f pf23.fifo | nc 10.10.0.98 23
 
 
@@ -50,7 +78,7 @@ GPL:
 ```
 
 The first terminal has now finished with:
-```
+```sh
 >>pf23.fifo echo 'stop -all'
 >>pf23.fifo echo 'unload -all'
 >>pf23.fifo echo 'execute File.CreateDirectory("/flash/projects/Tcp_cmd_server")'

@@ -85,18 +85,18 @@ def keydown(program_name: str, args: dict[str, Any]):
         deg = 90.0
     k = str(args['key'])
     keymap = {
-        'ArrowRight': moves.MoveRel(xyz=[0,  mm, 0], yaw=0),
-        'ArrowLeft':  moves.MoveRel(xyz=[0, -mm, 0], yaw=0),
-        'ArrowUp':    moves.MoveRel(xyz=[-mm, 0, 0], yaw=0),
-        'ArrowDown':  moves.MoveRel(xyz=[ mm, 0, 0], yaw=0),
-        'PageUp':     moves.MoveRel(xyz=[0, 0,  mm], yaw=0),
-        'PageDown':   moves.MoveRel(xyz=[0, 0, -mm], yaw=0),
-        'Home':       moves.MoveRel(xyz=[mm * cos(yaw + 90),  mm * sin(yaw + 90),  0], yaw=0),
-        'End':        moves.MoveRel(xyz=[mm * cos(yaw + 180), mm * sin(yaw + 180), 0], yaw=0),
-        'Insert':     moves.MoveRel(xyz=[mm * cos(yaw),       mm * sin(yaw),       0], yaw=0),
-        'Delete':     moves.MoveRel(xyz=[mm * cos(yaw - 90),  mm * sin(yaw - 90),  0], yaw=0),
-        '[':          moves.MoveRel(xyz=[0, 0, 0], yaw=-deg),
-        ']':          moves.MoveRel(xyz=[0, 0, 0], yaw= deg),
+        'ArrowRight': moves.MoveC_Rel(xyz=[0,  mm, 0], yaw=0),
+        'ArrowLeft':  moves.MoveC_Rel(xyz=[0, -mm, 0], yaw=0),
+        'ArrowUp':    moves.MoveC_Rel(xyz=[-mm, 0, 0], yaw=0),
+        'ArrowDown':  moves.MoveC_Rel(xyz=[ mm, 0, 0], yaw=0),
+        'PageUp':     moves.MoveC_Rel(xyz=[0, 0,  mm], yaw=0),
+        'PageDown':   moves.MoveC_Rel(xyz=[0, 0, -mm], yaw=0),
+        'Home':       moves.MoveC_Rel(xyz=[mm * cos(yaw + 90),  mm * sin(yaw + 90),  0], yaw=0),
+        'End':        moves.MoveC_Rel(xyz=[mm * cos(yaw + 180), mm * sin(yaw + 180), 0], yaw=0),
+        'Insert':     moves.MoveC_Rel(xyz=[mm * cos(yaw),       mm * sin(yaw),       0], yaw=0),
+        'Delete':     moves.MoveC_Rel(xyz=[mm * cos(yaw - 90),  mm * sin(yaw - 90),  0], yaw=0),
+        '[':          moves.MoveC_Rel(xyz=[0, 0, 0], yaw=-deg),
+        ']':          moves.MoveC_Rel(xyz=[0, 0, 0], yaw= deg),
         '-':          moves.RawCode(f'MoveGripperRelBg({-int(mm)})'),
         '+':          moves.RawCode(f'MoveGripperRelBg({int(mm)})'),
     }
@@ -119,26 +119,26 @@ def update(program_name: str, i: int):
     filename = get_programs()[program_name]
     ml = MoveList.from_jsonl_file(filename)
     m = ml[i]
-    if isinstance(m, (moves.MoveLin, moves.MoveRel)):
+    if isinstance(m, (moves.MoveC, moves.MoveC_Rel)):
         v = asdict(m)
         xyz = [polled_info[k] for k in 'xyz']
         v['xyz'] = [utils.round_nnz(v, 3) for v in xyz]
         v['yaw'] = utils.round_nnz(polled_info['yaw'], 3)
         ml = MoveList(ml)
-        ml[i] = moves.MoveLin(**v)
+        ml[i] = moves.MoveC(**v)
         ml.write_jsonl(filename)
-    elif isinstance(m, (moves.GripperMove)):
+    elif isinstance(m, (moves.MoveGripper)):
         v = asdict(m)
         v['pos'] = utils.round_nnz(polled_info['q5'], 3)
         ml = MoveList(ml)
-        ml[i] = moves.GripperMove(**v)
+        ml[i] = moves.MoveGripper(**v)
         ml.write_jsonl(filename)
-    elif isinstance(m, (moves.MoveJoint)):
+    elif isinstance(m, (moves.MoveJ)):
         v = asdict(m)
         joints = [polled_info[k] for k in 'q1 q2 q3 q4'.split()]
         v['joints'] = [utils.round_nnz(v, 3) for v in joints]
         ml = MoveList(ml)
-        ml[i] = moves.MoveJoint(**v)
+        ml[i] = moves.MoveJ(**v)
         ml.write_jsonl(filename)
 
 def get_programs() -> dict[str, Path]:
@@ -319,13 +319,13 @@ def index() -> Iterator[Tag | dict[str, str]]:
             xyz = [polled_info[k] for k in 'xyz']
         except:
             xyz = None
-        if isinstance(m, moves.MoveLin) and xyz is not None:
+        if isinstance(m, moves.MoveC) and xyz is not None:
             dx, dy, dz = dxyz = utils.zip_sub(m.xyz, xyz, ndigits=6)
             dist = math.sqrt(sum(c*c for c in dxyz))
             buttons = [
-                ('x', f'{dx: 6.1f}', moves.MoveRel(xyz=[dx, 0, 0], yaw=0)),
-                ('y', f'{dy: 6.1f}', moves.MoveRel(xyz=[0, dy, 0], yaw=0)),
-                ('z', f'{dz: 6.1f}', moves.MoveRel(xyz=[0, 0, dz], yaw=0)),
+                ('x', f'{dx: 6.1f}', moves.MoveC_Rel(xyz=[dx, 0, 0], yaw=0)),
+                ('y', f'{dy: 6.1f}', moves.MoveC_Rel(xyz=[0, dy, 0], yaw=0)),
+                ('z', f'{dz: 6.1f}', moves.MoveC_Rel(xyz=[0, 0, dz], yaw=0)),
             ]
             if any(abs(d) < 10.0 for d in dxyz):
                 for col, k, v in buttons:
@@ -357,7 +357,7 @@ def index() -> Iterator[Tag | dict[str, str]]:
                     '''
                 )
 
-        if isinstance(m, moves.GripperMove):
+        if isinstance(m, moves.MoveGripper):
             row += div(
                 f'gripper {m.pos}',
                 css='''

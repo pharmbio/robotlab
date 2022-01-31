@@ -41,10 +41,10 @@ class Move(abc.ABC):
 
 def call(name: str, *args: Any) -> str:
     strs = [str(arg) for arg in args]
-    return name + '(' + ', '.join(strs) + ')'
+    return ' '.join([name, *strs])
 
 @dataclass(frozen=True)
-class MoveLin(Move):
+class MoveC(Move):
     '''
     Move linearly to an absolute position in the room reference frame.
 
@@ -56,11 +56,14 @@ class MoveLin(Move):
     name: str = ""
     tag: str | None = None
 
+    def __post_init__(self):
+        assert len(self.xyz) == 3
+
     def to_script(self) -> str:
-        return call('MoveLin', *self.xyz, self.yaw)
+        return call('MoveC', '1', *self.xyz, self.yaw, 0, 0)
 
 @dataclass(frozen=True)
-class MoveRel(Move):
+class MoveC_Rel(Move):
     '''
     Move linearly to a position relative to the current position.
 
@@ -77,11 +80,14 @@ class MoveRel(Move):
     name: str = ""
     slow: bool = False
 
+    def __post_init__(self):
+        assert len(self.xyz) == 3
+
     def to_script(self) -> str:
-        return call('MoveLinRel', *self.xyz, self.yaw)
+        return call('MoveLinRel', '1', *self.xyz, self.yaw, 0, 0)
 
 @dataclass(frozen=True)
-class MoveJoint(Move):
+class MoveJ(Move):
     '''
     Joint rotations in degrees
     '''
@@ -89,14 +95,17 @@ class MoveJoint(Move):
     name: str = ""
     slow: bool = False
 
+    def __post_init__(self):
+        assert len(self.joints) == 4
+
     def to_script(self) -> str:
-        return call('MoveJoint', *self.joints)
+        return call('MoveJ_NoGripper', '1', *self.joints)
 
 @dataclass(frozen=True)
-class GripperMove(Move):
+class MoveGripper(Move):
     pos: int
     def to_script(self) -> str:
-        return call('MoveGripper', self.pos)
+        return call('MoveGripper', '1', self.pos)
 
 @dataclass(frozen=True)
 class Section(Move):
@@ -132,15 +141,15 @@ class MoveList(list[Move]):
 
     def adjust_tagged(self, tag: str, *, dz: float) -> MoveList:
         '''
-        Adjusts the z in room reference frame for all MoveLin with the given tag.
+        Adjusts the z in room reference frame for all MoveC with the given tag.
         '''
         out = MoveList()
         for m in self:
-            if isinstance(m, MoveLin) and m.tag == tag:
+            if isinstance(m, MoveC) and m.tag == tag:
                 x, y, z = list(m.xyz)
                 out += [replace(m, tag=None, xyz=[x, y, round(z + dz, 1)])]
             elif hasattr(m, 'tag') and getattr(m, 'tag') == tag:
-                raise ValueError('Tagged move must be MoveLin for adjust_tagged')
+                raise ValueError('Tagged move must be MoveC for adjust_tagged')
             else:
                 out += [m]
         return out
@@ -157,7 +166,7 @@ class MoveList(list[Move]):
     def with_sections(self, include_Section: bool=False) -> list[tuple[tuple[str, ...], Move]]:
         out: list[tuple[tuple[str, ...], Move]] = []
         active: tuple[str, ...] = tuple()
-        for i, move in enumerate(self):
+        for move in self:
             if isinstance(move, Section):
                 active = tuple(move.sections)
                 if include_Section:
@@ -170,7 +179,7 @@ class MoveList(list[Move]):
         with_section = self.with_sections()
         sections: set[tuple[str, ...]] = {
             sect
-            for sect, move in with_section
+            for sect, _move in with_section
             if sect
         }
 
