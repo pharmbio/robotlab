@@ -21,7 +21,7 @@ def flash(fifo_file: str='pf23.fifo', host: str=DEFAULT_HOST, port: int=23):
     elif not fifo_path.exists():
         os.mkfifo(fifo_path)
     print(f'''
-        Using {fifo_path} as fifo. If you have not yet connected it stop this program and run it:
+        Using {fifo_path} as fifo. If the fifo is not connected then run:
 
             tail -f {fifo_path} | nc {host} {port}
 
@@ -32,12 +32,14 @@ def flash(fifo_file: str='pf23.fifo', host: str=DEFAULT_HOST, port: int=23):
         The rest of this program outputs commands corresponding to its communication on the fifo.
     ''')
 
-    def send(s: str):
-        print(f'>>{fifo_path} echo {shlex.quote(s)}')
+    def send(s: str, comment: str = ''):
+        if comment:
+            comment = f' # {comment}'
+        print(f'>>{fifo_path} echo {shlex.quote(s)}{comment}')
         with open(fifo_path, 'a') as fp:
             print(s, file=fp)
 
-    send('Help')
+    send('Help', 'this is the default password')
 
     project = Path('Tcp_cmd_server')
     assert project.is_dir(), f'Path {project} is missing or not a directory'
