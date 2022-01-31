@@ -380,4 +380,19 @@ End Sub
 
 #End Region
 
+' StoreDobules - Conversion utility, stores the cData doubles back to strings
+    Public Sub StoreDoubles(StartFrom As Integer)
+        Dim ii As Integer
+        For ii = StartFrom To Nparm
+            sData(ii) = CStr(cData(ii))
+        Next ii
+    End Sub
+
+' SetNumParams
+    Public Sub SetNumParams(NumParams As Integer)
+        Nparm = NumParams
+        ReDim sData(Nparm)
+        ReDim cData(Nparm)
+    End Sub
+
 End Class

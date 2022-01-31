@@ -1,0 +1,127 @@
+Module Pharmbio
+
+' Cmd_WhereJson -- Gets the robot positions in json
+'
+'  No parameters
+    Public Sub Cmd_WhereJson(ByVal Cmd As Command, ByRef Reply As String)
+        reply &= fmt_pq(Cmd.Rob.RobNum)
+    End Sub
+
+    Public Function fmt_pq(ByVal RobNum As Integer) As String
+        Dim p As Location
+        Dim q As Location
+        Dim msg As String
+        p = Robot.Where(RobNum)
+        q = Robot.WhereAngles(RobNum)
+        msg = "{"
+        msg = msg & repr("type")  & ":" & repr("whereami") & ","
+        msg = msg & repr("x")     & ":" & fmt(p.X,        2) & ","
+        msg = msg & repr("y")     & ":" & fmt(p.Y,        2) & ","
+        msg = msg & repr("z")     & ":" & fmt(p.Z,        2) & ","
+        msg = msg & repr("yaw")   & ":" & fmt(p.Yaw,      2) & ","
+        msg = msg & repr("q1")    & ":" & fmt(q.Angle(1), 2) & ","
+        msg = msg & repr("q2")    & ":" & fmt(q.Angle(2), 2) & ","
+        msg = msg & repr("q3")    & ":" & fmt(q.Angle(3), 2) & ","
+        msg = msg & repr("q4")    & ":" & fmt(q.Angle(4), 2) & ","
+        msg = msg & repr("q5")    & ":" & fmt(q.Angle(5), 2) & ","
+        msg = msg & repr("speed") & ":" & CStr(Controller.SystemSpeed)
+        msg = msg & "}"
+        Return msg
+    End Function
+    Public Function round(ByVal value As Double, ByVal num_digits As Integer) As Double
+        Dim scale As Double
+        scale = Math.Pow(10, num_digits)
+        Return Math.Floor(value * scale + 0.5) / scale
+    End Function
+    Public Function fmt(ByVal value As Double, ByVal num_digits As Integer) As String
+        Return CStr(round(value, num_digits))
+    End Function
+    Public Function repr(ByVal s As String) As String
+        Return """" & s & """"
+    End Function
+
+' Cmd_MoveJ_NoGripper -- Move to a location defined by angles, excluding the gripper joint (5)
+'
+' Parameter 1: The index of the profile to use
+' Parameter 2-5: Joints q1 q2 q3 q4
+    Public Sub Cmd_MoveJ_NoGripper(ByVal Cmd As Command, ByRef Reply As String)
+        Dim q As Location
+        Dim s1 As String
+        Dim q1 As Double
+        Dim q2 As Double
+        Dim q3 As Double
+        Dim q4 As Double
+        s1 = Cmd.sData(1)
+        Cmd.StringToDouble(0)
+        q1 = Cmd.cData(2)
+        q2 = Cmd.cData(3)
+        q3 = Cmd.cData(4)
+        q4 = Cmd.cData(5)
+        q = Robot.WhereAngles(Cmd.Rob.RobNum)
+        Cmd.SetNumParams(6)
+        Cmd.sData(1) = s1
+        Cmd.cData(2) = q1
+        Cmd.cData(3) = q2
+        Cmd.cData(4) = q3
+        Cmd.cData(5) = q4
+        Cmd.cData(6) = q.Angle(5)
+        Cmd.StoreDoubles(2)
+        Cmd_MoveJ(Cmd, Reply)
+    End Sub
+
+' Cmd_MoveGripper -- Move the gripper joint (5)
+' Parameter 1: The index of the profile to use
+' Parameter 2: Joint q5 (the gripper)
+    Public Sub Cmd_MoveGripper(ByVal Cmd As Command, ByRef Reply As String)
+        Dim q As Location
+        Dim s1 As String
+        Dim q5 As Double
+        s1 = Cmd.sData(1)
+        Cmd.StringToDouble(0)
+        q5 = Cmd.cData(2)
+        q = Robot.WhereAngles(Cmd.Rob.RobNum)
+        Cmd.SetNumParams(6)
+        Cmd.sData(1) = s1
+        Cmd.cData(2) = q.Angle(1)
+        Cmd.cData(3) = q.Angle(2)
+        Cmd.cData(4) = q.Angle(3)
+        Cmd.cData(5) = q.Angle(4)
+        Cmd.cData(6) = q5
+        Cmd.StoreDoubles(2)
+        Cmd_MoveJ(Cmd, Reply)
+    End Sub
+
+' Cmd_MoveJ_Rel -- Move joints relative
+' Parameter 1: The index of the profile to use
+' Parameter 2-6: Delta q1 q2 q3 q4 q5
+    Public Sub Cmd_MoveJ_Rel(ByVal Cmd As Command, ByRef Reply As String)
+        Dim q As Location
+        q = Robot.WhereAngles(Cmd.Rob.RobNum)
+        Cmd.StringToDouble(0)
+        Cmd.cData(2) = q.Angle(1) + Cmd.cData(2)
+        Cmd.cData(3) = q.Angle(2) + Cmd.cData(3)
+        Cmd.cData(4) = q.Angle(3) + Cmd.cData(4)
+        Cmd.cData(5) = q.Angle(4) + Cmd.cData(5)
+        Cmd.cData(6) = q.Angle(5) + Cmd.cData(6)
+        Cmd.StoreDoubles(2)
+        Cmd_MoveJ(Cmd, Reply)
+    End Sub
+
+' Cmd_MoveC_Rel -- Move cartesian relative
+' Parameter 1: The index of the profile to use
+' Parameter 2-7: Delta x y z yaw pitch roll
+    Public Sub Cmd_MoveC_Rel(ByVal Cmd As Command, ByRef Reply As String)
+        Dim p As Location
+        p = Robot.Where(Cmd.Rob.RobNum)
+        Cmd.StringToDouble(0)
+        Cmd.cData(2) = p.X     + Cmd.cData(2)
+        Cmd.cData(3) = p.Y     + Cmd.cData(3)
+        Cmd.cData(4) = p.Z     + Cmd.cData(4)
+        Cmd.cData(5) = p.Yaw   + Cmd.cData(5)
+        Cmd.cData(6) = p.Pitch + Cmd.cData(6)
+        Cmd.cData(7) = p.Roll  + Cmd.cData(7)
+        Cmd.StoreDoubles(2)
+        Cmd_MoveC(Cmd, Reply)
+    End Sub
+
+End Module

@@ -14,5 +14,6 @@ ProjectSource="Globals.gpl"
 ProjectSource="Startup.gpl"
 ProjectSource="Custom.gpl"
 ProjectSource="Load_save.gpl"
+ProjectSource="Pharmbio.gpl"
 ProjectSource="Tcs.gpo"
 ProjectEnd
