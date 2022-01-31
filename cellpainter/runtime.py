@@ -387,8 +387,9 @@ class Runtime:
                 self.running_entries.append(e0)
                 G = utils.group_by(self.running_entries, key=lambda e: e.metadata.thread_resource)
                 if self.config.name == 'dry-run':
-                    for _k, v in G.items():
-                        assert len(v) <= 1
+                    for thread_resource, v in G.items():
+                        if thread_resource is not None:
+                            assert len(v) <= 1, f'list for {thread_resource} should not have more than one element: {utils.pr(v)}'
                 self.log_running()
             yield
             with self.lock:

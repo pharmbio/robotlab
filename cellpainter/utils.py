@@ -263,7 +263,7 @@ def git_HEAD() -> str | None:
 def uniq(xs: Iterable[A]) -> Iterable[A]:
     return {x: None for x in xs}.keys()
 
-def group_by(xs: Iterable[A], key: Callable[[A], B]) -> dict[B, list[A]]:
+def group_by(xs: Iterable[A], key: Callable[[A], B]) -> defaultdict[B, list[A]]:
     d: dict[B, list[A]] = defaultdict(list)
     for x in xs:
         d[key(x)] += [x]

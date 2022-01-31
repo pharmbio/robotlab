@@ -27,7 +27,7 @@ class Metadata:
 
     simple_id: str = ''
     thread_name: str | None = None
-    thread_resource: str = ''
+    thread_resource: str | None = None
     predispense: bool = False
 
     section: str = ''
@@ -141,10 +141,16 @@ class Command(abc.ABC):
                             assume = 'no wait'
                         case 'nothing':
                             pass
-                    prev_wait = F(WaitForResource(resource, assume=assume))
-                    counts[resource] += 1
-                    this = counts[resource]
-                    this_name = f'{resource} #{counts[resource]}'
+                    if resource is None:
+                        prev_wait = Idle()
+                        counts['None'] += 1
+                        this = counts['None']
+                        this_name = f'None #{counts["None"]}'
+                    else:
+                        prev_wait = F(WaitForResource(resource, assume=assume))
+                        counts[resource] += 1
+                        this = counts[resource]
+                        this_name = f'{resource} #{counts[resource]}'
                     return cmd.replace(
                         command=Sequence(
                             prev_wait,

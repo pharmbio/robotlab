@@ -320,7 +320,7 @@ class AnalyzeResult:
         d: dict[str, LogEntry | None] = {}
         resources = 'main disp wash incu'.split()
         G = utils.group_by(self.running_entries, key=lambda e: e.metadata.thread_resource)
-        G['main'] = G['']
+        G['main'] = G[None]
         for resource in resources:
             es = G.get(resource, [])
             if es:
@@ -563,10 +563,14 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
                 background: var(--bg-bright);
                 min-width: 70px;
             }
-            table:not(.even) tbody tr:nth-child(odd) :where(td, th) {
+            table:not(.even) tbody tr:nth-child(odd) td,
+            table:not(.even) tbody tr:nth-child(odd) th
+            {
                 background: var(--bg-brown);
             }
-            table.even tbody tr:nth-child(even) :where(td, th) {
+            table.even tbody tr:nth-child(even) td,
+            table.even tbody tr:nth-child(even) th
+            {
                 background: var(--bg-brown);
             }
             table {

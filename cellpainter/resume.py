@@ -14,6 +14,7 @@ from .commands import (
     RobotarmCmd,
     Metadata,
     Info,
+    Fork,
 )
 from .moves import InitialWorld
 from .runtime import RuntimeConfig, ResumeConfig
@@ -51,17 +52,27 @@ def resume_program(entries: Log, skip: list[str]=[], drop: list[str]=[]):
     assert program and isinstance(program, Command)
 
     next_id = program.next_id()
-    def get_id():
+    def get_fresh_id():
         nonlocal next_id
         next_id += 1
         return str(next_id)
 
     running = entries.running()
     assert running
-    resumed_world = Info('resumed world').add(Metadata(effect=InitialWorld(running.world), id=get_id()))
-    utils.pr(running)
+    resumed_world = {
+        location: thing
+        for location, thing in running.world.items()
+        if thing not in drop
+        if thing not in [f'lid {plate_id}' for plate_id in drop]
+    }
+    utils.pr(dict(
+        running=running,
+        resumed_world=resumed_world,
+    ))
 
-    finished_ids: set[str] = entries.finished()
+    resumed_world_cmd = Info('resumed world').add(Metadata(effect=InitialWorld(resumed_world), id=get_fresh_id()))
+
+    remove_ids: set[str] = entries.finished()
 
     drop_ids: set[str] = set()
     for cmd in program.universe():
@@ -69,24 +80,35 @@ def resume_program(entries: Log, skip: list[str]=[], drop: list[str]=[]):
             for c2 in cmd.universe():
                 if isinstance(c2, Meta) and c2.metadata.id:
                     drop_ids.add(c2.metadata.id)
+    remove_ids |= drop_ids
 
     robotarm_prep_cmds: list[Command] = []
     for cmd, metadata in program.collect():
         # Make sure the first robotarm command starts from B21 neutral
-        if isinstance(cmd, RobotarmCmd) and metadata.id not in finished_ids:
+        if isinstance(cmd, RobotarmCmd) and metadata.id not in remove_ids:
             tagged = moves.tagged_movelists[cmd.program_name]
             if tagged.is_ret:
                 drop_ids |= {metadata.id}
             else:
                 robotarm_prep_cmds = [
-                    RobotarmCmd(p).add(Metadata(id=get_id()))
+                    RobotarmCmd(p).add(Metadata(id=get_fresh_id()))
                     for p in tagged.prep
                 ]
             break
 
     checkpoint_times: dict[str, float] = entries.checkpoints()
 
-    finished_ids |= drop_ids
+    def FixupForkMetadataBeforeFilter(cmd: Command):
+        '''
+        The commands with actual resource requirements might be removed later
+        so we store what the fork was originally about (for presentation purposes)
+        '''
+        match cmd:
+            case Fork():
+                return cmd.add(Metadata(thread_resource=cmd.resource))
+            case _:
+                return cmd
+
     def Filter(cmd: Command):
         match cmd:
             case Checkpoint():
@@ -94,7 +116,7 @@ def resume_program(entries: Log, skip: list[str]=[], drop: list[str]=[]):
                     return Sequence()
                 else:
                     return cmd
-            case Meta() if cmd.metadata.id in finished_ids:
+            case Meta() if cmd.metadata.id in remove_ids:
                 return Sequence()
             case Meta() if cmd.metadata.simple_id in skip:
                 return Sequence()
@@ -104,17 +126,18 @@ def resume_program(entries: Log, skip: list[str]=[], drop: list[str]=[]):
                 return cmd
 
     print(f'{len(checkpoint_times) = }')
-    print(f'{len(finished_ids) = }')
+    print(f'{len(remove_ids) = }')
 
     # utils.pr(program)
     print('inital node count =', len(list(program.universe())))
 
+    program = program.transform(FixupForkMetadataBeforeFilter)
     program = program.transform(Filter)
-    program = Sequence(resumed_world, *robotarm_prep_cmds, program)
+    program = Sequence(resumed_world_cmd, *robotarm_prep_cmds, program)
     program = program.remove_noops()
     print('final node count =', len(list(program.universe())))
 
-    print(f'{finished_ids=}')
+    print(f'{remove_ids=}')
     print(f'{next_id=}')
     utils.pr(program.collect()[:20])
     # utils.pr(program)

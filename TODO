@@ -1,13 +1,15 @@
-w49, before Amelie's painting:
-[x] compile the new biotek runner
-[x] copy files
-[x] run with other incu times
-[x] start gui with config
-    [x] this affects robotarm as well as argument passed to process
+[ ] make a load up to 18 plates protocol
+[ ] add to gui protocol to load incubator
+[ ] render archive log
+    [ ] use biotek pdfs: use updated print_all
+    [ ] what to generate? excel? pdf? webpage?
+[ ] add to biotek cliwrapper to report checksum/hash and last modified date of protocol files
+[ ] improve command names:
+    [ ] Duration -> TimeSince
+    [ ] exactly ... at_least ... at_most ...
 
 w50, SPECs:
 [x] run the new incubator program
-[ ] add to gui protocol to load incubator (note: need to be able to load 18 plates)
 [ ] batch sep ?
 [ ] "incubation" time after Wash 1
 
@@ -18,8 +20,7 @@ questions from the presentation:
 
 january:
 [ ] batch sep
-[ ] load up to 18 plates
-[ ] add the pause/slowdown button
+[x] add the pause/slowdown button
 
 w44:
 [ ] robustness: raise gripper if close more than expected
@@ -37,29 +38,17 @@ w44:
     [x] make it easy to start freedrive to put the robot in place
     [ ] check that it is close to B neu when starting, but don't move there using MoveJoint !!! can check the inverse kinematics of the current position close to B neu
     [ ] remove all neutral MoveJoint, instead check that the robot is roughly correct (??)
-[ ] archive log
-    [ ] use biotek pdfs
-    [ ] what to generate? excel? pdf? webpage?
-[ ] improve command names:
-    [ ] Duration -> TimeSince
-    [ ] exactly ... at_least ... at_most ...
-[ ] improve logging code:
-    [ ] "kind"
-    [ ] "source"
-    [ ] "arg", ... introduce a name for time estimations
-    [ ] "info"
-    [ ] "idle" "wait"
 [ ] Use timings_v3.1.json ... or not?
-[ ] replace fast-forward time with standard time but all estimates shorter
-[ ] resume: remove removed plate from the world
-
 misc:
+
 [ ] prio 2. repo: document how to start everything, in particular how to start the GUI (gui on forwarded robot can be started with run.sh)
 [ ] prio 1. --incu-load with >11 plates
 [ ] prio 1. post mortem: put/get names not transparent enough ... ? lid_put lid_get
 [ ] prio 1. gui: make it easier to see where you are, use colours or add a 3d graph
 [ ] prio 1. gui: keyboard reference rotation
 [ ] prio 1. gui: add links to first subsections so you can go directly to ie wash_put and wash_get
+
+[x] resume: remove removed plate from the world
 
 [x] prio 3. [moves] Raise disp put to be a bit above B21
 [x] prio 2. Add test comm before starting cell paint
