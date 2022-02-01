@@ -8,20 +8,18 @@ graph {
     node [fontname="Roboto", fontsize=12]
     edge [fontname="Roboto", fontsize=12]
     node [shape=box]
-    imx  [label=< <BR/> ImageXpress (IMX) microscope <BR/> >, margin=0.2]
+    imx  [label=< <BR/> ImageXpress (IMX) microscope<BR/> >, margin=0.2]
     pf   [label=< PreciseFlex (PF) robotarm <BR/><BR/> 10.10.0.98:{20,21,23,10000,10100} >, margin=0.2]
 
     rank=same {imx; pf}
 
-    imx_server             [label=< python flask server <BR/><BR/> imx windows 10.10.0.99:5050 >, margin=0.2]
-    pf_server              [label=< python flask server <BR/><BR/> robotlab-ubuntu 10.10.0.55:5050 >, margin=0.2]
+    imx_server [label=< python flask server: <FONT FACE="Consolas">imx_server/</FONT><BR/><BR/> imx windows 10.10.0.99:5050 >, margin=0.2]
 
-    imx -- imx_server [label="  COM port"]
-    pf -- pf_server   [label="  TCP: socket, telnet, FTP"]
+    imx -- imx_server [label=<COM port<BR/>(via USB)>]
+    pf -- scheduler [label="TCP: socket, telnet, FTP"]
 
     scheduler [label=< scheduler <BR/><BR/> on robotlab-ubuntu (10.10.0.55) >, margin=0.2]
     imx_server -- scheduler [label="  http"]
-    pf_server  -- scheduler [label="  http"]
 
     scheduler -- scheduler_ui [label="  filesystem on robotlab-ubuntu"]
     scheduler_ui [label=< scheduler user interface <BR/><BR/> on robotlab-ubuntu (10.10.0.55:5080) >, margin=0.2]
