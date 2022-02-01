@@ -5,40 +5,56 @@ from dataclasses import *
 
 from flask import request
 from pathlib import Path
-import ast
 import math
-import re
 
-from moves import Move, MoveList
-import moves
-from robotarm import Robotarm
-import utils
+from .moves import Move, MoveList
+from . import moves
+from .robotarm import Robotarm
+from . import utils
 
-from viable import head, serve, esc, css_esc, trim, button, pre, js
-from viable import Tag, div, span, label, img, raw, input
-import viable as V
+import json
+
+from .viable import head, serve, esc, css_esc, trim, button, pre, js
+from .viable import Tag, div, span, label, img, raw, input
+from . import viable as V
 
 serve.suppress_flask_logging()
 
-import sys
-import atexit
-
 polled_info: dict[str, Any] = {}
 
-def save_info(info: Any):
-    # print(info)
-    if isinstance(info, dict):
-        info = cast(dict[str, Any], info)
-        if info.get('type') == 'whereami':
-            polled_info.update(info)
+import time
+from datetime import datetime, timedelta
+server_start = datetime.now()
 
-arm = Robotarm.init(on_json=save_info)
-arm.flash()
-atexit.register(arm.close)
+@utils.spawn
+def poll() -> None:
+    arm = Robotarm.init(port=10000, quiet=True)
+    while True:
+        where = arm.execute('where')
+        # 0 401.999 354.573 462.301 87.284 90 -180 462.301 -14.866 84.108 378.042 126.448
+        keys = '_ x y z yaw pitch roll q1 q2 q3 q4 q5'
+        d = {}
+        for k, v in zip(keys.split(), where.split()):
+            if k != '_':
+                d[k] = float(v)
+        d['xyz'] = [d['x'], d['y'], d['z']]
+        print(d)
+        polled_info.update(d)
+        time.sleep(0.1)
+
+arm = Robotarm.init()
+arm.execute('mode 0')
+arm.execute('attach 1')
+
+@serve.expose
+def arm_init():
+    arm.execute('hp 1')
+    arm.execute('attach 1')
+    arm.execute('home')
 
 @serve.expose
 def arm_do(*ms: Move):
-    arm.execute_moves(list(ms), name='gui')
+    arm.execute_moves(list(ms))
 
 @serve.expose
 def arm_set_speed(value: int) -> None:
@@ -97,19 +113,17 @@ def keydown(program_name: str, args: dict[str, Any]):
         'Delete':     moves.MoveC_Rel(xyz=[mm * cos(yaw - 90),  mm * sin(yaw - 90),  0], yaw=0),
         '[':          moves.MoveC_Rel(xyz=[0, 0, 0], yaw=-deg),
         ']':          moves.MoveC_Rel(xyz=[0, 0, 0], yaw= deg),
-        '-':          moves.RawCode(f'MoveGripperRelBg({-int(mm)})'),
-        '+':          moves.RawCode(f'MoveGripperRelBg({int(mm)})'),
+        '-':          moves.RawCode(f'MoveJ_Rel 1 0 0 0 0 {-int(mm)}'),
+        '+':          moves.RawCode(f'MoveJ_Rel 1 0 0 0 0 {int(mm)}'),
     }
     def norm(k: str):
         tr: dict[str, str] = cast(Any, dict)(['[{', ']}', '+=', '-_', ',<', '.>'])
         return tr.get(k) or k.upper()
     keymap |= {norm(k): v for k, v in keymap.items()}
-    utils.pr(k)
+    print(k)
     if m := keymap.get(k):
-        utils.pr(m)
-        arm_do(
-            m,
-        )
+        print(m)
+        arm_do(m)
 
 @serve.expose
 def update(program_name: str, i: int):
@@ -147,7 +161,7 @@ def get_programs() -> dict[str, Path]:
         for path in sorted(Path('./movelists').glob('*.jsonl'))
     }
 
-@serve.one('/')
+@serve.route('/')
 def index() -> Iterator[Tag | dict[str, str]]:
     programs = get_programs()
     program_name = request.args.get('program', next(iter(programs.keys())))
@@ -439,12 +453,12 @@ def index() -> Iterator[Tag | dict[str, str]]:
                 margin-left: 10px;
             }
         """).append(
+            button('init arm',      tabindex='-1', onclick=arm_init.call()),
             button('run program',   tabindex='-1', onclick=arm_do.call(*visible_program)                   , css='width: 160px'),
             button('freedrive',     tabindex='-1', onclick=arm_do.call(moves.RawCode("Freedrive()"))),
-            button('stop robot',    tabindex='-1', onclick=arm_do.call(moves.RawCode("Robot.RapidDecel()")), css='flex-grow: 1; color: red; font-size: 48px'),
-            button('gripper open',  tabindex='-1', onclick=arm_do.call(moves.RawCode("GripperOpenBg()"))),
-            button('gripper close', tabindex='-1', onclick=arm_do.call(moves.RawCode("GripperCloseBg()"))),
-            button('grip test',     tabindex='-1', onclick=arm_do.call(moves.RawCode("GripperTest()"))),
+            button('stop robot',    tabindex='-1', onclick=arm_do.call(moves.RawCode("halt")), css='flex-grow: 1; color: red; font-size: 48px'),
+            button('gripper open',  tabindex='-1', onclick=arm_do.call(moves.MoveGripper(100))),
+            button('gripper close', tabindex='-1', onclick=arm_do.call(moves.MoveGripper(75))),
     )
 
     foot = div(css='''
@@ -469,7 +483,11 @@ def index() -> Iterator[Tag | dict[str, str]]:
                 text-align: left;
             }
         """)
-        btns += button(f'yaw -> {deg}°', tabindex='-1', onclick=arm_do.call(moves.RawCode(f"MoveYawBg({deg})")))
+        btns += button(
+            f'yaw -> {deg}°',
+            tabindex='-1',
+            onclick=arm_do.call(moves.MoveC_Rel([0,0,0], -polled_info['yaw'] + deg))
+        )
         foot += btns
 
     from pprint import pformat
@@ -501,3 +519,9 @@ def index() -> Iterator[Tag | dict[str, str]]:
     foot += speed_btns
 
     yield V.queue_refresh(150)
+
+def main():
+    serve.run()
+
+if __name__ == '__main__':
+    main()

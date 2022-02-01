@@ -55,6 +55,10 @@ def flash(fifo_file: str='pf23.fifo', host: str=DEFAULT_HOST, port: int=23):
     send(f'load {dir} -compile')
     send(f'execute StartMain()')
 
-if __name__ == '__main__':
+
+def main():
     import sys
     flash(*sys.argv[1:]) # type: ignore
+
+if __name__ == '__main__':
+    main()

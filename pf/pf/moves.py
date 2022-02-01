@@ -10,24 +10,17 @@ import abc
 import json
 import re
 import textwrap
-import utils
+from . import utils
 
 class Move(abc.ABC):
     def to_dict(self) -> dict[str, Any]:
-        data = {
-            k: v
-            for field in fields(self)
-            for k in [field.name]
-            for v in [getattr(self, k)]
-            if v != field.default
-        }
-        return {'type': self.__class__.__name__, **data}
+        res = utils.to_json(self)
+        assert isinstance(res, dict)
+        return res
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> Move:
-        subs = {c.__name__: c for c in cls.__subclasses__()}
-        d = d.copy()
-        return subs[d.pop('type')](**d) # type: ignore
+        return utils.from_json(d)
 
     @abc.abstractmethod
     def to_script(self) -> str:
@@ -84,7 +77,7 @@ class MoveC_Rel(Move):
         assert len(self.xyz) == 3
 
     def to_script(self) -> str:
-        return call('MoveLinRel', '1', *self.xyz, self.yaw, 0, 0)
+        return call('MoveC_Rel', '1', *self.xyz, self.yaw, 0, 0)
 
 @dataclass(frozen=True)
 class MoveJ(Move):
@@ -129,15 +122,10 @@ class MoveList(list[Move]):
 
     @staticmethod
     def from_jsonl_file(filename: str | Path) -> MoveList:
-        return MoveList([
-            Move.from_dict(m)
-            for m in utils.read_json_lines(str(filename))
-        ])
+        return MoveList(utils.serializer.from_jsonl(filename))
 
     def write_jsonl(self, filename: str | Path) -> None:
-        with open(filename, 'w') as f:
-            for m in self:
-                print(json.dumps(m.to_dict()), file=f)
+        utils.serializer.write_jsonl(self, filename)
 
     def adjust_tagged(self, tag: str, *, dz: float) -> MoveList:
         '''
@@ -215,6 +203,8 @@ def read_movelists() -> dict[str, MoveList]:
         expanded |= read_and_expand(filename)
 
     return expanded
+
+utils.serializer.register(globals())
 
 movelists: dict[str, MoveList]
 movelists = read_movelists()

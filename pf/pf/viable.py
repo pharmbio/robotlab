@@ -476,9 +476,14 @@ class Serve:
     def saveas(self, path: str):
         def inner(f: Callable[..., Iterable[Node | str | dict[str, str]]]):
             with app.test_request_context():
-                with open(path, 'w') as fp:
-                    fp.write(self.view_callable(f, include_hot=False))
-                print(path, 'written')
+                resp = self.view_callable(f, include_hot=False)
+                if isinstance(resp, str):
+                    with open(path, 'w') as fp:
+                        fp.write(resp)
+                else:
+                    with open(path, 'wb') as fp:
+                        fp.write(resp.data)
+                # print(path, 'written')
             return f
         return inner
 
@@ -517,7 +522,7 @@ class Serve:
             body_node += pre(traceback.format_exc())
         return self.view_body(body_node, title_str=title_str, include_hot=include_hot)
 
-    def view_body(self, body_node: Node, title_str: str, include_hot: bool=True) -> Response:
+    def view_body(self, body_node: Tag, title_str: str, include_hot: bool=True) -> Response:
         head_node = head()
         for i, node in enumerate(body_node.children):
             if isinstance(node, head):
@@ -571,7 +576,7 @@ class Serve:
         except Exception as e:
             print('Not using flask_compress:', str(e), file=sys.stderr)
 
-        if sys.argv[0].endswith('.py'):
+        if os.environ.get('VIABLE_RUN', 'true').lower() == 'true':
             print('Running app...')
             host = os.environ.get('VIABLE_HOST')
             port = os.environ.get('VIABLE_PORT')
@@ -840,7 +845,6 @@ if os.environ.get('VIABLE_NO_HOT'):
 else:
     hot_js += 'poll()'
 
-import utils
 from functools import lru_cache
 from subprocess import run
 import shutil
@@ -852,15 +856,19 @@ def minify(s: str, loader: str='js') -> str:
     else:
         return minify_nontrivial(s, loader)
 
-did_warn_no_esbuild = {'value': False}
+from . import utils
+
+@lru_cache
+def has_esbuild():
+    if shutil.which("esbuild") is None:
+        print('esbuild not found, skipping minifying', file=sys.stderr)
+        return False
+    else:
+        return True
 
 @lru_cache
 def minify_nontrivial(s: str, loader: str='js') -> str:
-    if shutil.which("esbuild") is None:
-        if not did_warn_no_esbuild.get('value'):
-            did_warn_no_esbuild['value'] = True
-            print('esbuild not found, skipping minifying', file=sys.stderr)
-        return s
+    # print('minifying', s)
     try:
         with utils.timeit(f'esbuild {loader}'):
             res = run(
