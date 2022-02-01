@@ -17,6 +17,27 @@ from .commands import (
     IncuCmd,
     WaitForCheckpoint,
 )
+
+def import_z3():
+    # z3 messes with the sys.path and writes an error message on stderr, so we silent it here
+    import sys
+    import contextlib
+    import io
+    import os
+    sys_path0 = [*sys.path]
+    tmp = io.StringIO()
+    with contextlib.redirect_stderr(tmp):
+        import z3 # type: ignore
+    if os.environ.get('verbose'):
+        print('=== import z3 begin ===')
+        print('stderr:', tmp.getvalue())
+        print('initial sys.path:', sys_path0)
+        print('final sys.path:', sys.path)
+        print('=== import z3 end ===')
+    sys.path = [*sys_path0]
+
+import_z3()
+
 from z3 import Sum, If, Optimize, Real, Int, Or # type: ignore
 
 from collections import defaultdict

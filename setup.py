@@ -11,9 +11,16 @@ console_scripts = '''
     cellpainter-gui=cellpainter.main:main
 '''
 
+name='cellpainter'
+
+packages=f'''
+    {name}
+    {name}.utils
+'''
+
 setup(
-    name='cellpainter',
-    packages=['cellpainter'],
+    name=name,
+    packages=packages.split(),
     version='0.1',
     description='Cell painting using the robot arm',
     url='https://github.com/pharmbio/robot-remote-control',
