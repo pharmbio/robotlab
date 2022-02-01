@@ -28,7 +28,6 @@ from .commands import (
     Meta,
     RobotarmCmd,
     Seq,
-    Sequence,
     WaitForCheckpoint,
     WaitForResource,
 )
