@@ -6,41 +6,29 @@ from dataclasses import *
 from flask import request
 from pathlib import Path
 import math
+import json
 
 from .moves import Move, MoveList
 from . import moves
 from .robotarm import Robotarm
 from . import utils
 
-import json
-
 from .viable import head, serve, esc, css_esc, trim, button, pre, js
 from .viable import Tag, div, span, label, img, raw, input
 from . import viable as V
 
-serve.suppress_flask_logging()
-
-polled_info: dict[str, Any] = {}
-
 import time
-from datetime import datetime, timedelta
-server_start = datetime.now()
+
+serve.suppress_flask_logging()
+polled_info: dict[str, Any] = {}
 
 @utils.spawn
 def poll() -> None:
     arm = Robotarm.init(port=10000, quiet=True)
     while True:
-        where = arm.execute('where')
-        # 0 401.999 354.573 462.301 87.284 90 -180 462.301 -14.866 84.108 378.042 126.448
-        keys = '_ x y z yaw pitch roll q1 q2 q3 q4 q5'
-        d = {}
-        for k, v in zip(keys.split(), where.split()):
-            if k != '_':
-                d[k] = float(v)
-        d['xyz'] = [d['x'], d['y'], d['z']]
-        print(d)
-        polled_info.update(d)
-        time.sleep(0.1)
+        info_str = arm.execute('wherejson')
+        info = json.loads(info_str)
+        polled_info.update(info)
 
 arm = Robotarm.init()
 arm.execute('mode 0')
@@ -66,7 +54,7 @@ def edit_at(program_name: str, i: int, changes: dict[str, Any]):
     ml = MoveList.from_jsonl_file(filename)
     m = ml[i]
     for k, v in changes.items():
-        if k in 'yaw xyz joints name slow pos tag sections'.split():
+        if k in 'yaw xyz joints name pos tag sections'.split():
             m = replace(m, **{k: v})
         else:
             raise ValueError(k)
@@ -434,7 +422,7 @@ def index() -> Iterator[Tag | dict[str, str]]:
             oninput=edit_at.call(program_name, i, js("{name:event.target.value}")),
         )
         if not isinstance(m, moves.Section):
-            row += V.code(m.to_script(),
+            row += V.code(m.desc(),
                 style=f'grid-column: value',
             )
 
@@ -455,8 +443,8 @@ def index() -> Iterator[Tag | dict[str, str]]:
         """).append(
             button('init arm',      tabindex='-1', onclick=arm_init.call()),
             button('run program',   tabindex='-1', onclick=arm_do.call(*visible_program)                   , css='width: 160px'),
-            button('freedrive',     tabindex='-1', onclick=arm_do.call(moves.RawCode("Freedrive()"))),
-            button('stop robot',    tabindex='-1', onclick=arm_do.call(moves.RawCode("halt")), css='flex-grow: 1; color: red; font-size: 48px'),
+            button('freedrive',     tabindex='-1', onclick=arm_do.call(moves.RawCode("Freedrive"))),
+            button('stop robot',    tabindex='-1', onclick=arm_do.call(moves.RawCode("halt"), moves.RawCode("StopFreedrive")), css='flex-grow: 1; color: red; font-size: 48px'),
             button('gripper open',  tabindex='-1', onclick=arm_do.call(moves.MoveGripper(100))),
             button('gripper close', tabindex='-1', onclick=arm_do.call(moves.MoveGripper(75))),
     )

@@ -76,6 +76,7 @@ class Robotarm:
     def execute_moves(self, ms: list[Move]):
         for m in ms:
             self.execute(m.to_script())
+        self.execute('WaitForEOM')
 
     def set_speed(self, value: int):
         assert 1 <= value <= 100

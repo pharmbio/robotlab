@@ -26,6 +26,9 @@ class Move(abc.ABC):
     def to_script(self) -> str:
         raise NotImplementedError
 
+    def desc(self) -> str:
+        return self.to_script()
+
     def try_name(self) -> str:
         if hasattr(self, 'name'):
             return getattr(self, 'name')
@@ -55,6 +58,9 @@ class MoveC(Move):
     def to_script(self) -> str:
         return call('MoveC', '1', *self.xyz, self.yaw, 0, 0)
 
+    def desc(self) -> str:
+        return call('MoveC', *self.xyz, self.yaw)
+
 @dataclass(frozen=True)
 class MoveC_Rel(Move):
     '''
@@ -71,7 +77,6 @@ class MoveC_Rel(Move):
     xyz: list[float]
     yaw: float
     name: str = ""
-    slow: bool = False
 
     def __post_init__(self):
         assert len(self.xyz) == 3
@@ -86,7 +91,6 @@ class MoveJ(Move):
     '''
     joints: list[float]
     name: str = ""
-    slow: bool = False
 
     def __post_init__(self):
         assert len(self.joints) == 4
@@ -94,11 +98,17 @@ class MoveJ(Move):
     def to_script(self) -> str:
         return call('MoveJ_NoGripper', '1', *self.joints)
 
+    def desc(self) -> str:
+        return call('MoveJ', *self.joints)
+
 @dataclass(frozen=True)
 class MoveGripper(Move):
-    pos: int
+    pos: int | float
     def to_script(self) -> str:
         return call('MoveGripper', '1', self.pos)
+
+    def desc(self) -> str:
+        return call('Gripper', self.pos)
 
 @dataclass(frozen=True)
 class Section(Move):

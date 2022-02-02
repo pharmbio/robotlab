@@ -4,39 +4,40 @@ Module Pharmbio
 '
 '  No parameters
     Public Sub Cmd_WhereJson(ByVal Cmd As Command, ByRef Reply As String)
-        reply = fmt_pq(Cmd.Rob.RobNum)
+        reply = WhereJson(Cmd.Rob.RobNum)
     End Sub
 
-    Public Function fmt_pq(ByVal RobNum As Integer) As String
+    Public Function WhereJson(ByVal RobNum As Integer) As String
         Dim p As Location
         Dim q As Location
         Dim msg As String
         p = Robot.Where(RobNum)
         q = Robot.WhereAngles(RobNum)
         msg = "{"
-        msg = msg & repr("type")  & ":" & repr("whereami") & ","
-        msg = msg & repr("x")     & ":" & fmt(p.X,        2) & ","
-        msg = msg & repr("y")     & ":" & fmt(p.Y,        2) & ","
-        msg = msg & repr("z")     & ":" & fmt(p.Z,        2) & ","
-        msg = msg & repr("yaw")   & ":" & fmt(p.Yaw,      2) & ","
-        msg = msg & repr("q1")    & ":" & fmt(q.Angle(1), 2) & ","
-        msg = msg & repr("q2")    & ":" & fmt(q.Angle(2), 2) & ","
-        msg = msg & repr("q3")    & ":" & fmt(q.Angle(3), 2) & ","
-        msg = msg & repr("q4")    & ":" & fmt(q.Angle(4), 2) & ","
-        msg = msg & repr("q5")    & ":" & fmt(q.Angle(5), 2) & ","
-        msg = msg & repr("speed") & ":" & CStr(Controller.SystemSpeed)
+        msg = msg & Quote("x")     & ":" & RoundStr(p.X,        2) & ","
+        msg = msg & Quote("y")     & ":" & RoundStr(p.Y,        2) & ","
+        msg = msg & Quote("z")     & ":" & RoundStr(p.Z,        2) & ","
+        msg = msg & Quote("yaw")   & ":" & RoundStr(p.Yaw,      2) & ","
+        msg = msg & Quote("pitch") & ":" & RoundStr(p.Pitch,    2) & ","
+        msg = msg & Quote("roll")  & ":" & RoundStr(p.Roll,     2) & ","
+        msg = msg & Quote("q1")    & ":" & RoundStr(q.Angle(1), 2) & ","
+        msg = msg & Quote("q2")    & ":" & RoundStr(q.Angle(2), 2) & ","
+        msg = msg & Quote("q3")    & ":" & RoundStr(q.Angle(3), 2) & ","
+        msg = msg & Quote("q4")    & ":" & RoundStr(q.Angle(4), 2) & ","
+        msg = msg & Quote("q5")    & ":" & RoundStr(q.Angle(5), 2) & ","
+        msg = msg & Quote("speed") & ":" & CStr(Controller.SystemSpeed)
         msg = msg & "}"
         Return msg
     End Function
-    Public Function round(ByVal value As Double, ByVal num_digits As Integer) As Double
+    Public Function Round(ByVal value As Double, ByVal num_digits As Integer) As Double
         Dim scale As Double
         scale = Math.Pow(10, num_digits)
         Return Math.Floor(value * scale + 0.5) / scale
     End Function
-    Public Function fmt(ByVal value As Double, ByVal num_digits As Integer) As String
-        Return CStr(round(value, num_digits))
+    Public Function RoundStr(ByVal value As Double, ByVal num_digits As Integer) As String
+        Return CStr(Round(value, num_digits))
     End Function
-    Public Function repr(ByVal s As String) As String
+    Public Function Quote(ByVal s As String) As String
         Return """" & s & """"
     End Function
 
