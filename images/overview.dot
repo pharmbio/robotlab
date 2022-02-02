@@ -13,7 +13,7 @@ graph {
 
     rank=same {imx; pf}
 
-    imx_server [label=< python flask server: <FONT FACE="Consolas">imx_server/</FONT><BR/><BR/> imx windows 10.10.0.99:5050 >, margin=0.2]
+    imx_server [label=< python flask server: <FONT FACE="Consolas">imx-server/</FONT><BR/><BR/> imx windows 10.10.0.99:5050 >, margin=0.2]
 
     imx -- imx_server [label=<COM port<BR/>(via USB)>]
     pf -- scheduler [label="TCP: socket, telnet, FTP"]

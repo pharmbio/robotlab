@@ -21,7 +21,7 @@
 <title>imx_server</title>
 <polygon fill="none" stroke="black" points="247,-298.8 34,-298.8 34,-234.8 247,-234.8 247,-298.8"/>
 <text text-anchor="start" x="48" y="-276.2" font-family="Roboto" font-size="12.00"> python flask server: </text>
-<text text-anchor="start" x="158" y="-276.2" font-family="Consolas" font-size="12.00">imx_server/</text>
+<text text-anchor="start" x="158" y="-276.2" font-family="Consolas" font-size="12.00">imx&#45;server/</text>
 <text text-anchor="start" x="57.5" y="-252.2" font-family="Roboto" font-size="12.00"> imx windows 10.10.0.99:5050 </text>
 </g>
 <!-- imx&#45;&#45;imx_server -->
