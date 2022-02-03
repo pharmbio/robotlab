@@ -125,13 +125,13 @@ Module Pharmbio
         Cmd_MoveC(Cmd, Reply)
     End Sub
 
-' Starts freedrive
+' Cmd_Freedrive -- Starts freedrive
     Public Sub Cmd_Freedrive(ByVal Cmd As Command, ByRef Reply As String)
         Move.StartJogMode()
         Move.SetJogCommand(4, -1, 1)
     End Sub
 
-' Stops freedrive
+' Cmd_StopFreedrive -- Stops freedrive
     Public Sub Cmd_StopFreedrive(ByVal Cmd As Command, ByRef Reply As String)
         Move.StopSpecialModes()
     End Sub

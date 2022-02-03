@@ -56,7 +56,7 @@ class MoveC(Move):
         assert len(self.xyz) == 3
 
     def to_script(self) -> str:
-        return call('MoveC', '1', *self.xyz, self.yaw, 0, 0)
+        return call('MoveC', '1', *self.xyz, self.yaw, 90, 180)
 
     def desc(self) -> str:
         return call('MoveC', *self.xyz, self.yaw)

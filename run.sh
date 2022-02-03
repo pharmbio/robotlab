@@ -15,8 +15,15 @@ function forward-robot-to-localhost {
     }
     verbose ssh -N -L 10000:10.10.0.98:10000 robotlab-ubuntu & pid1="$!"
     verbose ssh -N -L 10100:10.10.0.98:10100 robotlab-ubuntu & pid2="$!"
-    trap "kill $pid1 $pid2" EXIT
+    trap "kill --verbose $pid1 $pid2" EXIT
     wait
+}
+
+function imx-send {
+    cmd=$(printf %s "$1" | tr a-z A-Z)
+    quoted=$(printf %q "msg=1,$cmd")
+    set -x
+    ssh robotlab-ubuntu curl -s 10.10.0.99:5050 --data-urlencode "$quoted"
 }
 
 "$@"
