@@ -502,7 +502,7 @@ def index() -> Iterator[Tag | dict[str, str]]:
             text-align: left;
         }
     """)
-    for speed in [20, 40, 60, 80, 100]:
+    for speed in [5, 10, 15, 20, 40, 60, 80, 100]:
         speed_btns += button(f'set speed to {speed}', tabindex='-1', onclick=arm_set_speed.call(speed))
     foot += speed_btns
 
