@@ -11,9 +11,8 @@ from . import commands
 from .log import (
     RuntimeMetadata,
     LogEntry,
+    Log,
 )
-
-from .log import Log
 
 from .commands import (
     Metadata,
@@ -39,16 +38,15 @@ from .symbolic import Symbolic
 from .moves import movelists, MoveList
 from . import bioteks
 from . import incubator
+from .estimates import estimate, EstCmd
 
 def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
+    if isinstance(cmd, EstCmd) and metadata.est is None:
+        metadata = metadata.merge(Metadata(est=estimate(cmd)))
     entry = LogEntry(cmd=cmd, metadata=metadata)
     match cmd:
         case Meta():
-            try:
-                m = Metadata(est=round(cmd.command.est(), 3))
-            except:
-                m = Metadata()
-            execute(cmd.command, runtime, metadata.merge(cmd.metadata, m))
+            execute(cmd.command, runtime, metadata.merge(cmd.metadata))
 
         case Seq():
             for c in cmd.commands:
@@ -97,7 +95,7 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
         case RobotarmCmd():
             with runtime.timeit(entry):
                 if runtime.config.robotarm_mode == 'noop':
-                    runtime.sleep(cmd.est(), entry.add(Metadata(dry_run_sleep=True)))
+                    runtime.sleep(estimate(cmd), entry.add(Metadata(dry_run_sleep=True)))
                 else:
                     movelist = MoveList(movelists[cmd.program_name])
                     arm = runtime.get_robotarm(include_gripper=movelist.has_gripper())
@@ -162,7 +160,7 @@ def check_correspondence(program: Command, est_entries: Log, expected_ends: dict
         if i and (e.is_end() or isinstance(e.cmd, Checkpoint)):
             seen.add(i)
             if abs(e.t - expected_ends[i]) > 0.3:
-                utils.pr(('no match!', i, e, expected_ends[i]))
+                utils.pr(('mismatch!', i, e, expected_ends[i]))
                 mismatches += 1
             else:
                 matches += 1

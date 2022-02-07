@@ -49,6 +49,10 @@ class Serializer:
             for line in f:
                 yield self.from_json(json.loads(line))
 
+    def read_json(self, path: str | Path) -> dict[str, Any] | list[Any] | None | float | int | bool | str:
+        with open(path, 'r') as f:
+            return self.from_json(json.load(f))
+
     def write_jsonl(self, xs: Iterable[Any], path: str | Path):
         with open(path, 'w') as f:
             for x in xs:

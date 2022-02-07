@@ -29,6 +29,7 @@ from .commands import (
 )
 from .moves import movelists, effects, InitialWorld, World, MovePlate
 from .symbolic import Symbolic
+from .estimates import estimate
 from . import commands
 from . import moves
 
@@ -664,7 +665,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                 Idle() if pre_disp_is_long else pre_disp,
                 RobotarmCmd('wash_to_disp transfer'),
                 pre_disp_wait,
-                Duration(f'{plate_desc} transfer {ix}', exactly=RobotarmCmd('wash_to_disp transfer').est()),
+                Duration(f'{plate_desc} transfer {ix}', exactly=estimate(RobotarmCmd('wash_to_disp transfer'))),
                 Fork(
                     Sequence(
                         DispCmd(p.disp[i], cmd='RunValidated'),

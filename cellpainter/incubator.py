@@ -3,7 +3,6 @@ from dataclasses import *
 from typing import *
 
 from .runtime import Runtime, curl
-from . import timings
 from .log import Metadata, LogEntry, Error
 
 def execute(
@@ -35,7 +34,8 @@ def execute(
     '''
     assert action in {'put', 'get', 'get_climate'}
     if runtime.config.incu_mode == 'noop':
-        est = timings.estimate('incu', action)
+        est = entry.metadata.est
+        assert isinstance(est, float)
         runtime.sleep(est, entry.add(Metadata(dry_run_sleep=True)))
         res: Any = {"success":True,"lines":[]}
     else:

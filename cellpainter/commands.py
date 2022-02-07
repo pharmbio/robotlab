@@ -9,7 +9,6 @@ import abc
 from .moves import movelists, Effect
 from .utils import Mutable
 from .symbolic import Symbolic
-from . import timings
 from . import utils
 
 @dataclass(frozen=True)
@@ -51,9 +50,6 @@ class Metadata:
         return out
 
 class Command(abc.ABC):
-    def est(self) -> float:
-        raise ValueError(self.__class__)
-
     def required_resource(self) -> Literal['robotarm', 'incu', 'wash', 'disp'] | None:
         return None
 
@@ -242,8 +238,6 @@ class Meta(Command):
     command: Command
     metadata: Metadata = field(default_factory=lambda: Metadata())
 
-    def est(self) -> float:
-        return self.command.est()
 
     def replace(self, command: Command):
         return command.add(self.metadata)
@@ -255,8 +249,6 @@ class Seq(Command):
     def replace(self, commands: list[Command]):
         return replace(self, commands=commands)
 
-    def est(self) -> float:
-        return sum((cmd.est() for cmd in self.commands), 0.0)
 
 def Sequence(*commands: Command) -> Command:
     flat: list[Command] = []
@@ -273,8 +265,6 @@ def Sequence(*commands: Command) -> Command:
 @dataclass(frozen=True)
 class Info(Command):
     msg: str = ''
-    def est(self):
-        return 0.0
 
 @dataclass(frozen=True)
 class Idle(Command):
@@ -354,8 +344,6 @@ class Fork(Command):
         else:
             return replace(self, command=command)
 
-    def est(self) -> float:
-        raise ValueError('Fork.est')
 
     def delay(self, other: float | int | str | Symbolic) -> Fork:
         return self.replace(
@@ -379,8 +367,6 @@ class RobotarmCmd(Command):
     def __post_init__(self):
         assert self.program_name in movelists
 
-    def est(self) -> float:
-        return timings.estimate('robotarm', self.program_name)
 
     def required_resource(self):
         return 'robotarm'
@@ -396,17 +382,13 @@ BiotekAction = Literal[
 class BiotekCmd(Command):
     machine: Literal['wash', 'disp']
     protocol_path: str | None
-    action: BiotekAction = 'Run'
-    def est(self):
-        if self.action == 'TestCommunications':
-            log_arg: str = self.action
-        else:
-            assert self.protocol_path, self
-            log_arg: str = self.action + ' ' + self.protocol_path
-        return timings.estimate(self.machine, log_arg)
+    action: BiotekAction
 
     def required_resource(self):
         return self.machine
+
+    def replace(self, action: BiotekAction):
+        return replace(self, action=action)
 
 def WashCmd(
     protocol_path: str | None,
@@ -438,8 +420,6 @@ def DispFork(
 class IncuCmd(Command):
     action: Literal['put', 'get', 'get_climate']
     incu_loc: str | None
-    def est(self):
-        return timings.estimate('incu', self.action)
 
     def required_resource(self):
         return 'incu'

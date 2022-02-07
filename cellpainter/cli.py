@@ -17,8 +17,8 @@ from . import commands
 from . import make_uml
 from . import protocol
 from . import resume
-from . import timings
 from . import utils
+from . import estimates
 from . import moves
 
 from .execute import execute_program
@@ -157,6 +157,8 @@ class Args:
 
     list_imports:              bool = arg(help='Print the imported python modules for type checking.')
 
+    add_estimates_from:        str  = arg(help='Add timing estimates from a log file')
+
     list_robotarm_programs:    bool = arg(help='List the robot arm programs')
     inspect_robotarm_programs: bool = arg(help='Inspect steps of robotarm programs')
     robotarm_send:             str  = arg(help='Send a raw program to the robot arm')
@@ -256,13 +258,16 @@ def main_with_args(args: Args, parser: argparse.ArgumentParser | None=None):
                 print()
                 print(k + ':\n' + textwrap.indent(v.describe(), '  '))
 
+    elif args.add_estimates_from:
+        estimates.add_estimates_from('estimates.json', args.add_estimates_from)
+
     else:
         assert parser
         parser.print_help()
 
-    if timings.Guesses:
+    if estimates.guesses:
         print('Guessed these times:')
-        utils.pr(timings.Guesses)
+        utils.pr(estimates.guesses)
 
 @dataclass(frozen=True)
 class Program:

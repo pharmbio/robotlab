@@ -41,9 +41,9 @@ import_z3()
 from z3 import Sum, If, Optimize, Real, Int, Or # type: ignore
 
 from collections import defaultdict
-from . import timings
 
-from . import utils # type: ignore
+from . import estimates
+from .estimates import estimate
 
 def optimize(cmd: Command) -> tuple[Command, dict[str, float]]:
     cmd = cmd.make_resource_checkpoints()
@@ -115,10 +115,10 @@ def optimal_env(cmd: Command) -> OptimalResult:
                 return begin
             case RobotarmCmd():
                 assert is_main
-                return begin + cmd.est()
+                return begin + estimate(cmd)
             case BiotekCmd() | IncuCmd():
                 assert not is_main
-                return begin + cmd.est()
+                return begin + estimate(cmd)
             case Checkpoint():
                 checkpoint = Symbolic.var(cmd.name)
                 constrain(begin, '==', checkpoint)
@@ -181,7 +181,7 @@ def optimal_env(cmd: Command) -> OptimalResult:
 
     # print(s)
     check = str(s.check())
-    assert check == 'sat', f'Impossible to schedule! (Guessed times: {len(timings.Guesses)})'
+    assert check == 'sat', f'Impossible to schedule! (Number of missing time estimates: {len(estimates.guesses)})'
 
     M = s.model()
 

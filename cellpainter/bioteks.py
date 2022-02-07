@@ -3,7 +3,7 @@ from dataclasses import *
 from typing import *
 
 from .runtime import Runtime, curl
-from . import timings
+from .estimates import estimate
 
 from .log import Metadata, LogEntry, Error
 from .commands import BiotekAction
@@ -57,16 +57,12 @@ def execute(
         }
 
     '''
-    if action == 'TestCommunications':
-        log_arg: str = action
-    else:
-        assert protocol_path
-        log_arg: str = action + ' ' + protocol_path
     while True:
         if runtime.config.disp_and_wash_mode == 'noop':
-            est = timings.estimate(machine, log_arg)
+            est = entry.metadata.est
+            assert isinstance(est, float)
             runtime.sleep(est, entry.add(Metadata(dry_run_sleep=True)))
-            res: Any = {"success":True,"lines":[]}
+            res: Any = {"success":True, "lines":[]}
         else:
             assert runtime.config.disp_and_wash_mode == 'execute'
             url = (

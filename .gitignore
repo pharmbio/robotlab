@@ -2,3 +2,4 @@
 cobot/
 logs/
 *egg-info
+build/

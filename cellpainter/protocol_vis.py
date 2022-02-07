@@ -124,9 +124,9 @@ def start(cmdline0: str, cmdline_to_log: Callable[[str], Log]):
             yield pre(traceback.format_exc())
             return
 
-        from . import timings
-        if timings.Guesses:
-            utils.pr(timings.Guesses)
+        from . import estimates
+        if estimates.guesses:
+            utils.pr(estimates.guesses)
 
         yield pre('\n'.join(entries.group_durations_for_display()))
 
