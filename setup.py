@@ -23,7 +23,7 @@ setup(
     packages=packages.split(),
     version='0.1',
     description='Cell painting using the robot arm',
-    url='https://github.com/pharmbio/robot-remote-control',
+    url='https://github.com/pharmbio/robot-cellpainter',
     author='Dan Rosén',
     author_email='dan.rosen@farmbio.uu.se',
     python_requires='>=3.10',
