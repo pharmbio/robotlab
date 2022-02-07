@@ -110,6 +110,7 @@ def start(batch_sizes: str, start_from_pfa: bool, simulate: bool, incu: str):
         incu=incu,
         yes=True,
     )
+    Path('cache').mkdir(exist_ok=True)
     cmd = [
         'sh', '-c',
         'cellpainter --json-arg "$1" 2>"$2"',
@@ -134,6 +135,7 @@ def resume(log_filename_in: str, skip: list[str], drop: list[str]):
         resume_drop=','.join(drop),
         yes=True,
     )
+    Path('cache').mkdir(exist_ok=True)
     cmd = [
         'sh', '-c',
         'cellpainter --json-arg "$1" 2>"$2"',
