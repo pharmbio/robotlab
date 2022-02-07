@@ -1,6 +1,0 @@
-pandas
-flask
-flask_compress
-z3-solver
-sorcery
-matplotlib
