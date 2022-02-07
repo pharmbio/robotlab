@@ -69,6 +69,7 @@ class Arg:
         for f in fields(as_type):
             enum = self.enums.get(f)
             name = '--' + f.name.replace('_', '-')
+            assert callable(f.default_factory)
             default = f.default_factory()
             if enum:
                 parser.add_argument(name, default=default, help=argparse.SUPPRESS)
