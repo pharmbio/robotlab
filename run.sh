@@ -20,7 +20,7 @@ function forward-robot-to-localhost {
 }
 
 function imx-send {
-    cmd=$(printf %s "$1" | tr a-z A-Z)
+    cmd="$1"
     quoted=$(printf %q "msg=1,$cmd")
     set -x
     ssh robotlab-ubuntu curl -s 10.10.0.99:5050 --data-urlencode "$quoted"

@@ -40,4 +40,27 @@ dan@NUC-robotlab:~$ curl 10.10.0.99:5050 -d msg=1,VERSION
 }
 ```
 
+Some commands to run a hts file with a "barcode": a plate identifier.
+
+```sh
+./run.sh imx-send 'run,test-barcode-1234_5678XYZ,C:\Data\specs.hts'
+./run.sh imx-send 'run,test-barcode banana 1234_5678XYZ,C:\Data\specs.hts'
+./run.sh imx-send 'run,test-barcode banana 1234_5678XYZ,C:\Data\specs - Copy.hts'
+```
+
+Open and close the microscope:
+
+```sh
+./run.sh imx-send 'GOTO,UNLOAD'
+./run.sh imx-send 'GOTO,LOAD'
+./run.sh imx-send 'GOTO,SAMPLE'
+```
+
+You can repeatedly send `UNLOAD` to make the hatch not close. Otherwise it
+will automatically close after about 1 minute:
+
+```sh
+while true; do ./run.sh imx-send 'GOTO,UNLOAD'; done
+```
+
 Read the pdf for more information about the supported messages.
