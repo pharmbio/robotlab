@@ -23,7 +23,7 @@ jobs:
       - run: ${{ matrix.pip_install }} .
       - run: cellpainter --cell-paint 6,6,6
       - run: cellpainter --cell-paint 7,7 --interleave
-      - run: cellpainter --cell-paint 8,8 --interleave --incu 1245,1205
+      - run: cellpainter --cell-paint 8,8 --interleave --incu 1260,1230
       - run: cellpainter --cell-paint 8,8 --interleave --two-final-washes
       - run: cellpainter --cell-paint 9,9 --interleave --two-final-washes
       - run: cellpainter --cell-paint 10 --interleave --two-final-washes --lockstep --incu 1205,1200,1200,1200,X
