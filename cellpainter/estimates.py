@@ -11,8 +11,6 @@ from .commands import (
     RobotarmCmd,
     IncuCmd,
     BiotekCmd,
-    WashCmd,
-    DispCmd,
 )
 
 import json

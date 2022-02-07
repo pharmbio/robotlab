@@ -329,7 +329,7 @@ def run_biotek(args: ArgsLike):
         for p, machine in protocols:
             if f'/{x.lower()}' in p.lower():
                 cmds += [
-                    Fork(BiotekCmd(machine, p)),
+                    Fork(BiotekCmd(machine, p, action='Run')),
                     WaitForResource(machine)
                 ]
     return Sequence(*cmds)
