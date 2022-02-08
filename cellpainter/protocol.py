@@ -859,6 +859,7 @@ def time_bioteks(protocol_config: ProtocolConfig):
         *(
             cmd.add(metadata)
             for cmd, metadata in program.collect()
+            if not isinstance(cmd, Info)
             if not isinstance(cmd, IncuCmd)
             if not isinstance(cmd, Fork) or cmd.resource != 'incu'
             if not isinstance(cmd, WaitForResource) or cmd.resource != 'incu'
