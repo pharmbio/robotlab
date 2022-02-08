@@ -4,6 +4,7 @@ from typing import *
 
 import json
 import os
+import re
 import signal
 import sys
 import threading
@@ -313,12 +314,14 @@ class Runtime:
 
     def log_entry_to_line(self, entry: LogEntry) -> str | None:
         with self.lock:
-            if entry.cmd is None and entry.running:
-                return
-            if not self.config.log_filename:
-                return
             m = entry.metadata
-            if m.dry_run_sleep:
+            if entry.err:
+                pass
+            elif entry.cmd is None and entry.running:
+                return
+            elif not self.config.log_filename:
+                return
+            elif m.dry_run_sleep:
                 return
             t = self.pp_time_offset(entry.t)
             if entry.cmd:
@@ -339,13 +342,14 @@ class Runtime:
             machine = machine.lower()
             if machine == 'duration':
                 desc = f"`{getattr(entry.cmd, 'name', '?')}` = {utils.pp_secs(entry.duration or 0)}"
-            import re
             desc = re.sub('automation_v.*?/', '', desc)
             desc = re.sub(r'\.LHC', '', desc)
             desc = re.sub(r'\w*path=', '', desc)
             desc = re.sub(r'\w*name=', '', desc)
             if not desc:
                 desc = str(utils.nub(entry.metadata))
+            if entry.err and entry.err.message:
+                desc = entry.err.message
 
             w = ','.join(f'{k}:{v}' for k, v in self.world.items())
             r = ', '.join(
@@ -360,7 +364,7 @@ class Runtime:
                 f'{machine[:12]     : <12}',
                 f'{desc[:50]        : <50}',
                 f'{m.plate_id or "" : >2}',
-                f'{m.step           : <6}',
+                f'{m.step           : <9}',
                 f'{w                : <30}',
                 f'{r                     }',
             ]
