@@ -64,8 +64,7 @@ estimates = estimates_from('estimates.json')
 guesses: dict[EstCmd, float] = {}
 
 estimates = {
-    BiotekCmd('wash', None, 'TestCommunications'): 0.86,
-    BiotekCmd('disp', None, 'TestCommunications'): 1.25,
+    RobotarmCmd('noop'): 0.5,
     **estimates
 }
 

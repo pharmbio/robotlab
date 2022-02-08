@@ -3,7 +3,6 @@ from dataclasses import *
 from typing import *
 
 from .runtime import Runtime, curl
-from .estimates import estimate
 
 from .log import Metadata, LogEntry, Error
 from .commands import BiotekAction

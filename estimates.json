@@ -3,8 +3,8 @@
     "cmd": {
       "type": "BiotekCmd",
       "machine": "disp",
-      "protocol_path": "TestCommunications",
-      "action": "Run"
+      "protocol_path": null,
+      "action": "TestCommunications"
     },
     "times": {
       "2021-10-13 17:09:30": 1.295,
@@ -714,8 +714,8 @@
     "cmd": {
       "type": "BiotekCmd",
       "machine": "wash",
-      "protocol_path": "TestCommunications",
-      "action": "Run"
+      "protocol_path": null,
+      "action": "TestCommunications"
     },
     "times": {
       "2021-10-13 17:09:33": 0.872,
