@@ -10,7 +10,7 @@ import math
 import re
 
 from .moves import Move, MoveList
-from .runtime import RuntimeConfig, config_lookup
+from .runtime import RuntimeConfig
 from . import moves
 from . import robotarm
 from . import runtime
@@ -24,13 +24,15 @@ serve.suppress_flask_logging()
 
 import sys
 
-config: RuntimeConfig = config_lookup('live')
-if '--simulator' in sys.argv:
-    config = config_lookup('simulator')
-elif '--forward' in sys.argv:
-    config = config_lookup('forward')
+config: RuntimeConfig
+for c in runtime.configs:
+    if '--' + c.name in sys.argv:
+        config = c
+        break
+else:
+    raise ValueError('Start with one of ' + ', '.join('--' + c.name for c in runtime.configs))
 
-utils.pr(config)
+print(f'Running with {config.name=}')
 
 polled_info: dict[str, list[float]] = {}
 
@@ -191,7 +193,7 @@ def get_programs() -> dict[str, Path]:
         for path in sorted(Path('./movelists').glob('*.jsonl'))
     }
 
-@serve.one('/')
+@serve.route('/')
 def index() -> Iterator[Tag | dict[str, str]]:
     programs = get_programs()
     program_name = request.args.get('program', next(iter(programs.keys())))
@@ -552,3 +554,9 @@ def index() -> Iterator[Tag | dict[str, str]]:
     for speed in [20, 40, 60, 80, 100]:
         speed_btns += button(f'set speed to {speed}', tabindex='-1', onclick=arm_set_speed.call(speed))
     foot += speed_btns
+
+def main():
+    serve.run()
+
+if __name__ == '__main__':
+    main()

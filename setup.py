@@ -9,6 +9,7 @@ requirements = '''
 console_scripts = '''
     cellpainter=cellpainter.cli:main
     cellpainter-gui=cellpainter.main:main
+    cellpainter-moves=cellpainter.gui:main
 '''
 
 name='cellpainter'
