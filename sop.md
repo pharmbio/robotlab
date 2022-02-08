@@ -74,9 +74,6 @@ Now use `pharmbio@robotlab-ubuntu` the directory for the repo, `~/robot-cellpain
 
    If this fails make sure the robotlab-windows computer is running the
    labrobots server: https://github.com/pharmbio/robotlab-labrobots
-   By default this is done under a robot services account.
-
-   TODO: I suggest to change this to run this as the normal user for transparency.
 
 7. Run the test circuit to see that everything is the correct place.
 
@@ -124,10 +121,12 @@ Now use `pharmbio@robotlab-ubuntu` in the directory for the repo, `~/robot-cellp
 
 ## After painting
 
-On the robot-ubuntu computer add the log file to git and push it:
+1. On the robot-ubuntu computer add the log file to git and push it:
 
 ```
 cd robot-cellpainter
 git add --force logs/2021-12-15_13:52:31-from-gui.jsonl
 git push
 ```
+
+2. Put the robot arm in local (not in remote) using the teach pendant
