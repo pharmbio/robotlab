@@ -24,6 +24,8 @@ from .commands import (
 )
 from . import commands
 
+from .moves import InitialWorld
+
 from . import utils
 from .log import Metadata
 
@@ -222,7 +224,6 @@ def load_incu(args: ArgsLike):
         RobotarmCmd('incu_A21 put-return'),
         WaitForResource('incu'),
     ])
-    # ATTENTION(load_incu.__doc__ or '')
     program = add_world_metadata(program, world0)
     return program
 
@@ -286,6 +287,10 @@ def test_circuit(_: ArgsLike):
         *RobotarmCmds('incu put'),
     )
     program = sleek_program(program)
+    program = Sequence(
+        Info('initial world').add(Metadata(effect=InitialWorld({'incu': plate.id}))),
+        program,
+    )
     return program
 
 @small_protocols.append
