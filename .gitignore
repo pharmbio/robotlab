@@ -3,3 +3,4 @@ cobot/
 logs/
 *egg-info
 build/
+*cache*
