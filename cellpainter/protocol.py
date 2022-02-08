@@ -853,6 +853,7 @@ def time_bioteks(protocol_config: ProtocolConfig):
             for i, _ in enumerate(protocol_config.incu)
         ]
     )
+    [[plate]] = define_plates([1])
     program = cell_paint_program([1], protocol_config=protocol_config, sleek=True)
     program = Sequence(
         *(
@@ -867,6 +868,10 @@ def time_bioteks(protocol_config: ProtocolConfig):
                 for needle in ['wash', 'disp']
             )
         )
+    )
+    program = Sequence(
+        Info('initial world').add(Metadata(effect=InitialWorld({'B21': plate.id}))),
+        program,
     )
     return program
 
