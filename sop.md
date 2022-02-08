@@ -70,7 +70,7 @@ Now use `pharmbio@robotlab-ubuntu` the directory for the repo, `~/robot-cellpain
 
    TODO: Add this to the gui
 
-   TODO: Incubator get climate reports success even though the incubator is off.
+   TODO: Incubator get_climate reports success even though the incubator is off.
 
    If this fails make sure the robotlab-windows computer is running the
    labrobots server: https://github.com/pharmbio/robotlab-labrobots
@@ -109,15 +109,18 @@ Now use `pharmbio@robotlab-ubuntu` in the directory for the repo, `~/robot-cellp
 
 ## Painting
 
-1. Use the windows computer and go to http://10.10.0.55:5000.
+1. Clean the robot gripper fingers so that they are free of dust.
 
 2. Make sure the robot is in neutral position (in front of the B21 hotel rack)
 
    Use the teach pendant and its freedrive button.
 
-3. Enter the desired settings
 
-4. Press start
+3. Use the windows computer and go to http://10.10.0.55:5000.
+
+4. Enter the desired settings
+
+5. Press start
 
 ## After painting
 
@@ -130,3 +133,8 @@ git push
 ```
 
 2. Put the robot arm in local (not in remote) using the teach pendant
+
+3. For dry run: Empty the washer and dispenser tubings by priming them
+
+4. For dry run: Detach the washer waste bottle and dispose it if it is only water
+
