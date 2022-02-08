@@ -126,11 +126,11 @@ Now use `pharmbio@robotlab-ubuntu` in the directory for the repo, `~/robot-cellp
 
 1. On the robot-ubuntu computer add the log file to git and push it:
 
-```
-cd robot-cellpainter
-git add --force logs/2021-12-15_13:52:31-from-gui.jsonl
-git push
-```
+   ```
+   cd robot-cellpainter
+   git add --force logs/2021-12-15_13:52:31-from-gui.jsonl
+   git push
+   ```
 
 2. Put the robot arm in local (not in remote) using the teach pendant
 
