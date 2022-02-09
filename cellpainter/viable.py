@@ -1013,3 +1013,19 @@ class var(Tag): pass
 class video(Tag): pass
 class wbr(Tag): pass
 
+def Input(store: dict[str, str | bool], name: str, type: str, value: str | None = None, default: str | bool | None = None, **attrs: str | None) -> input | option:
+    if default is None:
+        default = ""
+    state = request.args.get(name, default)
+    if type == 'checkbox':
+        state = str(state).lower() == 'true'
+    store[name] = state
+    if type == 'checkbox':
+        return input(type=type, name=name, checked=bool(state), **attrs)
+    elif type == 'radio':
+        return input(type=type, name=name, value=value, checked=state == value, **attrs)
+    elif type == 'option':
+        return option(type=type, value=value, selected=state == value, **attrs)
+    else:
+        return input(type=type, name=name, value=str(state), **attrs)
+
