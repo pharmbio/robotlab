@@ -104,7 +104,7 @@ def wash_plates_clean(_: ArgsLike):
         cmd += [RobotarmCmd('wash put')]
         
         cmd += [
-                    Fork(WashCmd('automation_v4.0/wash-plates-clean/WD_3X_leaves80ul.LHC.LHC')),
+                    Fork(WashCmd('automation_v4.0/wash-plates-clean/WD_3X_leaves80ul.LHC')),
                     WaitForResource('wash')
         ]
         
