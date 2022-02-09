@@ -925,7 +925,7 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
             yield V.pre(text,
                 grid_area='info-foot',
                 padding_top='0.5em',
-                user_select='none',
+                user_select='text',
                 opacity='0.85',
             )
 
@@ -1066,7 +1066,7 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
             )
         """
 
-    if path and not (ar and ar.completed):
+    if path and not (ar and ar.completed) and not (ar and not ar.process_is_alive()):
         yield V.queue_refresh(100)
 
 def form(m: Store, *vs: Int | Str | Bool):

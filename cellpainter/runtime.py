@@ -255,7 +255,7 @@ class Runtime:
             import reprlib
             self.log(LogEntry(err=Error(reprlib.repr(e), traceback.format_exc())))
             if not isinstance(e, SystemExit):
-                os.kill(os.getpid(), signal.SIGINT)
+                os.kill(os.getpid(), signal.SIGTERM)
 
     @property
     def env(self):
