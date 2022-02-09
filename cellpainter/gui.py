@@ -41,6 +41,8 @@ server_start = datetime.now()
 
 @utils.spawn
 def poll() -> None:
+    if config.robotarm_mode == 'noop':
+        return None
     arm = runtime.get_robotarm(config, quiet=False)
     arm.send('write_output_integer_register(1, 0)\n')
     arm.recv_until('PROGRAM_XXX_STOPPED')
@@ -203,17 +205,22 @@ def index() -> Iterator[Tag | dict[str, str]]:
     yield V.title(' '.join([program_name, *section]))
 
     yield dict(
-        onkeydown=r'''
-            const re = /^\w$|Tab|Enter|Escape|Meta|Control|Alt|Shift/
-            if (event.target.tagName == 'INPUT') {
+        onkeydown='''
+            if (event.key == 'Escape') {
+                console.log('escape pressed, stopping robot...', event)
+                ''' + arm_do.call() + r'''
+                event.preventDefault()
+            } else if (event.target.tagName == 'INPUT') {
                 console.log('by input', event)
-            } else if (event.repeat || event.metaKey || event.ctrlKey || event.key.match(re)) {
+            } else if (event.metaKey || event.ctrlKey || event.key.match(/^\w$|Tab|Enter|Meta|Control|Alt|Shift/)) {
                 console.log('to browser', event)
+            } else if (event.repeat) {
+                console.log('ignoring repeat', event)
+                event.preventDefault()
             } else {
                 event.preventDefault()
                 console.log('to backend', event)
                 const arg = {
-                    selected: window.selected,
                     key: event.key,
                     altKey: event.altKey,
                     shiftKey: event.shiftKey,
