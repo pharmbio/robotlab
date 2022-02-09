@@ -649,9 +649,9 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                         *wash_delay,
                         Duration(f'{plate_desc} incubation {ix-1}', exactly=p.incu[i-1]) if i > 0 else Idle(),
                         WashCmd(p.wash[i], cmd='RunValidated'),
-                        Checkpoint(f'{plate_desc} transfer {ix}')
-                        if i < 4 else
-                        Checkpoint(f'{plate_desc} incubation {ix}'),
+                        Checkpoint(f'{plate_desc} incubation {ix}')
+                        if step == 'Wash 1' else
+                        Checkpoint(f'{plate_desc} transfer {ix}'),
                     ),
                     assume='nothing',
                 ),

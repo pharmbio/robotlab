@@ -100,6 +100,8 @@ def start(batch_sizes: str, start_from_pfa: bool, simulate: bool, incu: str):
         incu = '1200,1200,1200,1200,X'
         if N == 10:
             incu = '1205,1200,1200,1200,X'
+        if start_from_pfa:
+            incu = '1200,1200,1200,X'
     log_filename = 'logs/' + utils.now_str_for_filename() + f'-{config_name}-from-gui.jsonl'
     args = Args(
         config_name=config_name,
