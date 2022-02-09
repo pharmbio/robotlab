@@ -1,4 +1,5 @@
 from __future__ import annotations
+from tracemalloc import stop
 from typing import Callable, Protocol, cast
 from dataclasses import *
 
@@ -77,6 +78,86 @@ def add_missing_timings(_: ArgsLike):
         ]
     program = Sequence(*cmds)
     return program
+
+@small_protocols.append
+def wash_plates_clean(_: ArgsLike):
+    '''
+    Timing for robotarm and incubator.
+
+    Required lab prerequisites:
+        1. incubator transfer door: empty
+        2. hotel B21:               empty
+        3. hotel A1-X:              plates with lid
+        4. hotel B:                 empty!
+        5. hotel C:                 empty!
+        6. biotek washer:           empty!
+        7. biotek dispenser:        empty!
+        8. robotarm:                in neutral position by B hotel
+        9. gripper:                 sufficiently open to grab a plate
+    '''
+    N = 6
+    cmd: list[Command] = []
+    [plates] = define_plates([N])
+    for plate in plates:
+        cmd += [RobotarmCmd(plate.out_get)]
+        cmd += [RobotarmCmd(plate.lid_put)]
+        cmd += [RobotarmCmd('wash put')]
+        
+        cmd += [
+                    Fork(WashCmd('automation_v4.0/wash-plates-clean/WD_3X_leaves80ul.LHC.LHC')),
+                    WaitForResource('wash')
+        ]
+        
+        cmd += [RobotarmCmd('wash get')]
+        cmd += [RobotarmCmd(plate.lid_get)]
+        cmd += [RobotarmCmd(plate.rt_put)]
+        
+
+    cmd += [
+                Fork(WashCmd('automation_v4.0/wash-plates-clean/WC_PRIME.LHC')),
+                WaitForResource('wash')
+    ]
+    
+    for plate in plates:
+        cmd += [RobotarmCmd(plate.rt_get)]
+        cmd += [RobotarmCmd(plate.lid_put)]
+        cmd += [RobotarmCmd('wash put')]
+        
+        cmd += [
+                    Fork(WashCmd('automation_v4.0/wash-plates-clean/WC_1X_leaves80ul.LHC')),
+                    WaitForResource('wash')
+                   ]
+        
+        cmd += [RobotarmCmd('wash get')]
+        cmd += [RobotarmCmd(plate.lid_get)]
+        cmd += [RobotarmCmd(plate.rt_put)]
+    
+    
+    cmd += [Idle(600)]   
+    
+    for plate in plates:
+        cmd += [RobotarmCmd(plate.rt_get)]
+        cmd += [RobotarmCmd(plate.lid_put)]
+        cmd += [RobotarmCmd('wash put')]
+        
+        cmd += [
+                    Fork(WashCmd('automation_v4.0/wash-plates-clean/WD_3X_leaves10ul.LHC')),
+                    WaitForResource('wash')
+                   ]
+        
+        cmd += [RobotarmCmd('wash get')]
+        cmd += [RobotarmCmd(plate.lid_get)]
+        cmd += [RobotarmCmd(plate.out_put)]
+        
+        
+    world_0 = {plate.out_loc: plate.id for plate in plates}
+    
+    program = Sequence(*cmd)
+    
+    program = add_world_metadata(program, world_0)
+    
+    return program
+    
 
 @small_protocols.append
 def time_arm_incu(_: ArgsLike):
