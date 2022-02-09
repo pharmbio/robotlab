@@ -202,6 +202,17 @@ def make_table(rows: list[dict[str, Any]], header: bool=True):
         body += tr
     return V.table(head, body)
 
+def process_is_alive(pid: int, log_filename: str) -> bool:
+    if pid:
+        try:
+            with open(f'/proc/{pid}/cmdline', 'r') as fp:
+                cmdline = fp.read()
+        except FileNotFoundError:
+            cmdline = ''
+        return log_filename in cmdline
+    else:
+        return False
+
 @dataclass(frozen=True, kw_only=True)
 class AnalyzeResult:
     zero_time: datetime
@@ -220,17 +231,7 @@ class AnalyzeResult:
         return not self.process_is_alive() or self.errors
 
     def process_is_alive(self) -> bool:
-        pid = self.runtime_metadata.pid
-        log_filename = self.runtime_metadata.log_filename
-        if pid:
-            try:
-                with open(f'/proc/{pid}/cmdline', 'r') as fp:
-                    cmdline = fp.read()
-            except FileNotFoundError:
-                cmdline = ''
-            return log_filename in cmdline
-        else:
-            return False
+        return process_is_alive(self.runtime_metadata.pid, self.runtime_metadata.log_filename)
 
     @staticmethod
     def init(m: Log, until: float | None = None) -> AnalyzeResult | None:
@@ -244,6 +245,9 @@ class AnalyzeResult:
         t_now = (datetime.now() - zero_time).total_seconds()
 
         if completed:
+            t_now = m.max_t() + 1
+
+        if not process_is_alive(runtime_metadata.pid, runtime_metadata.log_filename):
             t_now = m.max_t() + 1
 
         errors = m.errors()
