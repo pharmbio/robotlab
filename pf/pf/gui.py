@@ -89,18 +89,20 @@ def keydown(program_name: str, args: dict[str, Any]):
         deg = 90.0
     k = str(args['key'])
     keymap = {
-        'ArrowRight': moves.MoveC_Rel(xyz=[0,  mm, 0], yaw=0),
-        'ArrowLeft':  moves.MoveC_Rel(xyz=[0, -mm, 0], yaw=0),
-        'ArrowUp':    moves.MoveC_Rel(xyz=[-mm, 0, 0], yaw=0),
-        'ArrowDown':  moves.MoveC_Rel(xyz=[ mm, 0, 0], yaw=0),
+        'Home':       moves.MoveC_Rel(xyz=[0,  mm, 0], yaw=0),
+        'End':        moves.MoveC_Rel(xyz=[0, -mm, 0], yaw=0),
+        'Insert':     moves.MoveC_Rel(xyz=[-mm, 0, 0], yaw=0),
+        'Delete':     moves.MoveC_Rel(xyz=[ mm, 0, 0], yaw=0),
+        'ArrowDown':  moves.MoveC_Rel(xyz=[mm * cos(yaw + 180), mm * sin(yaw + 180), 0], yaw=0),
+        'ArrowUp':    moves.MoveC_Rel(xyz=[mm * cos(yaw),       mm * sin(yaw),       0], yaw=0),
+        'ArrowLeft': moves.MoveC_Rel(xyz=[mm * cos(yaw + 90),  mm * sin(yaw + 90),  0], yaw=0),
+        'ArrowRight':  moves.MoveC_Rel(xyz=[mm * cos(yaw - 90),  mm * sin(yaw - 90),  0], yaw=0),
         'PageUp':     moves.MoveC_Rel(xyz=[0, 0,  mm], yaw=0),
         'PageDown':   moves.MoveC_Rel(xyz=[0, 0, -mm], yaw=0),
-        'Home':       moves.MoveC_Rel(xyz=[mm * cos(yaw + 90),  mm * sin(yaw + 90),  0], yaw=0),
-        'End':        moves.MoveC_Rel(xyz=[mm * cos(yaw + 180), mm * sin(yaw + 180), 0], yaw=0),
-        'Insert':     moves.MoveC_Rel(xyz=[mm * cos(yaw),       mm * sin(yaw),       0], yaw=0),
-        'Delete':     moves.MoveC_Rel(xyz=[mm * cos(yaw - 90),  mm * sin(yaw - 90),  0], yaw=0),
         '[':          moves.MoveC_Rel(xyz=[0, 0, 0], yaw=-deg),
         ']':          moves.MoveC_Rel(xyz=[0, 0, 0], yaw= deg),
+        '.':          moves.MoveC_Rel(xyz=[0, 0, 0], yaw=-deg),
+        ',':          moves.MoveC_Rel(xyz=[0, 0, 0], yaw= deg),
         '-':          moves.RawCode(f'MoveJ_Rel 1 0 0 0 0 {-int(mm)}'),
         '+':          moves.RawCode(f'MoveJ_Rel 1 0 0 0 0 {int(mm)}'),
     }
