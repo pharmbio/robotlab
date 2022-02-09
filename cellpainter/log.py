@@ -220,7 +220,7 @@ class Log(list[LogEntry]):
         )
 
     def num_plates(self) -> int:
-        return int(max((p for x in self if (p := x.metadata.plate_id)), default='0'))
+        return max((int(p) for x in self if (p := x.metadata.plate_id)), default=0)
 
     def drop_boring(self) -> Log:
         return Log(
