@@ -33,7 +33,7 @@ touched by hand without gloves they are not considered clean any more and must n
 
 3.2 Detach the washer waste bottle. If it contains only water and ethanol: empty it in the sink
 
-3.3 Your plates are now safe! They may now enter the incubator. They must not be touched without gloves.
+3.3 Your plates are now safe! Safe plates may enter the incubator. They must not be touched without gloves.
 
 ## Incubator preparation
 
@@ -87,7 +87,7 @@ Use the teach pendant.
 
 5. Put the teach pendant close to the keyboard so you can reach the emergency button
 
-Now use `pharmbio@robotlab-ubuntu` the directory for the repo, `~/robot-cellpainter/`.
+Use `pharmbio@robotlab-ubuntu` the directory for the repo, `~/robot-cellpainter/`.
 
 6. Run test communications to see that everything is communicating correctly:
 
@@ -95,14 +95,28 @@ Now use `pharmbio@robotlab-ubuntu` the directory for the repo, `~/robot-cellpain
    cellpainter --test-comm --live
    ```
 
+   Common ways this can fail:
+
+   Robotarm might be in local mode. Change it to remote mode.
+
+   Robotarm gripper might not be activated. Activate it.
+
+   Incubator communication might not be activated. Run
+
+   ```
+   curl http://10.10.0.56:5050/incu/reset_and_activate
+   ```
+
+   If 10.10.0.56:5050 cannot be reached make sure the
+   robotlab-windows computer is running the labrobots server:
+   https://github.com/pharmbio/robotlab-labrobots
+
    TODO: Add this to the gui
 
    TODO: Incubator get_climate reports success even though the incubator is off.
 
-   If this fails make sure the robotlab-windows computer is running the
-   labrobots server: https://github.com/pharmbio/robotlab-labrobots
-
 7. Run the test circuit to see that everything is the correct place.
+   This is optional if you know everything is in order.
 
    Start with one plate with lid in the incubator transfer door.
 
@@ -117,14 +131,14 @@ Now use `pharmbio@robotlab-ubuntu` the directory for the repo, `~/robot-cellpain
 
 ## Loading the incubator
 
-1. Place the plates in A1, A2, ... They will be moved to L1, L2, ... inside the
+1. Place the plates in A1, A3, A5, ... They will be moved to L1, L2, L3, ... inside the
    incubator. L1 is the first plate to be painted, L2 the second, and so on.
 
 2. Make sure the robot is in neutral position (in front of the B21 hotel rack).
 
    Use the teach pendant and its freedrive button.
 
-Now use `pharmbio@robotlab-ubuntu` in the directory for the repo, `~/robot-cellpainter/`.
+Use `pharmbio@robotlab-ubuntu` in the directory for the repo, `~/robot-cellpainter/`.
 
 3. Run the load incubator protocol with the correct amount of plates substituted:
 

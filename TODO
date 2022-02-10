@@ -3,6 +3,7 @@
     [ ] make sure small protocols can be viewed in the gui
     [ ] add to gui protocol to load incubator and a few others of the small protocols
     [ ] batch sep argument ?
+    [ ] visualization overflows for 10 plate protocol
 [ ] repo
     [x] rename main -> main_gui, gui -> moves_gui
     [ ] move arg builder (and Args?) out from cli
