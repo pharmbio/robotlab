@@ -151,7 +151,8 @@ Now use `pharmbio@robotlab-ubuntu` in the directory for the repo, `~/robot-cellp
 
    ```
    cd robot-cellpainter
-   git add --force logs/2021-12-15_13:52:31-from-gui.jsonl
+   git add --force logs/2022-12-15_13:52:31-from-gui.jsonl
+   git commit -m 'Add logs from estrogen receptor experiment, batch 1 of 4'
    git push
    ```
 
