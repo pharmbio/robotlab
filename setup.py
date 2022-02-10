@@ -8,8 +8,8 @@ requirements = '''
 
 console_scripts = '''
     cellpainter=cellpainter.cli:main
-    cellpainter-gui=cellpainter.main:main
-    cellpainter-moves=cellpainter.gui:main
+    cellpainter-gui=cellpainter.main_gui:main
+    cellpainter-moves=cellpainter.moves_gui:main
 '''
 
 name='cellpainter'

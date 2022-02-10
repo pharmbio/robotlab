@@ -4,7 +4,8 @@
     [ ] add to gui protocol to load incubator and a few others of the small protocols
     [ ] batch sep argument ?
 [ ] repo
-    [ ] rename main -> main_gui, gui -> moves_gui
+    [x] rename main -> main_gui, gui -> moves_gui
+    [ ] move arg builder (and Args?) out from cli
 [ ] bioteks
     [ ] add setup.py
     [ ] repo rename cli -> repl
