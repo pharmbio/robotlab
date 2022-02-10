@@ -6,7 +6,7 @@ import math
 from datetime import datetime, timedelta
 
 from . import utils
-from .commands import Metadata, Command, Checkpoint, BiotekCmd, Duration, Info
+from .commands import Metadata, Command, Checkpoint, BiotekCmd, Duration, Info, IncuCmd
 
 @dataclass(frozen=True)
 class Running:
@@ -226,7 +226,8 @@ class Log(list[LogEntry]):
         return Log(
             x
             for x in self
-            if not isinstance(x.cmd, BiotekCmd) or not x.cmd.action == 'Validate'
+            if not isinstance(x.cmd, BiotekCmd) or not x.cmd.action in ('Validate', 'TestCommunications')
+            if not isinstance(x.cmd, IncuCmd) or not x.cmd.action in ('get_climate')
         )
 
     def where(self, p: Callable[[LogEntry], Any]) -> Log:

@@ -25,6 +25,7 @@ from .log import Log
 from .cli import Args
 
 from . import commands
+from .commands import IncuCmd, BiotekCmd, RobotarmCmd
 from . import moves
 from . import runtime
 from . import utils
@@ -378,9 +379,9 @@ class AnalyzeResult:
     def make_vis(self) -> Tag:
         t_now = self.t_now
         sections = {
-            k: v
-            for k, v in self.sections.items()
-            if len(v) > 1
+            k: entries
+            for k, entries in self.sections.items()
+            if (_interesting := Log([e for e in entries if isinstance(e.cmd, BiotekCmd | IncuCmd)]))
         }
 
         start_times = [s.min_t() for _, s in sections.items()]
@@ -421,6 +422,12 @@ class AnalyzeResult:
                 )]
                 break
 
+        include_incu = not any(
+            isinstance(e.cmd, commands.BiotekCmd)
+            for _, entries in sections.items()
+            for e in entries
+        )
+
         rows: list[Row] = [
             Row(
                 t0          = e.t0 or e.t,
@@ -431,12 +438,13 @@ class AnalyzeResult:
                 column      = i,
                 id          = e.metadata.id,
                 simple_id   = e.metadata.simple_id,
-                msg         = getattr(e.cmd, 'protocol_path', ''),
+                msg         = e.cmd.describe(),
                 entry       = e,
             )
             for i, (_, entries) in enumerate(sections.items())
             for e in entries
-            if isinstance(e.cmd, commands.BiotekCmd) #  machine() in ('wash', 'disp')
+            if isinstance(e.cmd, commands.BiotekCmd)
+            or (include_incu and isinstance(e.cmd, commands.IncuCmd))
         ]
 
         rows = bg_rows + rows + now_row

@@ -390,6 +390,16 @@ class BiotekCmd(Command):
     def replace(self, action: BiotekAction):
         return replace(self, action=action)
 
+    def describe(self):
+        if self.protocol_path:
+            if self.action == 'Validate':
+                return self.action + ' ' + self.protocol_path
+            else:
+                return self.protocol_path
+        else:
+            return self.action
+
+
 def WashCmd(
     protocol_path: str | None,
     cmd: BiotekAction = 'Run',
@@ -423,6 +433,12 @@ class IncuCmd(Command):
 
     def required_resource(self):
         return 'incu'
+
+    def describe(self):
+        if self.incu_loc:
+            return self.action + ' ' + self.incu_loc
+        else:
+            return self.action
 
 def IncuFork(
     action: Literal['put', 'get', 'get_climate'],
