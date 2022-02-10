@@ -803,7 +803,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
         Sequence(*prep_cmds).add(Metadata(step='prep')),
         *plate_cmds,
         Sequence(*post_cmds)
-    ).add(Metadata(batch_index=batch_index))
+    ).add(Metadata(batch_index=batch_index + 1))
 
 def cell_paint_program(batch_sizes: list[int], protocol_config: ProtocolConfig, sleek: bool = True) -> Command:
     cmds: list[Command] = []

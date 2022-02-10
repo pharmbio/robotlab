@@ -16,13 +16,12 @@ from subprocess import Popen, DEVNULL
 import json
 import math
 import os
-import pickle
 import platform
 import signal
 import sys
 import re
 
-from .log import Log
+from .log import Log, Running
 from .cli import Args
 
 from . import commands
@@ -157,15 +156,15 @@ def resume(log_filename_in: str, skip: list[str], drop: list[str]):
 
 serve.suppress_flask_logging()
 @lru_cache
-def load_from_pickle(filepath: str) -> Log:
-    with open(filepath, 'rb') as fp:
-        res = pickle.load(fp)
-    return Log(res).drop_boring()
+def read_log_jsonl(filepath: str) -> Log:
+    res = Log.read_jsonl(filepath)
+    res = res.drop_boring()
+    return res
 
 @lru_cache(maxsize=1)
 def _jsonl_to_log(path: str, mtime_ns: int) -> Log | None:
     try:
-        return Log.from_jsonl(path).drop_boring()
+        return Log.read_jsonl(path).drop_boring()
     except:
         return None
 
@@ -238,7 +237,7 @@ class AnalyzeResult:
         return process_is_alive(self.runtime_metadata.pid, self.runtime_metadata.log_filename)
 
     @staticmethod
-    def init(m: Log, until: float | None = None) -> AnalyzeResult | None:
+    def init(m: Log, drop_after: float | None = None) -> AnalyzeResult | None:
 
         completed = m.is_completed()
 
@@ -258,35 +257,38 @@ class AnalyzeResult:
         if errors:
             t_now = Log(e for _, e in errors).max_t() + 1
 
-        if until is not None:
-            t_now = until
-            m = Log([e for e in m if e.t < until])
+        running_log = Log.read_jsonl(runtime_metadata.running_log_filename)
 
-        running = m.running()
+        if drop_after is not None:
+            t_now = drop_after
+            m = m.drop_after(drop_after)
+            running_log = running_log.drop_after(drop_after)
+
+        running = running_log.running()
         if not running:
-            return None
+            running = Running.empty()
 
-        estimates = load_from_pickle(runtime_metadata.estimates_pickle_file)
+        estimates = read_log_jsonl(runtime_metadata.estimates_filename)
         num_plates = max(m.num_plates(), estimates.num_plates())
 
         finished_ids = m.finished()
         running_ids = Log(running.entries).ids()
         live_ids = finished_ids | running_ids
 
-        running_entries = [
+        running_entries = Log([
             e.init(
                 log_time=e.log_time,
                 t0=e.t,
                 t=e.t + (e.metadata.est or e.metadata.sleep_secs or 0.0)
             ).add(Metadata(is_estimate=True))
             for e in running.entries
-        ]
+        ])
 
         estimates = estimates.where(lambda e: e.is_end_or_inf())
         estimates = estimates.where(lambda e: e.metadata.id not in live_ids)
         estimates = estimates.add(Metadata(is_estimate=True))
 
-        vis = Log(m + running_entries + estimates)
+        vis = Log(m + running_entries.drop_boring() + estimates)
         vis = vis.where(lambda e: e.is_end_or_inf())
         end = LogEntry(t=vis.max_t(), metadata=Metadata(section='end'))
         vis = Log(vis + [end])
@@ -388,11 +390,12 @@ class AnalyzeResult:
         for name, entries in self.sections.items():
             if entries:
                 table.append({
-                    'batch':     entries[-1].metadata.batch_index + 1,
+                    'batch':     entries[0].metadata.batch_index or '',
                     'section':   name.strip(' 0123456789'),
                     'countdown': self.pp_countdown(entries.min_t(), zero=''),
                     't0':        self.pp_time_at(entries.min_t()),
-                    'length':    pp_secs(math.ceil(entries.length()), zero=''),
+                    # 'length':    pp_secs(math.ceil(entries.length()), zero=''),
+                    'total':     pp_secs(math.ceil(entries.max_t()), zero='') if name == 'end' else '',
                 })
         return table
 
@@ -401,7 +404,7 @@ class AnalyzeResult:
         sections = {
             k: entries
             for k, entries in self.sections.items()
-            if (_interesting := Log([e for e in entries if isinstance(e.cmd, BiotekCmd | IncuCmd)]))
+            if (_interesting := entries.where(lambda e: isinstance(e.cmd, BiotekCmd | IncuCmd)))
         }
 
         start_times = [s.min_t() for _, s in sections.items()]
@@ -825,7 +828,7 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
                     css_='& input { width: 700px; }'),
                 margin='0 auto',
             )
-            ar = AnalyzeResult.init(log, until=float(t_end.value))
+            ar = AnalyzeResult.init(log, drop_after=float(t_end.value))
     if log is None:
         if stderr:
             box = div(

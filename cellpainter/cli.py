@@ -210,21 +210,21 @@ def main_with_args(args: Args, parser: argparse.ArgumentParser | None=None):
         pv.start(cmdline0, cmdline_to_log)
 
     elif args.test_resume:
-        file1 = 'logs/test_resume.jsonl'
-        file2 = 'logs/test_resume_partial.jsonl'
-        args1 = replace(args, test_resume='', log_filename=file1)
+        log_file1 = 'logs/test_resume.jsonl'
+        log_file2 = 'logs/test_resume_partial.jsonl'
+        args1 = replace(args, test_resume='', log_filename=log_file1)
         main_with_args(args1, parser)
-        log = Log.from_jsonl(file1)
-        for i, e in enumerate(log):
-            if e.metadata.id:
-                if int(e.metadata.id) >= int(args.test_resume):
-                    log = Log(log[:i])
-                    break
-        else:
-            raise ValueError(f'Could not find id {args.test_resume!r}')
-        log.write_jsonl(file2)
+        log = Log.read_jsonl(log_file1)
+        runtime_metadata = log.runtime_metadata()
+        assert runtime_metadata
+        run_file = runtime_metadata.running_log_filename
+        run = Log.read_jsonl(run_file)
+        log = log.drop_after(float(args.test_resume))
+        run = run.drop_after(float(args.test_resume))
+        log.write_jsonl(log_file2)
+        run.write_jsonl(run_file)
         resume_time_now = log.zero_time() + timedelta(seconds=log[-1].t) + timedelta(seconds=args.test_resume_delay)
-        args2 = replace(args, test_resume='', resume=file2, resume_time_now=str(resume_time_now))
+        args2 = replace(args, test_resume='', resume=log_file2, resume_time_now=str(resume_time_now))
         main_with_args(args2, parser)
 
     elif args.resume:

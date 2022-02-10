@@ -27,6 +27,6 @@ jobs:
       - run: cellpainter --cell-paint 8,8 --interleave --two-final-washes
       - run: cellpainter --cell-paint 9,9 --interleave --two-final-washes
       - run: cellpainter --cell-paint 10 --interleave --two-final-washes --lockstep --incu 1205,1200,1200,1200,X
-      - run: for i in 60 70 80 90; do cellpainter --cell-paint 2 --test-resume $i --test-resume-delay 1800 | tail; done
-      - run: for i in 60 70 80 90; do cellpainter --cell-paint 2 --test-resume $i --test-resume-delay 1800 --resume-drop 2 | tail; done
+      - run: for i in 120 240 360 1600 1800 3600; do cellpainter --cell-paint 2 --test-resume $i --test-resume-delay 1800 | tail; done
+      - run: for i in 120 240 360 1600 1800 3600; do cellpainter --cell-paint 2 --test-resume $i --test-resume-delay 1800 --resume-drop 2 | tail; done
       - run: cellpainter --list-imports | tee /dev/stderr | xargs pyright

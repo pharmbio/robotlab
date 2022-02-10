@@ -44,7 +44,7 @@ def add_estimates_from(path: str, log_path: str):
     for e in entries:
         cmd = normalize(e['cmd'])
         ests[cmd] = e['times']
-    log = Log.from_jsonl(log_path)
+    log = Log.read_jsonl(log_path)
     for e in log:
         cmd = e.cmd
         if isinstance(cmd, EstCmd) and e.duration is not None:
@@ -57,8 +57,7 @@ def add_estimates_from(path: str, log_path: str):
         }
         for cmd, times in sorted(ests.items(), key=str)
     ]
-    with open(path, 'w') as fp:
-        json.dump(utils.to_json(m), fp, indent=2)
+    utils.serializer.write_json(m, path, indent=2)
 
 estimates = estimates_from('estimates.json')
 guesses: dict[EstCmd, float] = {}

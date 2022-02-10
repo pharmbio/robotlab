@@ -16,14 +16,19 @@ class Running:
     entries: list[LogEntry] = field(default_factory=list)
     world: dict[str, str] = field(default_factory=dict)
 
+    @staticmethod
+    def empty() -> Running:
+        return Running(entries=[], world={})
+
 @dataclass(frozen=True)
 class RuntimeMetadata:
     pid: int
     git_HEAD: str
-    log_filename: str
-    estimates_pickle_file: str
-    program_pickle_file: str
     host: str
+    log_filename: str
+    estimates_filename: str
+    program_filename: str
+    running_log_filename: str
 
 @dataclass(frozen=True)
 class LogEntry:
@@ -96,8 +101,11 @@ class Error:
 
 class Log(list[LogEntry]):
     @staticmethod
-    def from_jsonl(filename: str):
-        return Log(utils.serializer.from_jsonl(filename))
+    def read_jsonl(filename: str):
+        out = Log(utils.serializer.read_jsonl(filename))
+        if out:
+            assert isinstance(out[0], LogEntry)
+        return out
 
     def write_jsonl(self, filename: str):
         return utils.serializer.write_jsonl(self, filename)
@@ -223,12 +231,13 @@ class Log(list[LogEntry]):
         return max((int(p) for x in self if (p := x.metadata.plate_id)), default=0)
 
     def drop_boring(self) -> Log:
-        return Log(
-            x
-            for x in self
-            if not isinstance(x.cmd, BiotekCmd) or not x.cmd.action in ('Validate', 'TestCommunications')
-            if not isinstance(x.cmd, IncuCmd) or not x.cmd.action in ('get_climate')
-        )
+        res = self
+        res = res.drop(lambda e: isinstance(e.cmd, BiotekCmd) and e.cmd.action in ('Validate', 'TestCommunications'))
+        res = res.drop(lambda e: isinstance(e.cmd, IncuCmd) and e.cmd.action in ('get_climate'))
+        return res
+
+    def drop(self, p: Callable[[LogEntry], Any]) -> Log:
+        return self.where(lambda x: not p(x))
 
     def where(self, p: Callable[[LogEntry], Any]) -> Log:
         return Log(
@@ -242,5 +251,9 @@ class Log(list[LogEntry]):
             x.add(metadata)
             for x in self
         )
+
+    def drop_after(self, secs: float | int) -> Log:
+        return Log([e for e in self if e.t <= secs])
+
 
 utils.serializer.register(globals())

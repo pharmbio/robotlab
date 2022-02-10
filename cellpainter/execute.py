@@ -3,8 +3,9 @@ from typing import Iterator
 
 import contextlib
 import os
-import pickle
 import platform
+
+from pathlib import Path
 
 from . import commands
 
@@ -209,6 +210,17 @@ def execute_program(config: RuntimeConfig, program: Command, metadata: dict[str,
         with utils.timeit('check correspondence'):
             check_correspondence(program, est_entries, expected_ends)
 
+    cache = Path('cache/')
+    cache.mkdir(parents=True, exist_ok=True)
+
+    now_str = utils.now_str_for_filename()
+
+    estimates_filename     = cache / (now_str + '_estimates.jsonl')
+    program_filename       = cache / (now_str + '_program.json')
+    running_log_filename   = cache / (now_str + '_running.jsonl')
+
+    config = config.replace(running_log_filename=str(running_log_filename))
+
     with make_runtime(config, metadata) as runtime:
         try:
             print('Expected finish:', runtime.pp_time_offset(max(expected_ends.values())))
@@ -217,25 +229,19 @@ def execute_program(config: RuntimeConfig, program: Command, metadata: dict[str,
 
         program = program.remove_scheduling_idles()
 
-        os.makedirs('cache/', exist_ok=True)
-        base = 'cache/' + utils.now_str_for_filename() + '_'
-        save = {
-            'estimates_pickle_file': est_entries,
-            'program_pickle_file': program,
-        }
-        runtime_metadata = RuntimeMetadata(
-            pid          = os.getpid(),
-            host         = platform.node(),
-            git_HEAD     = utils.git_HEAD() or '',
-            log_filename = config.log_filename or '',
-            estimates_pickle_file = f'{base}estimates_pickle_file',
-            program_pickle_file   = f'{base}program_pickle_file',
-        )
+        utils.serializer.write_jsonl(est_entries, estimates_filename)
+        utils.serializer.write_json(program, program_filename, indent=2)
+        running_log_filename.touch()
 
-        for k, v in save.items():
-            with open(base + k, 'wb') as fp:
-                pickle.dump(v, fp)
-            assert getattr(runtime_metadata, k) == base + k
+        runtime_metadata = RuntimeMetadata(
+            pid                  = os.getpid(),
+            host                 = platform.node(),
+            git_HEAD             = utils.git_HEAD() or '',
+            log_filename         = config.log_filename or '',
+            estimates_filename   = str(estimates_filename) ,
+            program_filename     = str(program_filename),
+            running_log_filename = str(running_log_filename),
+        )
 
         runtime.log(LogEntry(runtime_metadata=runtime_metadata))
         execute(program, runtime, Metadata())

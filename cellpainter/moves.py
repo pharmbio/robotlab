@@ -148,8 +148,8 @@ class MoveList(list[Move]):
     '''
 
     @staticmethod
-    def from_jsonl(filename: str | Path) -> MoveList:
-        return MoveList(utils.serializer.from_jsonl(filename))
+    def read_jsonl(filename: str | Path) -> MoveList:
+        return MoveList(utils.serializer.read_jsonl(filename))
 
     def write_jsonl(self, filename: str | Path) -> None:
         utils.serializer.write_jsonl(self, filename)
@@ -355,7 +355,7 @@ class TaggedMoveList:
             return self.base + ' ' + self.kind
 
 def read_and_expand(filename: Path) -> dict[str, MoveList]:
-    ml = MoveList.from_jsonl(filename)
+    ml = MoveList.read_jsonl(filename)
     name = filename.stem
     expanded = ml.expand_sections(name, include_self=name == 'wash_to_disp')
     for k, v in list(expanded.items()):

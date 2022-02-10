@@ -83,6 +83,7 @@ class RuntimeConfig:
     env: Env
     robotarm_speed: int = 100
     log_filename: str | None = None
+    running_log_filename: str | None = None
     log_to_file: bool = True
     resume_config: ResumeConfig | None = None
 
@@ -114,15 +115,17 @@ class RuntimeConfig:
             return self.timelike_factory()
 
     def replace(self,
-        robotarm_speed: Keep | int                 = keep,
-        log_filename:   Keep | str | None          = keep,
-        log_to_file:    Keep | bool                = keep,
-        resume_config:  Keep | ResumeConfig | None = keep,
+        robotarm_speed:       Keep | int                 = keep,
+        log_filename:         Keep | str | None          = keep,
+        running_log_filename: Keep | str | None          = keep,
+        log_to_file:          Keep | bool                = keep,
+        resume_config:        Keep | ResumeConfig | None = keep,
     ):
         next = self
         updates = dict(
             robotarm_speed=robotarm_speed,
             log_filename=log_filename,
+            running_log_filename=running_log_filename,
             log_to_file=log_to_file,
             resume_config=resume_config,
         )
@@ -273,6 +276,10 @@ class Runtime:
                 t=t,
                 t0=t0,
             )
+            if entry.running:
+                if self.config.running_log_filename:
+                    utils.serializer.write_jsonl([entry], self.config.running_log_filename, mode='a')
+                return entry
             # the logging logic is quite convoluted so let's safeguard against software errors in it
             try:
                 line = self.log_entry_to_line(entry)
@@ -282,17 +289,11 @@ class Runtime:
                 line = None
             if line:
                 print(line)
-            if 0:
-                utils.pr(entry)
             if entry.err and entry.err.traceback:
                 print(entry.err.traceback, file=sys.stderr)
             log_filename = self.config.log_filename
             if log_filename:
-                    with open(log_filename, 'a') as fp:
-                        d = utils.to_json(entry)
-                        assert entry == utils.from_json(d)
-                        json.dump(d, fp)
-                        fp.write('\n')
+                utils.serializer.write_jsonl([entry], log_filename, mode='a')
             self.log_entries.append(entry)
             return entry
 

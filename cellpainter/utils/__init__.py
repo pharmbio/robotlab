@@ -4,9 +4,6 @@ from dataclasses import *
 from typing import *
 
 from collections import defaultdict
-from pathlib import Path
-
-import json
 
 from datetime import datetime
 import threading
@@ -53,11 +50,6 @@ class Mutable(Generic[A]):
 
 def read_commasep(s: str, p: Callable[[str], A] = lambda x: x) -> list[A]:
     return [p(x.strip()) for x in s.strip().split(',') if x.strip()]
-
-def read_jsonl(path: str | Path) -> Iterator[Any]:
-    with open(path, 'r') as f:
-        for line in f:
-            yield json.loads(line)
 
 def now_str_for_filename() -> str:
     return str(datetime.now()).split('.')[0].replace(' ', '_')

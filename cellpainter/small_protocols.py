@@ -289,14 +289,14 @@ def load_incu(args: ArgsLike):
         assert p.out_loc.startswith('A')
         pos = p.out_loc.removeprefix('A')
         cmds += [
-            Sequence(*[
+            Sequence(
                 RobotarmCmd(f'incu_A{pos} put prep'),
                 RobotarmCmd(f'incu_A{pos} put transfer to drop neu'),
                 WaitForResource('incu'),
                 RobotarmCmd(f'incu_A{pos} put transfer from drop neu'),
                 IncuFork('put', p.incu_loc),
                 RobotarmCmd(f'incu_A{pos} put return'),
-            ]).add(Metadata(plate_id=p.id))
+            ).add(Metadata(plate_id=p.id))
         ]
     program = Sequence(*[
         RobotarmCmd('incu_A21 put-prep'),

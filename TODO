@@ -1,5 +1,5 @@
 [ ] main gui
-    [ ] runtime: separate runtime.running into its own log file
+    [x] runtime: separate runtime.running into its own log file
     [ ] make sure small protocols can be viewed in the gui
     [ ] add to gui protocol to load incubator and a few others of the small protocols
     [ ] batch sep argument ?

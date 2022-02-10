@@ -2,7 +2,6 @@ from __future__ import annotations
 from dataclasses import *
 
 from . import utils
-import pickle
 import shutil
 import os
 from .commands import (
@@ -23,7 +22,7 @@ from . import moves
 from .log import Log
 
 def execute_resume(config: RuntimeConfig, log_filename_in: str, resume_time_now: str | None = None, skip: list[str]=[], drop: list[str]=[]):
-    entries = Log.from_jsonl(log_filename_in)
+    entries = Log.read_jsonl(log_filename_in)
 
     program = resume_program(entries, skip=skip, drop=drop)
 
@@ -45,10 +44,9 @@ def execute_resume(config: RuntimeConfig, log_filename_in: str, resume_time_now:
 def resume_program(entries: Log, skip: list[str]=[], drop: list[str]=[]):
 
     program: Command | None = None
-    rt = entries.runtime_metadata()
-    assert rt
-    with open(rt.program_pickle_file, 'rb') as fp:
-        program = pickle.load(fp)
+    runtime_metadata = entries.runtime_metadata()
+    assert runtime_metadata
+    program = utils.serializer.read_json(runtime_metadata.program_filename)
     assert program and isinstance(program, Command)
 
     next_id = program.next_id()
@@ -57,7 +55,9 @@ def resume_program(entries: Log, skip: list[str]=[], drop: list[str]=[]):
         next_id += 1
         return str(next_id)
 
-    running = entries.running()
+    running_log = Log.read_jsonl(runtime_metadata.running_log_filename)
+    running = running_log.running()
+    utils.pr(running_log)
     assert running
     resumed_world = {
         location: thing
