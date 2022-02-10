@@ -1,6 +1,6 @@
 # robotlab-labrobots
 
-Web servers to our LiCONiC incubator and BioTek washer and dispenser.
+Web server to our LiCONiC incubator and BioTek washer and dispenser.
 
 This is used by the robot cellpainter, https://github.com/pharmbio/robot-cellpainter,
 which is part of the AROS system, Open Automated Robotic System for Biological Laboratories,
