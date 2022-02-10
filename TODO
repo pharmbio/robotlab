@@ -1,17 +1,35 @@
-[ ] make a load up to 18 plates protocol
-[ ] add to gui protocol to load incubator
+[ ] main gui
+    [ ] runtime: separate runtime.running into its own log file
+    [ ] make sure small protocols can be viewed in the gui
+    [ ] add to gui protocol to load incubator and a few others of the small protocols
+    [ ] batch sep argument ?
+[ ] repo
+    [ ] rename main -> main_gui, gui -> moves_gui
+[ ] bioteks
+    [ ] add setup.py
+    [ ] repo rename cli -> repl
+    [ ] check that protocols exists before running: add to biotek cliwrapper to report checksum/hash and last modified date of protocol files
+    [ ] check that all LHC protocol files exist before starting, also associate their timings with their last modification date (and perhaps hash?)
+    [ ] Validate all protocols before starting cell paint
+    [ ] overview before starting, make a little summary of LHC files before starting
+[ ] commands
+    [ ] Command.WaitForCheckpoint: ensure checkpoint name exists
+    [ ] improve command names:
+        [ ] Duration -> TimeSince
+        [ ] exactly ... at_least ... at_most ...
+[ ] small_protocols
+    [ ] make a load up to 18 plates protocol
 [ ] render archive log
     [ ] use biotek pdfs: use updated print_all
     [ ] what to generate? excel? pdf? webpage?
-[ ] add to biotek cliwrapper to report checksum/hash and last modified date of protocol files
-[ ] improve command names:
-    [ ] Duration -> TimeSince
-    [ ] exactly ... at_least ... at_most ...
-
-w50, SPECs:
-[x] run the new incubator program
-[ ] batch sep ?
-[ ] "incubation" time after Wash 1
+[ ] gripper
+    [ ] raise gripper if close more than expected
+[ ] movelists
+    [ ] put/get names not transparent enough ... ? lid_put lid_get
+    [ ] moves: both lin&joint for all coords ?
+[ ] resume
+    [ ] check that it is close to B neu when starting, but don't move there using MoveJoint !!! can check the inverse kinematics of the current position close to B neu
+    [ ] remove all neutral MoveJoint, instead check that the robot is roughly correct (??)
 
 questions from the presentation:
 [ ] slack notifications
@@ -19,35 +37,12 @@ questions from the presentation:
     anders seems to have had such a system at some point with an arduino, ask!
 
 january:
-[ ] batch sep
 [x] add the pause/slowdown button
 
-w44:
-[ ] robustness: raise gripper if close more than expected
-[ ] moves:
-    [ ] save both lin&joint for all coords
-[ ] bioteks
-    [ ] Validate all protocols before starting cell paint
-    [ ] check that all LHC protocol files exist before starting, also associate their timings with their last modification date (and perhaps hash?)
-    [ ] overview before starting, make a little summary of LHC files before starting
-    [ ] make it easier to work with the windows computer? right now you have to change user...
-[ ] start & resume
-    [x] add 'prep' move before 'transfer' or remove initial 'return' move
-    [ ] test resuming
-    [x] make it easy to put the robot in the right place. freedrive and travel between known safe coordinates
-    [x] make it easy to start freedrive to put the robot in place
-    [ ] check that it is close to B neu when starting, but don't move there using MoveJoint !!! can check the inverse kinematics of the current position close to B neu
-    [ ] remove all neutral MoveJoint, instead check that the robot is roughly correct (??)
-[ ] Use timings_v3.1.json ... or not?
+bioteks:
+    [x] make it easier to work with the windows computer? right now you have to change user...
+
 misc:
-
-[ ] prio 2. repo: document how to start everything, in particular how to start the GUI (gui on forwarded robot can be started with run.sh)
-[ ] prio 1. --incu-load with >11 plates
-[ ] prio 1. post mortem: put/get names not transparent enough ... ? lid_put lid_get
-[ ] prio 1. gui: make it easier to see where you are, use colours or add a 3d graph
-[ ] prio 1. gui: keyboard reference rotation
-[ ] prio 1. gui: add links to first subsections so you can go directly to ie wash_put and wash_get
-
 [x] resume: remove removed plate from the world
 
 [x] prio 3. [moves] Raise disp put to be a bit above B21
@@ -114,7 +109,7 @@ misc:
 [-] Incubator get does not seem to take different amount of time because of height
 
 - Dealing with runtime failures (machines acting up, gripper failures: plates slipping, lids not correctly on or off)
-    - [ ] Make a list of all interactions that can error
+    - [x] Make a list of all interactions that can error
     - Jonne is compiled a list for the washer and dispenser
     - Sacrifice the least amount of plates
           Remove the failing plate from experiment and manually tell robot
