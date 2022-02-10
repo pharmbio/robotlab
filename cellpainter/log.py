@@ -183,8 +183,8 @@ class Log(list[LogEntry]):
         return self.max_t() - self.min_t()
 
     def group_by_section(self, first_section_name: str='begin') -> dict[str, Log]:
-        out = {first_section_name: Log()}
         xs = Log()
+        out = {first_section_name: xs}
         for x in sorted(self, key=lambda e: e.t):
             if section := x.metadata.section:
                 xs = Log()

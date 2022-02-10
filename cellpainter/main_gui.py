@@ -764,7 +764,10 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
     t_end_form: div | None = None
     if path:
         log = jsonl_to_log(path)
-        stderr = as_stderr(path).read_text()
+        try:
+            stderr = as_stderr(path).read_text()
+        except:
+            stderr = ''
         if log is not None:
             ar = AnalyzeResult.init(log)
         if log and ar and ar.completed and 'dry' in config.name:
