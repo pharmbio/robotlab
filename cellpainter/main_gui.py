@@ -1,13 +1,13 @@
 from __future__ import annotations
 from typing import *
 
-from .viable import app, js
+from .viable import js
 from .viable import serve, trim, button, pre
 from .viable import Tag, div, span, label
 from . import viable as V
 
 from collections import *
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from functools import lru_cache
 
@@ -20,12 +20,13 @@ import pickle
 import platform
 import signal
 import sys
+import re
 
 from .log import Log
 from .cli import Args
 
 from . import commands
-from .commands import IncuCmd, BiotekCmd, RobotarmCmd
+from .commands import IncuCmd, BiotekCmd
 from . import moves
 from . import runtime
 from . import utils
@@ -303,17 +304,36 @@ class AnalyzeResult:
             num_plates=num_plates,
         )
 
-    def entry_desc(self, e: LogEntry):
+    def entry_desc_for_hover(self, e: LogEntry):
+        cmd = e.cmd
+        match cmd:
+            case BiotekCmd():
+                if cmd.protocol_path:
+                    if cmd.action == 'Validate':
+                        return cmd.action + ' ' + cmd.protocol_path
+                    else:
+                        return cmd.protocol_path
+                else:
+                    return cmd.action
+            case IncuCmd():
+                if cmd.incu_loc:
+                    return cmd.action + ' ' + cmd.incu_loc
+                else:
+                    return cmd.action
+            case _:
+                return str(cmd)
+
+    def entry_desc_for_table(self, e: LogEntry):
         cmd = e.cmd
         match cmd:
             case commands.RobotarmCmd():
                 return cmd.program_name
-            case commands.BiotekCmd():
+            case BiotekCmd():
                 if cmd.action == 'TestCommunications':
                     return cmd.action
                 else:
-                    return cmd.protocol_path
-            case commands.IncuCmd():
+                    return re.sub(r'^automation_|\.LHC$', '', str(cmd.protocol_path))
+            case IncuCmd():
                 if cmd.incu_loc:
                     return cmd.action + ' ' + cmd.incu_loc
                 else:
@@ -346,7 +366,7 @@ class AnalyzeResult:
             table.append({
                 'resource':  resource,
                 'countdown': e and pp_secs(e.countdown(self.t_now)),
-                'desc':      e and self.entry_desc(e),
+                'desc':      e and self.entry_desc_for_table(e),
                 'plate':     e and e.metadata.plate_id,
             })
         return table
@@ -399,6 +419,7 @@ class AnalyzeResult:
             id: str = ''
             msg: str = ''
             entry: LogEntry | None = None
+            title: str = ''
 
         bg_rows: list[Row] = []
         for i, (name, section) in enumerate(sections.items()):
@@ -408,6 +429,7 @@ class AnalyzeResult:
                 is_estimate = False,
                 source      = 'bg',
                 column      = i,
+                title       = name,
             )]
 
         now_row: list[Row] = []
@@ -423,7 +445,7 @@ class AnalyzeResult:
                 break
 
         include_incu = not any(
-            isinstance(e.cmd, commands.BiotekCmd)
+            isinstance(e.cmd, BiotekCmd)
             for _, entries in sections.items()
             for e in entries
         )
@@ -438,24 +460,28 @@ class AnalyzeResult:
                 column      = i,
                 id          = e.metadata.id,
                 simple_id   = e.metadata.simple_id,
-                msg         = e.cmd.describe(),
+                msg         = self.entry_desc_for_hover(e),
                 entry       = e,
             )
             for i, (_, entries) in enumerate(sections.items())
             for e in entries
-            if isinstance(e.cmd, commands.BiotekCmd)
-            or (include_incu and isinstance(e.cmd, commands.IncuCmd))
+            if isinstance(e.cmd, BiotekCmd)
+            or (include_incu and isinstance(e.cmd, IncuCmd))
         ]
 
         rows = bg_rows + rows + now_row
 
         width = 23
 
-        area = div(css='''
-            & {
-                position: relative;
-                user-select: none;
-            }
+        area = div()
+        area.css += f'''
+            position: relative;
+            user-select: none;
+            width: {round(width*(len(sections)+1)*2.3, 1)}px;
+            height: calc(100% - 1em);
+            transform: translateY(1em);
+        '''
+        area.css += '''
             & > * {
                 color: #000;
                 position: absolute;
@@ -492,7 +518,7 @@ class AnalyzeResult:
                 white-space: pre;
                 z-index: 1;
             }
-        ''')
+        '''
 
         for row in rows:
             slot = 0
@@ -517,7 +543,20 @@ class AnalyzeResult:
             h = y1 - y0
 
             info = f'{row.msg} ({row.simple_id})'
+            title: dict[str, Any] | div = {}
+            if row.title:
+                title = div(
+                    row.title.strip(' 0123456789'),
+                    css='''
+                        color: var(--fg);
+                        position: absolute;
+                        left: 50%;
+                        top: 0;
+                        transform: translate(-50%, -100%);
+                    '''
+                )
             area += div(
+                title,
                 row.plate_id,
                 is_estimate=row.is_estimate,
                 can_hover=can_hover,
@@ -534,9 +573,6 @@ class AnalyzeResult:
                 data_simple_id=str(row.simple_id) or None,
                 data_plate_id=str(row.plate_id),
             )
-
-        area.width += f'{width*(len(sections)+1)*2.3}px'
-        area.height += '100%'
 
         return area
 
