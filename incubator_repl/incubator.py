@@ -162,5 +162,9 @@ class STX:
 
         return response
 
-if __name__ == '__main__':
+def main():
     STX().loop()
+
+if __name__ == '__main__':
+    main()
+

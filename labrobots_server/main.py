@@ -1,9 +1,8 @@
 import ast
-import os
-import os.path
 import sys
 import threading
 import time
+from argparse import ArgumentParser
 
 from dataclasses import dataclass, field
 from queue import Queue
@@ -14,8 +13,6 @@ from flask import Flask, jsonify
 
 LHC_CALLER_CLI_PATH = "C:\\Program Files (x86)\\BioTek\\Liquid Handling Control 2.22\\LHC_CallerCLI.exe"
 PROTOCOLS_ROOT = "C:\\ProgramData\\BioTek\\Liquid Handling Control 2.22\\Protocols\\"
-PORT = int(os.environ.get('PORT', 5050))
-HOST = os.environ.get('HOST', '10.10.0.56')
 
 @dataclass
 class Machine:
@@ -59,7 +56,8 @@ class Machine:
                     exc = p.poll()
                     if exc is not None:
                         t = round(time.monotonic() - t0, 3)
-                        lines += [(t, f"exit code: {exc}")]
+                        print(t, self.name, f"exit code: {exc}")
+                        lines += [f"exit code: {exc}"]
                         return lines
                     line = stdout.readline().rstrip()
                     t = round(time.monotonic() - t0, 3)
@@ -88,30 +86,30 @@ class Machine:
                     response['value'] = value
                 reply_queue.put_nowait(response)
 
-def example_main():
-    while True:
-        print("ready")
-        line = input()
-        print("message", line)
-        if "error" in line:
-            print("error")
-        else:
-            print("success")
+def main():
+    ap = ArgumentParser('labrobots_server')
+    ap.add_argument('--port', type=int, default=5050)
+    ap.add_argument('--host', type=str, default='10.10.0.56')
+    ap.add_argument('--test', action='store_true', default=False)
+    args = ap.parse_args(sys.argv[1:])
+    main_with_args(port=args.port, host=args.host, test=args.test)
 
-def main(test: bool):
+def main_with_args(port: int, host: str, test: bool):
+    import os
+    if os.name == 'posix':
+        example = 'labrobots-example-repl'
+        incu = 'incubator-repl'
+    else:
+        example = 'labrobots-example-repl.exe'
+        incu = 'incubator-repl.exe'
     if test:
         machines = {
-            'example': Machine(
-                'example',
-                args=['python', __file__, "--example"]
-            ),
+            'example': Machine('example', args=[example]),
         }
     else:
         machines = {
-            'example': Machine(
-                'example',
-                args=['python', __file__, "--example"],
-            ),
+            'example': Machine('example', args=[example]),
+            'incu': Machine('incu', args=[incu]),
             'wash': Machine(
                 'wash',
                 args=[LHC_CALLER_CLI_PATH, "405 TS/LS", "USB 405 TS/LS sn:191107F", PROTOCOLS_ROOT],
@@ -119,10 +117,6 @@ def main(test: bool):
             'disp': Machine(
                 'disp',
                 args=[LHC_CALLER_CLI_PATH, "MultiFloFX", "USB MultiFloFX sn:19041612", PROTOCOLS_ROOT],
-            ),
-            'incu': Machine(
-                'incu',
-                args=["python", "-u", "../incubator-cli/incubator.py"],
             ),
         }
 
@@ -136,11 +130,17 @@ def main(test: bool):
         arg = arg.replace('/', '\\')
         return jsonify(machines[machine].message(cmd, arg))
 
-    app.run(host=HOST, port=PORT, threaded=True, processes=1)
+    app.run(host=host, port=port, threaded=True, processes=1)
 
 if __name__ == '__main__':
-    if '--example' in sys.argv:
-        example_main()
-    else:
-        main('--test' in sys.argv)
+    main()
 
+def example_repl():
+    while True:
+        print("ready")
+        line = input()
+        print("message", line)
+        if "error" in line:
+            print("error")
+        else:
+            print("success")
