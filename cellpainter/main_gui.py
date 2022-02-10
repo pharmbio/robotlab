@@ -1118,7 +1118,7 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
             )
         """
 
-    if path and not (ar and ar.completed) and not (ar and not ar.process_is_alive()):
+    if path and not (ar and ar.completed):
         yield V.queue_refresh(100)
 
 def form(m: Store, *vs: Int | Str | Bool):
