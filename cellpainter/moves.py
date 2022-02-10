@@ -367,6 +367,18 @@ def read_movelists() -> dict[str, TaggedMoveList]:
     for filename in Path('./movelists').glob('*.jsonl'):
         expanded |= read_and_expand(filename)
 
+    if not expanded:
+        import sys
+        print(f'''
+            No movelists found. You need to start this program in the
+            repo root directory so that ./movelists/ is a direct child.
+
+            If you installed with pip install --editable, you probably
+            want to be in {Path(__file__).parent.parent}
+            but you're in {Path.cwd()}
+        ''', file=sys.stderr)
+        sys.exit(-1)
+
     out: list[TaggedMoveList] = []
     for base, v in expanded.items():
         if 'put-prep' in base or 'put-return' in base:
