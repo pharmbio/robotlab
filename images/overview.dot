@@ -21,7 +21,7 @@ graph {
     >, margin=0.2]
     incu_java [label="STXdriver (Java)"]
     incu_repl [label=<
-        incubator "repl" (python)
+        incubator repl (python)
         <BR/><BR/>
         <FONT FACE="Consolas">incubator_repl/</FONT>
     >, margin=0.2]

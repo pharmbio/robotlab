@@ -49,6 +49,8 @@ either all ports or 5050.
 
 ## Running
 
+Run:
+
 ```
 labrobots-server.exe
 ```
