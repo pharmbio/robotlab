@@ -300,13 +300,21 @@ class Runtime:
         with self.lock:
             try:
                 next = effect.apply(self.world)
-            except Exception as e:
+            except Exception as error:
                 import traceback as tb
                 fatal = self.config.name == 'dry-run'
+                message = utils.show({
+                    'message': 'Can not apply effect at this world',
+                    'effect': effect,
+                    'world': self.world,
+                    'error': error,
+                }, use_color=False)
                 self.log(LogEntry(
                     cmd=entry.cmd if entry else None,
-                    err=Error(str(e), tb.format_exc(), fatal=fatal)
+                    err=Error(message, tb.format_exc(), fatal=fatal)
                 ))
+                if fatal:
+                    raise ValueError(message)
             else:
                 if next != self.world:
                     self.world = next
@@ -348,8 +356,10 @@ class Runtime:
             desc = re.sub(r'\w*name=', '', desc)
             if not desc:
                 desc = str(utils.nub(entry.metadata))
+
             if entry.err and entry.err.message:
                 desc = entry.err.message
+                print(entry.err.message)
 
             w = ','.join(f'{k}:{v}' for k, v in self.world.items())
             r = ', '.join(
@@ -373,13 +383,16 @@ class Runtime:
     running_entries: list[LogEntry] = field(default_factory=list)
     world: World = field(default_factory=dict)
 
-    def log_running(self):
+    def running(self) -> Running:
         with self.lock:
-            running=Running(
+            return Running(
                 entries=self.running_entries,
                 world=self.world,
             )
-            self.log(LogEntry(running=running))
+
+    def log_running(self):
+        with self.lock:
+            self.log(LogEntry(running=self.running()))
 
     def timeit(self, entry: LogEntry) -> ContextManager[None]:
         # The inferred type for the decorated function is wrong hence this wrapper to get the correct type
