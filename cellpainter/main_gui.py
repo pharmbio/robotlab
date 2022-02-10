@@ -1094,30 +1094,6 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
 
     yield vis.extend(grid_area='vis')
 
-    if ar is not None and ar.completed:
-        """
-        d = ar.durations()
-        if d is not None:
-            yield div(
-                V.raw(
-                    d.to_html(border=0, index=False)
-                ),
-                div(height=40),
-                grid_area='info-foot',
-                css='''
-                    & table {
-                        margin: auto;
-                    }
-                    & table td, & table th {
-                        text-align: left;
-                    }
-                    & table td:nth-child(2) {
-                        text-align: right;
-                    }
-                '''
-            )
-        """
-
     if path and not (ar and ar.completed):
         yield V.queue_refresh(100)
 
