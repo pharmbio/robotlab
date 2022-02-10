@@ -1,20 +1,45 @@
 # Standard operating procedure for robot-cellpainter
 
+For dry runs.
+
+For actual cell painting the protocol is similar but preparation and post-work
+for washer, dispenser and incubator are more involved.
+
+## Plate preparation
+
+1. Put test plates in Virkon for a few hours
+
+2. Prepare for --wash-plates-clean:
+
+2.1 Put plates in A1, ...
+
+2.2 Attach washer pump D to water from green tap
+
+2.3 Attach washer pump C to ethanol
+
+2.4 Attach washer waste bottle, preferably an empty one or one just used with water and ethanol
+
+2.5 Prepare the robot as below
+
+3. Run --wash-plates-clean
+
+3. After wash-plates-clean:
+
+3.1 Prime the washer tubes empty
+
+3.2 Detach the washer waste bottle. If it contains only water and ethanol: empty it in the sink
+
+3.3 Your plates are now safe!
+
 ## Incubator preparation
 
 1. Turn on incubator
-
-2. Ensure it is clean
-
-3. Give it enough water to stay humid
 
 ## Washer preparation
 
 1. Turn on washer
 
-2. Attach PBS to pump D
-
-   If dry run: attach water from green tap to pump D
+2. Attach water from green tap to pump D
 
 3. Attach the waste bottle
 
@@ -22,13 +47,11 @@
 
 1. Turn on dispenser
 
-2. Attach the correct liquids
+2. Attach the casettes to the peristaltic pumps
 
-   If dry run: run either with air or with water from green tap
+3. Run either with air (do nothing more) or with water from green tap
 
-3. Attach the waste bottle
-
-   If dry run and running with air: skip
+3. If running with water: attach an empty waste bottle or one used only with water and ethanol
 
 ## robotlab-ubuntu preparation
 
@@ -115,7 +138,6 @@ Now use `pharmbio@robotlab-ubuntu` in the directory for the repo, `~/robot-cellp
 
    Use the teach pendant and its freedrive button.
 
-
 3. Use the windows computer and go to http://10.10.0.55:5000.
 
 4. Enter the desired settings
@@ -124,7 +146,8 @@ Now use `pharmbio@robotlab-ubuntu` in the directory for the repo, `~/robot-cellp
 
 ## After painting
 
-1. On the robot-ubuntu computer add the log file to git and push it:
+1. If you want to store the log file (always do this for actual cell painting experiments),
+   on the robot-ubuntu computer add the log file to git and push it:
 
    ```
    cd robot-cellpainter
@@ -132,9 +155,29 @@ Now use `pharmbio@robotlab-ubuntu` in the directory for the repo, `~/robot-cellp
    git push
    ```
 
-2. Put the robot arm in local (not in remote) using the teach pendant
+2. Return the robot to local mode
 
-3. For dry run: Empty the washer and dispenser tubings by priming them
+3. For dry run: Empty the washer tubings by priming them
 
 4. For dry run: Detach the washer waste bottle and dispose it if it is only water
 
+5. For dry run and dispenser was run with water: Empty tubings by priming them and dispose the waste water
+
+6. Detach the dispenser cassettes around the peristaltic pumps
+
+7. Incubator: turn off and have it slightly open for a while to let it cool down
+
+## Update timings
+
+1. Run a protocol which includes the timings you need
+
+2. Use the log file to update the estimates json:
+
+   ```
+   cd robot-cellpainter
+   cellpainter --add-estimates-from logs/2021-12-15_13:52:31-from-gui.jsonl
+   ```
+
+3. Use `git status` and `git diff` to see that it looks good!
+
+4. Use `git add` and `git commit` and `git push` to commit and push it.
