@@ -1,3 +1,9 @@
+'''
+This server is a python flask server which calls the biotek repl executable
+(which in turn communicates with the BioTek instruments)
+and the liconic repl as a subprocess (which in turn communicates with the incubator)
+'''
+
 import ast
 import sys
 import threading
