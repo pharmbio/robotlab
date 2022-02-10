@@ -7,6 +7,10 @@ for washer, dispenser and incubator are more involved.
 
 ## Plate preparation
 
+The purpose of this is to make the test plates safe and clean to be used inside the incubator.
+If they have any dirt the incubator quickly gets contaminated. If the clean plate are
+touched by hand without gloves they are not considered clean any more and must not enter the incubator.
+
 1. Put test plates in Virkon for a few hours
 
 2. Prepare for --wash-plates-clean:
@@ -29,7 +33,7 @@ for washer, dispenser and incubator are more involved.
 
 3.2 Detach the washer waste bottle. If it contains only water and ethanol: empty it in the sink
 
-3.3 Your plates are now safe!
+3.3 Your plates are now safe! They may now enter the incubator. They must not be touched without gloves.
 
 ## Incubator preparation
 
