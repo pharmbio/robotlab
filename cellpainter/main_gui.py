@@ -158,13 +158,13 @@ serve.suppress_flask_logging()
 @lru_cache
 def read_log_jsonl(filepath: str) -> Log:
     res = Log.read_jsonl(filepath)
-    res = res.drop_boring()
+    res = res.drop_validate()
     return res
 
 @lru_cache(maxsize=1)
 def _jsonl_to_log(path: str, mtime_ns: int) -> Log | None:
     try:
-        return Log.read_jsonl(path).drop_boring()
+        return Log.read_jsonl(path).drop_validate()
     except:
         return None
 
@@ -283,12 +283,14 @@ class AnalyzeResult:
             ).add(Metadata(is_estimate=True))
             for e in running.entries
         ])
+        running_entries = running_entries.drop_validate()
 
         estimates = estimates.where(lambda e: e.is_end_or_inf())
         estimates = estimates.where(lambda e: e.metadata.id not in live_ids)
         estimates = estimates.add(Metadata(is_estimate=True))
 
-        vis = Log(m + running_entries.drop_boring() + estimates)
+        vis = Log(m + running_entries + estimates)
+        vis = vis.drop_test_comm()
         vis = vis.where(lambda e: e.is_end_or_inf())
         end = LogEntry(t=vis.max_t(), metadata=Metadata(section='end'))
         vis = Log(vis + [end])

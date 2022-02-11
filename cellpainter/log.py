@@ -230,10 +230,15 @@ class Log(list[LogEntry]):
     def num_plates(self) -> int:
         return max((int(p) for x in self if (p := x.metadata.plate_id)), default=0)
 
-    def drop_boring(self) -> Log:
+    def drop_validate(self) -> Log:
         res = self
-        res = res.drop(lambda e: isinstance(e.cmd, BiotekCmd) and e.cmd.action in ('Validate', 'TestCommunications'))
-        res = res.drop(lambda e: isinstance(e.cmd, IncuCmd) and e.cmd.action in ('get_climate'))
+        res = res.drop(lambda e: isinstance(e.cmd, BiotekCmd) and e.cmd.action == 'Validate')
+        return res
+
+    def drop_test_comm(self) -> Log:
+        res = self
+        res = res.drop(lambda e: isinstance(e.cmd, BiotekCmd) and e.cmd.action == 'TestCommunications')
+        res = res.drop(lambda e: isinstance(e.cmd, IncuCmd) and e.cmd.action == 'get_climate')
         return res
 
     def drop(self, p: Callable[[LogEntry], Any]) -> Log:
