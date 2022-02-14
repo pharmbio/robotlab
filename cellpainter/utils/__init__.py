@@ -71,25 +71,26 @@ class test(Generic[A]):
             print(red('  !='), show(rhs))
             raise ValueError('Equality test failed')
 
-def iterate_with_full_context(xs: list[A]) -> list[tuple[list[A], A, list[A]]]:
+def iterate_with_full_context(xs: Iterable[A]) -> list[tuple[list[A], A, list[A]]]:
+    xs = list(xs)
     return [
         (xs[:i], x, xs[i+1:])
         for i, x in enumerate(xs)
     ]
 
-def iterate_with_context(xs: list[A]) -> list[tuple[A | None, A, A | None]]:
+def iterate_with_context(xs: Iterable[A]) -> list[tuple[A | None, A, A | None]]:
     return [
         (prev[-1] if prev else None, x, next[0] if next else None)
         for prev, x, next in iterate_with_full_context(xs)
     ]
 
-def iterate_with_next(xs: list[A]) -> list[tuple[A, A | None]]:
+def iterate_with_next(xs: Iterable[A]) -> list[tuple[A, A | None]]:
     return [
         (x, next)
         for _, x, next in iterate_with_context(xs)
     ]
 
-def iterate_with_prev(xs: list[A]) -> list[tuple[A | None, A]]:
+def iterate_with_prev(xs: Iterable[A]) -> list[tuple[A | None, A]]:
     return [
         (prev, x)
         for prev, x, _ in iterate_with_context(xs)

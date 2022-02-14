@@ -6,7 +6,7 @@ import math
 from datetime import datetime, timedelta
 
 from . import utils
-from .commands import Metadata, Command, Checkpoint, BiotekCmd, Duration, Info, IncuCmd
+from .commands import Metadata, Command, Checkpoint, BiotekCmd, Duration, Info, IncuCmd, RobotarmCmd
 
 @dataclass(frozen=True)
 class Running:
@@ -193,7 +193,7 @@ class Log(list[LogEntry]):
     def group_by_section(self, first_section_name: str='begin') -> dict[str, Log]:
         xs = Log()
         out = {first_section_name: xs}
-        for x in sorted(self, key=lambda e: e.t):
+        for x in sorted(self, key=lambda e: (e.t0 or e.t) if isinstance(e.cmd, BiotekCmd | IncuCmd | RobotarmCmd) else e.t):
             if section := x.metadata.section:
                 xs = Log()
                 out[section] = xs

@@ -683,13 +683,16 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                 RobotarmCmd('disp get return'),
             ]
 
+            section_info_by_incu: Command = Idle()
+            section_info_by_wash: Command = Idle()
             if plate is first_plate and step_index != 0:
-                section_info = Section(step)
-            else:
-                section_info = Idle()
+                if p.lockstep:
+                    section_info_by_wash = Section(step)
+                else:
+                    section_info_by_incu = Section(step)
 
-            chunks[plate.id, step, 'incu -> B21' ] = [*incu_delay, section_info, *incu_get]
-            chunks[plate.id, step,  'B21 -> wash'] = wash
+            chunks[plate.id, step, 'incu -> B21' ] = [*incu_delay, section_info_by_incu, *incu_get]
+            chunks[plate.id, step,  'B21 -> wash'] = [section_info_by_wash, *wash]
             chunks[plate.id, step, 'wash -> disp'] = disp
             chunks[plate.id, step, 'disp -> B21' ] = [*disp_to_B21, *lid_on]
 

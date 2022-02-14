@@ -97,7 +97,9 @@ def start(batch_sizes: str, start_from_pfa: bool, simulate: bool, incu: str):
     two_final_washes = N >= 8
     lockstep = N >= 10
     config_name='dry-run' if simulate else config.name
-    if incu in {'1200', '20:00', ''} and N >= 8:
+    if incu == '':
+        incu = '1200'
+    if incu in ('1200', '20:00') and N >= 8:
         incu = '1200,1200,1200,1200,X'
         if N == 10:
             incu = '1205,1200,1200,1200,X'
@@ -427,10 +429,15 @@ class AnalyzeResult:
             title: str = ''
 
         bg_rows: list[Row] = []
-        for i, (name, section) in enumerate(sections.items()):
+        for i, ((name, section), next_name_section) in enumerate(utils.iterate_with_next(sections.items())):
+            if next_name_section:
+                _next_name, next_section = next_name_section
+                t = next_section.min_t()
+            else:
+                t = section.max_t()
             bg_rows += [Row(
                 t0          = section.min_t(),
-                t           = section.max_t(),
+                t           = t,
                 is_estimate = False,
                 source      = 'bg',
                 column      = i,
