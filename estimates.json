@@ -1377,6 +1377,28 @@
     "cmd": {
       "type": "BiotekCmd",
       "machine": "wash",
+      "protocol_path": "automation_v4.0/9_10_W_3X_leaves80ul_PBS.LHC",
+      "action": "RunValidated"
+    },
+    "times": {
+      "2021-10-21 15:39:25": 82.814
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "wash",
+      "protocol_path": "automation_v4.0/9_10_W_3X_leaves80ul_PBS.LHC",
+      "action": "Validate"
+    },
+    "times": {
+      "2021-10-21 15:39:44": 1.564
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "wash",
       "protocol_path": "automation_v4.0/wash-plates-clean/WC_1X_leaves80ul.LHC",
       "action": "Run"
     },
