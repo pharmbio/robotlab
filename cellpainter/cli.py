@@ -25,7 +25,7 @@ from .execute import execute_program
 from .log import Log
 from .moves import movelists
 from .runtime import RuntimeConfig, configs, config_lookup
-from .small_protocols import small_protocols
+from .small_protocols import small_protocols_dict, SmallProtocolArgs
 from .utils import show
 
 A = TypeVar('A')
@@ -59,7 +59,7 @@ class Arg:
         if callable(help):
             help = help.__doc__
         if help:
-            self.helps[f] = doc_header(help)
+            self.helps[f] = utils.doc_header(help)
         if enum:
             self.enums[f] = enum
         return f # type: ignore
@@ -105,27 +105,12 @@ def ATTENTION(s: str):
     else:
         print('continuing...')
 
-small_kvs = {p.__name__: p for p in small_protocols}
-
-def doc_header(f: Any):
-    if isinstance(f, str):
-        s = f
-    else:
-        s = f.__doc__
-        assert isinstance(s, str | None)
-    if s:
-        return s.strip().splitlines()[0]
-    else:
-        return ''
-
 @dataclass(frozen=True)
 class Args:
     config_name: str = arg(
         'dry-run',
         enum=[option(c.name, c.name, help='Run with config ' + c.name) for c in configs]
     )
-    test_comm:                 bool = arg(help=protocol.test_comm_program)
-
     cell_paint:                str  = arg(help='Cell paint with batch sizes of BS, separated by comma (such as 6,6 for 2x6). Plates start stored in incubator L1, L2, ..')
     incu:                      str  = arg(default='1200,1200,1200,1200,1200', help='Incubation times in seconds, separated by comma')
     interleave:                bool = arg(help='Interleave plates, required for 7 plate batches')
@@ -133,12 +118,11 @@ class Args:
     lockstep:                  bool = arg(help='Allow steps to overlap: first plate PFA starts before last plate Mito finished and so on, required for 10 plate batches')
     start_from_pfa:            bool = arg(help='Start from PFA (in room temperature). Use this if you have done Mito manually beforehand')
     log_filename:              str  = arg(help='Manually set the log filename instead of having a generated name based on date')
-    time_bioteks:              bool = arg(help=protocol.time_bioteks)
 
     small_protocol:            str  = arg(
         enum=[
-            option(name, name, help=doc_header(p))
-            for name, p in small_kvs.items()
+            option(name, name, help=p.doc)
+            for name, p in small_protocols_dict.items()
         ]
     )
     num_plates:                int  = arg(help='For some protocols only: number of plates')
@@ -273,7 +257,7 @@ def main_with_args(args: Args, parser: argparse.ArgumentParser | None=None):
 class Program:
     program: commands.Command
     metadata: dict[str, Any]
-    doc: str | None = None
+    doc: str = ''
 
 def args_to_program(args: Args) -> Program | None:
     v3 = protocol.make_v3(args)
@@ -289,22 +273,18 @@ def args_to_program(args: Args) -> Program | None:
             'batch_sizes': ','.join(str(bs) for bs in batch_sizes),
         })
 
-    elif args.time_bioteks:
-        program = protocol.time_bioteks(protocol_config=v3)
-        return Program(program, {'program': 'time_bioteks'}, doc=protocol.time_bioteks.__doc__)
-
-    elif args.test_comm:
-        program = protocol.test_comm_program()
-        return Program(program, {'program': 'test_comm'}, doc=protocol.test_comm_program.__doc__)
-
     elif args.small_protocol:
         name = args.small_protocol.replace('-', '_')
-        p = small_kvs.get(name)
+        p = small_protocols_dict.get(name)
         if p:
-            program = p(args)
-            return Program(program, {'program': p.__name__}, doc=p.__doc__)
+            small_args = SmallProtocolArgs(
+                num_plates = args.num_plates,
+                params = args.params,
+            )
+            program = p.make(small_args)
+            return Program(program, {'program': p.name}, doc=p.doc)
         else:
-            raise ValueError(f'Unknown protocol: {name} (available: {", ".join(p.__name__ for p in small_protocols)})')
+            raise ValueError(f'Unknown protocol: {name} (available: {", ".join(small_protocols_dict.keys())})')
 
     else:
         return None

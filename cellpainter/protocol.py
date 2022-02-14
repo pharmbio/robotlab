@@ -295,8 +295,6 @@ class ProtocolArgs:
 if typing.TYPE_CHECKING:
     _: ProtocolArgsInterface = ProtocolArgs()
 
-
-
 @dataclass(frozen=True, kw_only=True)
 class ProtocolConfig:
     step_names:    list[str]
@@ -326,7 +324,7 @@ class ProtocolConfig:
         for ilv in self.interleavings:
             assert ilv in Interleavings
 
-def make_v3(args: ProtocolArgsInterface) -> ProtocolConfig:
+def make_v3(args: ProtocolArgsInterface = ProtocolArgs()) -> ProtocolConfig:
     incu_csv = args.incu
     six = args.two_final_washes
     N = 6 if six else 5
@@ -827,55 +825,5 @@ def cell_paint_program(batch_sizes: list[int], protocol_config: ProtocolConfig, 
     if sleek:
         program = sleek_program(program)
     program = add_world_metadata(program, world0)
-    return program
-
-def time_bioteks(protocol_config: ProtocolConfig):
-    '''
-    Timing for biotek protocols and robotarm moves from and to bioteks.
-
-    This is preferably done with the bioteks connected to water.
-
-    Required lab prerequisites:
-        1. hotel B21:        one plate *without* lid
-        2. biotek washer:    empty
-        3. biotek washer:    connected to water
-        4. biotek dispenser: empty
-        5. biotek dispenser: all pumps and syringes connected to water
-        6. robotarm:         in neutral position by B hotel
-        7. gripper:          sufficiently open to grab a plate
-
-        8. incubator transfer door: not used
-        9. hotel B1-19:             not used
-       10. hotel A:                 not used
-       11. hotel C:                 not used
-    '''
-    protocol_config = replace(
-        protocol_config,
-        incu=[
-            Symbolic.var(f'incu {i}')
-            for i, _ in enumerate(protocol_config.incu)
-        ]
-    )
-    [[plate]] = define_plates([1])
-    program = cell_paint_program([1], protocol_config=protocol_config, sleek=True)
-    program = Sequence(
-        *(
-            cmd.add(metadata)
-            for cmd, metadata in program.collect()
-            if not isinstance(cmd, Info)
-            if not isinstance(cmd, IncuCmd)
-            if not isinstance(cmd, Fork) or cmd.resource != 'incu'
-            if not isinstance(cmd, WaitForResource) or cmd.resource != 'incu'
-            if not isinstance(cmd, Duration) or '37C' not in cmd.name
-            if not isinstance(cmd, RobotarmCmd) or any(
-                needle in cmd.program_name
-                for needle in ['wash', 'disp']
-            )
-        )
-    )
-    program = Sequence(
-        Info('initial world').add(Metadata(effect=InitialWorld({'B21': plate.id}))),
-        program,
-    )
     return program
 

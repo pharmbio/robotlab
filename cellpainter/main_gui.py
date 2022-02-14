@@ -7,7 +7,7 @@ from .viable import Tag, div, span, label
 from . import viable as V
 
 from collections import *
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 from functools import lru_cache
 
@@ -20,6 +20,8 @@ import platform
 import signal
 import sys
 import re
+import shlex
+import textwrap
 
 from .log import Log, Running
 from .cli import Args
@@ -32,6 +34,7 @@ from . import utils
 from .log import LogEntry, Metadata, RuntimeMetadata, Error, countdown
 from .moves import RawCode, Move
 from .protocol import Locations
+from .small_protocols import small_protocols_dict, SmallProtocolData
 from .provenance import Var, Int, Str, Store, DB, Bool
 from .runtime import get_robotarm, RuntimeConfig
 
@@ -91,30 +94,13 @@ def as_stderr(log_path: str):
     return p
 
 @serve.expose
-def start(batch_sizes: str, start_from_pfa: bool, simulate: bool, incu: str):
-    N = max(utils.read_commasep(batch_sizes, int))
-    interleave = N >= 7
-    two_final_washes = N >= 8
-    lockstep = N >= 10
+def start(args: Args, simulate: bool):
     config_name='dry-run' if simulate else config.name
-    if incu == '':
-        incu = '1200'
-    if incu in ('1200', '20:00') and N >= 8:
-        incu = '1200,1200,1200,1200,X'
-        if N == 10:
-            incu = '1205,1200,1200,1200,X'
-        if start_from_pfa:
-            incu = '1200,1200,1200,X'
     log_filename = 'logs/' + utils.now_str_for_filename() + f'-{config_name}-from-gui.jsonl'
-    args = Args(
+    args = replace(
+        args,
         config_name=config_name,
         log_filename=log_filename,
-        cell_paint=batch_sizes,
-        interleave=interleave,
-        two_final_washes=two_final_washes,
-        lockstep=lockstep,
-        start_from_pfa=start_from_pfa,
-        incu=incu,
         yes=True,
     )
     Path('cache').mkdir(exist_ok=True)
@@ -248,6 +234,9 @@ class AnalyzeResult:
             return None
         zero_time = m.zero_time()
         t_now = (datetime.now() - zero_time).total_seconds()
+
+        if t_now < m.max_t():
+            t_now = m.max_t()
 
         if completed:
             t_now = m.max_t() + 1
@@ -411,8 +400,19 @@ class AnalyzeResult:
             if (_interesting := entries.where(lambda e: isinstance(e.cmd, BiotekCmd | IncuCmd)))
         }
 
-        start_times = [s.min_t() for _, s in sections.items()]
-        max_length = max(s.length() for _, s in sections.items())
+        start_times = [s[0].t for _, s in sections.items()]
+        if start_times:
+            start_times[0] = 0
+        lengths = [
+            next_start_t - this_start_t for
+            this_start_t, next_start_t in
+            utils.iterate_with_next(start_times)
+            if next_start_t is not None
+        ]
+        end_time = max((entries.max_t() for _, entries in sections.items()), default=0)
+        if start_times:
+            lengths += [end_time - start_times[-1]]
+        max_length = max([*lengths, 60*6], default=0)
 
         @dataclass
         class Row:
@@ -428,16 +428,17 @@ class AnalyzeResult:
             entry: LogEntry | None = None
             title: str = ''
 
+        import itertools as it
+
         bg_rows: list[Row] = []
-        for i, ((name, section), next_name_section) in enumerate(utils.iterate_with_next(sections.items())):
-            if next_name_section:
-                _next_name, next_section = next_name_section
-                t = next_section.min_t()
+        for i, ((name, section), this_start, next_start) in enumerate(it.zip_longest(sections.items(), start_times, start_times[1:])):
+            if next_start:
+                this_end = next_start
             else:
-                t = section.max_t()
+                this_end = section.max_t()
             bg_rows += [Row(
-                t0          = section.min_t(),
-                t           = t,
+                t0          = this_start,
+                t           = this_end,
                 is_estimate = False,
                 source      = 'bg',
                 column      = i,
@@ -445,8 +446,8 @@ class AnalyzeResult:
             )]
 
         now_row: list[Row] = []
-        for i, (_section_name, section) in reversed(list(enumerate(sections.items()))):
-            if section.min_t() <= t_now <= section.max_t():
+        for i, ((_name, section), this_start) in reversed(list(enumerate(zip(sections.items(), start_times)))):
+            if t_now >= this_start:
                 now_row += [Row(
                     t0          = t_now,
                     t           = t_now,
@@ -490,8 +491,8 @@ class AnalyzeResult:
             position: relative;
             user-select: none;
             width: {round(width*(len(sections)+1)*2.3, 1)}px;
-            height: calc(100% - 1em);
             transform: translateY(1em);
+            height: calc(100% - 1em);
         '''
         area.css += '''
             & > * {
@@ -556,7 +557,7 @@ class AnalyzeResult:
 
             info = f'{row.msg} ({row.simple_id})'
             title: dict[str, Any] | div = {}
-            if row.title:
+            if row.title and row.title != 'begin':
                 title = div(
                     row.title.strip(' 0123456789'),
                     css='''
@@ -565,6 +566,7 @@ class AnalyzeResult:
                         left: 50%;
                         top: 0;
                         transform: translate(-50%, -100%);
+                        white-space: nowrap;
                     '''
                 )
             area += div(
@@ -693,6 +695,7 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
         & {
             display: grid;
             grid-template-columns: auto auto;
+            grid-template-rows: 40px 100px repeat(5, 40px);
             width: fit-content;
             place-items: center;
             grid-gap: 10px;
@@ -707,13 +710,19 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
         & button {
             border-width: 1px;
         }
-        & input, & button {
+        & input, & button, & select {
             padding: 8px;
             border-radius: 2px;
             background: var(--bg);
             color: var(--fg);
         }
-        & input:focus-visible, & button:focus-visible {
+        & select {
+            width: 100%;
+            font-family: Monospace;
+            font-size: 18px;
+            padding-left: 4px;
+        }
+        & input:focus-visible, & button:focus-visible, & select:focus-visible {
             outline: 2px  var(--blue) solid;
             outline-color: var(--blue);
         }
@@ -724,7 +733,6 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
             grid-column: 1 / span 2;
         }
         & > button {
-            grid-column: 1 / span 2;
             width: 100%;
         }
         & > label {
@@ -734,7 +742,7 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
         & > label > span {
             justify-self: right;
         }
-        & input {
+        & input, & select {
             width: 300px;
         }
         & > label > span {
@@ -744,40 +752,123 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
 
     m = Store(default_provenance='cookie')
     if not path:
+        options = {
+            'cell-paint': 'cell-paint',
+            **{
+                k.replace('_', '-'): v
+                for k, v in small_protocols_dict.items()
+            }
+        }
+
+        protocol = m.var(Str('cell-paint', options=tuple(options.keys())))
+
         plates = m.var(Str(desc='The number of plates per batch, separated by comma. Example: 6,6'))
-        start_from_pfa = m.var(Bool(name='start from pfa', desc='Skip mito and start with PFA (from pre-PFA wash). Plates start on their output positions.'))
-        simulate = m.var(Bool())
+        start_from_pfa = m.var(Bool(name='start from pfa', desc='Skip mito and start with PFA (including pre-PFA wash). Plates start on their output positions (A hotel).'))
         incu = m.var(Str(name='incubation times', value='20:00', desc='The incubation times in seconds or minutes:seconds, separated by comma. If too few values are specified, the last value is repeated. Example: 21:00,20:00'))
+        params = m.var(Str(name='params', desc=f'Additional parameters to protocol "{protocol.value}"'))
+
+        small_data = options.get(protocol.value)
+
+        form_fields: list[Str | Bool] = []
+        if protocol.value == 'cell-paint':
+            form_fields = [plates, incu, start_from_pfa]
+            batch_sizes = plates.value
+            N = utils.catch(lambda: max(utils.read_commasep(batch_sizes, int)), 0)
+            interleave = N >= 7
+            two_final_washes = N >= 8
+            lockstep = N >= 10
+            incu_csv = incu.value
+            if incu_csv == '':
+                incu_csv = '1200'
+            if incu_csv in ('1200', '20:00') and N >= 8:
+                incu_csv = '1200,1200,1200,1200,X'
+                if N == 10:
+                    incu_csv = '1205,1200,1200,1200,X'
+                if start_from_pfa.value:
+                    incu_csv = '1200,1200,1200,X'
+            args = Args(
+                cell_paint=batch_sizes,
+                start_from_pfa=start_from_pfa.value,
+                incu=incu_csv,
+                interleave=interleave,
+                two_final_washes=two_final_washes,
+                lockstep=lockstep,
+            )
+        elif isinstance(small_data, SmallProtocolData):
+            if 'num_plates' in small_data.args:
+                form_fields += [plates]
+            if 'params' in small_data.args:
+                form_fields += [params]
+            args = Args(
+                small_protocol=small_data.name,
+                num_plates=utils.catch(lambda: int(plates.value), 0),
+                params=utils.catch(lambda: shlex.split(params.value), []),
+            )
+        else:
+            form_fields = []
+            args = None
+
+        if isinstance(small_data, SmallProtocolData):
+            doc_full = textwrap.dedent(small_data.make.__doc__ or '').strip()
+            doc_header = small_data.doc
+        else:
+            doc_full = ''
+            doc_header = ''
 
         yield div(
-            *form(m, plates, incu, start_from_pfa, simulate),
+            *form(m, protocol),
+            div(
+                doc_header,
+                title=doc_full,
+                grid_column='2 / span 1',
+                css='''
+                    max-width: fit-content;
+                    padding: 5px 12px;
+                    place-self: start;
+                ''',
+            ),
+            *form(m, *form_fields),
+            button(
+                'simulate',
+                onclick=start.call(args=args, simulate=True),
+                grid_row='-1',
+            ) if args else '',
             button(
                 V.raw(triangle.strip()), ' ', 'start',
-                onclick=start.call(
-                    batch_sizes=plates.value,
-                    simulate=simulate.value,
-                    start_from_pfa=start_from_pfa.value,
-                    incu=incu.value,
-                ),
-                css='''
-                  & .svg-triangle {
+                title=doc_full,
+                onclick=
+                    (
+                        'confirm(this.title)&&'
+                        if 'required' in doc_full.lower()
+                        else ''
+                    )
+                    +
+                    start.call(args=args, simulate=False),
+                grid_row='-1',
+            ) if args else '',
+            height='100%',
+            padding='80px 0',
+            grid_area='header',
+            user_select='none',
+            css_=form_css,
+            css='''
+                & label > span {
+                    min-width: 10em;
+                    text-align: right;
+                }
+                & .svg-triangle {
                     margin-right: 6px;
                     width: 16px;
                     height: 16px;
                     transform: translateY(4px);
-                  }
-
-                  & .svg-triangle polygon {
+                }
+                & .svg-triangle polygon {
                     fill: var(--green);
-                  }
-                '''
-            ),
-            height='100%',
-            # button('simulate', onclick=start.call(simulate=True)),
-            padding='80px 0',
-            grid_area='header',
-            user_select='none',
-            css__=form_css,
+                }
+                & button {
+                    height: 100%;
+                }
+            '''
         )
         yield div(
             f'Running on {platform.node()} with config {config.name}',
@@ -1079,8 +1170,6 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
                         outline: 3px var(--red) solid;
                     }'''
                 )
-
-            import textwrap
 
             resume_text = textwrap.dedent('''
                 Robotarm needs to be moved back to the neutral position by B21 hotel.

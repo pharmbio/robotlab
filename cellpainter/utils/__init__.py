@@ -189,3 +189,14 @@ def zip_sub(xs: list[float], ys: list[float], ndigits: int=1) -> list[float]:
 
 def zip_add(xs: list[float], ys: list[float], ndigits: int=1) -> list[float]:
     return zip_with(lambda a, b: a + b, xs, ys, ndigits=ndigits)
+
+def doc_header(f: Any):
+    if isinstance(f, str):
+        s = f
+    else:
+        s = f.__doc__
+        assert isinstance(s, str | None)
+    if s:
+        return s.strip().splitlines()[0]
+    else:
+        return ''

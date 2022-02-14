@@ -87,47 +87,57 @@ Use the teach pendant.
 
 5. Put the teach pendant close to the keyboard so you can reach the emergency button
 
-Use `pharmbio@robotlab-ubuntu` the directory for the repo, `~/robot-cellpainter/`.
+6. Use the windows computer and go to http://10.10.0.55:5000.
 
-6. Run test communications to see that everything is communicating correctly:
+7. Run the test communications protocol, `test-comm` to verify that all machines can be communicated with.
 
-   ```
-   cellpainter --test-comm --live
-   ```
+    <details>
+    <summary>Alternative: use the command line</summary>
+
+    Use `pharmbio@robotlab-ubuntu` in the directory for the repo, `~/robot-cellpainter/`.
+
+    ```
+    cellpainter --test-comm --live
+    ```
+
+    </details>
 
    Common ways this can fail:
 
-   Robotarm might be in local mode. Change it to remote mode.
+   * Robotarm might be in local mode. Change it to remote mode on the teach pendant.
 
-   Robotarm gripper might not be activated. Activate it.
+   * Robotarm gripper might not be activated. Activate it using the teach pendant.
 
-   Incubator communication might not be activated. Run
+   * Incubator communication might not be activated. Run
 
-   ```
-   curl http://10.10.0.56:5050/incu/reset_and_activate
-   ```
+       ```
+       curl http://10.10.0.56:5050/incu/reset_and_activate
+       ```
 
-   If 10.10.0.56:5050 cannot be reached make sure the
-   robotlab-windows computer is running the labrobots server:
-   https://github.com/pharmbio/robotlab-labrobots
+   * If 10.10.0.56:5050 cannot be reached make sure the
+     robotlab-windows computer is running the labrobots server:
+     https://github.com/pharmbio/robotlab-labrobots
 
-   TODO: Add this to the gui
+   _TODO_: Incubator get_climate reports success even though the incubator is off.
 
-   TODO: Incubator get_climate reports success even though the incubator is off.
-
-7. Run the test circuit to see that everything is the correct place.
+8. Run the test circuit protocol, `test-circuit`, to see that everything is the correct place.
    This is optional if you know everything is in order.
 
    Start with one plate with lid in the incubator transfer door.
 
-   ```
-   cellpainter --test-circuit --live
-   ```
-
-   TODO: Add this to the gui
-
-   If not: move the instruments to their correct locations. If that is
+   If moves fail: move the instruments to their correct locations. If that is
    not possible update the locations using the `cellpainter-moves` program.
+
+    <details>
+    <summary>Alternative: use the command line</summary>
+
+    Use `pharmbio@robotlab-ubuntu` in the directory for the repo, `~/robot-cellpainter/`.
+
+    ```
+    cellpainter --test-circuit --live
+    ```
+
+    </summary>
 
 ## Loading the incubator
 
@@ -138,15 +148,21 @@ Use `pharmbio@robotlab-ubuntu` the directory for the repo, `~/robot-cellpainter/
 
    Use the teach pendant and its freedrive button.
 
-Use `pharmbio@robotlab-ubuntu` in the directory for the repo, `~/robot-cellpainter/`.
+3. Use the windows computer and go to http://10.10.0.55:5000.
 
-3. Run the load incubator protocol with the correct amount of plates substituted:
+4. Use the load incubator protocol, `incu-load`, specify the correct number of plates, and press start.
 
-   ```
-   cellpainter --load-incu --num-plates $NUM_PLATES --live
-   ```
 
-   TODO: Add this to the gui
+    <details>
+    <summary>Alternative: use the command line</summary>
+
+    Use `pharmbio@robotlab-ubuntu` in the directory for the repo, `~/robot-cellpainter/`.
+
+    ```
+    cellpainter --load-incu --num-plates $NUM_PLATES --live
+    ```
+
+    </summary>
 
 ## Painting
 
@@ -158,9 +174,9 @@ Use `pharmbio@robotlab-ubuntu` in the directory for the repo, `~/robot-cellpaint
 
 3. Use the windows computer and go to http://10.10.0.55:5000.
 
-4. Enter the desired settings
+4. Select the `cell-paint` protocol and enter the desired settings.
 
-5. Press start
+5. Press start.
 
 ## After painting
 

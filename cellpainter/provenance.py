@@ -96,24 +96,43 @@ class Bool(Var[bool]):
             type='checkbox',
         )
 
-
 @dataclass(frozen=True)
 class Str(Var[str]):
     value: str=''
     desc: str|None=None
     help: str|None=None
+    options: None | tuple[str] = None
 
-    def from_str(self, s: str):
-        return s
+    def from_str(self, s: str) -> str:
+        if self.options is not None:
+            if s in self.options:
+                return s
+            else:
+                return self.options[0]
+        else:
+            return s
 
     def update_handler(self, m: Store, iff:str|None=None):
         return m.update_untyped({self: js('this.value')}).goto(iff=iff)
 
     def input(self, m: Store, iff:str|None=None):
-        return input(
-            value=str(self.value),
-            oninput=self.update_handler(m, iff=iff),
-        )
+        if self.options:
+            return V.select(
+                *[
+                    V.option(
+                        key,
+                        selected=self.value == key,
+                        data_key=key,
+                    )
+                    for key in self.options
+                ],
+                oninput=m.update_untyped({self: js('this.selectedOptions[0].dataset.key')}).goto(iff=iff),
+            )
+        else:
+            return input(
+                value=str(self.value),
+                oninput=self.update_handler(m, iff=iff),
+            )
 
 @dataclass(frozen=True)
 class StoredValue:

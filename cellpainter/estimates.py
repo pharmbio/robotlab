@@ -13,8 +13,6 @@ from .commands import (
     BiotekCmd,
 )
 
-import json
-
 EstCmd = RobotarmCmd | IncuCmd | BiotekCmd
 
 def normalize(cmd: EstCmd) -> EstCmd:
