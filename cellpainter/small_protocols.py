@@ -76,7 +76,7 @@ def Section(section: str) -> Command:
 @small_protocols.append
 def incu_load(args: SmallProtocolArgs):
     '''
-    Load incubator with from A hotel, starting at the bottom, to incubator positions L1, ...
+    Load incubator from A hotel, starting at the bottom, to incubator positions L1, ...
 
     Required lab prerequisites:
         1. incubator transfer door: empty!
@@ -130,7 +130,7 @@ def test_comm(_: SmallProtocolArgs):
 @small_protocols.append
 def test_circuit(_: SmallProtocolArgs):
     '''
-    Move one plate around on all its positions using the robotarm, without running incubator or bioteks.
+    Move one plate around to all its positions using the robotarm, without running incubator or bioteks.
 
     Required lab prerequisites:
         1. hotel one:               empty!
@@ -515,7 +515,7 @@ def add_missing_timings(_: SmallProtocolArgs):
 @small_protocols.append
 def time_bioteks(_: SmallProtocolArgs):
     '''
-    Timing for biotek protocols and robotarm moves from and to bioteks.
+    Timing for biotek protocols and robotarm moves to and from bioteks.
 
     This is preferably done with the bioteks connected to water.
 

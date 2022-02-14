@@ -1188,6 +1188,7 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
                     title=resume_text),
                 grid_area='stop',
                 css=form_css,
+                css_='& button { grid-column: 1 / span 2 }',
             )
 
     yield vis.extend(grid_area='vis')
