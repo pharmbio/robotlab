@@ -786,7 +786,7 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
             if incu_csv in ('1200', '20:00') and N >= 8:
                 incu_csv = '1200,1200,1200,1200,X'
                 if N == 10:
-                    incu_csv = '1205,1200,1200,1200,X'
+                    incu_csv = '1230,1230,1230,1230,1260'
                 if start_from_pfa.value:
                     incu_csv = '1200,1200,1200,X'
             args = Args(
