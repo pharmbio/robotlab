@@ -502,7 +502,7 @@ class AnalyzeResult:
                 outline: 1px #0005 solid;
                 display: grid;
                 place-items: center;
-                font-size: 0.9rem;
+                font-size: 14px;
                 min-height: 1px;
                 background: var(--row-color);
             }
@@ -516,7 +516,7 @@ class AnalyzeResult:
                 background: #0005;
             }
             & > [can-hover]:hover::after {
-                font-size: 1rem;
+                font-size: 16px;
                 color: #000;
                 position: absolute;
                 outline: 1px #0005 solid;
@@ -567,6 +567,7 @@ class AnalyzeResult:
                         top: 0;
                         transform: translate(-50%, -100%);
                         white-space: nowrap;
+                        background: unset;
                     '''
                 )
             area += div(
@@ -610,14 +611,19 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
             html, body {
                 height: 100%;
             }
-            input, pre {
-                font-family: inherit;
-            }
-            body, button, input {
-                background: var(--bg);
+            html {
                 color:      var(--fg);
+                background: var(--bg);
+                font-size: 16px;
                 font-family: Consolas, monospace;
-                font-size: 18px;
+                letter-spacing: -0.025em;
+            }
+            * {
+                color: inherit;
+                background: inherit;
+                font-size: inherit;
+                font-family: inherit;
+                letter-spacing: inherit;
             }
             table {
                 background: #0005;
@@ -717,8 +723,6 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
         }
         & select {
             width: 100%;
-            font-family: Monospace;
-            font-size: 18px;
             padding-left: 4px;
         }
         & input:focus-visible, & button:focus-visible, & select:focus-visible {
@@ -880,7 +884,6 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
         )
     info = div(
         grid_area='info',
-        font_size='1rem',
         css='''
             & *+* {
                 margin-top: 18px;
@@ -1103,6 +1106,9 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
                         }.items()
                     ],
                     css='''
+                        & {
+                            font-size: 18px;
+                        }
                         & button {
                             margin: 10px 5px;
                             padding: 10px;
@@ -1126,7 +1132,7 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
                     onclick='confirm("Stop?")&&' + sigint.call(ar.runtime_metadata.pid),
                     css='''
                         & {
-                            font-size: 2rem;
+                            font-size: 32px;
                             display: block;
                             width: 100%;
                             color: var(--red);
