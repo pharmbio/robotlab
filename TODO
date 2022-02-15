@@ -1,7 +1,7 @@
 [ ] main gui
     [x] runtime: separate runtime.running into its own log file
     [x] make sure small protocols can be viewed in the gui
-    [ ] add to gui protocol to load incubator and a few others of the small protocols
+    [x] add to gui protocol to load incubator and a few others of the small protocols
     [ ] batch sep argument ?
     [x] visualization overflows for 10 plate protocol
 [ ] repo
