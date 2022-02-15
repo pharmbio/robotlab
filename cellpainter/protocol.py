@@ -366,14 +366,14 @@ def make_v3(args: ProtocolArgsInterface = ProtocolArgs()) -> ProtocolConfig:
             if six else
             ['Mito', 'PFA', 'Triton', 'Stains', 'Final'],
         wash = [
-            'automation_v4.0/1_W_2X_beforeMito_leaves20ul_PBS.LHC',
-            'automation_v4.0/3_W_3X_beforePFA_leaves20ul_PBS.LHC',
-            'automation_v4.0/5_W_3X_beforeTriton_leaves10ul_PBS.LHC',
-            'automation_v4.0/7_W_3X_beforeStains_leaves10ul_PBS.LHC',
+            'automation_v4.0/working1_W_2X_beforeMito_leaves20ul_PBS.LHC',
+            'automation_v4.0/working3_W_3X_beforePFA_leaves20ul_PBS.LHC',
+            'automation_v4.0/working5_W_3X_beforeTriton_leaves10ul_PBS.LHC',
+            'automation_v4.0/working7_W_3X_beforeStains_leaves10ul_PBS.LHC',
         ] +
         ([
-            'automation_v4.0/9_10_W_3X_leaves80ul_PBS.LHC',
-            'automation_v4.0/9_10_W_3X_leaves80ul_PBS.LHC',
+            'automation_v4.0/working9_10_W_3X_leaves80ul_PBS.LHC',
+            'automation_v4.0/working9_10_W_3X_leaves80ul_PBS.LHC',
         ] if six else [
             'automation_v4.0/9_W_5X_leaves80ul_PBS.LHC',
         ]),

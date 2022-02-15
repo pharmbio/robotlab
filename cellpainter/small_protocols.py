@@ -271,11 +271,11 @@ def run_biotek(args: SmallProtocolArgs):
     For each parameter <X> runs all protocols that matches automation_v4.0/<X>.
     For example, 2 will run 2.0_D_SB_PRIME_Mito and then 2.1_D_SB_30ul_Mito.
 
-    Note: the two final washes protocol 9_10_W is not included.
+    Note: the two final washes protocol 9_10_W is included, but not the 9_W.
     '''
     wash: list[str] = []
     disp: list[str] = []
-    v3 = make_v3()
+    v3 = make_v3(ProtocolArgs(two_final_washes=True))
     wash += [*v3.wash, v3.prep_wash or '']
     disp += [*v3.disp, *v3.pre_disp, *v3.prime, v3.prep_disp or '']
     protocols = [
@@ -290,7 +290,12 @@ def run_biotek(args: SmallProtocolArgs):
         for p, machine in protocols:
             if f'/{x.lower()}' in p.lower():
                 cmds += [
-                    Fork(BiotekCmd(machine, p, action='Run')),
+                    Fork(
+                        Sequence(
+                            BiotekCmd(machine, p, action='Validate'),
+                            BiotekCmd(machine, p, action='RunValidated'),
+                        )
+                    ),
                     WaitForResource(machine)
                 ]
     return Sequence(*cmds)
