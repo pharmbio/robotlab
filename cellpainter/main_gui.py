@@ -695,7 +695,6 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
         & {
             display: grid;
             grid-template-columns: auto auto;
-            grid-template-rows: 40px 100px repeat(5, 40px);
             width: fit-content;
             place-items: center;
             grid-gap: 10px;
@@ -852,6 +851,9 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
             user_select='none',
             css_=form_css,
             css='''
+                & {
+                    grid-template-rows: 40px 100px repeat(5, 40px);
+                }
                 & label > span {
                     min-width: 10em;
                     text-align: right;
