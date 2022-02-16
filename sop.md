@@ -5,7 +5,7 @@ For dry runs.
 For actual cell painting the protocol is similar but preparation and post-work
 for washer, dispenser and incubator are more involved.
 
-## start gui on robotlab-ubuntu
+## Start gui on robotlab-ubuntu
 
 The robotlab-ubuntu computer is the NUC running ubuntu.
 
