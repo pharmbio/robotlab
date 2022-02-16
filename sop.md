@@ -178,10 +178,6 @@ touched by hand without gloves they are not considered clean any more and must n
 
 2.4 Attach washer waste bottle, preferably an empty one or one just used with water and ethanol
 
-2.5 Prepare the robot as below
-
-2.6 Start the gui as below
-
 3. Use the gui on the windows computer at http://10.10.0.55:5000, select `wash-plates-clean` and enter the number of plates. Press start!
 
     <details>
