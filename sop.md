@@ -5,35 +5,72 @@ For dry runs.
 For actual cell painting the protocol is similar but preparation and post-work
 for washer, dispenser and incubator are more involved.
 
-## Plate preparation
+## start gui on robotlab-ubuntu
 
-The purpose of this is to make the test plates safe and clean to be used inside the incubator.
-If they have any dirt the incubator quickly gets contaminated. If the clean plate are
-touched by hand without gloves they are not considered clean any more and must not enter the incubator.
+The robotlab-ubuntu computer is the NUC running ubuntu.
 
-1. Put test plates in Virkon for a few hours
+Log in as `pharmbio`, go to the directory for the repo, `~/robot-cellpainter/`.
 
-2. Prepare for --wash-plates-clean:
+<details>
+<summary>Detailed instructions...</summary>
 
-2.1 Put plates in A1, ...
+On the windows computer start PowerShell.
 
-2.2 Attach washer pump D to water from green tap
+```
+ssh pharmbio@10.10.0.55
+```
 
-2.3 Attach washer pump C to ethanol
+The output should look like:
 
-2.4 Attach washer waste bottle, preferably an empty one or one just used with water and ethanol
+```
+PS C:\Users\pharmbio> ssh pharmbio@10.10.0.55
+pharmbio@10.10.0.55's password:
+Welcome to Ubuntu 20.04.2 LTS (GNU/Linux 5.4.0-77-generic x86_64)
 
-2.5 Prepare the robot as below
+ * Documentation:  https://help.ubuntu.com
+ * Management:     https://landscape.canonical.com
+ * Support:        https://ubuntu.com/advantage
 
-3. Run --wash-plates-clean
+232 updates can be installed immediately.
+83 of these updates are security updates.
+To see these additional updates run: apt list --upgradable
 
-3. After wash-plates-clean:
+*** System restart required ***
+Last login: Wed Feb 16 16:06:11 2022 from 10.10.0.10
+Welcome to Ubuntu 20.04.2 LTS (GNU/Linux 5.4.0-77-generic x86_64)
 
-3.1 Prime the washer tubes empty
+ * Documentation:  https://help.ubuntu.com
+ * Management:     https://landscape.canonical.com
+ * Support:        https://ubuntu.com/advantage
 
-3.2 Detach the washer waste bottle. If it contains only water and ethanol: empty it in the sink
+232 updates can be installed immediately.
+83 of these updates are security updates.
+To see these additional updates run: apt list --upgradable
 
-3.3 Your plates are now safe! Safe plates may enter the incubator. They must not be touched without gloves.
+*** System restart required ***
+Last login: Wed Feb 16 16:06:11 2022 from 10.10.0.10
+pharmbio@NUC-robotlab:~$
+```
+
+Continue in this shell:
+
+```
+cd robot-cellpainter
+VIABLE_HOST=10.10.0.55 cellpainter-gui --live
+```
+
+This concludes the step below
+</summary>
+
+1. Make sure you are running the desired version of the code. Use `git pull`, `git log`, `git status`, `git reset`, etc.
+
+2. Start the gui:
+
+   ```
+   VIABLE_HOST=10.10.0.55 cellpainter-gui --live
+   ```
+
+3. Use the windows computer and verify that you can go to http://10.10.0.55:5000.
 
 ## Incubator preparation
 
@@ -56,20 +93,6 @@ touched by hand without gloves they are not considered clean any more and must n
 3. Run either with air (do nothing more) or with water from green tap
 
 3. If running with water: attach an empty waste bottle or one used only with water and ethanol
-
-## robotlab-ubuntu preparation
-
-The robotlab-ubuntu computer is the NUC running ubuntu.
-
-Log in as `pharmbio`, go to the directory for the repo, `~/robot-cellpainter/`.
-
-1. Make sure you are running the desired version of the code. Use `git pull`, `git log`, `git status`, `git reset`, etc.
-
-5. Start the gui:
-
-   ```
-   VIABLE_HOST=10.10.0.55 cellpainter-gui --live
-   ```
 
 ## Robot arm preparation
 
@@ -139,6 +162,48 @@ Use the teach pendant.
 
     </summary>
 
+## Test plate decontamination
+
+The purpose of this step is to make the test plates safe and clean to be used inside the incubator.
+If they have any dirt the incubator quickly gets contaminated. If the clean plate are
+touched by hand without gloves they are not considered clean any more and must not enter the incubator.
+
+1. Put test plates in Virkon for a few hours
+
+2. Prepare for --wash-plates-clean:
+
+2.1 Put plates in A1, A3, ...
+
+2.2 Attach washer pump D to water from green tap
+
+2.3 Attach washer pump C to ethanol
+
+2.4 Attach washer waste bottle, preferably an empty one or one just used with water and ethanol
+
+2.5 Prepare the robot as below
+
+2.6 Start the gui as below
+
+3. Use the gui on the windows computer at http://10.10.0.55:5000, select `wash-plates-clean` and enter the number of plates. Press start!
+
+    <details>
+    <summary>Alternative: use the command line</summary>
+
+    Use `pharmbio@robotlab-ubuntu` in the directory for the repo, `~/robot-cellpainter/`.
+
+    ```
+    cellpainter --wash-plates-clean --num-plates $NUM_PLATES --live
+    ```
+    </summary>
+
+4. After wash-plates-clean:
+
+4.1 Prime the washer tubes empty
+
+4.2 Detach the washer waste bottle. If it contains only water and ethanol: empty it in the sink
+
+4.3 Your plates are now safe! Safe plates may enter the incubator. They must not be touched without gloves.
+
 ## Loading the incubator
 
 1. Place the plates in A1, A3, A5, ... They will be moved to L1, L2, L3, ... inside the
@@ -150,8 +215,7 @@ Use the teach pendant.
 
 3. Use the windows computer and go to http://10.10.0.55:5000.
 
-4. Use the load incubator protocol, `incu-load`, specify the correct number of plates, and press start.
-
+4. Use the load incubator protocol, `incu-load`, and enter the number of plates. Press start!
 
     <details>
     <summary>Alternative: use the command line</summary>
@@ -174,9 +238,17 @@ Use the teach pendant.
 
 3. Use the windows computer and go to http://10.10.0.55:5000.
 
-4. Select the `cell-paint` protocol and enter the desired settings.
+4. Select the `cell-paint` protocol and enter the desired settings. Press start!
 
-5. Press start.
+    <details>
+    <summary>Alternative: use the command line</summary>
+
+    Use `pharmbio@robotlab-ubuntu` in the directory for the repo, `~/robot-cellpainter/`.
+
+    ```
+    cellpainter --cell-paint $BATCH_SIZES [--interleave] [--lockstep] [--two-final-washes] [--incu $INCU_CSV] --live
+    ```
+    </summary>
 
 ## After painting
 
