@@ -58,9 +58,7 @@ Continue in this shell:
 cd robot-cellpainter
 VIABLE_HOST=10.10.0.55 cellpainter-gui --live
 ```
-
-This concludes the step below
-</summary>
+</details>
 
 1. Make sure you are running the desired version of the code. Use `git pull`, `git log`, `git status`, `git reset`, etc.
 
