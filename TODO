@@ -1,18 +1,20 @@
+[ ] repo
+    [ ] move viable and provenance to utils directory
+    [ ] move arg builder (and Args?) out from cli
+    [x] rename main -> main_gui, gui -> moves_gui
 [ ] main gui
     [x] runtime: separate runtime.running into its own log file
     [x] make sure small protocols can be viewed in the gui
     [x] add to gui protocol to load incubator and a few others of the small protocols
     [ ] batch sep argument ?
     [x] visualization overflows for 10 plate protocol
-[ ] repo
-    [x] rename main -> main_gui, gui -> moves_gui
-    [ ] move arg builder (and Args?) out from cli
 [ ] bioteks
     [x] add setup.py
     [x] repo rename cli -> repl
     [ ] check that protocols exists before running: add to biotek cliwrapper to report checksum/hash and last modified date of protocol files
     [ ] check that all LHC protocol files exist before starting, also associate their timings with their last modification date (and perhaps hash?)
     [ ] Validate all protocols before starting cell paint
+        [ ] validate all protocols small protocol gives no feedback in the main gui
     [ ] overview before starting, make a little summary of LHC files before starting
 [ ] commands
     [ ] Command.WaitForCheckpoint: ensure checkpoint name exists
