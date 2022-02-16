@@ -7,7 +7,7 @@ import socket
 from collections import deque
 
 from ..utils import Mutable
-from .moves import Move, MoveList
+from .moves import Move, MoveList, movelists
 
 DEFAULT_HOST='10.10.0.98'
 DEFAULT_HOST='127.0.0.1'
@@ -73,10 +73,15 @@ class Robotarm:
     def close(self):
         self.sock.close()
 
-    def execute_moves(self, ms: list[Move]):
+    def execute_moves(self, ms: list[Move], before_each: Callable[[], None] | None = None):
         for m in ms:
+            if before_each:
+                before_each()
             self.execute(m.to_script())
             self.execute('WaitForEOM')
+
+    def execute_movelist(self, name: str, before_each: Callable[[], None] | None = None):
+        self.execute_moves(movelists[name], before_each=before_each)
 
     def set_speed(self, value: int):
         assert 1 <= value <= 100
