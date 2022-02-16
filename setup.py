@@ -4,16 +4,18 @@ requirements = '''
     flask
 '''
 
-console_scripts = '''
-    pf-moves=pf.gui:main
-    pf-flash=pf.flash:main
-'''
+name='imx_pharmbio_automation'
 
-name='pf'
+console_scripts = f'''
+    pf-moves={name}.pf.gui:main
+    pf-flash={name}.pf.flash:main
+'''
 
 packages=f'''
     {name}
+    {name}.pf
     {name}.utils
+    {name}.scheduler
 '''
 
 setup(

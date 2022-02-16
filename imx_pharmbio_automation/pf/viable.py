@@ -208,17 +208,24 @@ class Tag(Node):
 
     def to_strs(self, *, indent: int=2, i: int=0) -> Iterable[str]:
         if self.attrs:
-            attrs = ' ' + ' '.join(
-                k if v is True else
-                f'{k}={v}' if
-                    # https://html.spec.whatwg.org/multipage/syntax.html#unquoted
-                    re.match(r'[\w\-\.,:;/+@#?(){}[\]]+$', v)
-                else f'{k}="{esc(v)}"'
-                for k, va in sorted(self.attrs.items())
-                for v in [minify(va) if k.startswith('on') else va]
-                if v is not False
-                if v is not None
-            )
+            kvs: list[str] = []
+            for k, v in sorted(self.attrs.items()):
+                if v is False:
+                    continue
+                elif v is None:
+                    continue
+                elif v is True:
+                    kvs += [k]
+                else:
+                    assert isinstance(v, str)
+                    if k.startswith('on'):
+                        v = minify(v)
+                    if re.match(r'[\w\-\.,:;/+@#?(){}[\]]+$', v):
+                        # https://html.spec.whatwg.org/multipage/syntax.html#unquoted
+                        kvs += [f'{k}={v}']
+                    else:
+                        kvs += [f'{k}="{esc(v)}"']
+            attrs = ' ' + ' '.join(kvs)
         else:
             attrs = ''
         name = self.tag_name()
@@ -418,7 +425,7 @@ class Serve:
         return res
 
     def __post_init__(self):
-        @app.post('/call/<name>')
+        @app.post('/call/<name>') # type: ignore
         def call(name: str):
             try:
                 return self.exposed[name].from_request(name, request.json)
@@ -426,16 +433,11 @@ class Serve:
                 traceback.print_exc()
                 return '', 400
 
-        @app.post('/reload')
-        def reload():
-            self.reload()
-            return self.last_err or '', {'Content-Type': 'text/plain'}
-
-        @app.route('/hot.js')
+        @app.route('/hot.js') # type: ignore
         def hot_js_route():
             return hot_js, {'Content-Type': 'application/javascript'}
 
-        @app.post('/ping')
+        @app.post('/ping') # type: ignore
         def ping():
             i = request.cookies.get('gen', None)
             if i is not None and i != str(self.generation):
@@ -477,12 +479,14 @@ class Serve:
         def inner(f: Callable[..., Iterable[Node | str | dict[str, str]]]):
             with app.test_request_context():
                 resp = self.view_callable(f, include_hot=False)
-                if isinstance(resp, str):
+                resp_data = getattr(resp, 'data', None)
+                if isinstance(resp_data, bytes):
+                    with open(path, 'wb') as fp:
+                        fp.write(resp_data)
+                else:
+                    assert isinstance(resp, str)
                     with open(path, 'w') as fp:
                         fp.write(resp)
-                else:
-                    with open(path, 'wb') as fp:
-                        fp.write(resp.data)
                 # print(path, 'written')
             return f
         return inner
@@ -502,7 +506,7 @@ class Serve:
             parts = f(*args, **kws)
             body_node = body(*cast(Any, parts))
             title_str = f.__name__
-        except BaseException as e:
+        except:
             title_str = 'error'
             body_node = body()
             body_node.sheet += '''
@@ -853,22 +857,23 @@ def minify(s: str, loader: str='js') -> str:
     s = s.strip()
     if loader == 'js' and '\n' not in s:
         return s
+    elif esbuild_missing():
+        return s
     else:
         return minify_nontrivial(s, loader)
 
-from . import utils
+from .. import utils
 
 @lru_cache
-def has_esbuild():
+def esbuild_missing():
     if shutil.which("esbuild") is None:
         print('esbuild not found, skipping minifying', file=sys.stderr)
-        return False
-    else:
         return True
+    else:
+        return False
 
 @lru_cache
 def minify_nontrivial(s: str, loader: str='js') -> str:
-    # print('minifying', s)
     try:
         with utils.timeit(f'esbuild {loader}'):
             res = run(
@@ -1023,10 +1028,4 @@ def Input(store: dict[str, str | bool], name: str, type: str, value: str | None 
         return option(type=type, value=value, selected=state == value, **attrs)
     else:
         return input(type=type, name=name, value=str(state), **attrs)
-
-if 0:
-    test = body()
-    test += div()
-    test.css += 'lol;'
-    print(test)
 

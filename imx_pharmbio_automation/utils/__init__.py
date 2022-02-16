@@ -4,9 +4,6 @@ from dataclasses import *
 from typing import *
 
 from collections import defaultdict
-from pathlib import Path
-
-import json
 
 from datetime import datetime
 import threading
@@ -54,11 +51,6 @@ class Mutable(Generic[A]):
 def read_commasep(s: str, p: Callable[[str], A] = lambda x: x) -> list[A]:
     return [p(x.strip()) for x in s.strip().split(',') if x.strip()]
 
-def read_jsonl(path: str | Path) -> Iterator[Any]:
-    with open(path, 'r') as f:
-        for line in f:
-            yield json.loads(line)
-
 def now_str_for_filename() -> str:
     return str(datetime.now()).split('.')[0].replace(' ', '_')
 
@@ -79,25 +71,26 @@ class test(Generic[A]):
             print(red('  !='), show(rhs))
             raise ValueError('Equality test failed')
 
-def iterate_with_full_context(xs: list[A]) -> list[tuple[list[A], A, list[A]]]:
+def iterate_with_full_context(xs: Iterable[A]) -> list[tuple[list[A], A, list[A]]]:
+    xs = list(xs)
     return [
         (xs[:i], x, xs[i+1:])
         for i, x in enumerate(xs)
     ]
 
-def iterate_with_context(xs: list[A]) -> list[tuple[A | None, A, A | None]]:
+def iterate_with_context(xs: Iterable[A]) -> list[tuple[A | None, A, A | None]]:
     return [
         (prev[-1] if prev else None, x, next[0] if next else None)
         for prev, x, next in iterate_with_full_context(xs)
     ]
 
-def iterate_with_next(xs: list[A]) -> list[tuple[A, A | None]]:
+def iterate_with_next(xs: Iterable[A]) -> list[tuple[A, A | None]]:
     return [
         (x, next)
         for _, x, next in iterate_with_context(xs)
     ]
 
-def iterate_with_prev(xs: list[A]) -> list[tuple[A | None, A]]:
+def iterate_with_prev(xs: Iterable[A]) -> list[tuple[A | None, A]]:
     return [
         (prev, x)
         for prev, x, _ in iterate_with_context(xs)
@@ -196,3 +189,14 @@ def zip_sub(xs: list[float], ys: list[float], ndigits: int=1) -> list[float]:
 
 def zip_add(xs: list[float], ys: list[float], ndigits: int=1) -> list[float]:
     return zip_with(lambda a, b: a + b, xs, ys, ndigits=ndigits)
+
+def doc_header(f: Any):
+    if isinstance(f, str):
+        s = f
+    else:
+        s = f.__doc__
+        assert isinstance(s, str | None)
+    if s:
+        return s.strip().splitlines()[0]
+    else:
+        return ''

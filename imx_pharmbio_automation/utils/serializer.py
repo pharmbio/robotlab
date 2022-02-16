@@ -44,16 +44,24 @@ class Serializer:
         else:
             raise ValueError()
 
-    def from_jsonl(self, path: str | Path) -> Iterator[Any]:
+    def read_jsonl(self, path: str | Path) -> Iterator[Any]:
         with open(path, 'r') as f:
             for line in f:
                 yield self.from_json(json.loads(line))
 
-    def write_jsonl(self, xs: Iterable[Any], path: str | Path):
-        with open(path, 'w') as f:
+    def read_json(self, path: str | Path) -> Any:
+        with open(path, 'r') as f:
+            return self.from_json(json.load(f))
+
+    def write_jsonl(self, xs: Iterable[Any], path: str | Path, mode: Literal['w', 'a']='w'):
+        with open(path, mode) as f:
             for x in xs:
                 json.dump(self.to_json(x), f)
                 f.write('\n')
+
+    def write_json(self, x: Any, path: str | Path, indent: int | None = None):
+        with open(path, 'w') as f:
+            json.dump(self.to_json(x), f, indent=indent)
 
 serializer = Serializer()
 from_json = serializer.from_json

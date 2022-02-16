@@ -10,7 +10,7 @@ import abc
 import json
 import re
 import textwrap
-from . import utils
+from .. import utils
 
 class Move(abc.ABC):
     def to_dict(self) -> dict[str, Any]:
@@ -132,7 +132,7 @@ class MoveList(list[Move]):
 
     @staticmethod
     def from_jsonl_file(filename: str | Path) -> MoveList:
-        return MoveList(utils.serializer.from_jsonl(filename))
+        return MoveList(utils.serializer.read_jsonl(filename))
 
     def write_jsonl(self, filename: str | Path) -> None:
         utils.serializer.write_jsonl(self, filename)
