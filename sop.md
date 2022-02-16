@@ -251,7 +251,7 @@ touched by hand without gloves they are not considered clean any more and must n
 ## After painting
 
 1. If you want to store the log file (always do this for actual cell painting experiments),
-   on the robot-ubuntu computer add the log file to git and push it:
+   on the robotlab-ubuntu computer add the log file to git and push it:
 
    ```
    cd robot-cellpainter
