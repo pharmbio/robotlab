@@ -79,8 +79,8 @@ def execute(
             break
         elif 'Error code: 6061' in details:
             for line in lines:
-                runtime.log(entry.add(err=Error(f'{machine}: {line}', fatal=False)))
-            runtime.log(entry.add(err=Error(f'{machine} got error code 6061, retrying...', fatal=False)))
+                runtime.log(entry.add(msg=f'{machine}: {line}'))
+            runtime.log(entry.add(msg=f'{machine} got error code 6061, retrying...'))
         else:
             for line in lines or ['']:
                 runtime.log(entry.add(err=Error(f'{machine}: {line}')))

@@ -227,14 +227,12 @@ class AnalyzeResult:
     errors: list[tuple[Error, LogEntry]]
     world: dict[str, str]
     num_plates: int
+    process_is_alive: bool
 
     def has_error(self):
         if self.completed:
             return False
-        return not self.process_is_alive() or self.errors
-
-    def process_is_alive(self) -> bool:
-        return process_is_alive(self.runtime_metadata.pid, self.runtime_metadata.log_filename)
+        return not self.process_is_alive or self.errors
 
     @staticmethod
     def init(m: Log, drop_after: float | None = None) -> AnalyzeResult | None:
@@ -253,7 +251,9 @@ class AnalyzeResult:
         if completed:
             t_now = m.max_t() + 1
 
-        if not process_is_alive(runtime_metadata.pid, runtime_metadata.log_filename):
+        alive = process_is_alive(runtime_metadata.pid, runtime_metadata.log_filename)
+
+        if not alive:
             t_now = m.max_t() + 1
 
         errors = m.errors(current_runtime_only=True)
@@ -309,6 +309,7 @@ class AnalyzeResult:
             errors=errors,
             world=running.world,
             num_plates=num_plates,
+            process_is_alive=alive,
         )
 
     def entry_desc_for_hover(self, e: LogEntry):
@@ -1101,7 +1102,7 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
                 if not isinstance(tb, str):
                     tb = None
                 box += pre(f'[{entry.strftime("%H:%M:%S")}] {err.message} {"(...)" if tb else ""}', title=tb)
-            if not ar.process_is_alive():
+            if not ar.process_is_alive:
                 box += pre('Controller process has terminated.')
             info += box
 
@@ -1111,7 +1112,7 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
                 yield t_end_form.extend(
                     grid_area='info-foot',
                 )
-        elif ar.process_is_alive():
+        elif ar.process_is_alive:
             text = f'pid: {ar.runtime_metadata.pid} on {platform.node()} with config {config.name}'
         else:
             text = f'pid: - on {platform.node()} with config {config.name}'
@@ -1133,9 +1134,9 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
                 color='#eee',
                 text_align='center',
                 padding='22px',
-                border_radius=2,
+                border_radius='2px',
             )
-        elif not ar.has_error():
+        elif ar.process_is_alive:
             yield m.defaults().goto_script()
             yield div(
                 div(
@@ -1191,7 +1192,7 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
                 ),
                 grid_area='stop',
             )
-        else:
+        elif ar.has_error() and not ar.process_is_alive:
             skipped = utils.read_commasep(skip.value)
             dropped = utils.read_commasep(drop.value)
 

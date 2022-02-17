@@ -97,7 +97,6 @@ def countdown(t_now: float, to: float):
 class Error:
     message: str
     traceback: str | None = None
-    fatal: bool = True
 
 class Log(list[LogEntry]):
     @staticmethod

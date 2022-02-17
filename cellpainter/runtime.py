@@ -313,7 +313,7 @@ class Runtime:
                 }, use_color=False)
                 self.log(LogEntry(
                     cmd=entry.cmd if entry else None,
-                    err=Error(message, tb.format_exc(), fatal=fatal)
+                    err=Error(message, tb.format_exc())
                 ))
                 if fatal:
                     raise ValueError(message)
