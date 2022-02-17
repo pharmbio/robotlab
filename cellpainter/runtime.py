@@ -211,7 +211,8 @@ class Runtime:
 
         if self.config.name != 'dry-run':
             def handle_signal(signum: int, _frame: Any):
-                self.log(LogEntry(err=Error(f'Received {signal.strsignal(signum)}, shutting down')))
+                pid = os.getpid()
+                self.log(LogEntry(err=Error(f'Received {signal.strsignal(signum)}, shutting down ({pid=})')))
                 self.stop_arm()
                 sys.exit(1)
 

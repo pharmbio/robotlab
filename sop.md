@@ -68,6 +68,19 @@ cellpainter-gui --live
    cellpainter-gui --live
    ```
 
+   The output looks like:
+   ```
+   esbuild not found, skipping minifying
+   Running with config.name='live'
+   Not using flask_compress: No module named 'flask_compress'
+   Running app...
+    * Serving Flask app 'cellpainter.viable' (lazy loading)
+    * Environment: production
+      WARNING: This is a development server. Do not use it in a production deployment.
+      Use a production WSGI server instead.
+    * Debug mode: off
+   ```
+
 3. Use the windows computer and verify that you can go to http://10.10.0.55:5000.
 
 ## Incubator preparation

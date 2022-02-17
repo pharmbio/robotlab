@@ -1,3 +1,5 @@
+[ ] gripper
+    [ ] raise gripper if close more than expected
 [ ] repo
     [ ] move viable and provenance to utils directory
     [ ] move arg builder (and Args?) out from cli
@@ -10,6 +12,7 @@
     [x] add to gui protocol to load incubator and a few others of the small protocols
     [x] write "success!" when finished
     [x] visualization overflows for 10 plate protocol
+    [x] after resuming it still thinks it has an error
 [ ] bioteks
     [x] add setup.py
     [x] repo rename cli -> repl
@@ -28,8 +31,6 @@
 [ ] render archive log
     [ ] use biotek pdfs: use updated print_all
     [ ] what to generate? excel? pdf? webpage?
-[ ] gripper
-    [ ] raise gripper if close more than expected
 [ ] movelists
     [ ] put/get names not transparent enough ... ? lid_put lid_get
     [ ] moves: both lin&joint for all coords ?

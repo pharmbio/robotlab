@@ -165,7 +165,7 @@ class Log(list[LogEntry]):
         start = 0
         if current_runtime_only:
             for i, x in list(enumerate(self))[::-1]:
-                if x.running:
+                if x.runtime_metadata:
                     start = i
                     break
         return [

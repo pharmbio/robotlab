@@ -244,7 +244,7 @@ class AnalyzeResult:
         if not process_is_alive(runtime_metadata.pid, runtime_metadata.log_filename):
             t_now = m.max_t() + 1
 
-        errors = m.errors()
+        errors = m.errors(current_runtime_only=True)
         if errors:
             t_now = Log(e for _, e in errors).max_t() + 1
 
