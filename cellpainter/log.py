@@ -232,13 +232,13 @@ class Log(list[LogEntry]):
 
     def drop_validate(self) -> Log:
         res = self
-        res = res.drop(lambda e: isinstance(e.cmd, BiotekCmd) and e.cmd.action == 'Validate')
+        res = res.drop(lambda e: isinstance(e.cmd, BiotekCmd) and e.cmd.action == 'Validate' and not e.metadata.gui_force_show)
         return res
 
     def drop_test_comm(self) -> Log:
         res = self
-        res = res.drop(lambda e: isinstance(e.cmd, BiotekCmd) and e.cmd.action == 'TestCommunications')
-        res = res.drop(lambda e: isinstance(e.cmd, IncuCmd) and e.cmd.action == 'get_climate')
+        res = res.drop(lambda e: isinstance(e.cmd, BiotekCmd) and e.cmd.action == 'TestCommunications' and not e.metadata.gui_force_show)
+        res = res.drop(lambda e: isinstance(e.cmd, IncuCmd) and e.cmd.action == 'get_climate' and not e.metadata.gui_force_show)
         return res
 
     def drop(self, p: Callable[[LogEntry], Any]) -> Log:

@@ -37,6 +37,8 @@ class Metadata:
     est:        float | None = None
     sleep_secs: float | None = None
 
+    gui_force_show: bool = False
+
     def is_sleep(self):
         return self.sleep_secs is not None
 

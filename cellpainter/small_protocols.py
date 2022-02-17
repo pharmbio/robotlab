@@ -125,7 +125,7 @@ def test_comm(_: SmallProtocolArgs):
     '''
     Test communication with robotarm, washer, dispenser and incubator.
     '''
-    return protocol.test_comm_program()
+    return protocol.test_comm_program().add(Metadata(gui_force_show=True))
 
 @small_protocols.append
 def test_circuit(_: SmallProtocolArgs):
@@ -261,7 +261,7 @@ def validate_all_protocols(_: SmallProtocolArgs):
         WaitForResource('wash'),
         WaitForResource('disp'),
     )
-    return program
+    return program.add(Metadata(gui_force_show=True))
 
 @small_protocols.append
 def run_biotek(args: SmallProtocolArgs):
