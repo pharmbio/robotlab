@@ -100,7 +100,7 @@ Use the teach pendant.
 
 2. Activate the robot arm gripper
 
-3. Clean the robot gripper fingers so that they are free of dust.
+3. Clean the robot gripper fingers so that they are free of dust. Use ethanol.
 
 4. Move the robot arm to the neutral position (in front of the B21 hotel rack)
 
