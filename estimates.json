@@ -1670,6 +1670,16 @@
   {
     "cmd": {
       "type": "IncuCmd",
+      "action": "get_status",
+      "incu_loc": null
+    },
+    "times": {
+      "2022-02-17 14:00:40": 0.224
+    }
+  },
+  {
+    "cmd": {
+      "type": "IncuCmd",
       "action": "put",
       "incu_loc": null
     },
@@ -1716,6 +1726,16 @@
       "2022-01-19 14:14:36": 17.488,
       "2022-01-19 14:18:10": 17.49,
       "2022-01-19 14:21:44": 18.248
+    }
+  },
+  {
+    "cmd": {
+      "type": "IncuCmd",
+      "action": "reset_and_activate",
+      "incu_loc": null
+    },
+    "times": {
+      "2022-02-17 14:00:40": 29.981
     }
   },
   {
