@@ -19,7 +19,7 @@
     [ ] check that protocols exists before running: add to biotek cliwrapper to report checksum/hash and last modified date of protocol files
     [ ] check that all LHC protocol files exist before starting, also associate their timings with their last modification date (and perhaps hash?)
     [ ] Validate all protocols before starting cell paint
-        [ ] validate all protocols small protocol gives no feedback in the main gui
+        [x] validate all protocols small protocol gives no feedback in the main gui
     [ ] overview before starting, make a little summary of LHC files before starting
 [ ] commands
     [ ] Command.WaitForCheckpoint: ensure checkpoint name exists
