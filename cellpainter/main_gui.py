@@ -701,7 +701,6 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
         & {
             display: grid;
             grid-template-columns: auto auto;
-            width: fit-content;
             place-items: center;
             grid-gap: 10px;
             margin: 0 auto;
@@ -857,9 +856,9 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
             css='''
                 & {
                     grid-template-rows: 40px 100px repeat(5, 40px);
+                    grid-template-columns: 160px 300px;
                 }
                 & label > span {
-                    min-width: 10em;
                     text-align: right;
                 }
                 & .svg-triangle {
