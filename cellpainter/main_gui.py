@@ -837,10 +837,10 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
             ) if args else '',
             button(
                 V.raw(triangle.strip()), ' ', 'start',
-                title=doc_full,
+                data_doc=doc_full,
                 onclick=
                     (
-                        'confirm(this.title)&&'
+                        'confirm(this.dataset.doc)&&'
                         if 'required' in doc_full.lower()
                         else ''
                     )
@@ -1088,8 +1088,14 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
         skip = m.var(Str(desc='Single washes and dispenses to skip, separated by comma'))
         drop = m.var(Str(desc='Plates to drop from the rest of the run, separated by comma'))
 
-        if ar.completed:
-            pass
+        if ar.completed and not ar.has_error():
+            yield div(
+                'Finished successfully!',
+                filter='brightness(120%)',
+                background='none',
+                grid_area='stop',
+                margin='auto',
+            )
         elif not ar.has_error():
             yield m.defaults().goto_script()
             yield div(
@@ -1212,7 +1218,10 @@ def form(m: Store, *vs: Int | Str | Bool):
         )
 
 def main():
-    serve.run()
+    serve.run(
+        port=5000,
+        host='10.10.0.55'
+    )
 
 if __name__ == '__main__':
     main()

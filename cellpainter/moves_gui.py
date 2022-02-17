@@ -563,7 +563,10 @@ def index() -> Iterator[Tag | dict[str, str]]:
     foot += speed_btns
 
 def main():
-    serve.run()
+    serve.run(
+        port=5000,
+        host='10.10.0.55'
+    )
 
 if __name__ == '__main__':
     main()

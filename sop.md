@@ -56,7 +56,7 @@ Continue in this shell:
 
 ```
 cd robot-cellpainter
-VIABLE_HOST=10.10.0.55 cellpainter-gui --live
+cellpainter-gui --live
 ```
 </details>
 
@@ -65,7 +65,7 @@ VIABLE_HOST=10.10.0.55 cellpainter-gui --live
 2. Start the gui:
 
    ```
-   VIABLE_HOST=10.10.0.55 cellpainter-gui --live
+   cellpainter-gui --live
    ```
 
 3. Use the windows computer and verify that you can go to http://10.10.0.55:5000.

@@ -3,10 +3,12 @@
     [ ] move arg builder (and Args?) out from cli
     [x] rename main -> main_gui, gui -> moves_gui
 [ ] main gui
+    [ ] batch sep argument ?
+    [ ] add a "is gripper initialized? is remote on?" if robotarm GripperCheck takes too long
     [x] runtime: separate runtime.running into its own log file
     [x] make sure small protocols can be viewed in the gui
     [x] add to gui protocol to load incubator and a few others of the small protocols
-    [ ] batch sep argument ?
+    [x] write "success!" when finished
     [x] visualization overflows for 10 plate protocol
 [ ] bioteks
     [x] add setup.py
