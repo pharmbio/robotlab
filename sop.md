@@ -269,7 +269,9 @@ touched by hand without gloves they are not considered clean any more and must n
 
 6. Detach the dispenser cassettes around the peristaltic pumps
 
-7. Incubator: turn off and have it slightly open for a while to let it cool down
+7. Incubator:
+   - For dry runs when the incubator is not set up for experiments: turn off and have it slightly open for a while to let it cool down.
+   - When the incubator is set up for experiment: ask Polina. The proceduce will include removing the water with a suction pump.
 
 ## Update timings
 
