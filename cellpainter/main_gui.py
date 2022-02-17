@@ -1127,12 +1127,13 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
         drop = m.var(Str(desc='Plates to drop from the rest of the run, separated by comma'))
 
         if ar.completed and not ar.has_error():
-            yield div(
+            info += div(
                 'Finished successfully!',
                 filter='brightness(120%)',
-                background='none',
-                grid_area='stop',
-                margin='auto',
+                text_align='center',
+                padding='22px',
+                border_radius='4px',
+                outline='1px black solid',
             )
         elif not ar.has_error():
             yield m.defaults().goto_script()
