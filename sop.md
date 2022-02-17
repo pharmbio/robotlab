@@ -100,17 +100,19 @@ Use the teach pendant.
 
 2. Activate the robot arm gripper
 
-3. Move the robot arm to the neutral position (in front of the B21 hotel rack)
+3. Clean the robot gripper fingers so that they are free of dust.
+
+4. Move the robot arm to the neutral position (in front of the B21 hotel rack)
 
    With the teach pendant, hold down the freedrive button on the back side
 
-4. Put the robot in remote mode
+5. Put the robot in remote mode
 
-5. Put the teach pendant close to the keyboard so you can reach the emergency button
+6. Put the teach pendant close to the keyboard so you can reach the emergency button
 
-6. Use the windows computer and go to http://10.10.0.55:5000.
+7. Use the windows computer and go to http://10.10.0.55:5000.
 
-7. Run the test communications protocol, `test-comm` to verify that all machines can be communicated with.
+8. Run the test communications protocol, `test-comm` to verify that all machines can be communicated with.
 
     <details>
     <summary>Alternative: use the command line</summary>
@@ -141,7 +143,7 @@ Use the teach pendant.
 
    _TODO_: Incubator get_climate reports success even though the incubator is off.
 
-8. Run the test circuit protocol, `test-circuit`, to see that everything is the correct place.
+9. Run the test circuit protocol, `test-circuit`, to see that everything is the correct place.
    This is optional if you know everything is in order.
 
    Start with one plate with lid in the incubator transfer door.
