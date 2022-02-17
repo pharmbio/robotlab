@@ -143,7 +143,7 @@ Use the teach pendant.
 
    _TODO_: Incubator get_climate reports success even though the incubator is off.
 
-9. Run the test circuit protocol, `test-circuit`, to see that everything is the correct place.
+9. Run the test circuit protocol, `test-circuit`, to see that everything is in the correct place.
    This is optional if you know everything is in order.
 
    Start with one plate with lid in the incubator transfer door.
