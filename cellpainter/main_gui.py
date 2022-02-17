@@ -22,6 +22,7 @@ import sys
 import re
 import shlex
 import textwrap
+import subprocess
 
 from .log import Log, Running
 from .cli import Args
@@ -193,14 +194,25 @@ def make_table(rows: list[dict[str, Any]], header: bool=True):
         body += tr
     return V.table(head, body)
 
+def get_argv(pid: int) -> list[str]:
+    try:
+        with open(f'/proc/{pid}/cmdline', 'r') as fp:
+            cmdline = fp.read()
+            return cmdline.rstrip('\0').split('\0')
+    except FileNotFoundError:
+        return []
+
+def get_json_arg_from_argv(pid: int) -> dict[str, Any]:
+    argv = get_argv(pid)
+    for this, next in utils.iterate_with_next(argv):
+        if this == '--json-arg' and next:
+            return json.loads(next)
+    return {}
+
 def process_is_alive(pid: int, log_filename: str) -> bool:
     if pid:
-        try:
-            with open(f'/proc/{pid}/cmdline', 'r') as fp:
-                cmdline = fp.read()
-        except FileNotFoundError:
-            cmdline = ''
-        return log_filename in cmdline
+        args = get_json_arg_from_argv(pid)
+        return args.get("log_filename") == log_filename
     else:
         return False
 
@@ -875,6 +887,32 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
                 }
             '''
         )
+        running: list[str] = []
+        try:
+            x = subprocess.check_output(['pgrep', '^cellpainter$']).decode()
+        except:
+            x = ''
+        for pid in x.strip().split('\n'):
+            try:
+                pid = int(pid)
+                args = get_json_arg_from_argv(pid)
+                if isinstance(v := args.get("log_filename"), str):
+                    utils.pr(args)
+                    running += [v]
+            except:
+                pass
+        if running:
+            yield div(
+                'Running processes:',
+                V.ul(
+                    *[
+                        V.li(V.a(arg, href=arg), padding_top=8)
+                        for arg in running
+                    ],
+                ),
+                grid_area='info',
+                z_index='1',
+            )
         yield div(
             f'Running on {platform.node()} with config {config.name}',
             grid_area='info-foot',
