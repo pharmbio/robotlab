@@ -35,6 +35,9 @@
     [ ] check that it is close to B neu when starting, but don't move there using MoveJoint !!! can check the inverse kinematics of the current position close to B neu
     [ ] remove all neutral MoveJoint, instead check that the robot is roughly correct (??)
 
+[x] incubator: Use get_status instead of get_climate
+[x] incubator: Make a reset and activate small protocol
+
 questions from the presentation:
 [ ] slack notifications
 [ ] temperature etc (of room, of incubator) periodically put into the log (?)

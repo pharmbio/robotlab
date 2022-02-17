@@ -131,17 +131,18 @@ Use the teach pendant.
 
    * Robotarm gripper might not be activated. Activate it using the teach pendant.
 
-   * Incubator communication might not be activated. Run
+   * Incubator communication might not be activated. Run the `incu-reset-and-activate` protocol.
 
-       ```
-       curl http://10.10.0.56:5050/incu/reset_and_activate
-       ```
+    <details>
+    <summary>Alternative: use the command line</summary>
+    ```
+    curl http://10.10.0.56:5050/incu/reset_and_activate
+    ```
+    </details>
 
    * If 10.10.0.56:5050 cannot be reached make sure the
      robotlab-windows computer is running the labrobots server:
      https://github.com/pharmbio/robotlab-labrobots
-
-   _TODO_: Incubator get_climate reports success even though the incubator is off.
 
 9. Run the test circuit protocol, `test-circuit`, to see that everything is in the correct place.
    This is optional if you know everything is in order.

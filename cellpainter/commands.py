@@ -420,15 +420,15 @@ def DispFork(
 
 @dataclass(frozen=True)
 class IncuCmd(Command):
-    action: Literal['put', 'get', 'get_climate']
+    action: Literal['put', 'get', 'get_status', 'reset_and_activate']
     incu_loc: str | None
 
     def required_resource(self):
         return 'incu'
 
 def IncuFork(
-    action: Literal['put', 'get', 'get_climate'],
-    incu_loc: str | None,
+    action: Literal['put', 'get', 'get_status', 'reset_and_activate'],
+    incu_loc: str | None = None,
     assume: ForkAssumption = 'nothing',
 ):
     return Fork(IncuCmd(action, incu_loc), assume=assume)

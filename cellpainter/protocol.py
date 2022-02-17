@@ -458,7 +458,7 @@ def test_comm_program(with_incu: bool=True) -> Command:
     '''
     return Sequence(
         DispFork(cmd='TestCommunications', protocol_path=None),
-        IncuFork(action='get_climate', incu_loc=None) if with_incu else Idle(),
+        IncuFork(action='get_status', incu_loc=None) if with_incu else Idle(),
         RobotarmCmd('gripper check'),
         WaitForResource('disp'),
         WashFork(cmd='TestCommunications', protocol_path=None),

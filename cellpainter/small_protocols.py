@@ -162,6 +162,19 @@ def test_circuit(_: SmallProtocolArgs):
     return program
 
 @small_protocols.append
+def incu_reset_and_activate(_: SmallProtocolArgs):
+    '''
+    Reset and activate the incubator.
+    '''
+    program = Sequence(
+        IncuFork('reset_and_activate'),
+        WaitForResource('incu'),
+        IncuFork('get_status'),
+        WaitForResource('incu'),
+    )
+    return program.add(Metadata(gui_force_show=True))
+
+@small_protocols.append
 def wash_plates_clean(args: SmallProtocolArgs):
     '''
     Wash test plates clean using ethanol.

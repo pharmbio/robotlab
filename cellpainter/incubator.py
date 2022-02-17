@@ -8,7 +8,7 @@ from .log import Metadata, LogEntry, Error
 def execute(
     runtime: Runtime,
     entry: LogEntry,
-    action: Literal['put', 'get', 'get_climate'],
+    action: Literal['put', 'get', 'get_status', 'reset_and_activate'],
     incu_loc: str | None,
 ):
     '''
@@ -32,7 +32,7 @@ def execute(
           "success": False
         }
     '''
-    assert action in {'put', 'get', 'get_climate'}
+    assert action in {'put', 'get', 'get_status', 'reset_and_activate'}
     if runtime.config.incu_mode == 'noop':
         est = entry.metadata.est
         assert isinstance(est, float)
@@ -46,9 +46,12 @@ def execute(
         elif action == 'get':
             assert incu_loc is not None
             action_path = 'get/' + incu_loc
-        elif action == 'get_climate':
+        elif action == 'get_status':
             assert incu_loc is None
-            action_path = 'get_climate'
+            action_path = 'get_status'
+        elif action == 'reset_and_activate':
+            assert incu_loc is None
+            action_path = 'reset_and_activate'
         else:
             raise ValueError
         url = runtime.env.incu_url + '/' + action_path
