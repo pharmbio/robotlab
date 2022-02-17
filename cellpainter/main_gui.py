@@ -1129,11 +1129,11 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
         if ar.completed and not ar.has_error():
             info += div(
                 'Finished successfully!',
-                filter='brightness(120%)',
+                border='2px var(--green) solid',
+                color='#eee',
                 text_align='center',
                 padding='22px',
-                border_radius='4px',
-                outline='1px black solid',
+                border_radius=2,
             )
         elif not ar.has_error():
             yield m.defaults().goto_script()
