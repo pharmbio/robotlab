@@ -19,7 +19,7 @@ from flask import Flask, jsonify
 
 from pathlib import Path
 from datetime import datetime
-from hashlib import md5, sha256
+from hashlib import sha256
 
 import json
 
@@ -140,9 +140,10 @@ def main_with_args(port: int, host: str, test: bool):
     app.config['JSONIFY_PRETTYPRINT_REGULAR'] = True # type: ignore
     app.config['JSON_SORT_KEYS'] = False             # type: ignore
 
+    @app.route('/<machine>')                   # type: ignore
     @app.route('/<machine>/<cmd>')             # type: ignore
     @app.route('/<machine>/<cmd>/<path:arg>')  # type: ignore
-    def _(machine: str, cmd: str, arg: str=""):
+    def _(machine: str, cmd: str="", arg: str=""):
         arg = arg.replace('/', '\\')
         return jsonify(machines[machine].message(cmd, arg))
 
@@ -163,8 +164,8 @@ def example_repl():
 
 def dir_list_repl():
     parser = ArgumentParser('labrobots_dir_list_repl')
-    parser.add_argument('--root-dir', type=str)
-    parser.add_argument('--extension', type=str)
+    parser.add_argument('--root-dir', type=str, required=True)
+    parser.add_argument('--extension', type=str, required=True)
     args = parser.parse_args(sys.argv[1:])
     root_dir = args.root_dir
     ext = args.extension.strip('.')
@@ -173,16 +174,14 @@ def dir_list_repl():
         print("ready")
         line = input()
         print("message", line)
-        res: list[dict[str, Union[str, float]]] = []
-        for lhc in root.glob(f'**/*.{ext}'):
+        res: list[dict[str, str]] = []
+        for lhc in root.glob(f'*/*.{ext}'):
             modified_time = lhc.stat().st_mtime
             data = lhc.read_bytes()
             res += [{
-                'path': str(lhc),
-                'modified_time_epoch': modified_time,
-                'modified_time': str(datetime.fromtimestamp(modified_time)),
+                'path': str(lhc.relative_to(root)),
+                'modified': str(datetime.fromtimestamp(modified_time).replace(microsecond=0)),
                 'sha256': sha256(data).hexdigest(),
-                'md5': md5(data).hexdigest(),
             }]
         if "error" in line:
             print("error")
