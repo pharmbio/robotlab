@@ -89,7 +89,7 @@ dan@NUC-robotlab:~$ curl 10.10.0.56:5050/disp/TestCommunications
 ## Directory listing endpoint
 
 There is a directory listing endpoint, `dir_list`, which returns the information
-baout LHC files that are grandchildren of the protocols root. The information
+about LHC files that are grandchildren of the protocols root. The information
 is path, last modified date and sha256 hexdigest:
 
 ```
