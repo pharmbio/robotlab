@@ -36,4 +36,3 @@ Windows NUC    | 10.0.0.56
 UR control box | 10.0.0.112
 
 The windows nuc runs the labrobots http endpoint on `10.10.0.56:5050`.
-

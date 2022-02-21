@@ -156,15 +156,6 @@ def config_lookup(name: str) -> RuntimeConfig:
 
 dry_run = config_lookup('dry-run')
 
-def curl(url: str, print_result: bool = False) -> Any:
-    # if 'is_ready' not in url:
-        # print('curl', url)
-    ten_minutes = 60 * 10
-    res = json.loads(urlopen(url, timeout=ten_minutes).read())
-    if 'is_ready' not in url:
-        print_result and print('curl', url, '=', utils.show(res))
-    return res
-
 def trim_LHC_filenames(s: str) -> str:
     if '.LHC' in s:
         parts = s.split(' ')

@@ -2,8 +2,9 @@ from __future__ import annotations
 from dataclasses import *
 from typing import *
 
-from .runtime import Runtime, curl
+from .runtime import Runtime
 from .log import Metadata, LogEntry, Error
+from .utils import curl
 
 def execute(
     runtime: Runtime,

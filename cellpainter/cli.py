@@ -118,6 +118,8 @@ class Args:
     lockstep:                  bool = arg(help='Allow steps to overlap: first plate PFA starts before last plate Mito finished and so on, required for 10 plate batches')
     start_from_pfa:            bool = arg(help='Start from PFA (in room temperature). Use this if you have done Mito manually beforehand')
     log_filename:              str  = arg(help='Manually set the log filename instead of having a generated name based on date')
+    protocol_dir:              str  = arg(help='Directory to read biotek .LHC files from on the windows server (relative to the protocol root).')
+    update_protocol_dir:       str  = arg(help='...')
 
     small_protocol:            str  = arg(
         enum=[
@@ -136,8 +138,8 @@ class Args:
     test_resume:               str  = arg(help='Test resume by running twice, second time by resuming from just before the argument id')
     test_resume_delay:         int  = arg(help='Test resume simulated delay')
 
-    visualize:                 bool = arg(help='Run visualizer')
-    visualize_init_cmd:        str  = arg(help='Starting cmdline for visualizer')
+    visualize:                 bool = arg(help='Run detailed protocol visualizer')
+    init_cmd_for_visualize:    str  = arg(help='Starting cmdline for visualizer')
 
     list_imports:              bool = arg(help='Print the imported python modules for type checking.')
 
@@ -179,11 +181,16 @@ def main_with_args(args: Args, parser: argparse.ArgumentParser | None=None):
 
     print('config =', show(config))
 
+    if args.update_protocol_dir:
+        from . import protocol_paths
+        protocol_paths.update_protocol_dir(args.update_protocol_dir)
+        sys.exit(0)
+
     if args.visualize:
         from . import protocol_vis as pv
         cmdname, *argv = [arg for arg in sys.argv if not arg.startswith('--vi')]
-        if args.visualize_init_cmd:
-            cmdline0 = args.visualize_init_cmd
+        if args.init_cmd_for_visualize:
+            cmdline0 = args.init_cmd_for_visualize
         else:
             cmdline0 = shlex.join(argv)
         def cmdline_to_log(cmdline: str):
