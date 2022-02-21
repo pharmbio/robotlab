@@ -86,6 +86,26 @@ dan@NUC-robotlab:~$ curl 10.10.0.56:5050/disp/TestCommunications
 }
 ```
 
+## Directory listing endpoint
+
+There is a directory listing endpoint, `dir_list`, which returns the information
+baout LHC files that are grandchildren of the protocols root. The information
+is path, last modified date and sha256 hexdigest:
+
+```
+dan@NUC-robotlab:~$ curl -s 10.10.0.56:5050/dir_list | grep 'automation_v4.0..2' -B1 -A3
+    {
+      "path": "automation_v4.0\\2.0_D_SB_PRIME_Mito.LHC",
+      "modified": "2022-01-18 14:01:34",
+      "sha256": "bbf0db9aa30de9ec7b9a8d9e102a3eca7051b7605e108feb01c315bcee734de0"
+    },
+    {
+      "path": "automation_v4.0\\2.1_D_SB_30ul_Mito.LHC",
+      "modified": "2022-01-18 14:06:01",
+      "sha256": "1959451ea7477e170311281ac0981c4eff8d628897dff16cf31d1e8c1b361ca1"
+    },
+```
+
 ## Configure BioTek software
 
 Make sure that this option is checked in each protocol:
