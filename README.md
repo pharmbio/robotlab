@@ -55,6 +55,23 @@ Run:
 labrobots-server.exe
 ```
 
+The output should look like:
+
+```
+C:\pharmbio\robotlab-labrobots>labrobots-server.exe
+ * Serving Flask app 'labrobots_server.main' (lazy loading)
+ * Environment: production
+   WARNING: This is a development server. Do not use it in a production deployment.
+   Use a production WSGI server instead.
+ * Debug mode: off
+0.282 incu ready
+0.766 dir_list ready
+0.797 example ready
+1.125 disp ready
+1.125 wash ready
+ * Running on http://10.10.0.56:5050/ (Press CTRL+C to quit)
+```
+
 You can now curl it:
 
 ```
