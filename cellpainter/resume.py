@@ -82,7 +82,9 @@ def resume_program(entries: Log, skip: list[str]=[], drop: list[str]=[]):
                     drop_ids.add(c2.metadata.id)
     remove_ids |= drop_ids
 
-    robotarm_prep_cmds: list[Command] = []
+    robotarm_prep_cmds: list[Command] = [
+        RobotarmCmd('gripper check').add(Metadata(id=get_fresh_id()))
+    ]
     for cmd, metadata in program.collect():
         # Make sure the first robotarm command starts from B21 neutral
         if isinstance(cmd, RobotarmCmd) and metadata.id not in remove_ids:
