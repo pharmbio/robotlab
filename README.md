@@ -106,6 +106,28 @@ dan@NUC-robotlab:~$ curl -s 10.10.0.56:5050/dir_list | grep 'automation_v4.0..2'
     },
 ```
 
+They are under the `"value"` key of the returned object:
+
+```
+dan@NUC-robotlab:~$ curl -s 10.10.0.56:5050/dir_list | grep '"value"' -A15
+  "value": [
+    {
+      "path": "automation\\0_W_D_PRIME.LHC",
+      "modified": "2021-05-31 14:02:48",
+      "sha256": "84fbff41b146d44488d9afe95145f20343d716dd81a6b17c843dedc18f199d55"
+    },
+    {
+      "path": "automation\\1_D_P1_30ul_mito.LHC",
+      "modified": "2021-05-06 10:35:57",
+      "sha256": "40c7098eb73e6590d017baafbabf12dfe37e6b0711b59eb2125a60cd36f8bdfd"
+    },
+    {
+      "path": "automation\\1_D_P1_PRIME.LHC",
+      "modified": "2021-05-31 13:59:10",
+      "sha256": "6ebc011245938a2723ad343c71140481e46d5bb098a7afa714abf5d8b4c2e20b"
+    },
+```
+
 ## Configure BioTek software
 
 Make sure that this option is checked in each protocol:
