@@ -7,6 +7,7 @@ requirements = '''
 console_scripts = '''
     labrobots-server=labrobots_server.main:main
     labrobots-example-repl=labrobots_server.main:example_repl
+    labrobots-dir-list-repl=labrobots_server.main:dir_list_repl
     incubator-repl=incubator_repl.incubator:main
 '''
 

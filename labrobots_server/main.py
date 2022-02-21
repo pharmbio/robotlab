@@ -13,9 +13,15 @@ from argparse import ArgumentParser
 from dataclasses import dataclass, field
 from queue import Queue
 from subprocess import Popen, PIPE, STDOUT
-from typing import Any, List, Tuple
+from typing import Any, List, Tuple, Union
 
 from flask import Flask, jsonify
+
+from pathlib import Path
+from datetime import datetime
+from hashlib import md5, sha256
+
+import json
 
 LHC_CALLER_CLI_PATH = "C:\\Program Files (x86)\\BioTek\\Liquid Handling Control 2.22\\LHC_CallerCLI.exe"
 PROTOCOLS_ROOT = "C:\\ProgramData\\BioTek\\Liquid Handling Control 2.22\\Protocols\\"
@@ -93,28 +99,32 @@ class Machine:
                 reply_queue.put_nowait(response)
 
 def main():
-    ap = ArgumentParser('labrobots_server')
-    ap.add_argument('--port', type=int, default=5050)
-    ap.add_argument('--host', type=str, default='10.10.0.56')
-    ap.add_argument('--test', action='store_true', default=False)
-    args = ap.parse_args(sys.argv[1:])
+    parser = ArgumentParser('labrobots_server')
+    parser.add_argument('--port', type=int, default=5050)
+    parser.add_argument('--host', type=str, default='10.10.0.56')
+    parser.add_argument('--test', action='store_true', default=False)
+    args = parser.parse_args(sys.argv[1:])
     main_with_args(port=args.port, host=args.host, test=args.test)
 
 def main_with_args(port: int, host: str, test: bool):
     import os
     if os.name == 'posix':
+        dir_list = 'labrobots-dir-list-repl'
         example = 'labrobots-example-repl'
         incu = 'incubator-repl'
     else:
+        dir_list = 'labrobots-dir-list-repl.exe'
         example = 'labrobots-example-repl.exe'
         incu = 'incubator-repl.exe'
     if test:
         machines = {
             'example': Machine('example', args=[example]),
+            'dir_list': Machine('dir_list', args=[dir_list, '--root-dir', '.', '--extension', 'py']),
         }
     else:
         machines = {
             'example': Machine('example', args=[example]),
+            'dir_list': Machine('dir_list', args=[dir_list, '--root-dir', PROTOCOLS_ROOT, '--extension', 'LHC']),
             'incu': Machine('incu', args=[incu]),
             'wash': Machine(
                 'wash',
@@ -132,7 +142,7 @@ def main_with_args(port: int, host: str, test: bool):
 
     @app.route('/<machine>/<cmd>')             # type: ignore
     @app.route('/<machine>/<cmd>/<path:arg>')  # type: ignore
-    def execute(machine: str, cmd: str, arg: str=""):
+    def _(machine: str, cmd: str, arg: str=""):
         arg = arg.replace('/', '\\')
         return jsonify(machines[machine].message(cmd, arg))
 
@@ -149,4 +159,33 @@ def example_repl():
         if "error" in line:
             print("error")
         else:
+            print("success")
+
+def dir_list_repl():
+    parser = ArgumentParser('labrobots_dir_list_repl')
+    parser.add_argument('--root-dir', type=str)
+    parser.add_argument('--extension', type=str)
+    args = parser.parse_args(sys.argv[1:])
+    root_dir = args.root_dir
+    ext = args.extension.strip('.')
+    root = Path(root_dir)
+    while True:
+        print("ready")
+        line = input()
+        print("message", line)
+        res: list[dict[str, Union[str, float]]] = []
+        for lhc in root.glob(f'**/*.{ext}'):
+            modified_time = lhc.stat().st_mtime
+            data = lhc.read_bytes()
+            res += [{
+                'path': str(lhc),
+                'modified_time_epoch': modified_time,
+                'modified_time': str(datetime.fromtimestamp(modified_time)),
+                'sha256': sha256(data).hexdigest(),
+                'md5': md5(data).hexdigest(),
+            }]
+        if "error" in line:
+            print("error")
+        else:
+            print("value", json.dumps(res))
             print("success")
