@@ -31,7 +31,7 @@ def uniq(xs: Iterable[A]) -> Iterable[A]:
 def flatten(xss: Iterable[list[A]]) -> list[A]:
     return sum(xss, cast(list[A], []))
 
-def catch(m: Callable[[], A], default: B=None) -> A | B:
+def catch(m: Callable[[], A], default: B) -> A | B:
     try:
         return m()
     except:
