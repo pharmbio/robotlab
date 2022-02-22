@@ -3,27 +3,40 @@ from typing import TypedDict
 from .utils import curl
 from . import utils
 
+def nonempty(*xs: str) -> list[str]:
+    return [x for x in sorted(set(xs)) if x]
+
 @dataclass(frozen=True)
 class ProtocolPaths:
     '''
-    The number of steps is 5 or 6 (mito, pfa, triton, stains, extra wash, final wash)
+    The number of steps is either
+        - 5 (mito, pfa, triton, stains, final wash), or
+        - 6 with two_final_washes (mito, pfa, triton, stains, extra wash, final wash)
 
     For each batch:
-        Run all protocols in wash_prime
+        Run the protocols in wash_prime
         For each step i:
             Run disp_prime[i]
             For each plate:
                 Run wash_5[i] if number of steps is 5
                 Run wash_6[i] if number of steps is 6
-                Run disp_prep[i]
+                Run disp_prep[i] (starts when plate is still in washer)
                 Run disp_main[i]
+
+    The prefixes looked for in a automation directory is listed in template_protocol_paths below.
     '''
-    wash_prime:      list[str]
-    wash_5:          list[str]
-    wash_6:          list[str]
-    disp_prime:      list[str]
-    disp_prep:       list[str]
-    disp_main:       list[str]
+    wash_prime: list[str]
+    wash_5:     list[str]
+    wash_6:     list[str]
+    disp_prime: list[str]
+    disp_prep:  list[str]
+    disp_main:  list[str]
+
+    def all_wash_paths(self) -> list[str]:
+        return nonempty(*self.wash_prime, *self.wash_5, *self.wash_6)
+
+    def all_disp_paths(self) -> list[str]:
+        return nonempty(*self.disp_prime, *self.disp_prep, *self.disp_main)
 
 template_protocol_paths = ProtocolPaths(
     wash_prime = [
@@ -92,8 +105,10 @@ class PathInfo(TypedDict):
 class Response(TypedDict):
     value: list[PathInfo]
 
-def get_protocol_paths():
+def get_protocol_paths() -> dict[str, ProtocolPaths]:
     return utils.serializer.read_json('protocol_paths.json')
+
+paths_v5 = get_protocol_paths()['automation_v5.0']
 
 def update_protocol_dir(protocol_dir: str):
     res: Response = curl(dir_list_url)

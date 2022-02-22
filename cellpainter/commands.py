@@ -394,26 +394,35 @@ class BiotekCmd(Command):
 
 def WashCmd(
     protocol_path: str | None,
-    cmd: BiotekAction = 'Run',
+    cmd: BiotekAction,
 ):
     return BiotekCmd('wash', protocol_path, cmd)
 
 def DispCmd(
     protocol_path: str | None,
-    cmd: BiotekAction = 'Run',
+    cmd: BiotekAction,
 ):
     return BiotekCmd('disp', protocol_path, cmd)
 
+def BiotekValidateThenRun(
+    machine: Literal['wash', 'disp'],
+    protocol_path: str,
+) -> Command:
+    return Sequence(
+        BiotekCmd(machine, protocol_path, 'Validate'),
+        BiotekCmd(machine, protocol_path, 'RunValidated'),
+    )
+
 def WashFork(
     protocol_path: str | None,
-    cmd: BiotekAction = 'Run',
+    cmd: BiotekAction,
     assume: ForkAssumption = 'nothing',
 ):
     return Fork(WashCmd(protocol_path, cmd), assume=assume)
 
 def DispFork(
     protocol_path: str | None,
-    cmd: BiotekAction = 'Run',
+    cmd: BiotekAction,
     assume: ForkAssumption = 'nothing',
 ):
     return Fork(DispCmd(protocol_path, cmd), assume=assume)

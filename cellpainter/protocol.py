@@ -23,6 +23,7 @@ from .commands import (
     WashFork,
     DispFork,
     IncuFork,
+    BiotekValidateThenRun,
     RobotarmCmd,
     WaitForCheckpoint,
     WaitForResource,
@@ -298,23 +299,22 @@ if typing.TYPE_CHECKING:
 @dataclass(frozen=True, kw_only=True)
 class ProtocolConfig:
     step_names:    list[str]
+    wash_prime:    list[str]
     wash:          list[str]
-    prime:         list[str]
-    pre_disp:      list[str]
+    disp_prime:    list[str]
+    disp_prep:     list[str]
     disp:          list[str]
     incu:          list[Symbolic]
     interleavings: list[str]
     interleave:    bool
     lockstep:      bool
-    prep_wash:     str | None
-    prep_disp:     str | None
     start_from_pfa: bool
     def __post_init__(self):
         d: dict[str, list[Any]] = {}
         for field in fields(self):
             k = field.name
             v = getattr(self, k)
-            if isinstance(v, list):
+            if isinstance(v, list) and k != 'wash_prime':
                 d[k] = v
         for ka, kb in utils.iterate_with_next(list(d.items())):
             if kb:
@@ -324,10 +324,12 @@ class ProtocolConfig:
         for ilv in self.interleavings:
             assert ilv in Interleavings
 
-def make_v3(args: ProtocolArgsInterface = ProtocolArgs()) -> ProtocolConfig:
+from .protocol_paths import ProtocolPaths, paths_v5
+
+def make_protocol_config(paths: ProtocolPaths, args: ProtocolArgsInterface = ProtocolArgs()) -> ProtocolConfig:
     incu_csv = args.incu
-    six = args.two_final_washes
-    N = 6 if six else 5
+    six_cycles = args.two_final_washes
+    N = 6 if six_cycles else 5
     # print(incu_csv, utils.read_commasep(incu_csv), file=sys.stderr)
 
     incu = [
@@ -343,8 +345,13 @@ def make_v3(args: ProtocolArgsInterface = ProtocolArgs()) -> ProtocolConfig:
     incu = incu + [incu[-1]] * N
     incu = incu[:N-1] + [Symbolic.wrap(0)]
 
+    def resize(xs: list[str]) -> list[str]:
+        while len(xs) < N:
+            xs = [*xs, '']
+        return xs[:N]
+
     interleavings: list[str]
-    if six:
+    if six_cycles:
         if args.interleave:
             interleavings = 'june june june june washjune finjune'.split()
         else:
@@ -355,56 +362,20 @@ def make_v3(args: ProtocolArgsInterface = ProtocolArgs()) -> ProtocolConfig:
         else:
             interleavings = 'lin  lin  lin  lin  finlin'.split()
 
-
+    names_5 = ['Mito', 'PFA', 'Triton', 'Stains', 'Final']
+    names_6 = ['Mito', 'PFA', 'Triton', 'Stains', 'Wash 1', 'Final']
 
     p = ProtocolConfig(
-        prep_wash=
-            'automation_v4.0/0_W_PRIME_PBS.LHC',
-        prep_disp=None,
-        step_names=
-            ['Mito', 'PFA', 'Triton', 'Stains', 'Wash 1', 'Final']
-            if six else
-            ['Mito', 'PFA', 'Triton', 'Stains', 'Final'],
-        wash = [
-            'automation_v4.0/working1_W_2X_beforeMito_leaves20ul_PBS.LHC',
-            'automation_v4.0/working3_W_3X_beforePFA_leaves20ul_PBS.LHC',
-            'automation_v4.0/working5_W_3X_beforeTriton_leaves10ul_PBS.LHC',
-            'automation_v4.0/working7_W_3X_beforeStains_leaves10ul_PBS.LHC',
-        ] +
-        ([
-            'automation_v4.0/working9_10_W_3X_leaves80ul_PBS.LHC',
-            'automation_v4.0/working9_10_W_3X_leaves80ul_PBS.LHC',
-        ] if six else [
-            'automation_v4.0/9_W_5X_leaves80ul_PBS.LHC',
-        ]),
-        prime = [
-            'automation_v4.0/2.0_D_SB_PRIME_Mito.LHC',
-            'automation_v4.0/4.0_D_SA_PRIME_PFA.LHC',
-            'automation_v4.0/6.0_D_P1_PRIME_Triton.LHC',
-            'automation_v4.0/8.0_D_P2_MIX_PRIME.LHC',
-            '',
-            '',
-        ][:N],
-        pre_disp = [
-            '',
-            '',
-            '',
-            'automation_v4.0/8.1_D_P2_purge_then_predispense.LHC',
-            '',
-            '',
-        ][:N],
-        disp = [
-            'automation_v4.0/2.1_D_SB_30ul_Mito.LHC',
-            'automation_v4.0/4.1_D_SA_80ul_PFA.LHC',
-            'automation_v4.0/6.1_D_P1_80ul_Triton.LHC',
-            'automation_v4.0/8.2_D_P2_20ul_stains.LHC',
-            '',
-            '',
-        ][:N],
-        lockstep = args.lockstep,
-        incu = incu,
-        interleave = args.interleave,
-        interleavings = interleavings,
+        wash_prime     = paths.wash_prime,
+        step_names     = names_6 if six_cycles else names_5,
+        wash           = paths.wash_6 if six_cycles else paths.wash_5,
+        disp_prime     = resize(paths.disp_prime),
+        disp_prep      = resize(paths.disp_prep),
+        disp           = resize(paths.disp_main),
+        lockstep       = args.lockstep,
+        incu           = incu,
+        interleave     = args.interleave,
+        interleavings  = interleavings,
         start_from_pfa = False,
     )
     if args.start_from_pfa:
@@ -416,23 +387,22 @@ def make_v3(args: ProtocolArgsInterface = ProtocolArgs()) -> ProtocolConfig:
 
             # skip all mito stuff
             wash          = p.wash[1:],
-            prime         = p.prime[1:],
-            pre_disp      = p.pre_disp[1:],
+            disp_prime    = p.disp_prime[1:],
+            disp_prep     = p.disp_prep[1:],
             disp          = p.disp[1:],
             interleavings = p.interleavings[1:],
 
             # let user write post-pfa incubation times first in the list
             incu          = p.incu[:-1],
 
-            lockstep   = p.lockstep,
-            interleave = p.interleave,
-            prep_wash  = p.prep_wash,
-            prep_disp  = p.prep_disp,
+            lockstep      = p.lockstep,
+            interleave    = p.interleave,
+            wash_prime    = p.wash_prime,
         )
     else:
         return p
 
-def test_make_v3():
+def test_make_protocol_config():
     argss: list[ProtocolArgs] = [
         ProtocolArgs(
             incu = incu,
@@ -448,9 +418,9 @@ def test_make_v3():
         for lockstep in [False]
     ]
     for args in argss:
-        make_v3(args)
+        make_protocol_config(paths_v5, args)
 
-test_make_v3()
+test_make_protocol_config()
 
 def test_comm_program(with_incu: bool=True) -> Command:
     '''
@@ -483,13 +453,12 @@ def Early(secs: float):
 def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
     p = protocol_config
 
-    prep_wash = WashFork(p.prep_wash) if p.prep_wash else Idle()
-    prep_disp = DispFork(p.prep_disp).delay(2) if p.prep_disp else Idle()
+    wash_prime: list[Command] = [
+        BiotekValidateThenRun('wash', prime)
+        for prime in p.wash_prime
+    ]
     prep_cmds: list[Command] = [
-        prep_wash,
-        prep_disp,
-        # WaitForResource('wash'),
-        # WaitForResource('disp'),
+        Fork(Sequence(*wash_prime)),
     ]
 
     first_plate = batch[0]
@@ -610,20 +579,20 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                 ]
 
 
-            if p.prime[i] and plate is first_plate:
-                disp_prime = p.prime[i]
+            if p.disp_prime[i] and plate is first_plate:
+                disp_prime = p.disp_prime[i]
             else:
                 disp_prime = None
 
             if p.disp[i] or disp_prime:
-                pre_disp_is_long = disp_prime or p.pre_disp[i]
-                pre_disp = Sequence(
+                pre_disp_is_long = disp_prime or p.disp_prep[i]
+                disp_prep = Sequence(
                     Checkpoint(f'{plate_desc} pre disp {ix} start wait'),
                     Fork(
                         Sequence(
                             WaitForCheckpoint(f'{plate_desc} pre disp {ix} start wait') + f'{plate_desc} pre disp {ix} delay',
-                            DispCmd(disp_prime).add(Metadata(plate_id='')) if disp_prime else Idle(),
-                            DispCmd(p.pre_disp[i]).add(Metadata(predispense=True)) if p.pre_disp[i] else Idle(),
+                            BiotekValidateThenRun('disp', disp_prime).add(Metadata(plate_id='')) if disp_prime else Idle(),
+                            BiotekValidateThenRun('disp', p.disp_prep[i]).add(Metadata(predispense=True)) if p.disp_prep[i] else Idle(),
                             DispCmd(p.disp[i], cmd='Validate'),
                             Early(2),
                             Checkpoint(f'{plate_desc} pre disp done {ix}'),
@@ -634,14 +603,14 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                 pre_disp_wait = WaitForCheckpoint(f'{plate_desc} pre disp done {ix}')
             else:
                 pre_disp_is_long = False
-                pre_disp = Idle()
+                disp_prep = Idle()
                 pre_disp_wait = Idle()
 
             wash = [
                 RobotarmCmd('wash put prep'),
                 WashFork(p.wash[i], cmd='Validate', assume='idle').delay(1) if plate is first_plate else Idle(),
                 RobotarmCmd('wash put transfer'),
-                pre_disp if pre_disp_is_long else Idle(),
+                disp_prep if pre_disp_is_long else Idle(),
                 Fork(
                     Sequence(
                         *wash_delay,
@@ -660,7 +629,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                 RobotarmCmd('wash_to_disp prep'),
                 Early(1),
                 WaitForResource('wash', assume='will wait'),
-                Idle() if pre_disp_is_long else pre_disp,
+                Idle() if pre_disp_is_long else disp_prep,
                 RobotarmCmd('wash_to_disp transfer'),
                 pre_disp_wait,
                 Duration(f'{plate_desc} transfer {ix}', exactly=estimate(RobotarmCmd('wash_to_disp transfer'))),

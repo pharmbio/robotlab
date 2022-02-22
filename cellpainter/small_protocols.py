@@ -3,24 +3,25 @@ from typing import Callable, Any, TypeAlias
 from dataclasses import *
 
 from .commands import (
-    Command,            # type: ignore
-    Fork,               # type: ignore
-    Info,               # type: ignore
-    Meta,               # type: ignore
-    Checkpoint,         # type: ignore
-    Duration,           # type: ignore
-    Idle,               # type: ignore
-    Sequence,           # type: ignore
-    WashCmd,            # type: ignore
-    DispCmd,            # type: ignore
-    IncuCmd,            # type: ignore
-    WashFork,           # type: ignore
-    DispFork,           # type: ignore
-    IncuFork,           # type: ignore
-    BiotekCmd,          # type: ignore
-    RobotarmCmd,        # type: ignore
-    WaitForCheckpoint,  # type: ignore
-    WaitForResource,    # type: ignore
+    Command,               # type: ignore
+    Fork,                  # type: ignore
+    Info,                  # type: ignore
+    Meta,                  # type: ignore
+    Checkpoint,            # type: ignore
+    Duration,              # type: ignore
+    Idle,                  # type: ignore
+    Sequence,              # type: ignore
+    WashCmd,               # type: ignore
+    DispCmd,               # type: ignore
+    IncuCmd,               # type: ignore
+    WashFork,              # type: ignore
+    DispFork,              # type: ignore
+    IncuFork,              # type: ignore
+    BiotekCmd,             # type: ignore
+    BiotekValidateThenRun, # type: ignore
+    RobotarmCmd,           # type: ignore
+    WaitForCheckpoint,     # type: ignore
+    WaitForResource,       # type: ignore
 )
 from . import commands
 
@@ -32,7 +33,7 @@ from .log import Metadata
 from .protocol import (
     Locations,
     ProtocolArgs,
-    make_v3,
+    make_protocol_config,
     Plate,
     define_plates,
     RobotarmCmds,
@@ -41,9 +42,8 @@ from .protocol import (
     cell_paint_program,
 )
 
-from .symbolic import Symbolic
-
 from . import protocol
+from .protocol_paths import paths_v5
 
 @dataclass(frozen=True)
 class SmallProtocolArgs:
@@ -142,8 +142,8 @@ def test_circuit(_: SmallProtocolArgs):
         7. robotarm:                in neutral position by lid hotel
     '''
     [[plate]] = define_plates([1])
-    v3 = make_v3(ProtocolArgs(incu='s1,s2,s3,s4,s5', two_final_washes=True, interleave=True))
-    program = cell_paint_program([1], protocol_config=v3)
+    v5 = make_protocol_config(paths_v5, ProtocolArgs(incu='s1,s2,s3,s4,s5', two_final_washes=True, interleave=True))
+    program = cell_paint_program([1], protocol_config=v5)
     program = Sequence(
         *[
             cmd.add(metadata)
@@ -198,7 +198,7 @@ def wash_plates_clean(args: SmallProtocolArgs):
         cmds += [*RobotarmCmds(plate.lid_put)]
         cmds += [*RobotarmCmds('wash put')]
 
-        cmds += [Fork(WashCmd('automation_v4.0/wash-plates-clean/WD_3X_leaves80ul.LHC'))]
+        cmds += [Fork(WashCmd('automation_v4.0/wash-plates-clean/WD_3X_leaves80ul.LHC', 'Run'))]
         cmds += [WaitForResource('wash')]
 
         cmds += [*RobotarmCmds('wash get')]
@@ -206,17 +206,15 @@ def wash_plates_clean(args: SmallProtocolArgs):
         cmds += [*RobotarmCmds(plate.rt_put)]
 
     cmds += [Section('EtOH')]
-    cmds += [
-        Fork(WashCmd('automation_v4.0/wash-plates-clean/WC_PRIME.LHC')),
-        WaitForResource('wash')
-    ]
+    cmds += [Fork(WashCmd('automation_v4.0/wash-plates-clean/WC_PRIME.LHC', 'Run'))]
+    cmds += [WaitForResource('wash')]
 
     for i, plate in enumerate(plates):
         cmds += [*RobotarmCmds(plate.rt_get)]
         cmds += [*RobotarmCmds(plate.lid_put)]
         cmds += [*RobotarmCmds('wash put')]
 
-        cmds += [Fork(WashCmd('automation_v4.0/wash-plates-clean/WC_1X_leaves80ul.LHC'))]
+        cmds += [Fork(WashCmd('automation_v4.0/wash-plates-clean/WC_1X_leaves80ul.LHC', 'Run'))]
         cmds += [WaitForResource('wash')]
 
         if i == 0:
@@ -234,7 +232,7 @@ def wash_plates_clean(args: SmallProtocolArgs):
         cmds += [*RobotarmCmds(plate.lid_put)]
         cmds += [*RobotarmCmds('wash put')]
 
-        cmds += [Fork(WashCmd('automation_v4.0/wash-plates-clean/WD_3X_leaves10ul.LHC'))]
+        cmds += [Fork(WashCmd('automation_v4.0/wash-plates-clean/WD_3X_leaves10ul.LHC', 'Run'))]
         cmds += [WaitForResource('wash')]
 
         cmds += [*RobotarmCmds('wash get')]
@@ -252,25 +250,18 @@ def validate_all_protocols(_: SmallProtocolArgs):
     '''
     Validate all biotek protocols.
     '''
-    w: list[str | None] = []
-    d: list[str | None] = []
-    for six in [True, False]:
-        v3 = make_v3(ProtocolArgs(incu='s1,s2,s3,s4,s5', two_final_washes=six, interleave=True))
-        w += [*v3.wash, v3.prep_wash]
-        d += [*v3.disp, *v3.pre_disp, *v3.prime, v3.prep_disp]
+    paths = paths_v5
     wash = [
         WashCmd(p, cmd='Validate')
-        for p in set(w)
-        if p
+        for p in paths.all_wash_paths()
     ]
     disp = [
         DispCmd(p, cmd='Validate')
-        for p in set(d)
-        if p
+        for p in paths.all_disp_paths()
     ]
     program = Sequence(
-        Fork(Sequence(*wash)),
-        Fork(Sequence(*disp)).delay(1.5),
+        Fork(Sequence(*wash)).delay(2),
+        Fork(Sequence(*disp)),
         WaitForResource('wash'),
         WaitForResource('disp'),
     )
@@ -286,16 +277,13 @@ def run_biotek(args: SmallProtocolArgs):
 
     Note: the two final washes protocol 9_10_W is included, but not the 9_W.
     '''
-    wash: list[str] = []
-    disp: list[str] = []
-    v3 = make_v3(ProtocolArgs(two_final_washes=True))
-    wash += [*v3.wash, v3.prep_wash or '']
-    disp += [*v3.disp, *v3.pre_disp, *v3.prime, v3.prep_disp or '']
+    paths = paths_v5
+    wash = paths.all_wash_paths()
+    disp = paths.all_disp_paths()
     protocols = [
-        *[(p, 'wash') for p in wash if p],
-        *[(p, 'disp') for p in disp if p],
+        *[(p, 'wash') for p in wash],
+        *[(p, 'disp') for p in disp],
     ]
-    protocols = sorted(set(protocols))
     # print('Available:', end=' ')
     # utils.pr([p for p, _ in protocols])
     cmds: list[Command] = []
@@ -303,12 +291,7 @@ def run_biotek(args: SmallProtocolArgs):
         for p, machine in protocols:
             if f'/{x.lower()}' in p.lower():
                 cmds += [
-                    Fork(
-                        Sequence(
-                            BiotekCmd(machine, p, action='Validate'),
-                            BiotekCmd(machine, p, action='RunValidated'),
-                        )
-                    ),
+                    Fork(BiotekValidateThenRun(machine, p)),
                     WaitForResource(machine)
                 ]
     return Sequence(*cmds)
@@ -533,48 +516,29 @@ def add_missing_timings(_: SmallProtocolArgs):
 @small_protocols.append
 def time_bioteks(_: SmallProtocolArgs):
     '''
-    Timing for biotek protocols and robotarm moves to and from bioteks.
-
-    This is preferably done with the bioteks connected to water.
+    Timing for biotek protocols, with dispenser running on air.
 
     Required lab prerequisites:
-        1. hotel B21:        one plate *without* lid
-        2. biotek washer:    empty
-        3. biotek washer:    connected to water
-        4. biotek dispenser: empty
-        5. biotek dispenser: all pumps and syringes connected to water
-        6. robotarm:         in neutral position by B hotel
-
-        7. incubator transfer door: not used
-        8. hotel B1-19:             not used
-        9. hotel A:                 not used
-       10. hotel C:                 not used
+        1. biotek washer:    one plate *without* lid
+        2. biotek washer:    connected to water
+        3. biotek dispenser: all pumps and syringes disconnected (just use air) (plate optional)
+        4. robotarm:         not used
     '''
-    protocol_config = make_v3()
-    protocol_config = replace(
-        protocol_config,
-        incu=[
-            Symbolic.var(f'incu {i}')
-            for i, _ in enumerate(protocol_config.incu)
-        ]
-    )
-    program = cell_paint_program([1], protocol_config=protocol_config, sleek=True)
+    paths = paths_v5
+    wash = [
+        BiotekValidateThenRun('wash', p)
+        for p in paths.all_wash_paths()
+    ]
+    disp = [
+        BiotekValidateThenRun('disp', p)
+        for p in paths.all_disp_paths()
+    ]
     program = Sequence(
-        *(
-            cmd.add(metadata.merge(Metadata(effect=NoEffect())))
-            for cmd, metadata in program.collect()
-            if not isinstance(cmd, IncuCmd)
-            if not isinstance(cmd, Fork) or cmd.resource != 'incu'
-            if not isinstance(cmd, WaitForResource) or cmd.resource != 'incu'
-            if not isinstance(cmd, Duration) or '37C' not in cmd.name
-            if not isinstance(cmd, RobotarmCmd) or any(
-                needle in cmd.program_name
-                for needle in ['wash', 'disp']
-            )
-        )
+        Fork(Sequence(*wash)),
+        Fork(Sequence(*disp)).delay(2),
+        WaitForResource('wash'),
+        WaitForResource('disp'),
     )
-    [[plate]] = define_plates([1])
-    program = add_world_metadata(program, {'B21': plate.id})
     return program
 
 @dataclass(frozen=True)

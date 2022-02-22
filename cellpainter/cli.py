@@ -27,6 +27,7 @@ from .moves import movelists
 from .runtime import RuntimeConfig, configs, config_lookup
 from .small_protocols import small_protocols_dict, SmallProtocolArgs
 from .utils import show
+from .protocol_paths import paths_v5, get_protocol_paths
 
 A = TypeVar('A')
 
@@ -267,13 +268,13 @@ class Program:
     doc: str = ''
 
 def args_to_program(args: Args) -> Program | None:
-    v3 = protocol.make_v3(args)
+    v5 = protocol.make_protocol_config(paths_v5, args)
 
     if args.cell_paint:
         batch_sizes = utils.read_commasep(args.cell_paint, int)
         program = protocol.cell_paint_program(
             batch_sizes=batch_sizes,
-            protocol_config=v3,
+            protocol_config=v5,
         )
         return Program(program, {
             'program': 'cell_paint',
