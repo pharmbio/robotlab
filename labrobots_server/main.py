@@ -21,7 +21,7 @@ LHC_CALLER_CLI_PATH = "C:\\Program Files (x86)\\BioTek\\Liquid Handling Control 
 PROTOCOLS_ROOT = "C:\\ProgramData\\BioTek\\Liquid Handling Control 2.22\\Protocols\\"
 
 WINDOWS_NUC = '10.10.0.56' # connected to the bioteks and 37C incubator
-WINDOWS_GBG = '10.10.0.98' # connected to the fridge incubator in imx room
+WINDOWS_GBG = '10.10.0.97' # connected to the fridge incubator in imx room
 
 @dataclass
 class Machine:
