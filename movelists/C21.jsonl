@@ -1,3 +1,10 @@
+{"type": "Section", "sections": ["neutral"]}
+{"type": "MoveJ", "joints": [601.89, -5.32, 176.89, -893.24], "name": "neu"}
+{"type": "MoveGripper", "pos": 100.01}
+{"type": "MoveJ", "joints": [474.76, 69.33, 43.8, -652.31], "name": "fridge neu"}
+{"type": "MoveJ", "joints": [601.89, -5.32, 176.89, -893.24], "name": "neu"}
+{"type": "MoveJ", "joints": [511.6, -72.51, 296.91, -946.24], "name": "hotel neu"}
+{"type": "MoveJ", "joints": [601.9, -5.32, 176.89, -893.24], "name": "neu"}
 {"type": "Section", "sections": ["put"]}
 {"type": "MoveJ", "joints": [569.4, -70.69, 293.59, -582.9], "name": "neu"}
 {"type": "MoveGripper", "pos": 100.01}
