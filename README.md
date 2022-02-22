@@ -145,6 +145,14 @@ dan@NUC-robotlab:~$ curl -s 10.10.0.56:5050/dir_list | grep '"value"' -A15
     },
 ```
 
+## Barcode scanner
+
+Install drivers from https://support.honeywellaidc.com/s/article/How-to-get-the-scanner-to-communicate-via-virtual-COM-port-USB-serial-driver 
+
+Set barcode scanner to USB Serial Emulation Mode by showing it the barcode 316460.
+
+By default reads from COM3 and assumes barcodes separated by \r, which seems to be the default anyway.
+
 ## Configure BioTek software
 
 Make sure that this option is checked in each protocol:
