@@ -22,7 +22,8 @@ def scanner_thread():
     global last_seen
     while True:
         try:
-            line = scanner.readline()
+            b: bytes = scanner.readline()
+            line = b.decode('ascii')
         except Exception as e:
             traceback.print_exc()
             last_seen = {
