@@ -4,14 +4,11 @@ from typing import Any, Dict, List, Union
 
 import json
 import os
-from threading import Lock, Thread
+from threading import Thread
 from serial import Serial # type: ignore
 import traceback
 
-COM_PORT = os.environ.get('COM_PORT', 'COM1')
-
-scanner: Any = Serial(COM_PORT, timeout=5)
-scanner_lock = Lock()
+COM_PORT = os.environ.get('COM_PORT', 'COM3')
 
 last_seen: Dict[str, Union[str, List[str]]] = {
     'barcode': '',
@@ -20,9 +17,11 @@ last_seen: Dict[str, Union[str, List[str]]] = {
 
 def scanner_thread():
     global last_seen
+    scanner: Any = Serial(COM_PORT, timeout=5)
     while True:
         try:
-            b: bytes = scanner.readline()
+            b: bytes = scanner.read_until(b'\r')
+            print('message', b)
             line = b.decode('ascii')
         except Exception as e:
             traceback.print_exc()
