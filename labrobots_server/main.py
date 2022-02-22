@@ -13,15 +13,9 @@ from argparse import ArgumentParser
 from dataclasses import dataclass, field
 from queue import Queue
 from subprocess import Popen, PIPE, STDOUT
-from typing import Any, List, Tuple, Union
+from typing import Any, List, Tuple
 
 from flask import Flask, jsonify
-
-from pathlib import Path
-from datetime import datetime
-from hashlib import sha256
-
-import json
 
 LHC_CALLER_CLI_PATH = "C:\\Program Files (x86)\\BioTek\\Liquid Handling Control 2.22\\LHC_CallerCLI.exe"
 PROTOCOLS_ROOT = "C:\\ProgramData\\BioTek\\Liquid Handling Control 2.22\\Protocols\\"
@@ -73,15 +67,21 @@ class Machine:
                         return lines
                     line = stdout.readline().rstrip()
                     t = round(time.monotonic() - t0, 3)
-                    print(t, self.name, line)
+                    short_line = line
+                    if len(short_line) > 250:
+                        short_line = short_line[:250] + '... (truncated)'
+                    print(t, self.name, short_line)
                     if line.startswith('ready'):
                         return lines, value
+                    value_line = False
                     if line.startswith('value'):
                         try:
                             value = ast.literal_eval(line[len('value '):])
+                            value_line = True
                         except:
                             pass
-                    lines += [line]
+                    if not value_line:
+                        lines += [line]
 
             lines = read_to_ready(time.monotonic())
             while True:
@@ -162,29 +162,3 @@ def example_repl():
         else:
             print("success")
 
-def dir_list_repl():
-    parser = ArgumentParser('labrobots_dir_list_repl')
-    parser.add_argument('--root-dir', type=str, required=True)
-    parser.add_argument('--extension', type=str, required=True)
-    args = parser.parse_args(sys.argv[1:])
-    root_dir = args.root_dir
-    ext = args.extension.strip('.')
-    root = Path(root_dir)
-    while True:
-        print("ready")
-        line = input()
-        print("message", line)
-        res: list[dict[str, str]] = []
-        for lhc in root.glob(f'*/*.{ext}'):
-            modified_time = lhc.stat().st_mtime
-            data = lhc.read_bytes()
-            res += [{
-                'path': str(lhc.relative_to(root)),
-                'modified': str(datetime.fromtimestamp(modified_time).replace(microsecond=0)),
-                'sha256': sha256(data).hexdigest(),
-            }]
-        if "error" in line:
-            print("error")
-        else:
-            print("value", json.dumps(res))
-            print("success")
