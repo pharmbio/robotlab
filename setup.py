@@ -2,6 +2,7 @@ from setuptools import setup
 
 requirements = '''
     flask
+    pyserial
 '''
 
 console_scripts = '''
@@ -9,6 +10,7 @@ console_scripts = '''
     labrobots-example-repl=labrobots_server.main:example_repl
     labrobots-dir-list-repl=labrobots_server.dir_list_repl:main
     incubator-repl=incubator_repl.incubator:main
+    barcode-repl=barcode_repl.main:main
 '''
 
 name='labrobots'

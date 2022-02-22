@@ -125,10 +125,12 @@ def main_with_args(port: int, host: str, test: bool, fridge: bool):
         dir_list = 'labrobots-dir-list-repl'
         example = 'labrobots-example-repl'
         incu = 'incubator-repl'
+        barcode_repl = 'barcode-repl'
     else:
         dir_list = 'labrobots-dir-list-repl.exe'
         example = 'labrobots-example-repl.exe'
         incu = 'incubator-repl.exe'
+        barcode_repl = 'barcode-repl.exe'
     if test:
         machines = {
             'example': Machine('example', args=[example]),
@@ -138,6 +140,7 @@ def main_with_args(port: int, host: str, test: bool, fridge: bool):
         machines = {
             'example': Machine('example', args=[example]),
             'fridge': Machine('fridge', args=[incu]),
+            'barcode': Machine('barcode', args=[barcode_repl]),
         }
     else:
         machines = {
