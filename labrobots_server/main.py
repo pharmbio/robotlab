@@ -20,6 +20,9 @@ from flask import Flask, jsonify
 LHC_CALLER_CLI_PATH = "C:\\Program Files (x86)\\BioTek\\Liquid Handling Control 2.22\\LHC_CallerCLI.exe"
 PROTOCOLS_ROOT = "C:\\ProgramData\\BioTek\\Liquid Handling Control 2.22\\Protocols\\"
 
+WINDOWS_NUC = '10.10.0.56' # connected to the bioteks and 37C incubator
+WINDOWS_GBG = '10.10.0.98' # connected to the fridge incubator in imx room
+
 @dataclass
 class Machine:
     name: str
@@ -101,12 +104,22 @@ class Machine:
 def main():
     parser = ArgumentParser('labrobots_server')
     parser.add_argument('--port', type=int, default=5050)
-    parser.add_argument('--host', type=str, default='10.10.0.56')
+    parser.add_argument('--host', type=str, default='default')
     parser.add_argument('--test', action='store_true', default=False)
+    parser.add_argument('--fridge', action='store_true', default=False)
     args = parser.parse_args(sys.argv[1:])
-    main_with_args(port=args.port, host=args.host, test=args.test)
+    host = args.host
+    if host == 'default':
+        if args.test:
+            host = 'localhost'
+        elif args.fridge:
+            host = WINDOWS_GBG
+        else:
+            host = WINDOWS_NUC
+    main_with_args(port=args.port, host=host, test=args.test, fridge=args.fridge)
 
-def main_with_args(port: int, host: str, test: bool):
+def main_with_args(port: int, host: str, test: bool, fridge: bool):
+    assert not (test and fridge)
     import os
     if os.name == 'posix':
         dir_list = 'labrobots-dir-list-repl'
@@ -120,6 +133,11 @@ def main_with_args(port: int, host: str, test: bool):
         machines = {
             'example': Machine('example', args=[example]),
             'dir_list': Machine('dir_list', args=[dir_list, '--root-dir', '.', '--extension', 'py']),
+        }
+    elif fridge:
+        machines = {
+            'example': Machine('example', args=[example]),
+            'fridge': Machine('fridge', args=[incu]),
         }
     else:
         machines = {
@@ -161,4 +179,3 @@ def example_repl():
             print("error")
         else:
             print("success")
-
