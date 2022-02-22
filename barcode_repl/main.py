@@ -32,11 +32,12 @@ def scanner_thread():
             }
             continue
         line = line.strip()
-        last_seen = {
-            'barcode': line,
-            'date': datetime.now().replace(microsecond=0).isoformat(sep=' ')
-        }
-        print('message', line)
+        if line:
+            last_seen = {
+                'barcode': line,
+                'date': datetime.now().replace(microsecond=0).isoformat(sep=' ')
+            }
+            print('message', line)
 
 def main():
     Thread(target=scanner_thread, daemon=True).start()
