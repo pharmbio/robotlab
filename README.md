@@ -49,8 +49,9 @@ The robotarm has a web server for configuring it. You can forward it to localhos
 ssh -N -L 1280:10.10.0.98:80 robotlab-ubuntu
 ```
 
-The robotarm IP can be changed there (we have done this to put it on our local network),
-see _Control Panels/Communication/Network_. There is also a virtual pendant.
+The robotarm IP can be changed there, under _Control Panels/Communication/Network_:
+
+<img src="images/pf-ip.png"/>
 
 The robotarm programming language is a dialect of VisualBasic.
 It is called _Guidance Programming Language_ (GDS).
@@ -60,6 +61,10 @@ Using the telnet method is too brittle.
 
 TCS is at port 10000 for querying and 10100 for motion related commands.
 
+The Tcp_cmd_server starts automatically and the corresponding settings in the web server config look like:
+
+<img src="images/pf-startup-config.png"/>
+
 ### Flashing the PreciseFlex
 
 We flash our modified version of Tcp command server (TCS) from
@@ -68,7 +73,7 @@ Because the telnet port is so brittle (it sometimes gets stuck and you have
 to power off and on the robotarm to get it back) we keep one connection open
 by following the tail of a fifo.
 
-Run `python flash.py` and follow the instructions:
+Run `pf-flash` and follow the instructions:
 
 ```sh
 dan@NUC-robotlab:~/imx-pharmbio-automation/pf_repl$ python flash.py
@@ -151,16 +156,29 @@ These commands are added:
 Try them on port 10.10.0.98:10100, but first put verbose, power on, attach and home:
 
 ```sh
-rlwrap nc 10.10.0.98 10100
+pharmbio@NUC-robotlab:~/imx-pharmbio-automation$ rlwrap nc 10.10.0.98 10100
+hp 1
+0
+attach 1
+0
+home
+wherejson
+0
+{"x":174.45,"y":-46.05,"z":569.41,"yaw":-7.78,"pitch":90,"roll":180,"q1":569.41,"q2":-0.15,"q3":184.78,"q4":-912.41,"q5":126.58,"speed":50}
 ```
+
 ```
 mode 1
 hp 1
 attach 1
 home
+wherejson
+```
+
+You can also move it:
+```
 MoveJ_Rel 1 0 0 0 0 -10
 MoveC_Rel 1 10 0 0 0 0 0
 ```
 
 See the documentation pdf Tcp_cmd_server/TCS_Users_Guide_3.0C1.pdf for more info.
-

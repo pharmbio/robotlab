@@ -17,7 +17,7 @@
 Module Globals 'Declare global variables for project here.
 
     ' VERSION STRING
-    Public Version As String = "Command Server 3.0C1 05-27-2021"
+    Public Version As String = "Command Server 3.0C1 05-27-2021 + pharmbio additions"
 
     ' -- Debug operation flag.
     ' 0 = no trace messages
