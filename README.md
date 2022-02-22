@@ -153,10 +153,12 @@ These commands are added:
 ' Cmd_MoveC_Rel -- Move cartesian relative
 ```
 
-Try them on port 10.10.0.98:10100, but first put verbose, power on, attach and home:
+Try them on port 10.10.0.98:10100, power on, attach and home:
 
 ```sh
 pharmbio@NUC-robotlab:~/imx-pharmbio-automation$ rlwrap nc 10.10.0.98 10100
+version
+0 TCP Command Server 3.0C1 05-27-2021 + pharmbio additions, Load-Save Module 3.0B2 12-04-2020
 hp 1
 0
 attach 1
@@ -167,13 +169,7 @@ wherejson
 {"x":174.45,"y":-46.05,"z":569.41,"yaw":-7.78,"pitch":90,"roll":180,"q1":569.41,"q2":-0.15,"q3":184.78,"q4":-912.41,"q5":126.58,"speed":50}
 ```
 
-```
-mode 1
-hp 1
-attach 1
-home
-wherejson
-```
+Note that version replies `+ pharmbio additions`.
 
 You can also move it:
 ```
