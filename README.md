@@ -151,6 +151,8 @@ These commands are added:
 ' Cmd_MoveGripper -- Move the gripper joint (5)
 ' Cmd_MoveJ_Rel -- Move joints relative
 ' Cmd_MoveC_Rel -- Move cartesian relative
+' Cmd_Freedrive -- Starts freedrive
+' Cmd_StopFreedrive -- Stops freedrive
 ```
 
 Try them on port 10.10.0.98:10100, power on, attach and home:
