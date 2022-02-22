@@ -27,7 +27,7 @@ from .moves import movelists
 from .runtime import RuntimeConfig, configs, config_lookup
 from .small_protocols import small_protocols_dict, SmallProtocolArgs
 from .utils import show
-from .protocol_paths import paths_v5, get_protocol_paths
+from . import protocol_paths
 
 A = TypeVar('A')
 
@@ -119,8 +119,8 @@ class Args:
     lockstep:                  bool = arg(help='Allow steps to overlap: first plate PFA starts before last plate Mito finished and so on, required for 10 plate batches')
     start_from_pfa:            bool = arg(help='Start from PFA (in room temperature). Use this if you have done Mito manually beforehand')
     log_filename:              str  = arg(help='Manually set the log filename instead of having a generated name based on date')
-    protocol_dir:              str  = arg(help='Directory to read biotek .LHC files from on the windows server (relative to the protocol root).')
-    update_protocol_dir:       str  = arg(help='...')
+    protocol_dir:              str  = arg(default='automation_v5.0', help='Directory to read biotek .LHC files from on the windows server (relative to the protocol root).')
+    force_update_protocol_dir: bool = arg(help='Update the protcol dir based on the windows server even if config is not --live.')
 
     small_protocol:            str  = arg(
         enum=[
@@ -182,10 +182,8 @@ def main_with_args(args: Args, parser: argparse.ArgumentParser | None=None):
 
     print('config =', show(config))
 
-    if args.update_protocol_dir:
-        from . import protocol_paths
-        protocol_paths.update_protocol_dir(args.update_protocol_dir)
-        sys.exit(0)
+    if args.force_update_protocol_dir or config.name == 'live':
+        protocol_paths.update_protocol_dir(args.protocol_dir)
 
     if args.visualize:
         from . import protocol_vis as pv
@@ -268,13 +266,14 @@ class Program:
     doc: str = ''
 
 def args_to_program(args: Args) -> Program | None:
-    v5 = protocol.make_protocol_config(paths_v5, args)
+    paths =  protocol_paths.get_protocol_paths()[args.protocol_dir]
+    protocol_config = protocol.make_protocol_config(paths, args)
 
     if args.cell_paint:
         batch_sizes = utils.read_commasep(args.cell_paint, int)
         program = protocol.cell_paint_program(
             batch_sizes=batch_sizes,
-            protocol_config=v5,
+            protocol_config=protocol_config,
         )
         return Program(program, {
             'program': 'cell_paint',
@@ -288,6 +287,7 @@ def args_to_program(args: Args) -> Program | None:
             small_args = SmallProtocolArgs(
                 num_plates = args.num_plates,
                 params = args.params,
+                protocol_dir = args.protocol_dir,
             )
             program = p.make(small_args)
             return Program(program, {'program': p.name}, doc=p.doc)

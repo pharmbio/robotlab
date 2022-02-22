@@ -44,11 +44,13 @@ from .protocol import (
 
 from . import protocol
 from .protocol_paths import paths_v5
+from . import protocol_paths
 
 @dataclass(frozen=True)
 class SmallProtocolArgs:
     num_plates: int = 1
     params: list[str] = field(default_factory=list)
+    protocol_dir: str = 'automation_v5.0'
 
 SmallProtocol: TypeAlias = Callable[[SmallProtocolArgs], Command]
 
@@ -142,7 +144,7 @@ def test_circuit(_: SmallProtocolArgs):
         7. robotarm:                in neutral position by lid hotel
     '''
     [[plate]] = define_plates([1])
-    v5 = make_protocol_config(paths_v5, ProtocolArgs(incu='s1,s2,s3,s4,s5', two_final_washes=True, interleave=True))
+    v5 = make_protocol_config(paths_v5(), ProtocolArgs(incu='s1,s2,s3,s4,s5', two_final_washes=True, interleave=True))
     program = cell_paint_program([1], protocol_config=v5)
     program = Sequence(
         *[
@@ -246,11 +248,11 @@ def wash_plates_clean(args: SmallProtocolArgs):
     return program
 
 @small_protocols.append
-def validate_all_protocols(_: SmallProtocolArgs):
+def validate_all_protocols(args: SmallProtocolArgs):
     '''
     Validate all biotek protocols.
     '''
-    paths = paths_v5
+    paths = protocol_paths.get_protocol_paths()[args.protocol_dir]
     wash = [
         WashCmd(p, cmd='Validate')
         for p in paths.all_wash_paths()
@@ -277,7 +279,7 @@ def run_biotek(args: SmallProtocolArgs):
 
     Note: the two final washes protocol 9_10_W is included, but not the 9_W.
     '''
-    paths = paths_v5
+    paths = protocol_paths.get_protocol_paths()[args.protocol_dir]
     wash = paths.all_wash_paths()
     disp = paths.all_disp_paths()
     protocols = [
@@ -514,7 +516,7 @@ def add_missing_timings(_: SmallProtocolArgs):
     return program
 
 @small_protocols.append
-def time_bioteks(_: SmallProtocolArgs):
+def time_bioteks(args: SmallProtocolArgs):
     '''
     Timing for biotek protocols, with dispenser running on air.
 
@@ -524,7 +526,7 @@ def time_bioteks(_: SmallProtocolArgs):
         3. biotek dispenser: all pumps and syringes disconnected (just use air) (plate optional)
         4. robotarm:         not used
     '''
-    paths = paths_v5
+    paths = protocol_paths.get_protocol_paths()[args.protocol_dir]
     wash = [
         BiotekValidateThenRun('wash', p)
         for p in paths.all_wash_paths()

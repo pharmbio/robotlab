@@ -418,7 +418,7 @@ def test_make_protocol_config():
         for lockstep in [False]
     ]
     for args in argss:
-        make_protocol_config(paths_v5, args)
+        make_protocol_config(paths_v5(), args)
 
 test_make_protocol_config()
 

@@ -343,7 +343,7 @@ class Runtime:
             machine = machine.lower()
             if machine == 'duration':
                 desc = f"`{getattr(entry.cmd, 'name', '?')}` = {utils.pp_secs(entry.duration or 0)}"
-            desc = re.sub('automation_v.*?/', '', desc)
+            desc = re.sub('^automation_', '', desc)
             desc = re.sub(r'\.LHC', '', desc)
             desc = re.sub(r'\w*path=', '', desc)
             desc = re.sub(r'\w*name=', '', desc)

@@ -86,14 +86,14 @@ class PathInfo(TypedDict):
     '''
     Info about a path:
 
-    windows-style path relative to protocol root
+    posix-style path relative to protocol root
     last modified timestamp in isoformat
     sha256 hexdigest
 
     example:
 
     {
-      "path": "automation_v5.0\\7_W_3X_beforeStains_leaves10ul_PBS.LHC",
+      "path": "automation_v5.0/7_W_3X_beforeStains_leaves10ul_PBS.LHC",
       "modified": "2022-02-15 10:57:50",
       "sha256": "cf9eaf0e9a4cbaacba35433ae811f9a657b9a3ddc2ddca0b72d1ace3397259a2"
     }
@@ -108,7 +108,8 @@ class Response(TypedDict):
 def get_protocol_paths() -> dict[str, ProtocolPaths]:
     return utils.serializer.read_json('protocol_paths.json')
 
-paths_v5 = get_protocol_paths()['automation_v5.0']
+def paths_v5():
+    return get_protocol_paths()['automation_v5.0']
 
 def update_protocol_dir(protocol_dir: str):
     res: Response = curl(dir_list_url)
@@ -118,11 +119,11 @@ def update_protocol_dir(protocol_dir: str):
     utils.serializer.write_json(all_protocol_paths, 'protocol_paths.json', indent=2)
 
 def make_protocol_paths(protocol_dir: str, infos: list[PathInfo]):
-    protocol_dir = protocol_dir.rstrip('\\').rstrip('/')
+    protocol_dir = protocol_dir.rstrip('/')
 
     lhcs: list[str] = []
     for info in infos:
-        dir, _, lhc = info['path'].partition('\\')
+        dir, _, lhc = info['path'].partition('/')
         if dir == protocol_dir:
             lhcs += [lhc]
 

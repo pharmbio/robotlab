@@ -777,6 +777,7 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
 
         protocol = m.var(Str('cell-paint', options=tuple(options.keys())))
 
+        protocol_dir = m.var(Str('automation_v5.0', name='protocol dir', desc='Directory on the windows computer to read biotek LHC files from'))
         plates = m.var(Str(desc='The number of plates per batch, separated by comma. Example: 6,6'))
         start_from_pfa = m.var(Bool(name='start from pfa', desc='Skip mito and start with PFA (including pre-PFA wash). Plates start on their output positions (A hotel).'))
         incu = m.var(Str(name='incubation times', value='20:00', desc='The incubation times in seconds or minutes:seconds, separated by comma. If too few values are specified, the last value is repeated. Example: 21:00,20:00'))
@@ -786,7 +787,7 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
 
         form_fields: list[Str | Bool] = []
         if protocol.value == 'cell-paint':
-            form_fields = [plates, incu, start_from_pfa]
+            form_fields = [plates, incu, start_from_pfa, protocol_dir]
             batch_sizes = plates.value
             N = utils.catch(lambda: max(utils.read_commasep(batch_sizes, int)), 0)
             interleave = N >= 7
@@ -808,16 +809,20 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
                 interleave=interleave,
                 two_final_washes=two_final_washes,
                 lockstep=lockstep,
+                protocol_dir=protocol_dir.value,
             )
         elif isinstance(small_data, SmallProtocolData):
             if 'num_plates' in small_data.args:
                 form_fields += [plates]
             if 'params' in small_data.args:
                 form_fields += [params]
+            if 'protocol_dir' in small_data.args:
+                form_fields += [protocol_dir]
             args = Args(
                 small_protocol=small_data.name,
                 num_plates=utils.catch(lambda: int(plates.value), 0),
                 params=utils.catch(lambda: shlex.split(params.value), []),
+                protocol_dir=protocol_dir.value,
             )
         else:
             form_fields = []
