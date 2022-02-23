@@ -4,13 +4,17 @@ dependencies: python 3.10
 
 optional dev dependencies: pyright, entr
 
-## installation
+## Standard operating prodecure
+
+See [sop.md](https://github.com/pharmbio/robot-cellpainter/blob/main/sop.md).
+
+## Installation
 
 ```
 pip install --editable .
 ```
 
-## test
+## Test
 
 ```
 cellpainter --cell-paint 6,6 --dry-run
@@ -18,7 +22,7 @@ cellpainter --cell-paint 6,6 --dry-run
 
 Github actions is set up, check .github/workflows/test.yml. One way to run this locally is to use [`act`](https://github.com/nektos/act).
 
-## network
+## Network
 
 machine        | ip
 ---            | ---
