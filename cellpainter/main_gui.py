@@ -988,6 +988,7 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
                     & > pre {
                         line-height: 1.5;
                         margin: 0;
+                        white-space: pre-wrap;
                     }
                 '''
             )
@@ -1096,6 +1097,7 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
                     & > pre {
                         line-height: 1.5;
                         margin: 0;
+                        white-space: pre-wrap;
                     }
                 '''
             )
