@@ -364,10 +364,11 @@ def make_protocol_config(paths: ProtocolPaths, args: ProtocolArgsInterface = Pro
 
     names_5 = ['Mito', 'PFA', 'Triton', 'Stains', 'Final']
     names_6 = ['Mito', 'PFA', 'Triton', 'Stains', 'Wash 1', 'Final']
+    step_names = names_6 if six_cycles else names_5
 
     p = ProtocolConfig(
         wash_prime     = paths.wash_prime,
-        step_names     = names_6 if six_cycles else names_5,
+        step_names     = step_names,
         wash           = paths.wash_6 if six_cycles else paths.wash_5,
         disp_prime     = resize(paths.disp_prime),
         disp_prep      = resize(paths.disp_prep),
@@ -593,7 +594,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                             WaitForCheckpoint(f'{plate_desc} pre disp {ix} start wait') + f'{plate_desc} pre disp {ix} delay',
                             BiotekValidateThenRun('disp', disp_prime).add(Metadata(plate_id='')) if disp_prime else Idle(),
                             BiotekValidateThenRun('disp', p.disp_prep[i]).add(Metadata(predispense=True)) if p.disp_prep[i] else Idle(),
-                            DispCmd(p.disp[i], cmd='Validate'),
+                            DispCmd(p.disp[i], cmd='Validate') if p.disp[i] else Idle(),
                             Early(2),
                             Checkpoint(f'{plate_desc} pre disp done {ix}'),
                         ).add(Metadata(slot=3)),
@@ -608,14 +609,14 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
 
             wash = [
                 RobotarmCmd('wash put prep'),
-                WashFork(p.wash[i], cmd='Validate', assume='idle').delay(1) if plate is first_plate else Idle(),
+                WashFork(p.wash[i], cmd='Validate', assume='idle').delay(1) if plate is first_plate and p.wash[i] else Idle(),
                 RobotarmCmd('wash put transfer'),
                 disp_prep if pre_disp_is_long else Idle(),
                 Fork(
                     Sequence(
                         *wash_delay,
                         Duration(f'{plate_desc} incubation {ix-1}', exactly=p.incu[i-1]) if i > 0 else Idle(),
-                        WashCmd(p.wash[i], cmd='RunValidated'),
+                        WashCmd(p.wash[i], cmd='RunValidated') if p.wash[i] else Idle(),
                         Checkpoint(f'{plate_desc} incubation {ix}')
                         if step == 'Wash 1' else
                         Checkpoint(f'{plate_desc} transfer {ix}'),
@@ -628,14 +629,14 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
             disp = [
                 RobotarmCmd('wash_to_disp prep'),
                 Early(1),
-                WaitForResource('wash', assume='will wait'),
+                WaitForResource('wash', assume='nothing'),
                 Idle() if pre_disp_is_long else disp_prep,
                 RobotarmCmd('wash_to_disp transfer'),
                 pre_disp_wait,
-                Duration(f'{plate_desc} transfer {ix}', exactly=estimate(RobotarmCmd('wash_to_disp transfer'))),
+                Duration(f'{plate_desc} transfer {ix}', exactly=estimate(RobotarmCmd('wash_to_disp transfer'))) if p.disp[i] else Idle(),
                 Fork(
                     Sequence(
-                        DispCmd(p.disp[i], cmd='RunValidated'),
+                        DispCmd(p.disp[i], cmd='RunValidated') if p.disp[i] else Idle(),
                         Checkpoint(f'{plate_desc} disp {ix} done'),
                         Checkpoint(f'{plate_desc} incubation {ix}'),
                     ),

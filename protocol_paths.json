@@ -37,5 +37,38 @@
       "automation_v5.0/6.1_D_P1_80ul_Triton.LHC",
       "automation_v5.0/8.1_D_P2_20ul_stains.LHC"
     ]
+  },
+  "short": {
+    "type": "ProtocolPaths",
+    "wash_prime": [
+      "short/0_W.LHC"
+    ],
+    "wash_5": [
+      "",
+      "short/3_W.LHC",
+      "short/5_W.LHC",
+      "",
+      ""
+    ],
+    "wash_6": [
+      "",
+      "short/3_W.LHC",
+      "short/5_W.LHC",
+      "short/7_W.LHC",
+      "",
+      ""
+    ],
+    "disp_prime": [
+      "short/2.0_D.LHC",
+      "short/4.0_D.LHC"
+    ],
+    "disp_prep": [
+      "",
+      "short/4.0b_D.LHC"
+    ],
+    "disp_main": [
+      "short/2.1_D.LHC",
+      "short/4.1_D.LHC"
+    ]
   }
 }
