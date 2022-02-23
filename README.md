@@ -4,7 +4,7 @@ dependencies: python 3.10
 
 optional dev dependencies: pyright, entr
 
-## Standard operating prodecure
+## Standard operating procedure
 
 See [sop.md](https://github.com/pharmbio/robot-cellpainter/blob/main/sop.md).
 
