@@ -27,13 +27,14 @@ def main():
             msg = msg + b'\r\n'
             n = imx.write(msg)
             print('message sent', n, 'bytes:', repr(msg))
-            reply: bytes = imx.readline()
-            print('message reply', repr(reply))
-            value = {
-                'sent': msg.decode().strip(),
-                'reply': reply.decode().strip(),
-            }
-            print('value', json.dumps(value))
+            reply_bytes: bytes = imx.readline()
+            print('message reply', repr(reply_bytes))
+            reply = reply_bytes.decode().strip()
+            if reply and 'ERROR' not in reply:
+                print('success')
+                print('value', json.dumps(reply))
+            else:
+                print('error', reply)
         except Exception as e:
             traceback.print_exc()
             print('error', e)
