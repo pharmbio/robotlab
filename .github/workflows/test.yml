@@ -33,5 +33,5 @@ jobs:
       - run: set -o pipefail; cellpainter --cell-paint 3 --protocol-dir short --start-from-pfa | tail
       - run: set -o pipefail; cellpainter --time-bioteks | tail
       - run: set -o pipefail; cellpainter --incu-load --num-plates 11 | tail
-      - run: set -o pipefail; cellpainter --wash-plates-clean | tail
+      - run: set -o pipefail; cellpainter --wash-plates-clean --num-plates 11 | tail
       - run: set -o pipefail; cellpainter --list-imports | tee /dev/stderr | xargs pyright

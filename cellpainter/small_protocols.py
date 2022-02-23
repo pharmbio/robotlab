@@ -192,6 +192,8 @@ def wash_plates_clean(args: SmallProtocolArgs):
         8. robotarm:                in neutral position by B hotel
     '''
     N = args.num_plates
+    if not N:
+        return Idle()
     cmds: list[Command] = []
     [plates] = define_plates([N])
     cmds += [Section('H₂O')]
