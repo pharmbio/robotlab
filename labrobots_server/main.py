@@ -166,14 +166,16 @@ def main_with_args(port: int, host: str, test: bool, node_name: str):
     @app.get('/<machine>')                   # type: ignore
     @app.get('/<machine>/<cmd>')             # type: ignore
     @app.get('/<machine>/<cmd>/<path:arg>')  # type: ignore
-    def _(machine: str, cmd: str="", arg: str=""):
+    def get(machine: str, cmd: str="", arg: str=""):
         arg = arg.replace('/', '\\')
         return jsonify(machine_by_name[machine].message(cmd, arg))
 
     @app.post('/<machine>') # type: ignore
-    def _(machine: str):
+    def post(machine: str):
         cmd = json.dumps(request.form)
         return jsonify(machine_by_name[machine].message(cmd))
+
+    _ = get, post # mark them as used for typechecker
 
     app.run(host=host, port=port, threaded=True, processes=1)
 
