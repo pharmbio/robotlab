@@ -200,7 +200,7 @@ def wash_plates_clean(args: SmallProtocolArgs):
         cmds += [*RobotarmCmds(plate.lid_put)]
         cmds += [*RobotarmCmds('wash put')]
 
-        cmds += [Fork(WashCmd('automation_v4.0/wash-plates-clean/WD_3X_leaves80ul.LHC', 'Run'))]
+        cmds += [Fork(WashCmd('wash-plates-clean/WD_3X_leaves80ul.LHC', 'Run'))]
         cmds += [WaitForResource('wash')]
 
         cmds += [*RobotarmCmds('wash get')]
@@ -208,7 +208,7 @@ def wash_plates_clean(args: SmallProtocolArgs):
         cmds += [*RobotarmCmds(plate.rt_put)]
 
     cmds += [Section('EtOH')]
-    cmds += [Fork(WashCmd('automation_v4.0/wash-plates-clean/WC_PRIME.LHC', 'Run'))]
+    cmds += [Fork(WashCmd('wash-plates-clean/WC_PRIME.LHC', 'Run'))]
     cmds += [WaitForResource('wash')]
 
     for i, plate in enumerate(plates):
@@ -216,7 +216,7 @@ def wash_plates_clean(args: SmallProtocolArgs):
         cmds += [*RobotarmCmds(plate.lid_put)]
         cmds += [*RobotarmCmds('wash put')]
 
-        cmds += [Fork(WashCmd('automation_v4.0/wash-plates-clean/WC_1X_leaves80ul.LHC', 'Run'))]
+        cmds += [Fork(WashCmd('wash-plates-clean/WC_1X_leaves80ul.LHC', 'Run'))]
         cmds += [WaitForResource('wash')]
 
         if i == 0:
@@ -234,7 +234,7 @@ def wash_plates_clean(args: SmallProtocolArgs):
         cmds += [*RobotarmCmds(plate.lid_put)]
         cmds += [*RobotarmCmds('wash put')]
 
-        cmds += [Fork(WashCmd('automation_v4.0/wash-plates-clean/WD_3X_leaves10ul.LHC', 'Run'))]
+        cmds += [Fork(WashCmd('wash-plates-clean/WD_3X_leaves10ul.LHC', 'Run'))]
         cmds += [WaitForResource('wash')]
 
         cmds += [*RobotarmCmds('wash get')]
@@ -272,12 +272,12 @@ def validate_all_protocols(args: SmallProtocolArgs):
 @small_protocols.append
 def run_biotek(args: SmallProtocolArgs):
     '''
-    Run protocols on the bioteks from automation_v4.0/.
+    Run protocols on the bioteks from the protocol dir.
 
-    For each parameter <X> runs all protocols that matches automation_v4.0/<X>.
-    For example, 2 will run 2.0_D_SB_PRIME_Mito and then 2.1_D_SB_30ul_Mito.
-
-    Note: the two final washes protocol 9_10_W is included, but not the 9_W.
+    For each parameter $X runs all protocols that matches ${PROTOCOL_DIR}/$X.
+    For example with automation_v4.0, "2" will run
+    automation_v4.0/2.0_D_SB_PRIME_Mito and then
+    automation_v4.0/2.1_D_SB_30ul_Mito.
     '''
     paths = protocol_paths.get_protocol_paths()[args.protocol_dir]
     wash = paths.all_wash_paths()

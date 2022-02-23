@@ -1399,7 +1399,7 @@
     "cmd": {
       "type": "BiotekCmd",
       "machine": "wash",
-      "protocol_path": "automation_v4.0/wash-plates-clean/WC_1X_leaves80ul.LHC",
+      "protocol_path": "wash-plates-clean/WC_1X_leaves80ul.LHC",
       "action": "Run"
     },
     "times": {
@@ -1415,7 +1415,7 @@
     "cmd": {
       "type": "BiotekCmd",
       "machine": "wash",
-      "protocol_path": "automation_v4.0/wash-plates-clean/WC_PRIME.LHC",
+      "protocol_path": "wash-plates-clean/WC_PRIME.LHC",
       "action": "Run"
     },
     "times": {
@@ -1426,7 +1426,7 @@
     "cmd": {
       "type": "BiotekCmd",
       "machine": "wash",
-      "protocol_path": "automation_v4.0/wash-plates-clean/WD_3X_leaves10ul.LHC",
+      "protocol_path": "wash-plates-clean/WD_3X_leaves10ul.LHC",
       "action": "Run"
     },
     "times": {
@@ -1442,7 +1442,7 @@
     "cmd": {
       "type": "BiotekCmd",
       "machine": "wash",
-      "protocol_path": "automation_v4.0/wash-plates-clean/WD_3X_leaves80ul.LHC",
+      "protocol_path": "wash-plates-clean/WD_3X_leaves80ul.LHC",
       "action": "Run"
     },
     "times": {
