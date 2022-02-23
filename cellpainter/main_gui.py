@@ -103,6 +103,7 @@ def start(args: Args, simulate: bool):
         args,
         config_name=config_name,
         log_filename=log_filename,
+        force_update_protocol_dir=True,
         yes=True,
     )
     Path('cache').mkdir(exist_ok=True)
