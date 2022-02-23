@@ -135,16 +135,16 @@ def main_with_args(port: int, host: str, test: bool, node_name: str):
 
     print('node_name:', node_name)
 
-    if node_name == 'WINDOWS_GBG':
+    if node_name == 'WINDOWS-GBG':
         machines = [
             Machine('example', args=[exe('example')]),
             Machine('fridge',  args=[exe('incubator-repl')]),
             Machine('barcode', args=[exe('barcode-repl')]),
             Machine('imx',     args=[exe('imx-repl')]),
         ]
-    elif node_name == 'WINDOWS_NUC':
+    elif node_name == 'WINDOWS-NUC':
         machines = [
-            Machine('example',  args=[exe('example')]),
+            Machine('example',  args=[exe('labrobots-example-repl')]),
             Machine('incu',     args=[exe('incubator-repl')]),
             Machine('wash',     args=[LHC_CALLER_CLI_PATH, "405 TS/LS", "USB 405 TS/LS sn:191107F", PROTOCOLS_ROOT]),
             Machine('disp',     args=[LHC_CALLER_CLI_PATH, "MultiFloFX", "USB MultiFloFX sn:19041612", PROTOCOLS_ROOT]),
@@ -152,7 +152,7 @@ def main_with_args(port: int, host: str, test: bool, node_name: str):
         ]
     else:
         machines = [
-            Machine('example', args=[exe('example')]),
+            Machine('example',  args=[exe('labrobots-example-repl')]),
             Machine('dir_list', args=[exe('labrobots-dir-list-repl'), '--root-dir', '.', '--extension', 'py']),
         ]
 
