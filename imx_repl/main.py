@@ -14,7 +14,7 @@ def main():
             line = input()
             if line.startswith('{'):
                 form = json.loads(line)
-                msg_str: str = form['msg']
+                msg_str: str = '1,' + form['msg']
             else:
                 cmd, sep, arg = line.partition(' ')
                 if sep:
