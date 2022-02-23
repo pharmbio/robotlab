@@ -8,6 +8,9 @@ import ast
 import sys
 import threading
 import time
+import platform
+import os
+import json
 from argparse import ArgumentParser
 
 from dataclasses import dataclass, field
@@ -15,20 +18,22 @@ from queue import Queue
 from subprocess import Popen, PIPE, STDOUT
 from typing import Any, List, Tuple
 
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 
 LHC_CALLER_CLI_PATH = "C:\\Program Files (x86)\\BioTek\\Liquid Handling Control 2.22\\LHC_CallerCLI.exe"
 PROTOCOLS_ROOT = "C:\\ProgramData\\BioTek\\Liquid Handling Control 2.22\\Protocols\\"
 
-WINDOWS_NUC = '10.10.0.56' # connected to the bioteks and 37C incubator
-WINDOWS_GBG = '10.10.0.97' # connected to the fridge incubator in imx room
+LOCAL_IP = {
+    'WINDOWS-NUC': '10.10.0.56', # connected to the bioteks and 37C incubator
+    'WINDOWS-GBG': '10.10.0.97', # connected to the fridge incubator in imx room
+}
 
 @dataclass
 class Machine:
     name: str
     args: List[str]
 
-    input_queue: 'Queue[Tuple[str, str, Queue[Any]]]' = field(default_factory=Queue)
+    input_queue: 'Queue[Tuple[str, Queue[Any]]]' = field(default_factory=Queue)
     is_ready: bool = False
 
     def __post_init__(self):
@@ -37,7 +42,11 @@ class Machine:
     def message(self, cmd: str, arg: str=""):
         if self.is_ready:
             reply_queue: Queue[Any] = Queue()
-            self.input_queue.put((cmd, arg, reply_queue))
+            if arg:
+                msg = cmd + ' ' + arg
+            else:
+                msg = cmd
+            self.input_queue.put((msg, reply_queue))
             return reply_queue.get()
         else:
             return dict(success=False, lines=["not ready"])
@@ -58,7 +67,7 @@ class Machine:
             assert stdin
             assert stdout
 
-            def read_to_ready(t0: float):
+            def read_until_ready(t0: float):
                 lines: List[str] = []
                 value: None = None
                 while True:
@@ -86,87 +95,85 @@ class Machine:
                     if not value_line:
                         lines += [line]
 
-            lines = read_to_ready(time.monotonic())
+            lines = read_until_ready(time.monotonic())
             while True:
                 self.is_ready = True
-                cmd, arg, reply_queue = self.input_queue.get()
+                msg, reply_queue = self.input_queue.get()
                 self.is_ready = False
                 t0 = time.monotonic()
-                stdin.write(cmd + ' ' + arg + '\n')
+                stdin.write(msg + '\n')
                 stdin.flush()
-                lines, value = read_to_ready(t0)
+                lines, value = read_until_ready(t0)
                 success = any(line.startswith('success') for line in lines)
                 response = dict(lines=lines, success=success)
                 if value is not None:
                     response['value'] = value
                 reply_queue.put_nowait(response)
 
+def exe(path: str) -> str:
+    if os.name == 'posix':
+        return path
+    else:
+        return path + '.exe'
+
 def main():
     parser = ArgumentParser('labrobots_server')
     parser.add_argument('--port', type=int, default=5050)
     parser.add_argument('--host', type=str, default='default')
     parser.add_argument('--test', action='store_true', default=False)
-    parser.add_argument('--fridge', action='store_true', default=False)
+    parser.add_argument('--node-name', type=str, default=platform.node())
     args = parser.parse_args(sys.argv[1:])
+    node_name = args.node_name
     host = args.host
     if host == 'default':
-        if args.test:
-            host = 'localhost'
-        elif args.fridge:
-            host = WINDOWS_GBG
-        else:
-            host = WINDOWS_NUC
-    main_with_args(port=args.port, host=host, test=args.test, fridge=args.fridge)
+        host = LOCAL_IP.get(node_name, 'localhost')
+    main_with_args(port=args.port, host=host, test=args.test, node_name=node_name)
 
-def main_with_args(port: int, host: str, test: bool, fridge: bool):
-    assert not (test and fridge)
-    import os
-    if os.name == 'posix':
-        dir_list = 'labrobots-dir-list-repl'
-        example = 'labrobots-example-repl'
-        incu = 'incubator-repl'
-        barcode_repl = 'barcode-repl'
-    else:
-        dir_list = 'labrobots-dir-list-repl.exe'
-        example = 'labrobots-example-repl.exe'
-        incu = 'incubator-repl.exe'
-        barcode_repl = 'barcode-repl.exe'
+def main_with_args(port: int, host: str, test: bool, node_name: str):
     if test:
-        machines = {
-            'example': Machine('example', args=[example]),
-            'dir_list': Machine('dir_list', args=[dir_list, '--root-dir', '.', '--extension', 'py']),
-        }
-    elif fridge:
-        machines = {
-            'example': Machine('example', args=[example]),
-            'fridge': Machine('fridge', args=[incu]),
-            'barcode': Machine('barcode', args=[barcode_repl]),
-        }
+        node_name = 'test'
+
+    print('node_name:', node_name)
+
+    if node_name == 'WINDOWS_GBG':
+        machines = [
+            Machine('example', args=[exe('example')]),
+            Machine('fridge',  args=[exe('incubator-repl')]),
+            Machine('barcode', args=[exe('barcode-repl')]),
+            Machine('imx',     args=[exe('imx-repl')]),
+        ]
+    elif node_name == 'WINDOWS_NUC':
+        machines = [
+            Machine('example',  args=[exe('example')]),
+            Machine('incu',     args=[exe('incubator-repl')]),
+            Machine('wash',     args=[LHC_CALLER_CLI_PATH, "405 TS/LS", "USB 405 TS/LS sn:191107F", PROTOCOLS_ROOT]),
+            Machine('disp',     args=[LHC_CALLER_CLI_PATH, "MultiFloFX", "USB MultiFloFX sn:19041612", PROTOCOLS_ROOT]),
+            Machine('dir_list', args=[exe('labrobots-dir-list-repl'), '--root-dir', PROTOCOLS_ROOT, '--extension', 'LHC']),
+        ]
     else:
-        machines = {
-            'example': Machine('example', args=[example]),
-            'dir_list': Machine('dir_list', args=[dir_list, '--root-dir', PROTOCOLS_ROOT, '--extension', 'LHC']),
-            'incu': Machine('incu', args=[incu]),
-            'wash': Machine(
-                'wash',
-                args=[LHC_CALLER_CLI_PATH, "405 TS/LS", "USB 405 TS/LS sn:191107F", PROTOCOLS_ROOT],
-            ),
-            'disp': Machine(
-                'disp',
-                args=[LHC_CALLER_CLI_PATH, "MultiFloFX", "USB MultiFloFX sn:19041612", PROTOCOLS_ROOT],
-            ),
-        }
+        machines = [
+            Machine('example', args=[exe('example')]),
+            Machine('dir_list', args=[exe('labrobots-dir-list-repl'), '--root-dir', '.', '--extension', 'py']),
+        ]
+
+    machine_by_name = {m.name: m for m in machines}
+    print('machines:', list(machine_by_name.keys()))
 
     app = Flask(__name__)
     app.config['JSONIFY_PRETTYPRINT_REGULAR'] = True # type: ignore
     app.config['JSON_SORT_KEYS'] = False             # type: ignore
 
-    @app.route('/<machine>')                   # type: ignore
-    @app.route('/<machine>/<cmd>')             # type: ignore
-    @app.route('/<machine>/<cmd>/<path:arg>')  # type: ignore
+    @app.get('/<machine>')                   # type: ignore
+    @app.get('/<machine>/<cmd>')             # type: ignore
+    @app.get('/<machine>/<cmd>/<path:arg>')  # type: ignore
     def _(machine: str, cmd: str="", arg: str=""):
         arg = arg.replace('/', '\\')
-        return jsonify(machines[machine].message(cmd, arg))
+        return jsonify(machine_by_name[machine].message(cmd, arg))
+
+    @app.post('/<machine>') # type: ignore
+    def _(machine: str):
+        cmd = json.dumps(request.form)
+        return jsonify(machine_by_name[machine].message(cmd))
 
     app.run(host=host, port=port, threaded=True, processes=1)
 

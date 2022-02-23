@@ -39,12 +39,28 @@ def scanner_thread():
             print('message', line)
 
 def main():
+    global last_seen
     Thread(target=scanner_thread, daemon=True).start()
     while True:
-        print("ready")
-        _ = input()
-        print("value", json.dumps(last_seen))
-        print("success")
+        print('ready')
+        cmd = input()
+        valid = '''
+            read
+            clear
+            read_and_clear
+        '''.split()
+        if cmd not in valid:
+            print('error', cmd, 'not valid')
+            print('error valid commands are', *valid)
+            continue
+        if 'read' in cmd:
+            print('value', json.dumps(last_seen))
+        if 'clear' in cmd:
+            last_seen = {
+                'barcode': '',
+                'date': '',
+            }
+        print('success')
 
 if __name__ == '__main__':
     main()
