@@ -137,7 +137,7 @@ def main_with_args(port: int, host: str, test: bool, node_name: str):
 
     if node_name == 'WINDOWS-GBG':
         machines = [
-            Machine('example', args=[exe('example')]),
+            Machine('example', args=[exe('labrobots-example-repl')]),
             Machine('fridge',  args=[exe('incubator-repl')]),
             Machine('barcode', args=[exe('barcode-repl')]),
             Machine('imx',     args=[exe('imx-repl')]),
