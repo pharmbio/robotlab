@@ -1,12 +1,13 @@
-
-from datetime import datetime
 from typing import Any, Dict, List, Union
 
 import json
 import os
-from threading import Thread
-from serial import Serial # type: ignore
 import traceback
+
+from threading import Thread
+from datetime import datetime
+
+from serial import Serial # type: ignore
 
 COM_PORT = os.environ.get('COM_PORT', 'COM3')
 
@@ -40,6 +41,7 @@ def scanner_thread():
 
 def main():
     global last_seen
+    print('message using COM_PORT', COM_PORT)
     Thread(target=scanner_thread, daemon=True).start()
     while True:
         print('ready')

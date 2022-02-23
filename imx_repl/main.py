@@ -1,8 +1,9 @@
-from typing import Any
-import os
 import json
-from serial import Serial # type: ignore
+import os
 import traceback
+
+from serial import Serial # type: ignore
+from typing import Any
 
 COM_PORT = os.environ.get('COM_PORT', 'COM4')
 imx: Any = Serial(COM_PORT, timeout=5)
