@@ -40,6 +40,7 @@ from .moves import movelists, MoveList
 from . import bioteks
 from . import incubator
 from .estimates import estimate, EstCmd
+from . import estimates
 
 def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
     if isinstance(cmd, EstCmd) and metadata.est is None:
@@ -220,6 +221,14 @@ def execute_program(config: RuntimeConfig, program: Command, metadata: dict[str,
     running_log_filename   = cache / (now_str + '_running.jsonl')
 
     config = config.replace(running_log_filename=str(running_log_filename))
+
+    if metadata.get('program') == 'cell_paint':
+        missing: list[str] = []
+        for k, _v in estimates.guesses.items():
+            if isinstance(k, BiotekCmd) and k.protocol_path:
+                missing += [k.protocol_path]
+        if missing:
+            raise ValueError('Missing timings for the following biotek paths:', ', '.join(sorted(set(missing))))
 
     with make_runtime(config, metadata) as runtime:
         try:

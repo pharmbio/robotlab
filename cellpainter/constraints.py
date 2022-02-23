@@ -181,7 +181,7 @@ def optimal_env(cmd: Command) -> OptimalResult:
 
     # print(s)
     check = str(s.check())
-    assert check == 'sat', f'Impossible to schedule! (Number of missing time estimates: {len(estimates.guesses)})'
+    assert check == 'sat', f'Impossible to schedule! (Number of missing time estimates: {len(estimates.guesses)}: {", ".join(str(g) for g in estimates.guesses.keys())}'
 
     M = s.model()
 
