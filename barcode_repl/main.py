@@ -18,11 +18,10 @@ last_seen: Dict[str, Union[str, List[str]]] = {
 
 def scanner_thread():
     global last_seen
-    scanner: Any = Serial(COM_PORT, timeout=5)
+    scanner: Any = Serial(COM_PORT, timeout=60)
     while True:
         try:
             b: bytes = scanner.read_until(b'\r')
-            print('message', b)
             line = b.decode('ascii')
         except Exception as e:
             traceback.print_exc()
