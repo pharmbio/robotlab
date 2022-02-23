@@ -23,7 +23,7 @@ function imx-send {
     cmd="$1"
     quoted=$(printf %q "msg=1,$cmd")
     set -x
-    ssh robotlab-ubuntu curl -s 10.10.0.99:5050 --data-urlencode "$quoted"
+    ssh robotlab-ubuntu curl -s 10.10.0.97:5050/imx --data-urlencode "$quoted"
 }
 
 "$@"
