@@ -1272,6 +1272,116 @@
     "cmd": {
       "type": "BiotekCmd",
       "machine": "disp",
+      "protocol_path": "short/2.0_D.LHC",
+      "action": "RunValidated"
+    },
+    "times": {
+      "2022-02-23 15:06:50": 30.0
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "disp",
+      "protocol_path": "short/2.0_D.LHC",
+      "action": "Validate"
+    },
+    "times": {
+      "2022-02-23 15:06:20": 2.5
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "disp",
+      "protocol_path": "short/2.1_D.LHC",
+      "action": "RunValidated"
+    },
+    "times": {
+      "2022-02-23 15:07:22": 30.0
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "disp",
+      "protocol_path": "short/2.1_D.LHC",
+      "action": "Validate"
+    },
+    "times": {
+      "2022-02-23 15:06:52": 2.5
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "disp",
+      "protocol_path": "short/4.0_D.LHC",
+      "action": "RunValidated"
+    },
+    "times": {
+      "2022-02-23 15:07:55": 30.0
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "disp",
+      "protocol_path": "short/4.0_D.LHC",
+      "action": "Validate"
+    },
+    "times": {
+      "2022-02-23 15:07:25": 2.5
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "disp",
+      "protocol_path": "short/4.0b_D.LHC",
+      "action": "RunValidated"
+    },
+    "times": {
+      "2022-02-23 15:08:27": 30.0
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "disp",
+      "protocol_path": "short/4.0b_D.LHC",
+      "action": "Validate"
+    },
+    "times": {
+      "2022-02-23 15:07:57": 2.5
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "disp",
+      "protocol_path": "short/4.1_D.LHC",
+      "action": "RunValidated"
+    },
+    "times": {
+      "2022-02-23 15:09:00": 30.0
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "disp",
+      "protocol_path": "short/4.1_D.LHC",
+      "action": "Validate"
+    },
+    "times": {
+      "2022-02-23 15:08:30": 2.5
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "disp",
       "protocol_path": null,
       "action": "TestCommunications"
     },
@@ -2515,6 +2625,94 @@
     },
     "times": {
       "2022-02-23 13:45:53": 1.579
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "wash",
+      "protocol_path": "short/0_W.LHC",
+      "action": "RunValidated"
+    },
+    "times": {
+      "2022-02-23 15:07:58": 100.0
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "wash",
+      "protocol_path": "short/0_W.LHC",
+      "action": "Validate"
+    },
+    "times": {
+      "2022-02-23 15:06:18": 2.5
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "wash",
+      "protocol_path": "short/3_W.LHC",
+      "action": "RunValidated"
+    },
+    "times": {
+      "2022-02-23 15:09:40": 100.0
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "wash",
+      "protocol_path": "short/3_W.LHC",
+      "action": "Validate"
+    },
+    "times": {
+      "2022-02-23 15:08:00": 2.5
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "wash",
+      "protocol_path": "short/5_W.LHC",
+      "action": "RunValidated"
+    },
+    "times": {
+      "2022-02-23 15:11:23": 100.0
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "wash",
+      "protocol_path": "short/5_W.LHC",
+      "action": "Validate"
+    },
+    "times": {
+      "2022-02-23 15:09:43": 2.5
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "wash",
+      "protocol_path": "short/7_W.LHC",
+      "action": "RunValidated"
+    },
+    "times": {
+      "2022-02-23 15:13:05": 100.0
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "wash",
+      "protocol_path": "short/7_W.LHC",
+      "action": "Validate"
+    },
+    "times": {
+      "2022-02-23 15:11:25": 2.5
     }
   },
   {
