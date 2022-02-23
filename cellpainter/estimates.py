@@ -36,13 +36,16 @@ def estimates_from(path: str) -> dict[EstCmd, float]:
         for e in entries
     }
 
-def add_estimates_from(path: str, log_path: str):
+def add_estimates_from(path: str, log_or_log_path: str | Log):
     entries: list[EstEntry] = cast(Any, utils.serializer.read_json(path))
     ests: dict[EstCmd, dict[str, float]] = defaultdict(dict)
     for e in entries:
         cmd = normalize(e['cmd'])
         ests[cmd] = e['times']
-    log = Log.read_jsonl(log_path)
+    if isinstance(log_or_log_path, Log):
+        log = log_or_log_path
+    else:
+        log = Log.read_jsonl(log_or_log_path)
     for e in log:
         cmd = e.cmd
         if isinstance(cmd, EstCmd) and e.duration is not None:

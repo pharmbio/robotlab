@@ -229,7 +229,9 @@ def main_with_args(args: Args, parser: argparse.ArgumentParser | None=None):
     elif p := args_to_program(args):
         if config.name != 'dry-run' and p.doc and not args.yes:
             ATTENTION(p.doc)
-        execute_program(config, p.program, p.metadata)
+        log = execute_program(config, p.program, p.metadata)
+        if re.match('time.bioteks', p.metadata.get('program', '')) and config.name == 'live':
+            estimates.add_estimates_from('estimates.json', args.add_estimates_from)
 
     elif args.robotarm_send:
         runtime = config.make_runtime()
