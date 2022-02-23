@@ -4,7 +4,7 @@ import json
 from serial import Serial # type: ignore
 import traceback
 
-COM_PORT = os.environ.get('COM_PORT', 'COM5')
+COM_PORT = os.environ.get('COM_PORT', 'COM4')
 imx: Any = Serial(COM_PORT, timeout=5)
 def main():
     print('message using COM_PORT', COM_PORT)
@@ -12,8 +12,15 @@ def main():
         try:
             print('ready')
             line = input()
-            form = json.loads(line)
-            msg_str: str = form['msg']
+            if line.startswith('{'):
+                form = json.loads(line)
+                msg_str: str = form['msg']
+            else:
+                cmd, sep, arg = line.partition(' ')
+                if sep:
+                    msg_str = '1,' + cmd + ',' + arg
+                else:
+                    msg_str = '1,' + cmd
             msg = msg_str.strip().encode()
             assert b'\n' not in msg
             assert b'\r' not in msg
