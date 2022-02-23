@@ -29,4 +29,9 @@ jobs:
       - run: set -o pipefail; cellpainter --cell-paint 10 --interleave --two-final-washes --lockstep --incu 1230,1230,1230,1230,1260 | tail
       - run: set -o pipefail; for i in 120 240 360 1600 1800 3600; do cellpainter --cell-paint 2 --test-resume $i --test-resume-delay 1800 | tail; done
       - run: set -o pipefail; for i in 120 240 360 1600 1800 3600; do cellpainter --cell-paint 2 --test-resume $i --test-resume-delay 1800 --resume-drop 2 | tail; done
+      - run: set -o pipefail; cellpainter --cell-paint 3 --protocol-dir short | tail
+      - run: set -o pipefail; cellpainter --cell-paint 3 --protocol-dir short --start-from-pfa | tail
+      - run: set -o pipefail; cellpainter --time-bioteks | tail
+      - run: set -o pipefail; cellpainter --incu-load --num-plates 11 | tail
+      - run: set -o pipefail; cellpainter --wash-plates-clean | tail
       - run: set -o pipefail; cellpainter --list-imports | tee /dev/stderr | xargs pyright
