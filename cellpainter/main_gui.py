@@ -97,7 +97,8 @@ def as_stderr(log_path: str):
 @serve.expose
 def start(args: Args, simulate: bool):
     config_name='dry-run' if simulate else config.name
-    log_filename = 'logs/' + utils.now_str_for_filename() + f'-{config_name}-from-gui.jsonl'
+    program_name='cell-paint' if args.cell_paint else args.small_protocol
+    log_filename = 'logs/' + utils.now_str_for_filename() + f'-{program_name}-{config_name}-from-gui.jsonl'
     args = replace(
         args,
         config_name=config_name,
