@@ -112,12 +112,12 @@ is path, last modified date and sha256 hexdigest:
 ```
 dan@NUC-robotlab:~$ curl -s 10.10.0.56:5050/dir_list | grep 'automation_v4.0..2' -B1 -A3
     {
-      "path": "automation_v4.0\\2.0_D_SB_PRIME_Mito.LHC",
+      "path": "automation_v4.0/2.0_D_SB_PRIME_Mito.LHC",
       "modified": "2022-01-18 14:01:34",
       "sha256": "bbf0db9aa30de9ec7b9a8d9e102a3eca7051b7605e108feb01c315bcee734de0"
     },
     {
-      "path": "automation_v4.0\\2.1_D_SB_30ul_Mito.LHC",
+      "path": "automation_v4.0/2.1_D_SB_30ul_Mito.LHC",
       "modified": "2022-01-18 14:06:01",
       "sha256": "1959451ea7477e170311281ac0981c4eff8d628897dff16cf31d1e8c1b361ca1"
     },
@@ -129,17 +129,17 @@ They are under the `"value"` key of the returned object:
 dan@NUC-robotlab:~$ curl -s 10.10.0.56:5050/dir_list | grep '"value"' -A15
   "value": [
     {
-      "path": "automation\\0_W_D_PRIME.LHC",
+      "path": "automation/0_W_D_PRIME.LHC",
       "modified": "2021-05-31 14:02:48",
       "sha256": "84fbff41b146d44488d9afe95145f20343d716dd81a6b17c843dedc18f199d55"
     },
     {
-      "path": "automation\\1_D_P1_30ul_mito.LHC",
+      "path": "automation/1_D_P1_30ul_mito.LHC",
       "modified": "2021-05-06 10:35:57",
       "sha256": "40c7098eb73e6590d017baafbabf12dfe37e6b0711b59eb2125a60cd36f8bdfd"
     },
     {
-      "path": "automation\\1_D_P1_PRIME.LHC",
+      "path": "automation/1_D_P1_PRIME.LHC",
       "modified": "2021-05-31 13:59:10",
       "sha256": "6ebc011245938a2723ad343c71140481e46d5bb098a7afa714abf5d8b4c2e20b"
     },
@@ -147,11 +147,12 @@ dan@NUC-robotlab:~$ curl -s 10.10.0.56:5050/dir_list | grep '"value"' -A15
 
 ## Barcode scanner
 
-Install drivers from https://support.honeywellaidc.com/s/article/How-to-get-the-scanner-to-communicate-via-virtual-COM-port-USB-serial-driver 
+Install drivers from https://support.honeywellaidc.com/s/article/How-to-get-the-scanner-to-communicate-via-virtual-COM-port-USB-serial-driver
+A copy of these files are put on the nfs under `/share/data/manuals_and_software/honeywell-barcode-scanner-documentation`.
 
 Set barcode scanner to USB Serial Emulation Mode by showing it the barcode 316460.
 
-By default reads from COM3 and assumes barcodes separated by \r, which seems to be the default anyway.
+By default reads from COM3 and assumes barcodes separated by \r (seems to be the default anyway.)
 
 ## Configure BioTek software
 
