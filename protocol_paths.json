@@ -70,5 +70,83 @@
       "short/2.1_D.LHC",
       "short/4.1_D.LHC"
     ]
+  },
+  "bloop": {
+    "type": "ProtocolPaths",
+    "wash_prime": [
+      "bloop/0_W_PRIME_PBS.LHC"
+    ],
+    "wash_5": [
+      "bloop/1_W_2X_beforeMito_leaves20ul_PBS.LHC",
+      "bloop/3_W_3X_beforePFA_leaves20ul_PBS.LHC",
+      "bloop/5_W_3X_beforeTriton_leaves10ul_PBS.LHC",
+      "bloop/7_W_3X_beforeStains_leaves10ul_PBS.LHC",
+      "bloop/9_W_5X_leaves80ul_PBS.LHC"
+    ],
+    "wash_6": [
+      "bloop/1_W_2X_beforeMito_leaves20ul_PBS.LHC",
+      "bloop/3_W_3X_beforePFA_leaves20ul_PBS.LHC",
+      "bloop/5_W_3X_beforeTriton_leaves10ul_PBS.LHC",
+      "bloop/7_W_3X_beforeStains_leaves10ul_PBS.LHC",
+      "bloop/9_10_W_3X_leaves80ul_PBS.LHC",
+      "bloop/9_10_W_3X_leaves80ul_PBS.LHC"
+    ],
+    "disp_prime": [
+      "bloop/2.0_D_SB_PRIME_Mito.LHC",
+      "bloop/4.0_D_SA_PRIME_PFA.LHC",
+      "bloop/6.0_D_P1_PRIME_Triton.LHC",
+      "bloop/8.0_D_P2_MIX_PRIME.LHC"
+    ],
+    "disp_prep": [
+      "bloop/2.0b_D_SB_PRIME_Mito.LHC",
+      "",
+      "",
+      "bloop/8.0b_D_P2_purge_then_predispense.LHC"
+    ],
+    "disp_main": [
+      "bloop/2.1_D_SB_30ul_Mito.LHC",
+      "bloop/4.1_D_SA_80ul_PFA.LHC",
+      "bloop/6.1_D_P1_80ul_Triton.LHC",
+      "bloop/8.1_D_P2_20ul_stains.LHC"
+    ]
+  },
+  "automation_v5.0_AW_CR_noMito": {
+    "type": "ProtocolPaths",
+    "wash_prime": [
+      "automation_v5.0_AW_CR_noMito/0_W_PRIME_PBS.LHC"
+    ],
+    "wash_5": [
+      "",
+      "automation_v5.0_AW_CR_noMito/3_W_1X_beforePFA_leaves20ul_PBS.LHC",
+      "automation_v5.0_AW_CR_noMito/5_W_3X_beforeTriton_leaves10ul_PBS.LHC",
+      "automation_v5.0_AW_CR_noMito/7_W_3X_beforeStains_leaves10ul_PBS.LHC",
+      "automation_v5.0_AW_CR_noMito/9_W_5X_leaves80ul_PBS.LHC"
+    ],
+    "wash_6": [
+      "",
+      "automation_v5.0_AW_CR_noMito/3_W_1X_beforePFA_leaves20ul_PBS.LHC",
+      "automation_v5.0_AW_CR_noMito/5_W_3X_beforeTriton_leaves10ul_PBS.LHC",
+      "automation_v5.0_AW_CR_noMito/7_W_3X_beforeStains_leaves10ul_PBS.LHC",
+      "automation_v5.0_AW_CR_noMito/9_10_W_3X_leaves80ul_PBS.LHC",
+      "automation_v5.0_AW_CR_noMito/9_10_W_3X_leaves80ul_PBS.LHC"
+    ],
+    "disp_prime": [
+      "",
+      "automation_v5.0_AW_CR_noMito/4.0_D_SA_PRIME_PFA.LHC",
+      "automation_v5.0_AW_CR_noMito/6.0_D_P1_PRIME_Triton.LHC",
+      "automation_v5.0_AW_CR_noMito/8.0_D_P2_MIX_PRIME.LHC"
+    ],
+    "disp_prep": [
+      "",
+      "",
+      "",
+      "automation_v5.0_AW_CR_noMito/8.0b_D_P2_purge_then_predispense.LHC"
+    ],
+    "disp_main": [
+      "",
+      "automation_v5.0_AW_CR_noMito/4.1_D_SA_80ul_PFA.LHC",
+      "automation_v5.0_AW_CR_noMito/6.1_D_P1_80ul_Triton.LHC",
+      "automation_v5.0_AW_CR_noMito/8.1_D_P2_20ul_stains.LHC"
+    ]
   }
 }
