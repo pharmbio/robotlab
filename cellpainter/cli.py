@@ -231,7 +231,7 @@ def main_with_args(args: Args, parser: argparse.ArgumentParser | None=None):
             ATTENTION(p.doc)
         log = execute_program(config, p.program, p.metadata)
         if re.match('time.bioteks', p.metadata.get('program', '')) and config.name == 'live':
-            estimates.add_estimates_from('estimates.json', args.add_estimates_from)
+            estimates.add_estimates_from('estimates.json', log)
 
     elif args.robotarm_send:
         runtime = config.make_runtime()
