@@ -10,8 +10,8 @@ def nonempty(*xs: str) -> list[str]:
 class ProtocolPaths:
     '''
     The number of steps is either
-        - 5 (mito, pfa, triton, stains, final wash), or
-        - 6 with two_final_washes (mito, pfa, triton, stains, extra wash, final wash)
+        - 5: mito, pfa, triton, stains, final wash
+        - 6: mito, pfa, triton, stains, extra wash, final wash (with --two-final-washes)
 
     For each batch:
         Run the protocols in wash_prime
@@ -23,7 +23,8 @@ class ProtocolPaths:
                 Run disp_prep[i] (starts when plate is still in washer)
                 Run disp_main[i]
 
-    The prefixes looked for in a automation directory is listed in template_protocol_paths below.
+    The prefixes looked for in a directory are listed in template_protocol_paths below.
+    All files are optional: for each prefix without a corresponding file this run is just skipped.
     '''
     wash_prime: list[str]
     wash_5:     list[str]
@@ -149,5 +150,4 @@ def make_protocol_paths(protocol_dir: str, infos: list[PathInfo]):
             for k, v in asdict(template_protocol_paths).items()
         }
     )
-
     return paths

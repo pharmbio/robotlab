@@ -5,9 +5,9 @@ For dry runs.
 For actual cell painting the protocol is similar but preparation and post-work
 for washer, dispenser and incubator are more involved.
 
-## Start gui on robotlab-ubuntu
+## Start gui on NUC-robotlab
 
-The robotlab-ubuntu computer is the NUC running ubuntu.
+The NUC-robotlab computer is the NUC running ubuntu.
 
 Log in as `pharmbio`, go to the directory for the repo, `~/robot-cellpainter/`.
 
@@ -130,7 +130,7 @@ Use the teach pendant.
     <details>
     <summary>Alternative: use the command line</summary>
 
-    Use `pharmbio@robotlab-ubuntu` in the directory for the repo, `~/robot-cellpainter/`.
+    Use `pharmbio@NUC-robotlab` in the directory for the repo, `~/robot-cellpainter/`.
 
     ```
     cellpainter --test-comm --live
@@ -168,7 +168,7 @@ Use the teach pendant.
     <details>
     <summary>Alternative: use the command line</summary>
 
-    Use `pharmbio@robotlab-ubuntu` in the directory for the repo, `~/robot-cellpainter/`.
+    Use `pharmbio@NUC-robotlab` in the directory for the repo, `~/robot-cellpainter/`.
 
     ```
     cellpainter --test-circuit --live
@@ -199,7 +199,7 @@ touched by hand without gloves they are not considered clean any more and must n
     <details>
     <summary>Alternative: use the command line</summary>
 
-    Use `pharmbio@robotlab-ubuntu` in the directory for the repo, `~/robot-cellpainter/`.
+    Use `pharmbio@NUC-robotlab` in the directory for the repo, `~/robot-cellpainter/`.
 
     ```
     cellpainter --wash-plates-clean --num-plates $NUM_PLATES --live
@@ -230,7 +230,7 @@ touched by hand without gloves they are not considered clean any more and must n
     <details>
     <summary>Alternative: use the command line</summary>
 
-    Use `pharmbio@robotlab-ubuntu` in the directory for the repo, `~/robot-cellpainter/`.
+    Use `pharmbio@NUC-robotlab` in the directory for the repo, `~/robot-cellpainter/`.
 
     ```
     cellpainter --load-incu --num-plates $NUM_PLATES --live
@@ -253,7 +253,7 @@ touched by hand without gloves they are not considered clean any more and must n
     <details>
     <summary>Alternative: use the command line</summary>
 
-    Use `pharmbio@robotlab-ubuntu` in the directory for the repo, `~/robot-cellpainter/`.
+    Use `pharmbio@NUC-robotlab` in the directory for the repo, `~/robot-cellpainter/`.
 
     ```
     cellpainter --cell-paint $BATCH_SIZES [--interleave] [--lockstep] [--two-final-washes] [--incu $INCU_CSV] --live
@@ -263,7 +263,7 @@ touched by hand without gloves they are not considered clean any more and must n
 ## After painting
 
 1. If you want to store the log file (always do this for actual cell painting experiments),
-   on the robotlab-ubuntu computer add the log file to git and push it:
+   on the NUC-robotlab computer add the log file to git and push it:
 
    ```
    cd robot-cellpainter
@@ -286,15 +286,47 @@ touched by hand without gloves they are not considered clean any more and must n
    - For dry runs when the incubator is not set up for experiments: turn off and have it slightly open for a while to let it cool down.
    - When the incubator is set up for experiment: ask Polina. The proceduce will include removing the water with a suction pump.
 
-## Update timings
+## Configure BioTek protocols and add time estimates for them
 
-1. Run a protocol which includes the timings you need
+1. Make a new directory in the protocols root on the windows computer. You could copy an existing one, `automation_v5.0/` should be a good start.
+
+2. Modify the LHC files as you please and give their names prefixes according to the
+   documentation of `ProtocolPaths` and `template_protocol_paths` in
+   [`cellpainter/protocol_paths.py`](https://github.com/pharmbio/robot-cellpainter/blob/main/cellpainter/protocol_paths.py).
+
+3. Put one plate without lid in the washer and connect it to water. Run
+   the dispenser on air, a plate is optional. Using liquids and a plate will
+   not work, the plate will overflow.
+
+4. Use the windows computer and go to http://10.10.0.55:5000.
+
+5. Select `time-bioteks` and enter the protocol directory name. Start!
+
+The remaining steps save the timings to version control. They are not strictly
+required to start using the protocol directory.
+
+6. Use `pharmbio@NUC-robotlab` in the directory for the repo, `~/robot-cellpainter/`.
+
+7. Use `git status` and `git diff` to see that `estimates.json` and
+   `protocol_paths.json` have been correctly updated.
+
+8. Commit and push the changes:
+
+   ```
+   git add estimates.json protocol_paths.json
+   git commit -m 'Add time estimates for a new protocol directory'
+   git push
+   ```
+
+## Update robotarm timings
+
+1. Run a protocol including the moves you need.
 
 2. Use the log file to update the estimates json:
 
    ```
    cd robot-cellpainter
-   cellpainter --add-estimates-from logs/2021-12-15_13:52:31-from-gui.jsonl
+   cellpainter --add-estimates-from logs/2022-02-23_09:52:31-live-test-circuit.jsonl
    ```
 
 3. Use `git status` and `git diff` to see that it looks good!
