@@ -32,9 +32,9 @@ def main():
             reply = reply_bytes.decode().strip()
             if reply and 'ERROR' not in reply:
                 print('success')
-                print('value', json.dumps(reply))
             else:
-                print('error', reply)
+                print('error')
+            print('value', json.dumps(reply))
         except Exception as e:
             traceback.print_exc()
             print('error', e)
