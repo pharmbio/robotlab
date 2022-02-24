@@ -12,6 +12,7 @@ from .serializer import Serializer, serializer, from_json, to_json # type: ignor
 from .nub import nub # type: ignore
 from .pp import show, pr, Color # type: ignore
 from .profiling import timeit, memit # type: ignore
+from .args import doc_header # type: ignore
 
 import json
 from urllib.request import urlopen
@@ -197,14 +198,3 @@ def zip_sub(xs: list[float], ys: list[float], ndigits: int=1) -> list[float]:
 
 def zip_add(xs: list[float], ys: list[float], ndigits: int=1) -> list[float]:
     return zip_with(lambda a, b: a + b, xs, ys, ndigits=ndigits)
-
-def doc_header(f: Any):
-    if isinstance(f, str):
-        s = f
-    else:
-        s = f.__doc__
-        assert isinstance(s, str | None)
-    if s:
-        return s.strip().splitlines()[0]
-    else:
-        return ''
