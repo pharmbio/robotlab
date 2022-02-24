@@ -192,7 +192,7 @@ class MoveList(list[Move]):
             maxi = max(pos)
             assert all(i == maxi or i + 1 in pos for i in pos), f'section {section} not contiguous'
 
-            name = ' '.join([base_name, *section])
+            name = ' '.join(section)
             out[name] = MoveList(m for active, m in with_section if section == active[:len(section)])
 
         return out
@@ -244,3 +244,13 @@ utils.serializer.register(globals())
 
 movelists: dict[str, MoveList]
 movelists = read_movelists()
+
+movelists['home'] = MoveList([
+    RawCode('hp 1'),
+    RawCode('attach 1'),
+    RawCode('home 1'),
+])
+
+movelists['test-comm'] = MoveList([
+    RawCode('version'),
+])

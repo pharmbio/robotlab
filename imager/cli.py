@@ -11,7 +11,7 @@ from . import utils
 class Args:
     num_plates: int       = arg(help='number of plates to work on the hotel (H1,H2,...,H#)')
     hts_file:   str       = arg(help='hts filename on the imx computer')
-    thaw_secs:  int       = arg(help='secs the plate goes in RT before imaging')
+    thaw_secs:  float     = arg(help='secs the plate goes in RT before imaging')
     params:     list[str] = arg(help='list of barcodes etc')
     protocol:   str  = arg(
         enum=[

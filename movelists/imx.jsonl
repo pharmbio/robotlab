@@ -1,4 +1,4 @@
-{"type": "Section", "sections": ["hotel-to-imx"]}
+{"type": "Section", "sections": ["H12-to-imx"]}
 {"type": "MoveJ", "joints": [601.89, -5.32, 176.89, 186.76], "name": "neu"}
 {"type": "MoveGripper", "pos": 100}
 {"type": "MoveJ", "joints": [552.0, -72.51, 296.91, 133.76], "name": "hotel neu"}
@@ -17,7 +17,7 @@
 {"type": "MoveC", "xyz": [469.88, 34.16, 518.88], "yaw": -0.44, "name": "imx above"}
 {"type": "MoveJ", "joints": [521.81, -54.42, 129.61, 285.25], "name": "imx neu"}
 {"type": "MoveJ", "joints": [601.89, -5.32, 176.89, 186.76], "name": "neu"}
-{"type": "Section", "sections": ["imx-to-hotel"]}
+{"type": "Section", "sections": ["imx-to-H12"]}
 {"type": "MoveJ", "joints": [601.89, -5.32, 176.89, 186.76], "name": "neu"}
 {"type": "MoveGripper", "pos": 90}
 {"type": "MoveJ", "joints": [521.81, -54.42, 129.61, 285.25], "name": "imx neu"}

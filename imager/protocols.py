@@ -28,11 +28,12 @@ def load_by_barcode(num_plates: int, **_):
     '''
     Loads the plates from H1, H2 to H# to empty locations in the fridge
     '''
+    assert num_plates and isinstance(num_plates, int), 'specify --num-plates'
     cmds: list[Command] = []
     for hotel_loc in reversed(HotelLocs[:num_plates]):
         cmds += [
-            RobotarmCmd(f'H{hotel_loc} to H12') if hotel_loc != 'H12' else Noop(),
-            RobotarmCmd('H12 to fridge'),
+            RobotarmCmd(f'{hotel_loc}-to-H12') if hotel_loc != 'H12' else Noop(),
+            RobotarmCmd('H12-to-fridge'),
             FridgeCmd('put_by_barcode'),
         ]
     return cmds
@@ -42,32 +43,36 @@ def unload_by_barcode(params: list[str], **_):
     '''
     Unloads plates with the given barcodes to the hotel, locations: H1, H2 to H# to empty locations in the fridge
     '''
+    assert params and isinstance(params, list), 'specify some barcodes'
     cmds: list[Command] = []
     barcodes = params
     for hotel_loc, barcode in zip(HotelLocs, barcodes):
         cmds += [
             FridgeCmd('get_by_barcode', barcode=barcode),
-            RobotarmCmd('fridge to H12'),
-            RobotarmCmd(f'H12 to H{hotel_loc}') if hotel_loc != 'H12' else Noop(),
+            RobotarmCmd('fridge-to-H12'),
+            RobotarmCmd(f'H12-to-{hotel_loc}') if hotel_loc != 'H12' else Noop(),
         ]
     return cmds
 
 @list_of_protocols.append
-def image(params: list[str], hts_file: str, thaw_time: timedelta, **_):
+def image(params: list[str], hts_file: str, thaw_secs: float | int, **_):
     '''
     Images the plates with the given barcodes. These should already be in the fridge.
     '''
+    assert params and isinstance(params, list), 'specify some barcodes'
+    assert hts_file and isinstance(hts_file, str), 'specify a --hts-file'
+    assert thaw_secs and isinstance(thaw_secs, float | int), 'specify a --thaw-secs in seconds'
     cmds: list[Command] = []
     barcodes = params
     for i, barcode in enumerate(barcodes):
         cmds += [
             FridgeCmd('get_by_barcode', barcode=barcode),
-            RobotarmCmd('fridge to H12'),
+            RobotarmCmd('fridge-to-H12'),
             Checkpoint(f'RT {i}'),
         ]
         cmds += [
-            WaitForCheckpoint(f'RT {i}', plus_secs=thaw_time),
-            RobotarmCmd('H12 to imx', keep_imx_open=True),
+            WaitForCheckpoint(f'RT {i}', plus_secs=thaw_secs),
+            RobotarmCmd('H12-to-imx', keep_imx_open=True),
             Close(),
             Checkpoint(f'image-begin {barcode}'),
             Acquire(hts_file=hts_file, plate_id=barcode),
@@ -75,9 +80,9 @@ def image(params: list[str], hts_file: str, thaw_time: timedelta, **_):
         cmds += [
             WaitForIMX(),
             Checkpoint(f'image-end {barcode}'),
-            RobotarmCmd('imx to H12', keep_imx_open=True),
+            RobotarmCmd('imx-to-H12', keep_imx_open=True),
             Close(),
-            RobotarmCmd('H12 to fridge'),
+            RobotarmCmd('H12-to-fridge'),
             FridgeCmd('put_by_barcode'), # could check that it still has the same barcode
         ]
     return cmds
@@ -116,6 +121,17 @@ def home_robot(**_):
     cmds += [
         RobotarmCmd('home'),
     ]
+    return cmds
+
+from .moves import movelists
+
+@list_of_protocols.append
+def run_robotarm(params: list[str], **_):
+    for p in params:
+        nl = '\n'
+        assert p in movelists, f'Not available: {p}, pick one from:{nl}{nl.join(movelists.keys())}'
+    cmds: list[Command] = []
+    cmds += [RobotarmCmd(p) for p in params]
     return cmds
 
 @dataclass(frozen=True)

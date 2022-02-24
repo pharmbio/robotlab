@@ -13,6 +13,7 @@ import time
 from . import utils
 
 from .robotarm import Robotarm
+from .moves import movelists
 
 FRIDGE_LOCS = [f'L{i+1}' for i in range(18)]
 EMPTY_FRIDGE: dict[str, str | None] = {loc: None for loc in FRIDGE_LOCS}
@@ -111,8 +112,13 @@ class Runtime:
         return empty_locs.pop()
 
     def get_by_barcode(self, barcode: str):
-        [loc] = [loc for loc, plate_barcode in self.fridge.items() if plate_barcode == barcode]
-        return loc
+        locs = [loc for loc, plate_barcode in self.fridge.items() if plate_barcode == barcode]
+        if not locs:
+            raise ValueError(f'{barcode} not in {self.fridge}')
+        elif len(locs) > 1:
+            raise ValueError(f'{barcode} several times in {self.fridge}')
+        else:
+            return locs[0]
 
 class Command(abc.ABC):
     pass
@@ -124,6 +130,9 @@ class RobotarmCmd(Command):
     '''
     program_name: str
     keep_imx_open: bool = False
+
+    def __post_init__(self):
+        assert self.program_name in movelists, self.program_name
 
 @dataclass(frozen=True)
 class Acquire(Command):
