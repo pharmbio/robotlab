@@ -87,6 +87,30 @@ def image(params: list[str], hts_file: str, thaw_secs: float | int, **_):
         ]
     return cmds
 
+@list_of_protocols.append
+def test_image_one(params: list[str], hts_file: str, **_):
+    '''
+    Image one plate from H12, specify its barcode
+    '''
+    assert params and isinstance(params, list), 'specify one barcode'
+    assert hts_file and isinstance(hts_file, str), 'specify a --hts-file'
+    [barcode] = params
+    cmds: list[Command] = []
+    cmds += [
+        RobotarmCmd('H12-to-imx', keep_imx_open=True),
+        Close(),
+        Checkpoint(f'image-begin {barcode}'),
+        Acquire(hts_file=hts_file, plate_id=barcode),
+    ]
+    cmds += [
+        WaitForIMX(),
+        Checkpoint(f'image-end {barcode}'),
+        RobotarmCmd('imx-to-H12', keep_imx_open=True),
+        Close(),
+    ]
+    return cmds
+
+
 '''
 This is a possible way to interleave it, but let's do that later:
 

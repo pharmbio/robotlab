@@ -33,9 +33,6 @@ def curl(url: str, data: None | bytes = None) -> dict[str, Any]:
 def post(url: str, data: dict[str, str]) -> dict[str, Any]:
     return curl(url, urlencode(data).encode())
 
-def is_valid_plate_id(plate_id: str) -> bool:
-    return bool(re.match(r'^[\w\d-_ ]+$', plate_id))
-
 @dataclass(frozen=True)
 class IMX:
     url: str
@@ -64,7 +61,10 @@ class IMX:
         return self.status() == 'RUNNING'
 
     def acquire(self, *, plate_id: str, hts_file: str):
-        assert is_valid_plate_id(plate_id)
+        plate_id = ''.join(
+            char if re.match(r'^[\w\d_ ]$', char) else '-'
+            for char in plate_id
+        )
         return self.send(f'RUN,{plate_id},{hts_file}')
 
 @dataclass(frozen=True)
@@ -267,6 +267,7 @@ def execute_many(cmds: list[Command], env: Env, runtime: Runtime):
                 break
 
 def execute_one(cmd: Command, env: Env, runtime: Runtime) -> None | Literal['wait']:
+    utils.pr(cmd)
     match cmd:
         case RobotarmCmd():
             with env.get_robotarm() as arm:
