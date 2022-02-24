@@ -13,8 +13,16 @@ from .nub import nub # type: ignore
 from .pp import show, pr, Color # type: ignore
 from .profiling import timeit, memit # type: ignore
 
+import json
+from urllib.request import urlopen
+
 A = TypeVar('A')
 B = TypeVar('B')
+
+def curl(url: str) -> Any:
+    ten_minutes = 60 * 10
+    res = json.loads(urlopen(url, timeout=ten_minutes).read())
+    return res
 
 def spawn(f: Callable[[], None]) -> None:
     threading.Thread(target=f, daemon=True).start()
@@ -31,7 +39,7 @@ def uniq(xs: Iterable[A]) -> Iterable[A]:
 def flatten(xss: Iterable[list[A]]) -> list[A]:
     return sum(xss, cast(list[A], []))
 
-def catch(m: Callable[[], A], default: B=None) -> A | B:
+def catch(m: Callable[[], A], default: B) -> A | B:
     try:
         return m()
     except:
