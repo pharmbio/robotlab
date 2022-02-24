@@ -54,7 +54,6 @@ class Serializer:
             assert 'type' not in d
             return self.to_json({'type': type, **d})
         elif isinstance(x, dict):
-            assert 'type' not in x
             return {k: self.to_json(v) for k, v in cast(dict[str, Any], x).items()}
         elif isinstance(x, list):
             return [self.to_json(v) for v in cast(list[Any], x)]

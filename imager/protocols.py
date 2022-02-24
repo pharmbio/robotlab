@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Any, cast
+from typing import Any, cast, Callable
 from dataclasses import dataclass
 from datetime import timedelta
 
@@ -19,7 +19,12 @@ from .scheduler import (
     Noop,              # type: ignore
 )
 
-def load_by_barcode(num_plates: int):
+from . import utils
+
+list_of_protocols: list[Callable[..., list[Command]]] = []
+
+@list_of_protocols.append
+def load_by_barcode(num_plates: int, **_):
     '''
     Loads the plates from H1, H2 to H# to empty locations in the fridge
     '''
@@ -32,11 +37,13 @@ def load_by_barcode(num_plates: int):
         ]
     return cmds
 
-def unload_by_barcode(barcodes: list[str]):
+@list_of_protocols.append
+def unload_by_barcode(params: list[str], **_):
     '''
     Unloads plates with the given barcodes to the hotel, locations: H1, H2 to H# to empty locations in the fridge
     '''
     cmds: list[Command] = []
+    barcodes = params
     for hotel_loc, barcode in zip(HotelLocs, barcodes):
         cmds += [
             FridgeCmd('get_by_barcode', barcode=barcode),
@@ -45,11 +52,13 @@ def unload_by_barcode(barcodes: list[str]):
         ]
     return cmds
 
-def image(barcodes: list[str], hts_file: str, thaw_time: timedelta):
+@list_of_protocols.append
+def image(params: list[str], hts_file: str, thaw_time: timedelta, **_):
     '''
     Images the plates with the given barcodes. These should already be in the fridge.
     '''
     cmds: list[Command] = []
+    barcodes = params
     for i, barcode in enumerate(barcodes):
         cmds += [
             FridgeCmd('get_by_barcode', barcode=barcode),
@@ -90,7 +99,8 @@ This assumes time to image is less than thaw time.
 If image time is much less than thaw time, several plates need to be in RT simultaneously.
 '''
 
-def test_comm():
+@list_of_protocols.append
+def test_comm(**_):
     cmds: list[Command] = []
     cmds += [
         RobotarmCmd('test-comm'),
@@ -100,9 +110,21 @@ def test_comm():
     ]
     return cmds
 
-def home_robot():
+@list_of_protocols.append
+def home_robot(**_):
     cmds: list[Command] = []
     cmds += [
         RobotarmCmd('home'),
     ]
     return cmds
+
+@dataclass(frozen=True)
+class ProtocolData:
+    name: str
+    make: Callable[..., list[Command]]
+    doc: str
+
+protocols_dict = {
+    p.__name__: ProtocolData(p.__name__, p, utils.doc_header(p))
+    for p in list_of_protocols
+}
