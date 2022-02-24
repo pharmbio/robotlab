@@ -15,7 +15,7 @@ class Args:
     hts_file:   str       = arg(help='hts filename on the imx computer')
     thaw_secs:  float     = arg(help='secs the plate goes in RT before imaging')
     params:     list[str] = arg(help='list of barcodes etc')
-    speed: int            = arg(help='robotarm speed [1..100]')
+    speed:      int       = arg(default=20, help='robotarm speed [1..100]')
     protocol:   str  = arg(
         enum=[
             option(name, name, help=p.doc)
