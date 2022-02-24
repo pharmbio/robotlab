@@ -862,7 +862,7 @@ def minify(s: str, loader: str='js') -> str:
     else:
         return minify_nontrivial(s, loader)
 
-from . import utils
+from .profiling import timeit
 
 @lru_cache
 def esbuild_missing():
@@ -875,7 +875,7 @@ def esbuild_missing():
 @lru_cache
 def minify_nontrivial(s: str, loader: str='js') -> str:
     try:
-        with utils.timeit(f'esbuild {loader}'):
+        with timeit(f'esbuild {loader}'):
             res = run(
                 ['esbuild', '--minify', f'--loader={loader}'],
                 capture_output=True, input=s, encoding='utf-8'

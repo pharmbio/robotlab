@@ -13,8 +13,8 @@ import json
 import re
 
 from .provenance import Var, Int, Str, Store, DB
-from .viable import js, serve, button, input, div, span, pre, label, app
-from . import viable as V
+from .utils.viable import js, serve, button, input, div, span, pre, label, app
+from .utils import viable as V
 
 from . import utils
 

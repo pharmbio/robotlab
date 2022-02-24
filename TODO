@@ -1,9 +1,5 @@
 [ ] gripper
     [ ] raise gripper if close more than expected
-[ ] repo
-    [ ] move viable and provenance to utils directory
-    [x] move arg builder (and Args?) out from cli
-    [x] rename main -> main_gui, gui -> moves_gui
 [ ] main gui
     [ ] batch sep argument ?
     [ ] add a "is gripper initialized? is remote on?" if robotarm GripperCheck takes too long
@@ -51,6 +47,11 @@ january:
 
 bioteks:
     [x] make it easier to work with the windows computer? right now you have to change user...
+
+[x] repo
+    [x] move viable and provenance to utils directory
+    [x] move arg builder (and Args?) out from cli
+    [x] rename main -> main_gui, gui -> moves_gui
 
 misc:
 [x] resume: remove removed plate from the world

@@ -6,27 +6,28 @@ from collections import defaultdict
 from contextlib import contextmanager
 from flask import jsonify, request
 from flask.wrappers import Response
-from sorcery import spell, no_spells
+from sorcery import spell, no_spells # type: ignore
 import abc
 import json
 
-from .viable import js, serve, button, input, div, span, pre, label, app
+from .viable import js, serve, input
 from . import viable as V
 
 A = TypeVar('A')
 B = TypeVar('B')
-def maybe(x: A | None, f: Callable[[A], B], b: B = None) -> B:
+def None_map(x: A | None, f: Callable[[A], B]) -> B | None:
     if x is None:
-        return b
+        return None
     else:
         return f(x)
 
+
 def lhs() -> str:
     @spell
-    def inner(frame_info) -> str:
+    def inner(frame_info: Any) -> str:
         xs, _ = frame_info.assigned_names(allow_one=True)
         return xs[0]
-    return inner()
+    return inner() # type: ignore
 
 no_spells(lhs)
 
@@ -73,8 +74,8 @@ class Int(Var[int]):
             value=str(self.value),
             oninput=m.update_untyped({self: js('this.value')}).goto(),
             type=self.type,
-            min=maybe(self.min, str),
-            max=maybe(self.max, str),
+            min=None_map(self.min, str),
+            max=None_map(self.max, str),
         )
 
 @dataclass(frozen=True)

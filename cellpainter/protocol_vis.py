@@ -1,11 +1,11 @@
 from __future__ import annotations
 from typing import *
 
-from .viable import app
-from .viable import head, serve, esc, css_esc, trim, button, pre
-from .viable import Tag, div, span, label, img, raw, Input, input
-from . import viable as V
-from .provenance import Store, Str, Int
+from .utils.viable import app
+from .utils.viable import head, serve, esc, css_esc, trim, button, pre
+from .utils.viable import Tag, div, span, label, img, raw, Input, input
+from .utils import viable as V
+from .utils.provenance import Store, Str, Int
 
 from .log import Log
 from . import commands

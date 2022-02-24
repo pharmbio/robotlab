@@ -1,10 +1,11 @@
 from __future__ import annotations
 from typing import *
 
-from .viable import js
-from .viable import serve, trim, button, pre
-from .viable import Tag, div, span, label
-from . import viable as V
+from .utils.viable import js
+from .utils.viable import serve, trim, button, pre
+from .utils.viable import Tag, div, span, label
+from .utils import viable as V
+from .utils.provenance import Var, Int, Str, Store, DB, Bool
 
 from collections import *
 from dataclasses import dataclass, replace
@@ -36,7 +37,6 @@ from .log import LogEntry, Metadata, RuntimeMetadata, Error, countdown
 from .moves import RawCode, Move
 from .protocol import Locations
 from .small_protocols import small_protocols_dict, SmallProtocolData
-from .provenance import Var, Int, Str, Store, DB, Bool
 from .runtime import get_robotarm, RuntimeConfig
 
 config: RuntimeConfig
