@@ -2,7 +2,7 @@
     [ ] raise gripper if close more than expected
 [ ] repo
     [ ] move viable and provenance to utils directory
-    [ ] move arg builder (and Args?) out from cli
+    [x] move arg builder (and Args?) out from cli
     [x] rename main -> main_gui, gui -> moves_gui
 [ ] main gui
     [ ] batch sep argument ?

@@ -1,6 +1,6 @@
 from __future__ import annotations
-from dataclasses import *
-from typing import *
+from dataclasses import is_dataclass, fields, MISSING
+from typing import Any
 
 def nub(x: Any) -> dict[str, Any]:
     assert is_dataclass(x)
