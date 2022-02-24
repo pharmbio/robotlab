@@ -6,7 +6,7 @@ from typing import *
 import socket
 from collections import deque
 
-from ..utils import Mutable
+from .utils import Mutable
 from .moves import Move, MoveList, movelists
 
 DEFAULT_HOST='10.10.0.98'

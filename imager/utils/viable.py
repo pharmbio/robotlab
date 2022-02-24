@@ -573,7 +573,7 @@ class Serve:
         resp.set_cookie('gen', str(self.generation))
         return resp
 
-    def run(self):
+    def run(self, host: str | None = None, port: int | None = None):
         try:
             from flask_compress import Compress # type: ignore
             Compress(app)
@@ -582,10 +582,10 @@ class Serve:
 
         if os.environ.get('VIABLE_RUN', 'true').lower() == 'true':
             print('Running app...')
-            host = os.environ.get('VIABLE_HOST')
-            port = os.environ.get('VIABLE_PORT')
-            port = int(port) if port else None
-            app.run(host=host, port=port, threaded=True)
+            HOST = os.environ.get('VIABLE_HOST', host)
+            PORT = os.environ.get('VIABLE_PORT', port)
+            PORT = int(PORT) if PORT else None
+            app.run(host=HOST, port=PORT, threaded=True)
 
     def suppress_flask_logging(self):
         # suppress flask logging
@@ -862,7 +862,7 @@ def minify(s: str, loader: str='js') -> str:
     else:
         return minify_nontrivial(s, loader)
 
-from .. import utils
+from .profiling import timeit
 
 @lru_cache
 def esbuild_missing():
@@ -875,7 +875,7 @@ def esbuild_missing():
 @lru_cache
 def minify_nontrivial(s: str, loader: str='js') -> str:
     try:
-        with utils.timeit(f'esbuild {loader}'):
+        with timeit(f'esbuild {loader}'):
             res = run(
                 ['esbuild', '--minify', f'--loader={loader}'],
                 capture_output=True, input=s, encoding='utf-8'
