@@ -4,8 +4,6 @@ import re
 from dataclasses import dataclass
 from typing import Union, Tuple, Dict
 
-SLOTS = {char: i+1 for i, char in enumerate("LRDEFGIJKMNO")}
-
 @dataclass(frozen=True)
 class STX:
     id="STX"
@@ -33,9 +31,17 @@ class STX:
                 traceback.print_exc()
 
     def parse_pos(self, pos: str) -> Tuple[int, int]:
-        slot = SLOTS.get(pos[0])
-        if not slot:
-            raise ValueError("pos should start with L or R indicate cassette 1 or 2")
+        if pos[0] == "L":
+            slot = 1
+        elif pos[0] == "R":
+            slot = 2
+        else:
+            casette_str, x, level_str = pos.partition('x')
+            if x != 'x':
+                raise ValueError("pos should start with L or R indicate cassette 1 or 2, or <CASETTE>x<LEVEL>")
+            slot = int(casette_str)
+            level = int(level_str)
+            return slot, level
         # pos[1:] should be level, 1-indexed
         level = int(pos[1:])
         return slot, level
@@ -161,7 +167,6 @@ class STX:
         return response
 
 def main():
-    print('Using SLOTS:', SLOTS)
     STX().loop()
 
 if __name__ == '__main__':
