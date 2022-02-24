@@ -4,7 +4,7 @@ import re
 from dataclasses import dataclass
 from typing import Union, Tuple, Dict
 
-SLOTS = {char: i+1 for i, char in enumerate("LRDEFGIJKLMN")}
+SLOTS = {char: i+1 for i, char in enumerate("LRDEFGIJKMNO")}
 
 @dataclass(frozen=True)
 class STX:
