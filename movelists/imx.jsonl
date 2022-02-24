@@ -11,10 +11,10 @@
 {"type": "MoveJ", "joints": [552.0, -72.51, 296.91, 133.76], "name": "hotel neu"}
 {"type": "MoveJ", "joints": [601.89, -5.32, 176.89, 186.76], "name": "neu"}
 {"type": "MoveJ", "joints": [519.8, -54.42, 129.61, 285.24], "name": "imx neu"}
-{"type": "MoveC", "xyz": [470.60, 33.96, 517.88], "yaw": -0.49, "name": "imx above"}
-{"type": "MoveC", "xyz": [470.60, 33.96, 459.97], "yaw": -0.49, "name": "imx drop"}
+{"type": "MoveC", "xyz": [470.62, 33.91, 517.89], "yaw": -0.01, "name": "imx above"}
+{"type": "MoveC", "xyz": [470.61, 33.92, 460.9], "yaw": -0.01, "name": "imx drop"}
 {"type": "MoveGripper", "pos": 90}
-{"type": "MoveC", "xyz": [470.60, 33.96, 517.88], "yaw": -0.49, "name": "imx above"}
+{"type": "MoveC", "xyz": [470.62, 33.91, 517.89], "yaw": -0.01, "name": "imx above"}
 {"type": "MoveJ", "joints": [519.8, -54.42, 129.61, 285.24], "name": "imx neu"}
 {"type": "MoveJ", "joints": [601.89, -5.32, 176.89, 186.76], "name": "neu"}
 {"type": "Section", "sections": ["imx-to-H12"]}
