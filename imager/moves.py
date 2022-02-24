@@ -203,7 +203,7 @@ class MoveList(list[Move]):
         The first occurence of 19 in the name is replaced with 1, 3, .., 21, so
         "lid_B19_put" becomes "lid_B1_put" and so on.
         '''
-        hotel_dist: float = 70.94 / 2
+        hotel_dist: float = 70.94 / 2.0 - 3 / 11.0
         out: dict[str, MoveList] = {}
         for tag in set(self.tags()):
             if m := re.match(r'(\d+)/12$', tag):
@@ -253,4 +253,12 @@ movelists['home'] = MoveList([
 
 movelists['test-comm'] = MoveList([
     RawCode('version'),
+])
+
+movelists['freedrive'] = MoveList([
+    RawCode('Freedrive'),
+])
+
+movelists['stop-freedrive'] = MoveList([
+    RawCode('StopFreedrive'),
 ])

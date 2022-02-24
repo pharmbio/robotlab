@@ -2,10 +2,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from .utils.args import arg, option
 
-from .scheduler import execute
+from .scheduler import execute, Env
 
 from .protocols import protocols_dict
 from . import utils
+
+import time
 
 @dataclass(frozen=True)
 class Args:
@@ -13,6 +15,7 @@ class Args:
     hts_file:   str       = arg(help='hts filename on the imx computer')
     thaw_secs:  float     = arg(help='secs the plate goes in RT before imaging')
     params:     list[str] = arg(help='list of barcodes etc')
+    speed: int            = arg(help='robotarm speed [1..100]')
     protocol:   str  = arg(
         enum=[
             option(name, name, help=p.doc)
@@ -22,6 +25,9 @@ class Args:
 
 def main():
     args, parser = arg.parse_args(Args, description='Make the lab robots do things.')
+    if args.speed:
+        with Env().get_robotarm() as arm:
+            arm.set_speed(args.speed)
     p = protocols_dict.get(args.protocol)
     if not p:
         parser.print_help()

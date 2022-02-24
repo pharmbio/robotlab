@@ -123,6 +123,15 @@ def home_robot(**_):
     ]
     return cmds
 
+@list_of_protocols.append
+def reset_and_activate_fridge(**_):
+    cmds: list[Command] = []
+    cmds += [
+        FridgeCmd('reset_and_activate'),
+    ]
+    return cmds
+
+
 from .moves import movelists
 
 @list_of_protocols.append

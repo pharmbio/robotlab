@@ -15,13 +15,19 @@ from . import utils
 from .robotarm import Robotarm
 from .moves import movelists
 
-FRIDGE_LOCS = [f'L{i+1}' for i in range(18)]
+FRIDGE_LOCS = [
+    f'{slot+1}x{level+1}'
+    for slot in range(3)
+    for level in range(17)
+]
 EMPTY_FRIDGE: dict[str, str | None] = {loc: None for loc in FRIDGE_LOCS}
 
 def curl(url: str, data: None | bytes = None) -> dict[str, Any]:
     ten_minutes = 60 * 10
     res = json.loads(urlopen(url, data=data, timeout=ten_minutes).read())
     assert isinstance(res, dict)
+    if not res.get('success'):
+        utils.pr(res)
     return cast(dict[str, Any], res)
 
 def post(url: str, data: dict[str, str]) -> dict[str, Any]:
@@ -80,9 +86,9 @@ class BarcodeReader:
 @dataclass(frozen=True)
 class Env:
     fridge_json: str = 'fridge.json'
-    imx_url: str     = '10.10.0.97:5050/imx'
-    fridge_url: str  = '10.10.0.97:5050/fridge'
-    barcode_url: str = '10.10.0.97:5050/barcode'
+    imx_url: str     = 'http://10.10.0.97:5050/imx'
+    fridge_url: str  = 'http://10.10.0.97:5050/fridge'
+    barcode_url: str = 'http://10.10.0.97:5050/barcode'
     pf_url: str      = '10.10.0.98:10100'
 
     @contextmanager
@@ -91,6 +97,7 @@ class Env:
         arm = Robotarm.init(host, int(port))
         yield arm
         arm.close()
+        time.sleep(0.25)
 
     @property
     def imx(self):
@@ -98,7 +105,7 @@ class Env:
 
     @property
     def barcode_reader(self):
-        return BarcodeReader(self.imx_url)
+        return BarcodeReader(self.barcode_url)
 
 @dataclass(frozen=True)
 class Runtime:
@@ -112,7 +119,12 @@ class Runtime:
         return empty_locs.pop()
 
     def get_by_barcode(self, barcode: str):
-        locs = [loc for loc, plate_barcode in self.fridge.items() if plate_barcode == barcode]
+        locs = [
+            loc
+            for loc, plate_barcode in self.fridge.items()
+            if plate_barcode and plate_barcode.endswith(barcode)
+            # change to plate_barcode == barcode for exact equality
+        ]
         if not locs:
             raise ValueError(f'{barcode} not in {self.fridge}')
         elif len(locs) > 1:
