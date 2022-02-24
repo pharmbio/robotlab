@@ -1,4 +1,4 @@
-# imx-pharmbio-automation
+# robot-imager
 
 Control of the PreciseFlex (PF) robotarm and the MolDev ImageXpress (IMX) microscope.
 
