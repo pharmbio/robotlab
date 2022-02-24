@@ -7,10 +7,12 @@ from typing import *
 
 from pathlib import Path
 import abc
-import json
 import re
 import textwrap
 from . import utils
+
+HotelHeights = [h+1 for h in range(12)]
+HotelLocs = [f'H{h}' for h in HotelHeights]
 
 class Move(abc.ABC):
     def to_dict(self) -> dict[str, Any]:
@@ -137,7 +139,7 @@ class MoveList(list[Move]):
     def write_jsonl(self, filename: str | Path) -> None:
         utils.serializer.write_jsonl(self, filename)
 
-    def adjust_tagged(self, tag: str, *, dz: float) -> MoveList:
+    def adjust_tagged(self, tag: str, *, dname: str, dz: float) -> MoveList:
         '''
         Adjusts the z in room reference frame for all MoveC with the given tag.
         '''
@@ -145,7 +147,7 @@ class MoveList(list[Move]):
         for m in self:
             if isinstance(m, MoveC) and m.tag == tag:
                 x, y, z = list(m.xyz)
-                out += [replace(m, tag=None, xyz=[x, y, round(z + dz, 1)])]
+                out += [replace(m, name=dname + ' ' + m.name, tag=None, xyz=[x, y, round(z + dz, 1)])]
             elif hasattr(m, 'tag') and getattr(m, 'tag') == tag:
                 raise ValueError('Tagged move must be MoveC for adjust_tagged')
             else:
@@ -194,6 +196,27 @@ class MoveList(list[Move]):
 
         return out
 
+    def expand_hotels(self, name: str) -> dict[str, MoveList]:
+        '''
+        If there is a tag like 19/21 then expand to all heights 1/21, 3/21, .., 21/21
+        The first occurence of 19 in the name is replaced with 1, 3, .., 21, so
+        "lid_B19_put" becomes "lid_B1_put" and so on.
+        '''
+        hotel_dist: float = 70.94 / 2
+        out: dict[str, MoveList] = {}
+        for tag in set(self.tags()):
+            if m := re.match(r'(\d+)/12$', tag):
+                ref_h = int(m.group(1))
+                assert str(ref_h) in name
+                assert ref_h in HotelHeights
+                for h in HotelHeights:
+                    if h == ref_h:
+                        continue
+                    dz = (h - ref_h) * hotel_dist
+                    name_h = name.replace(f'H{ref_h}', f'H{h}', 1)
+                    out[name_h] = self.adjust_tagged(tag, dname=str(h), dz=dz)
+        return out
+
     def describe(self) -> str:
         return '\n'.join([
             m.__class__.__name__ + ' ' +
@@ -204,7 +227,9 @@ class MoveList(list[Move]):
 def read_and_expand(filename: Path) -> dict[str, MoveList]:
     ml = MoveList.from_jsonl_file(filename)
     name = filename.stem
-    expanded = ml.expand_sections(name, include_self=name == 'wash_to_disp')
+    expanded = ml.expand_sections(name, include_self=False)
+    for k, v in list(expanded.items()):
+        expanded |= v.expand_hotels(k)
     return expanded
 
 def read_movelists() -> dict[str, MoveList]:
@@ -218,4 +243,3 @@ utils.serializer.register(globals())
 
 movelists: dict[str, MoveList]
 movelists = read_movelists()
-
