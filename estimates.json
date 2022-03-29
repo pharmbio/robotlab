@@ -3,6 +3,204 @@
     "cmd": {
       "type": "BiotekCmd",
       "machine": "disp",
+      "protocol_path": "automation96_v1/2.0_D_SB_PRIME_Mito.LHC",
+      "action": "RunValidated"
+    },
+    "times": {
+      "2022-03-29 14:45:29": 11.091
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "disp",
+      "protocol_path": "automation96_v1/2.0_D_SB_PRIME_Mito.LHC",
+      "action": "Validate"
+    },
+    "times": {
+      "2022-03-29 14:45:18": 4.587
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "disp",
+      "protocol_path": "automation96_v1/2.1_D_SB_90ul_Mito.LHC",
+      "action": "RunValidated"
+    },
+    "times": {
+      "2022-03-29 14:45:47": 13.731
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "disp",
+      "protocol_path": "automation96_v1/2.1_D_SB_90ul_Mito.LHC",
+      "action": "Validate"
+    },
+    "times": {
+      "2022-03-29 14:45:33": 4.265
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "disp",
+      "protocol_path": "automation96_v1/4.0_D_SA_PRIME_PFA.LHC",
+      "action": "RunValidated"
+    },
+    "times": {
+      "2022-03-29 14:46:06": 14.36
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "disp",
+      "protocol_path": "automation96_v1/4.0_D_SA_PRIME_PFA.LHC",
+      "action": "Validate"
+    },
+    "times": {
+      "2022-03-29 14:45:51": 4.247
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "disp",
+      "protocol_path": "automation96_v1/4.1_D_SA_90ul_PFA.LHC",
+      "action": "RunValidated"
+    },
+    "times": {
+      "2022-03-29 14:46:23": 13.362
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "disp",
+      "protocol_path": "automation96_v1/4.1_D_SA_90ul_PFA.LHC",
+      "action": "Validate"
+    },
+    "times": {
+      "2022-03-29 14:46:10": 4.21
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "disp",
+      "protocol_path": "automation96_v1/6.0_D_P1_PRIME_Triton.LHC",
+      "action": "RunValidated"
+    },
+    "times": {
+      "2022-03-29 14:46:40": 12.464
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "disp",
+      "protocol_path": "automation96_v1/6.0_D_P1_PRIME_Triton.LHC",
+      "action": "Validate"
+    },
+    "times": {
+      "2022-03-29 14:46:27": 4.174
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "disp",
+      "protocol_path": "automation96_v1/6.1_D_P1_90ul_Triton.LHC",
+      "action": "RunValidated"
+    },
+    "times": {
+      "2022-03-29 14:46:59": 14.93
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "disp",
+      "protocol_path": "automation96_v1/6.1_D_P1_90ul_Triton.LHC",
+      "action": "Validate"
+    },
+    "times": {
+      "2022-03-29 14:46:44": 4.238
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "disp",
+      "protocol_path": "automation96_v1/8.0_D_P2_MIX_PRIME.LHC",
+      "action": "RunValidated"
+    },
+    "times": {
+      "2022-03-29 14:47:32": 28.216
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "disp",
+      "protocol_path": "automation96_v1/8.0_D_P2_MIX_PRIME.LHC",
+      "action": "Validate"
+    },
+    "times": {
+      "2022-03-29 14:47:03": 4.254
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "disp",
+      "protocol_path": "automation96_v1/8.0b_D_P2_purge_then_predispense.LHC",
+      "action": "RunValidated"
+    },
+    "times": {
+      "2022-03-29 14:47:55": 19.459
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "disp",
+      "protocol_path": "automation96_v1/8.0b_D_P2_purge_then_predispense.LHC",
+      "action": "Validate"
+    },
+    "times": {
+      "2022-03-29 14:47:36": 4.237
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "disp",
+      "protocol_path": "automation96_v1/8.1_D_P2_30ul_stains.LHC",
+      "action": "RunValidated"
+    },
+    "times": {
+      "2022-03-29 14:48:10": 10.304
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "disp",
+      "protocol_path": "automation96_v1/8.1_D_P2_30ul_stains.LHC",
+      "action": "Validate"
+    },
+    "times": {
+      "2022-03-29 14:48:00": 4.28
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "disp",
       "protocol_path": "automation_v3.1/1_D_P1_MIX_PRIME.LHC",
       "action": "Run"
     },
@@ -1390,6 +1588,160 @@
       "2021-10-21 13:48:39": 1.23,
       "2022-01-19 10:40:18": 1.242,
       "2022-01-19 14:00:39": 1.248
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "wash",
+      "protocol_path": "automation96_v1/0_W_PRIME_PBS.LHC",
+      "action": "RunValidated"
+    },
+    "times": {
+      "2022-03-29 14:45:44": 30.389
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "wash",
+      "protocol_path": "automation96_v1/0_W_PRIME_PBS.LHC",
+      "action": "Validate"
+    },
+    "times": {
+      "2022-03-29 14:45:14": 2.407
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "wash",
+      "protocol_path": "automation96_v1/1_W_3X_beforeMito_leaves30ul_PBS.LHC",
+      "action": "RunValidated"
+    },
+    "times": {
+      "2022-03-29 14:46:22": 36.369
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "wash",
+      "protocol_path": "automation96_v1/1_W_3X_beforeMito_leaves30ul_PBS.LHC",
+      "action": "Validate"
+    },
+    "times": {
+      "2022-03-29 14:45:46": 1.756
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "wash",
+      "protocol_path": "automation96_v1/3_W_3X_beforePFA_leaves30ul_PBS.LHC",
+      "action": "RunValidated"
+    },
+    "times": {
+      "2022-03-29 14:47:01": 36.46
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "wash",
+      "protocol_path": "automation96_v1/3_W_3X_beforePFA_leaves30ul_PBS.LHC",
+      "action": "Validate"
+    },
+    "times": {
+      "2022-03-29 14:46:24": 1.83
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "wash",
+      "protocol_path": "automation96_v1/5_W_3X_beforeTriton_leaves30ul_PBS.LHC",
+      "action": "RunValidated"
+    },
+    "times": {
+      "2022-03-29 14:47:39": 36.466
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "wash",
+      "protocol_path": "automation96_v1/5_W_3X_beforeTriton_leaves30ul_PBS.LHC",
+      "action": "Validate"
+    },
+    "times": {
+      "2022-03-29 14:47:02": 1.697
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "wash",
+      "protocol_path": "automation96_v1/7_W_3X_beforeStains_leaves30ul_PBS.LHC",
+      "action": "RunValidated"
+    },
+    "times": {
+      "2022-03-29 14:48:17": 36.929
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "wash",
+      "protocol_path": "automation96_v1/7_W_3X_beforeStains_leaves30ul_PBS.LHC",
+      "action": "Validate"
+    },
+    "times": {
+      "2022-03-29 14:47:40": 1.704
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "wash",
+      "protocol_path": "automation96_v1/9_10_W_3X_leaves150ul_PBS.LHC",
+      "action": "RunValidated"
+    },
+    "times": {
+      "2022-03-29 14:48:52": 32.395
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "wash",
+      "protocol_path": "automation96_v1/9_10_W_3X_leaves150ul_PBS.LHC",
+      "action": "Validate"
+    },
+    "times": {
+      "2022-03-29 14:48:19": 2.025
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "wash",
+      "protocol_path": "automation96_v1/9_W_5X_leaves150ul_PBS.LHC",
+      "action": "RunValidated"
+    },
+    "times": {
+      "2022-03-29 14:49:42": 48.08
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "wash",
+      "protocol_path": "automation96_v1/9_W_5X_leaves150ul_PBS.LHC",
+      "action": "Validate"
+    },
+    "times": {
+      "2022-03-29 14:48:54": 2.063
     }
   },
   {
