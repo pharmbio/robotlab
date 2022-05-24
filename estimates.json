@@ -898,6 +898,204 @@
     "cmd": {
       "type": "BiotekCmd",
       "machine": "disp",
+      "protocol_path": "automation_v4.0_copy/2.0_D_SB_PRIME_Mito.LHC",
+      "action": "RunValidated"
+    },
+    "times": {
+      "2022-05-24 15:53:45": 9.535
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "disp",
+      "protocol_path": "automation_v4.0_copy/2.0_D_SB_PRIME_Mito.LHC",
+      "action": "Validate"
+    },
+    "times": {
+      "2022-05-24 15:53:36": 3.315
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "disp",
+      "protocol_path": "automation_v4.0_copy/2.1_D_SB_30ul_Mito.LHC",
+      "action": "RunValidated"
+    },
+    "times": {
+      "2022-05-24 15:54:09": 20.049
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "disp",
+      "protocol_path": "automation_v4.0_copy/2.1_D_SB_30ul_Mito.LHC",
+      "action": "Validate"
+    },
+    "times": {
+      "2022-05-24 15:53:49": 3.296
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "disp",
+      "protocol_path": "automation_v4.0_copy/4.0_D_SA_PRIME_PFA.LHC",
+      "action": "RunValidated"
+    },
+    "times": {
+      "2022-05-24 15:54:27": 14.467
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "disp",
+      "protocol_path": "automation_v4.0_copy/4.0_D_SA_PRIME_PFA.LHC",
+      "action": "Validate"
+    },
+    "times": {
+      "2022-05-24 15:54:12": 3.421
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "disp",
+      "protocol_path": "automation_v4.0_copy/4.1_D_SA_80ul_PFA.LHC",
+      "action": "RunValidated"
+    },
+    "times": {
+      "2022-05-24 15:54:58": 28.065
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "disp",
+      "protocol_path": "automation_v4.0_copy/4.1_D_SA_80ul_PFA.LHC",
+      "action": "Validate"
+    },
+    "times": {
+      "2022-05-24 15:54:30": 3.406
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "disp",
+      "protocol_path": "automation_v4.0_copy/6.0_D_P1_PRIME_Triton.LHC",
+      "action": "RunValidated"
+    },
+    "times": {
+      "2022-05-24 15:55:15": 13.139
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "disp",
+      "protocol_path": "automation_v4.0_copy/6.0_D_P1_PRIME_Triton.LHC",
+      "action": "Validate"
+    },
+    "times": {
+      "2022-05-24 15:55:02": 3.347
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "disp",
+      "protocol_path": "automation_v4.0_copy/6.1_D_P1_80ul_Triton.LHC",
+      "action": "RunValidated"
+    },
+    "times": {
+      "2022-05-24 15:55:52": 34.157
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "disp",
+      "protocol_path": "automation_v4.0_copy/6.1_D_P1_80ul_Triton.LHC",
+      "action": "Validate"
+    },
+    "times": {
+      "2022-05-24 15:55:18": 3.41
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "disp",
+      "protocol_path": "automation_v4.0_copy/8.0_D_P2_MIX_PRIME.LHC",
+      "action": "RunValidated"
+    },
+    "times": {
+      "2022-05-24 15:56:23": 27.646
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "disp",
+      "protocol_path": "automation_v4.0_copy/8.0_D_P2_MIX_PRIME.LHC",
+      "action": "Validate"
+    },
+    "times": {
+      "2022-05-24 15:55:56": 3.472
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "disp",
+      "protocol_path": "automation_v4.0_copy/8.0b_D_P2_purge_then_predispense.LHC",
+      "action": "RunValidated"
+    },
+    "times": {
+      "2022-05-24 15:56:47": 19.68
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "disp",
+      "protocol_path": "automation_v4.0_copy/8.0b_D_P2_purge_then_predispense.LHC",
+      "action": "Validate"
+    },
+    "times": {
+      "2022-05-24 15:56:27": 3.458
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "disp",
+      "protocol_path": "automation_v4.0_copy/8.1_D_P2_20ul_stains.LHC",
+      "action": "RunValidated"
+    },
+    "times": {
+      "2022-05-24 15:57:07": 17.088
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "disp",
+      "protocol_path": "automation_v4.0_copy/8.1_D_P2_20ul_stains.LHC",
+      "action": "Validate"
+    },
+    "times": {
+      "2022-05-24 15:56:50": 3.439
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "disp",
       "protocol_path": "automation_v5.0/2.0_D_SB_PRIME_Mito.LHC",
       "action": "RunValidated"
     },
@@ -2735,6 +2933,160 @@
     },
     "times": {
       "2022-02-15 11:24:25": 1.569
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "wash",
+      "protocol_path": "automation_v4.0_copy/0_W_PRIME_PBS.LHC",
+      "action": "RunValidated"
+    },
+    "times": {
+      "2022-05-24 15:54:03": 30.382
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "wash",
+      "protocol_path": "automation_v4.0_copy/0_W_PRIME_PBS.LHC",
+      "action": "Validate"
+    },
+    "times": {
+      "2022-05-24 15:53:32": 1.602
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "wash",
+      "protocol_path": "automation_v4.0_copy/1_W_2X_beforeMito_leaves20ul_PBS.LHC",
+      "action": "RunValidated"
+    },
+    "times": {
+      "2022-05-24 15:55:16": 72.387
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "wash",
+      "protocol_path": "automation_v4.0_copy/1_W_2X_beforeMito_leaves20ul_PBS.LHC",
+      "action": "Validate"
+    },
+    "times": {
+      "2022-05-24 15:54:04": 1.277
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "wash",
+      "protocol_path": "automation_v4.0_copy/3_W_3X_beforePFA_leaves20ul_PBS.LHC",
+      "action": "RunValidated"
+    },
+    "times": {
+      "2022-05-24 15:56:53": 95.952
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "wash",
+      "protocol_path": "automation_v4.0_copy/3_W_3X_beforePFA_leaves20ul_PBS.LHC",
+      "action": "Validate"
+    },
+    "times": {
+      "2022-05-24 15:55:18": 1.283
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "wash",
+      "protocol_path": "automation_v4.0_copy/5_W_3X_beforeTriton_leaves10ul_PBS.LHC",
+      "action": "RunValidated"
+    },
+    "times": {
+      "2022-05-24 15:58:36": 100.943
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "wash",
+      "protocol_path": "automation_v4.0_copy/5_W_3X_beforeTriton_leaves10ul_PBS.LHC",
+      "action": "Validate"
+    },
+    "times": {
+      "2022-05-24 15:56:55": 1.294
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "wash",
+      "protocol_path": "automation_v4.0_copy/7_W_3X_beforeStains_leaves10ul_PBS.LHC",
+      "action": "RunValidated"
+    },
+    "times": {
+      "2022-05-24 16:00:18": 100.364
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "wash",
+      "protocol_path": "automation_v4.0_copy/7_W_3X_beforeStains_leaves10ul_PBS.LHC",
+      "action": "Validate"
+    },
+    "times": {
+      "2022-05-24 15:58:37": 1.591
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "wash",
+      "protocol_path": "automation_v4.0_copy/9_10_W_3X_leaves80ul_PBS.LHC",
+      "action": "RunValidated"
+    },
+    "times": {
+      "2022-05-24 16:01:45": 85.429
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "wash",
+      "protocol_path": "automation_v4.0_copy/9_10_W_3X_leaves80ul_PBS.LHC",
+      "action": "Validate"
+    },
+    "times": {
+      "2022-05-24 16:00:19": 1.564
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "wash",
+      "protocol_path": "automation_v4.0_copy/9_W_5X_leaves80ul_PBS.LHC",
+      "action": "RunValidated"
+    },
+    "times": {
+      "2022-05-24 16:04:02": 135.973
+    }
+  },
+  {
+    "cmd": {
+      "type": "BiotekCmd",
+      "machine": "wash",
+      "protocol_path": "automation_v4.0_copy/9_W_5X_leaves80ul_PBS.LHC",
+      "action": "Validate"
+    },
+    "times": {
+      "2022-05-24 16:01:46": 1.569
     }
   },
   {
