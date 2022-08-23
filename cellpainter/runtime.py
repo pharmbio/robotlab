@@ -225,9 +225,19 @@ class Runtime:
         return get_robotarm(self.config, quiet=quiet, include_gripper=include_gripper)
 
     def stop_arm(self):
-        arm = self.get_robotarm(quiet=False, include_gripper=False)
-        arm.stop()
-        arm.close()
+        sync = Queue[None]()
+
+        @utils.spawn
+        def _():
+            arm = self.get_robotarm(quiet=False, include_gripper=False)
+            arm.stop()
+            arm.close()
+            sync.put_nowait(None)
+
+        try:
+            sync.get(block=True, timeout=3)
+        except:
+            pass
 
     def set_robotarm_speed(self, speed: int):
         arm = self.get_robotarm(quiet=False, include_gripper=False)
