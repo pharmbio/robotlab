@@ -66,7 +66,7 @@ def now_str_for_filename() -> str:
 @dataclass(frozen=True)
 class test(Generic[A]):
     lhs: A
-    def __eq__(self, rhs: A) -> bool:
+    def __eq__(self, rhs: object) -> bool:
         if self.lhs == rhs:
             import os
             if os.environ.get('verbose'):

@@ -2,7 +2,6 @@ from __future__ import annotations
 from dataclasses import *
 from typing import *
 
-import json
 import os
 import re
 import signal
@@ -15,7 +14,6 @@ from contextlib import contextmanager
 from datetime import datetime, timedelta
 from queue import Queue
 from threading import RLock
-from urllib.request import urlopen
 
 from .robotarm import Robotarm
 from . import utils

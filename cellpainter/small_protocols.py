@@ -25,7 +25,7 @@ from .commands import (
 )
 from . import commands
 
-from .moves import InitialWorld, NoEffect
+from .moves import InitialWorld
 
 from . import utils
 from .log import Metadata

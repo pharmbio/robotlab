@@ -238,5 +238,3 @@ def args_to_program(args: Args) -> Program | None:
 
 if __name__ == '__main__':
     main()
-
-

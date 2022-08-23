@@ -10,6 +10,7 @@
     "reportUnusedVariable": "warning",
     "reportUnusedClass": "none",
     "reportUnusedFunction": "none",
+    "reportUnusedExpression": "warning",
     "reportPrivateUsage": "warning",
     "reportConstantRedefinition": "none",
     "reportUnknownLambdaType": "warning"
