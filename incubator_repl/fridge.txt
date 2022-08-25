@@ -1,0 +1,24 @@
+Am 24.08.2022 um 13:48 schrieb Cosmas Malin:
+
+This is a 2013 unit with climate disabled in September 10th, 2013.
+
+Error 14 means that the unit could not been initialed. To find out
+what axis is not initialized you may type
+
+RD 6501    ; Turn, inner rotation
+RD 6504    : Over drive (2nd lift)
+RD 6502    ; Z-Lift cartridge
+RD 6503    ; Carousel
+
+To initialize each axis individually you may do by
+
+ST 5801
+ST 5802
+ST 5803
+ST 5804
+
+...to reset the unit
+
+ST 1900
+
+/Cos
