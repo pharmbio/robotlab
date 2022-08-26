@@ -2,7 +2,7 @@ from argparse import ArgumentParser
 
 from pathlib import Path
 from datetime import datetime
-from hashlib import sha256
+# from hashlib import sha256
 from typing import List
 
 import json
@@ -23,14 +23,14 @@ def dir_list_repl(root: Path, ext: str):
         print("ready")
         _ = input()
         value: List[dict[str, str]] = []
-        for lhc in root.glob(f'*/*.{ext}'):
+        for lhc in root.glob(f'**/*.{ext}'):
             path = str(lhc.relative_to(root)).replace('\\', '/')
             mtime = lhc.stat().st_mtime
             modified = str(datetime.fromtimestamp(mtime).replace(microsecond=0))
             value += [{
                 'path': path,
                 'modified': modified,
-                'sha256': sha256(lhc.read_bytes()).hexdigest(),
+                # 'sha256': sha256(lhc.read_bytes()).hexdigest(),
             }]
         print("value", json.dumps(value))
         print("success")
