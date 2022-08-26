@@ -21,11 +21,13 @@ from typing import Any, List, Tuple
 from flask import Flask, jsonify, request
 
 LHC_CALLER_CLI_PATH = "C:\\Program Files (x86)\\BioTek\\Liquid Handling Control 2.22\\LHC_CallerCLI.exe"
-PROTOCOLS_ROOT = "C:\\ProgramData\\BioTek\\Liquid Handling Control 2.22\\Protocols\\"
+LHC_PROTOCOLS_ROOT = "C:\\ProgramData\\BioTek\\Liquid Handling Control 2.22\\Protocols\\"
+HTS_PROTOCOLS_ROOT = "C:\\Users\\MolDev\\Desktop\\Protocols\\Plate protocols\\"
 
 LOCAL_IP = {
     'WINDOWS-NUC': '10.10.0.56', # connected to the bioteks and 37C incubator
     'WINDOWS-GBG': '10.10.0.97', # connected to the fridge incubator in imx room
+    'ImageXpress': '10.10.0.99', # connected to the imx
 }
 
 @dataclass
@@ -137,18 +139,23 @@ def main_with_args(port: int, host: str, test: bool, node_name: str):
 
     if node_name == 'WINDOWS-GBG':
         machines = [
-            Machine('example', args=[exe('labrobots-example-repl')]),
-            Machine('fridge',  args=[exe('incubator-repl')]),
-            Machine('barcode', args=[exe('barcode-repl')]),
-            Machine('imx',     args=[exe('imx-repl')]),
+            Machine('example',  args=[exe('labrobots-example-repl')]),
+            Machine('fridge',   args=[exe('incubator-repl')]),
+            Machine('barcode',  args=[exe('barcode-repl')]),
+            Machine('imx',      args=[exe('imx-repl')]),
         ]
     elif node_name == 'WINDOWS-NUC':
         machines = [
             Machine('example',  args=[exe('labrobots-example-repl')]),
             Machine('incu',     args=[exe('incubator-repl')]),
-            Machine('wash',     args=[LHC_CALLER_CLI_PATH, "405 TS/LS", "USB 405 TS/LS sn:191107F", PROTOCOLS_ROOT]),
-            Machine('disp',     args=[LHC_CALLER_CLI_PATH, "MultiFloFX", "USB MultiFloFX sn:19041612", PROTOCOLS_ROOT]),
-            Machine('dir_list', args=[exe('labrobots-dir-list-repl'), '--root-dir', PROTOCOLS_ROOT, '--extension', 'LHC']),
+            Machine('wash',     args=[LHC_CALLER_CLI_PATH, "405 TS/LS", "USB 405 TS/LS sn:191107F", LHC_PROTOCOLS_ROOT]),
+            Machine('disp',     args=[LHC_CALLER_CLI_PATH, "MultiFloFX", "USB MultiFloFX sn:19041612", LHC_PROTOCOLS_ROOT]),
+            Machine('dir_list', args=[exe('labrobots-dir-list-repl'), '--root-dir', LHC_PROTOCOLS_ROOT, '--extension', 'LHC']),
+        ]
+    elif node_name == 'ImageXpress':
+        machines = [
+            Machine('example',  args=[exe('labrobots-example-repl')]),
+            Machine('dir_list', args=[exe('labrobots-dir-list-repl'), '--root-dir', HTS_PROTOCOLS_ROOT, '--extension', 'HTS']),
         ]
     else:
         machines = [
