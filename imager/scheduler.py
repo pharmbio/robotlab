@@ -43,7 +43,11 @@ class IMX:
         return self.send('GOTO,LOAD')
 
     def close(self):
-        return self.send('GOTO,SAMPLE')
+        res =  self.send('GOTO,SAMPLE')
+        time.sleep(0.5)
+        while not self.is_ready():
+            time.sleep(0.5)
+        return res
         # does this work if there is no plate in?
         # otherwise use RUNJOURNAL on the close.JNL
 
@@ -59,6 +63,9 @@ class IMX:
 
     def is_running(self):
         return self.status() == 'RUNNING'
+
+    def is_ready(self):
+        return self.status() == 'READY'
 
     def acquire(self, *, plate_id: str, hts_file: str):
         plate_id = ''.join(
