@@ -19,6 +19,17 @@ function forward-robot-to-localhost {
     wait
 }
 
+function forward-imx-server-to-localhost {
+    verbose () {
+        set -x
+        "$@"
+        set +x
+    }
+    verbose ssh -N -L 5099:10.10.0.99:5050 robotlab-ubuntu & pid1="$!"
+    trap "verbose kill $pid1" EXIT
+    wait
+}
+
 function imx-send {
     cmd="$1"
     quoted=$(printf %q "msg=1,$cmd")

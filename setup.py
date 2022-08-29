@@ -10,6 +10,7 @@ console_scripts = f'''
     pf-moves={name}.moves_gui:main
     pf-flash={name}.flash:main
     imager={name}.cli:main
+    imager-gui={name}.scheduler_gui:main
 '''
 
 packages=f'''

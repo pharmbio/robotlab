@@ -14,8 +14,8 @@ from .robotarm import Robotarm
 
 from . import utils
 
-from .utils.viable import head, serve, esc, css_esc, trim, button, pre, js
-from .utils.viable import Tag, div, span, label, img, raw, input
+from .utils.viable import serve, button, pre, js
+from .utils.viable import Tag, div, input
 from .utils import viable as V
 
 import time
@@ -155,7 +155,7 @@ def get_programs() -> dict[str, Path]:
 @serve.route('/')
 def index() -> Iterator[Tag | dict[str, str]]:
     programs = get_programs()
-    program_name = request.args.get('program', next(iter(programs.keys())))
+    program_name = request.args.get('program', list(programs.keys())[0])
     section: tuple[str, ...] = tuple(request.args.get('section', "").split())
     ml = MoveList.from_jsonl_file(programs[program_name])
 
