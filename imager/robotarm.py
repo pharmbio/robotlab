@@ -10,7 +10,7 @@ from .utils import Mutable
 from .moves import Move, MoveList, movelists
 
 DEFAULT_HOST='10.10.0.98'
-# DEFAULT_HOST='127.0.0.1'
+DEFAULT_HOST='127.0.0.1'
 
 @dataclass(frozen=True)
 class Socket:
