@@ -39,8 +39,15 @@ class IMX:
     def send(self, msg: str):
         return post(self.url, {'msg': msg})
 
-    def open(self):
-        return self.send('GOTO,LOAD')
+    def open(self, sync: bool=True):
+        if not sync:
+            return self.send('GOTO,LOAD')
+        else:
+            res = self.send('GOTO,LOAD')
+            time.sleep(0.5)
+            while not self.is_ready():
+                time.sleep(0.5)
+            return res
 
     def close(self):
         res =  self.send('GOTO,SAMPLE')
@@ -283,12 +290,12 @@ def execute_one(cmd: Command, env: Env, runtime: Runtime) -> None | Literal['wai
             with env.get_robotarm() as arm:
                 before_each = None
                 if cmd.keep_imx_open:
-                    before_each = lambda: (env.imx.open(), None)[-1]
+                    before_each = lambda: (env.imx.open(sync=False), None)[-1]
                 arm.execute_movelist(cmd.program_name, before_each=before_each)
         case Acquire():
             env.imx.acquire(plate_id=cmd.plate_id, hts_file=cmd.hts_file)
         case Open():
-            env.imx.open()
+            env.imx.open(sync=True)
         case Close():
             env.imx.close()
         case WaitForIMX():

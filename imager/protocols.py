@@ -49,12 +49,14 @@ def image_from_hotel(params: list[str], hts_file: str, thaw_secs: float, **_):
         assert hotel_loc != 'H12'
         cmds += [
             RobotarmCmd(f'{hotel_loc}-to-H12'),
+            Open(),
             RobotarmCmd('H12-to-imx', keep_imx_open=True),
             Close(),
             Checkpoint(f'image-begin {plate_id}'),
             Acquire(hts_file=hts_file, plate_id=plate_id),
             WaitForIMX(),
             Checkpoint(f'image-end {plate_id}'),
+            Open(),
             RobotarmCmd('imx-to-H12', keep_imx_open=True),
             Close(),
             RobotarmCmd(f'H12-to-{hotel_loc}'),
@@ -90,6 +92,7 @@ def test_image_one(params: list[str], hts_file: str, **_):
     [barcode] = params
     cmds: list[Command] = []
     cmds += [
+        Open(),
         RobotarmCmd('H12-to-imx', keep_imx_open=True),
         Close(),
         Checkpoint(f'image-begin {barcode}'),
@@ -98,6 +101,7 @@ def test_image_one(params: list[str], hts_file: str, **_):
     cmds += [
         WaitForIMX(),
         Checkpoint(f'image-end {barcode}'),
+        Open(),
         RobotarmCmd('imx-to-H12', keep_imx_open=True),
         Close(),
     ]
@@ -153,6 +157,7 @@ def image(params: list[str], hts_file: str, thaw_secs: float | int, **_):
         ]
         cmds += [
             WaitForCheckpoint(f'RT {i}', plus_secs=thaw_secs),
+            Open(),
             RobotarmCmd('H12-to-imx', keep_imx_open=True),
             Close(),
             Checkpoint(f'image-begin {barcode}'),
@@ -161,6 +166,7 @@ def image(params: list[str], hts_file: str, thaw_secs: float | int, **_):
         cmds += [
             WaitForIMX(),
             Checkpoint(f'image-end {barcode}'),
+            Open(),
             RobotarmCmd('imx-to-H12', keep_imx_open=True),
             Close(),
             RobotarmCmd('H12-to-fridge'),
@@ -203,7 +209,15 @@ def run_robotarm(params: list[str], **_):
     for p in params:
         assert p in movelists, f'Not available: {p}, pick from:{nl}{nl.join(movelists.keys())}'
     cmds: list[Command] = []
-    cmds += [RobotarmCmd(p, keep_imx_open='imx' in p.lower()) for p in params]
+    cmds += [
+        c
+        for p in params
+        for c in (
+            [Open(), RobotarmCmd(p, keep_imx_open=True)]
+            if 'imx' in p.lower() else
+            [RobotarmCmd(p)]
+        )
+    ]
     return cmds
 
 @dataclass(frozen=True)
