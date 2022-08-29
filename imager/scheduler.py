@@ -85,7 +85,7 @@ class IMX:
             for char in plate_id
         )
         res = self.send(f'RUN,{plate_id},{hts_file}')
-        while self.status().details != plate_id.upper():
+        while self.status().code not in ('RUNNING', 'DONE'):
             time.sleep(0.5)
         return res
 
