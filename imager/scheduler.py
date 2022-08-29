@@ -71,13 +71,13 @@ class IMX:
     def status(self) -> IMXStatus:
         res = self.send('STATUS')
         reply: str = res['value']
-        _imx_id, status_code, details, *_ = reply.split(',')
+        _imx_id, status_code, details, *more_details = reply.split(',')
         ret = IMXStatus(code=status_code, details=details)
-        print(ret)
+        print('imx:', ret, more_details)
         return ret
 
     def is_ready(self):
-        return self.status().code == 'READY'
+        return self.status().code in ('READY', 'DONE')
 
     def acquire(self, *, plate_id: str, hts_file: str):
         plate_id = ''.join(
