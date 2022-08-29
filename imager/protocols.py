@@ -23,8 +23,18 @@ from . import utils
 
 list_of_protocols: list[Callable[..., list[Command]]] = []
 
-class ImageFromHotel:
-    pass
+@list_of_protocols.append
+def image_plate_in_imx(params: list[str], hts_file: str, **_):
+    assert isinstance(params, list) and len(params) == 1, 'provide one plate name'
+    assert hts_file and isinstance(hts_file, str), 'specify a --hts-file'
+    [plate_id] = params
+    cmds: list[Command] = [
+        Checkpoint(f'image-begin {plate_id}'),
+        Acquire(hts_file=hts_file, plate_id=plate_id),
+        WaitForIMX(),
+        Checkpoint(f'image-end {plate_id}'),
+    ]
+    return cmds
 
 @list_of_protocols.append
 def image_from_hotel(params: list[str], hts_file: str, thaw_secs: float, **_):
