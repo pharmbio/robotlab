@@ -12,7 +12,7 @@ DEFAULT_HOST='10.10.0.98'
 def ftp_store(ftp: FTP, filename: str, data: bytes):
     ftp.storbinary(f'STOR {filename}', io.BytesIO(data))
 
-def flash(fifo_file: str='pf23.fifo', host: str=DEFAULT_HOST, port: int=23):
+def flash(fifo_file: str='pf23.fifo', host: str=DEFAULT_HOST, port: int | str=23):
     if isinstance(port, str):
         port = int(port)
     fifo_path = Path(fifo_file)

@@ -23,7 +23,78 @@ from . import utils
 
 list_of_protocols: list[Callable[..., list[Command]]] = []
 
+class ImageFromHotel:
+    pass
+
 @list_of_protocols.append
+def image_from_hotel(params: list[str], hts_file: str, thaw_secs: float, **_):
+    assert params and isinstance(params, list), 'specify some plate names'
+    assert hts_file and isinstance(hts_file, str), 'specify a --hts-file'
+    cmds: list[Command] = []
+    cmds += [
+        Checkpoint(f'initial delay'),
+        WaitForCheckpoint(f'initial delay', plus_secs=thaw_secs),
+    ]
+    for hotel_loc, plate_id in zip(HotelLocs, params):
+        assert hotel_loc != 'H12'
+        cmds += [
+            RobotarmCmd(f'{hotel_loc}-to-H12'),
+            RobotarmCmd('H12-to-imx', keep_imx_open=True),
+            Close(),
+            Checkpoint(f'image-begin {plate_id}'),
+            Acquire(hts_file=hts_file, plate_id=plate_id),
+            WaitForIMX(),
+            Checkpoint(f'image-end {plate_id}'),
+            RobotarmCmd('imx-to-H12', keep_imx_open=True),
+            Close(),
+            RobotarmCmd(f'H12-to-{hotel_loc}'),
+        ]
+    return cmds
+
+@list_of_protocols.append
+def test_comm(**_):
+    cmds: list[Command] = []
+    cmds += [
+        RobotarmCmd('test-comm'),
+        BarcodeClear(),
+        WaitForIMX(),
+        # FridgeCmd('get_status'),
+    ]
+    return cmds
+
+@list_of_protocols.append
+def home_robot(**_):
+    cmds: list[Command] = []
+    cmds += [
+        RobotarmCmd('home'),
+    ]
+    return cmds
+
+@list_of_protocols.append
+def test_image_one(params: list[str], hts_file: str, **_):
+    '''
+    Image one plate from H12, specify its barcode
+    '''
+    assert params and isinstance(params, list), 'specify one barcode'
+    assert hts_file and isinstance(hts_file, str), 'specify a --hts-file'
+    [barcode] = params
+    cmds: list[Command] = []
+    cmds += [
+        RobotarmCmd('H12-to-imx', keep_imx_open=True),
+        Close(),
+        Checkpoint(f'image-begin {barcode}'),
+        Acquire(hts_file=hts_file, plate_id=barcode),
+    ]
+    cmds += [
+        WaitForIMX(),
+        Checkpoint(f'image-end {barcode}'),
+        RobotarmCmd('imx-to-H12', keep_imx_open=True),
+        Close(),
+    ]
+    return cmds
+
+
+# @list_of_protocols.append
 def load_by_barcode(num_plates: int, **_):
     '''
     Loads the plates from H1, H2 to H# to empty locations in the fridge
@@ -38,7 +109,7 @@ def load_by_barcode(num_plates: int, **_):
         ]
     return cmds
 
-@list_of_protocols.append
+# @list_of_protocols.append
 def unload_by_barcode(params: list[str], **_):
     '''
     Unloads plates with the given barcodes to the hotel, locations: H1, H2 to H# to empty locations in the fridge
@@ -54,7 +125,7 @@ def unload_by_barcode(params: list[str], **_):
         ]
     return cmds
 
-@list_of_protocols.append
+# @list_of_protocols.append
 def image(params: list[str], hts_file: str, thaw_secs: float | int, **_):
     '''
     Images the plates with the given barcodes. These should already be in the fridge.
@@ -87,30 +158,6 @@ def image(params: list[str], hts_file: str, thaw_secs: float | int, **_):
         ]
     return cmds
 
-@list_of_protocols.append
-def test_image_one(params: list[str], hts_file: str, **_):
-    '''
-    Image one plate from H12, specify its barcode
-    '''
-    assert params and isinstance(params, list), 'specify one barcode'
-    assert hts_file and isinstance(hts_file, str), 'specify a --hts-file'
-    [barcode] = params
-    cmds: list[Command] = []
-    cmds += [
-        RobotarmCmd('H12-to-imx', keep_imx_open=True),
-        Close(),
-        Checkpoint(f'image-begin {barcode}'),
-        Acquire(hts_file=hts_file, plate_id=barcode),
-    ]
-    cmds += [
-        WaitForIMX(),
-        Checkpoint(f'image-end {barcode}'),
-        RobotarmCmd('imx-to-H12', keep_imx_open=True),
-        Close(),
-    ]
-    return cmds
-
-
 '''
 This is a possible way to interleave it, but let's do that later:
 
@@ -128,26 +175,7 @@ This assumes time to image is less than thaw time.
 If image time is much less than thaw time, several plates need to be in RT simultaneously.
 '''
 
-@list_of_protocols.append
-def test_comm(**_):
-    cmds: list[Command] = []
-    cmds += [
-        RobotarmCmd('test-comm'),
-        BarcodeClear(),
-        WaitForIMX(),
-        FridgeCmd('get_status'),
-    ]
-    return cmds
-
-@list_of_protocols.append
-def home_robot(**_):
-    cmds: list[Command] = []
-    cmds += [
-        RobotarmCmd('home'),
-    ]
-    return cmds
-
-@list_of_protocols.append
+# @list_of_protocols.append
 def reset_and_activate_fridge(**_):
     cmds: list[Command] = []
     cmds += [
