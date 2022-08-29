@@ -34,6 +34,11 @@ def post(url: str, data: dict[str, str]) -> dict[str, Any]:
     return curl(url, urlencode(data).encode())
 
 @dataclass(frozen=True)
+class IMXStatus:
+    code: str
+    details: str
+
+@dataclass(frozen=True)
 class IMX:
     url: str
     def send(self, msg: str):
@@ -44,16 +49,18 @@ class IMX:
             return self.send('GOTO,LOAD')
         else:
             res = self.send('GOTO,LOAD')
-            time.sleep(0.5)
-            while not self.is_ready():
+            while True:
                 time.sleep(0.5)
+                if self.status() == IMXStatus('READY', 'LOAD'):
+                    break
             return res
 
     def close(self):
         res =  self.send('GOTO,SAMPLE')
-        time.sleep(0.5)
-        while not self.is_ready():
+        while True:
             time.sleep(0.5)
+            if self.status() == IMXStatus('READY', 'SAMPLE'):
+                break
         return res
         # does this work if there is no plate in?
         # otherwise use RUNJOURNAL on the close.JNL
@@ -61,18 +68,16 @@ class IMX:
     def online(self):
         return self.send('ONLINE')
 
-    def status(self) -> str:
+    def status(self) -> IMXStatus:
         res = self.send('STATUS')
         reply: str = res['value']
-        _imx_id, status_code, *details = reply.split(',')
-        print(f'imx {status_code=} {details=}')
-        return status_code
-
-    def is_running(self):
-        return self.status() == 'RUNNING'
+        _imx_id, status_code, details, _ = reply.split(',')
+        ret = IMXStatus(code=status_code, details=details)
+        print(ret)
+        return ret
 
     def is_ready(self):
-        return self.status() == 'READY'
+        return self.status().code == 'READY'
 
     def acquire(self, *, plate_id: str, hts_file: str):
         plate_id = ''.join(
@@ -80,7 +85,7 @@ class IMX:
             for char in plate_id
         )
         res = self.send(f'RUN,{plate_id},{hts_file}')
-        while not self.is_running():
+        while self.status().details != plate_id.upper():
             time.sleep(0.5)
         return res
 
@@ -290,7 +295,7 @@ def execute_one(cmd: Command, env: Env, runtime: Runtime) -> None | Literal['wai
             with env.get_robotarm() as arm:
                 before_each = None
                 if cmd.keep_imx_open:
-                    before_each = lambda: (env.imx.open(sync=False), None)[-1]
+                    before_each = lambda: (env.imx.open(sync=False) , None)[-1]
                 arm.execute_movelist(cmd.program_name, before_each=before_each)
         case Acquire():
             env.imx.acquire(plate_id=cmd.plate_id, hts_file=cmd.hts_file)
@@ -299,7 +304,7 @@ def execute_one(cmd: Command, env: Env, runtime: Runtime) -> None | Literal['wai
         case Close():
             env.imx.close()
         case WaitForIMX():
-            if env.imx.is_running():
+            if not env.imx.is_ready():
                 return 'wait'
         case FridgeCmd():
             # no need to check that the fridge is ready since there is only
