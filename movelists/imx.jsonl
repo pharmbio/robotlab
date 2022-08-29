@@ -11,10 +11,10 @@
 {"type": "MoveJ", "joints": [552.0, -72.51, 296.91, 133.76], "name": "hotel neu"}
 {"type": "MoveJ", "joints": [601.89, -5.32, 176.89, 186.76], "name": "neu"}
 {"type": "MoveJ", "joints": [519.8, -54.42, 129.61, 285.24], "name": "imx neu"}
-{"type": "MoveC", "xyz": [470.62, 33.91, 517.89], "yaw": -0.01, "name": "imx above"}
-{"type": "MoveC", "xyz": [470.61, 33.92, 460.9], "yaw": -0.01, "name": "imx drop"}
+{"type": "MoveC", "xyz": [471.63, 33.97, 517.9], "yaw": 0.01, "name": "imx above"}
+{"type": "MoveC", "xyz": [471.63, 33.97, 460.82], "yaw": 0.01, "name": "imx drop"}
 {"type": "MoveGripper", "pos": 90}
-{"type": "MoveC", "xyz": [470.62, 33.91, 517.89], "yaw": -0.01, "name": "imx above"}
+{"type": "MoveC", "xyz": [471.63, 33.97, 517.9], "yaw": 0.01, "name": "imx above"}
 {"type": "MoveJ", "joints": [519.8, -54.42, 129.61, 285.24], "name": "imx neu"}
 {"type": "MoveJ", "joints": [601.89, -5.32, 176.89, 186.76], "name": "neu"}
 {"type": "Section", "sections": ["imx-to-H12"]}
@@ -29,10 +29,10 @@
 {"type": "MoveJ", "joints": [601.89, -5.32, 176.89, 186.76], "name": "neu"}
 {"type": "MoveJ", "joints": [552.0, -72.51, 296.91, 133.76], "name": "hotel neu"}
 {"type": "MoveC", "xyz": [46.17, -497, 465.03], "yaw": -0.6, "name": "H12 entrance"}
-{"type": "MoveC", "xyz": [190.44, -497.01, 465.03], "yaw": -0.61, "name": "H12 neu"}
-{"type": "MoveC", "xyz": [190.45, -496.99, 458.98], "yaw": -0.6, "name": "H12 drop"}
+{"type": "MoveC", "xyz": [189.17, -496.98, 465.04], "yaw": -1.11, "name": "H12 neu"}
+{"type": "MoveC", "xyz": [189.17, -496.99, 458.98], "yaw": -1.12, "name": "H12 drop"}
 {"type": "MoveGripper", "pos": 100}
-{"type": "MoveC", "xyz": [190.45, -497.01, 465.03], "yaw": -0.61, "name": "H12 neu"}
+{"type": "MoveC", "xyz": [189.17, -496.98, 465.04], "yaw": -1.11, "name": "H12 neu"}
 {"type": "MoveC", "xyz": [46.17, -497, 465.03], "yaw": -0.6, "name": "H12 entrance"}
 {"type": "MoveJ", "joints": [552.0, -72.51, 296.91, 133.76], "name": "hotel neu"}
 {"type": "MoveJ", "joints": [601.89, -5.32, 176.89, 186.76], "name": "neu"}

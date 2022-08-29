@@ -383,14 +383,24 @@ def index() -> Iterator[Tag | dict[str, str]]:
         )
 
         from_here = [m for _, m in visible_moves[row_index:] if not isinstance(m, moves.Section)]
+        to_here= [m for _, m in visible_moves[:row_index+1] if not isinstance(m, moves.Section)]
 
-        row += button('run from here',
-            tabindex='-1',
-            style=f'grid-column: run',
-            css='margin: 0 10px;',
-            onclick=arm_do.call(*from_here),
-            title=', '.join(m.try_name() or m.__class__.__name__ for m in from_here)
+        row += div(
+            button('run from here',
+                tabindex='-1',
+                css='margin: 0;',
+                onclick=arm_do.call(*from_here),
+                title=', '.join(m.try_name() or m.__class__.__name__ for m in from_here)
+            ),
+            button('to',
+                tabindex='-1',
+                css='margin: 0;',
+                onclick=arm_do.call(*to_here),
+                title=', '.join(m.try_name() or m.__class__.__name__ for m in to_here)
+            ),
+            style=f'grid-column: run; display: flex; margin 0 10px;',
         )
+
 
         row += button('update',
             tabindex='-1',
