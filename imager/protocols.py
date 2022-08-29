@@ -188,11 +188,12 @@ from .moves import movelists
 
 @list_of_protocols.append
 def run_robotarm(params: list[str], **_):
+    nl = '\n'
+    assert params, f'No params, pick from:{nl}{nl.join(movelists.keys())}'
     for p in params:
-        nl = '\n'
-        assert p in movelists, f'Not available: {p}, pick one from:{nl}{nl.join(movelists.keys())}'
+        assert p in movelists, f'Not available: {p}, pick from:{nl}{nl.join(movelists.keys())}'
     cmds: list[Command] = []
-    cmds += [RobotarmCmd(p) for p in params]
+    cmds += [RobotarmCmd(p, keep_imx_open='imx' in p.lower()) for p in params]
     return cmds
 
 @dataclass(frozen=True)
