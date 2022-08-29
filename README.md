@@ -1,12 +1,13 @@
 # robot-imager
 
 Control of the PreciseFlex (PF) robotarm and the MolDev ImageXpress (IMX) microscope.
+A Liconic fridge (STR240) and a Barcode scanner (from Honeywell) are also part of the system.
 
-A scheduler repeatedly talks to the PF and the IMX to keep them busy.
+A scheduler program repeatedly talks to the PF and the IMX to keep them busy.
 
 A human operator can add entries to the scheduler.
 
-A slightly outdated overview:
+An overview:
 
 <img src="images/overview.svg"/>
 
