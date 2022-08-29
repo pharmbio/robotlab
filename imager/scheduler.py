@@ -65,7 +65,10 @@ class IMX:
             char if re.match(r'^[\w\d_ ]$', char) else '-'
             for char in plate_id
         )
-        return self.send(f'RUN,{plate_id},{hts_file}')
+        res = self.send(f'RUN,{plate_id},{hts_file}')
+        while not self.is_running():
+            time.sleep(0.5)
+        return res
 
 @dataclass(frozen=True)
 class BarcodeReader:
