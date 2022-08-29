@@ -71,7 +71,7 @@ class IMX:
     def status(self) -> IMXStatus:
         res = self.send('STATUS')
         reply: str = res['value']
-        _imx_id, status_code, details, _ = reply.split(',')
+        _imx_id, status_code, details, *_ = reply.split(',')
         ret = IMXStatus(code=status_code, details=details)
         print(ret)
         return ret
