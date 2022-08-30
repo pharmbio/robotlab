@@ -29,6 +29,7 @@ def dir_list_repl(root: Path, ext: str):
             modified = str(datetime.fromtimestamp(mtime).replace(microsecond=0))
             value += [{
                 'path': path,
+                'full': str(lhc.resolve()),
                 'modified': modified,
                 # 'sha256': sha256(lhc.read_bytes()).hexdigest(),
             }]
