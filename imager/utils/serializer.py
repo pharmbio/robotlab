@@ -62,10 +62,16 @@ class Serializer:
         else:
             raise ValueError()
 
+    def dumps(self, x: Any) -> str:
+        return json.dumps(self.to_json(x))
+
+    def loads(self, s: str) -> Any:
+        return self.from_json(json.loads(s))
+
     def read_jsonl(self, path: str | Path) -> Iterator[Any]:
         with open(path, 'r') as f:
             for line in f:
-                yield self.from_json(json.loads(line))
+                yield self.loads(line)
 
     def read_json(self, path: str | Path) -> Any:
         with open(path, 'r') as f:
