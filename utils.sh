@@ -26,6 +26,7 @@ function forward-imx-server-to-localhost {
         set +x
     }
     verbose ssh -N -L 5099:10.10.0.99:5050 robotlab-ubuntu & pid1="$!"
+    { sleep 1; verbose curl 127.0.0.1:5099/dir_list -s | head; }
     trap "verbose kill $pid1" EXIT
     wait
 }

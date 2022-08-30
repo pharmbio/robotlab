@@ -4,14 +4,15 @@ from dataclasses import dataclass, field, replace
 
 from collections import defaultdict
 from contextlib import contextmanager
-from flask import jsonify, request, g
-from werkzeug.local import LocalProxy
+from flask import after_this_request, jsonify, request, g
 from flask.wrappers import Response
+from werkzeug.local import LocalProxy
 import abc
 import json
 
-from ..viable import js, serve, input
+from . import js, serve, input
 from .. import viable as V
+from .db_con import get_viable_db
 
 def get_store() -> Store:
     if not g.get('viable_stores'):
@@ -168,8 +169,6 @@ class StoredValue:
     def default_value(self) -> Any:
         return self.var.default
 
-from flask import after_this_request
-
 def update_query(kvs: dict[str, Any | js]):
     s = js.convert_dict(kvs).fragment
     return f'update_query({s})'
@@ -181,33 +180,22 @@ def update_cookies(kvs: dict[str, str]) -> Any:
         return {}
     else:
         @after_this_request
-        def _(response: Response) -> Response:
+        def later(response: Response) -> Response:
             response.set_cookie('v', json.dumps(next))
             return response
         return {'refresh': True}
-
-DB: dict[str, Any] = {}
-
-def update_server(kvs: dict[str, str]) -> Any:
-    DB.update(kvs)
-    serve.reload()
-    gen = serve.generation
-    @after_this_request
-    def _(response: Response) -> Response:
-        response.set_cookie('gen', str(gen))
-        return response
-    return {'gen': gen}
 
 @dataclass(frozen=True)
 class Provenance:
     js_side: None | Callable[[dict[str, Any | js]], str] = None
     py_side: None | Callable[[dict[str, str]], dict[str, Any]] = None
-    get: Callable[[], Callable[[str, Any], Any]] = lambda: lambda k, d: d
+    get: Callable[[str, Any], Any] = lambda k, d: d
 
 provenances: dict[str, Provenance] = {
-    'query':  Provenance(update_query, None,           lambda: request.args.get),
-    'cookie': Provenance(None,         update_cookies, lambda: json.loads(request.cookies.get('v', '{}')).get),
-    'server': Provenance(None,         update_server,  lambda: DB.get),
+    'query':  Provenance(update_query, None,                                                   lambda k, d: request.args.get(k, d)),
+    'cookie': Provenance(None,         update_cookies,                                         lambda k, d: json.loads(request.cookies.get('v', '{}')).get(k, d)),
+    'shared': Provenance(None,         lambda kvs: get_viable_db().update(kvs, shared=True),   lambda k, d: get_viable_db().get(k, d, shared=True)),
+    'db':     Provenance(None,         lambda kvs: get_viable_db().update(kvs, shared=False),  lambda k, d: get_viable_db().get(k, d, shared=False)),
 }
 
 @serve.expose
@@ -241,8 +229,12 @@ class Store:
         return self.at('query')
 
     @property
-    def server(self):
-        return self.at('server')
+    def shared(self):
+        return self.at('shared')
+
+    @property
+    def db(self):
+        return self.at('db')
 
     @contextmanager
     def at(self, provenance: str):
@@ -273,7 +265,7 @@ class Store:
 
     def value(self, x: Var[A]) -> A:
         sv = self[x]
-        s = provenances[sv.provenance].get()(sv.full_name, sv.default_value)
+        s = provenances[sv.provenance].get(sv.full_name, sv.default_value)
         return sv.var.from_str(s)
 
     def __getitem__(self, x: Var[Any]) -> StoredValue:

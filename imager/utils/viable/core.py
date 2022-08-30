@@ -17,6 +17,7 @@ from flask.wrappers import Response
 from itsdangerous import Serializer, URLSafeSerializer
 
 from .tags import *
+from .minifier import minify
 
 def is_true(x: str | bool | int):
     return str(x).lower() in 'true y yes 1'.split()
@@ -186,10 +187,10 @@ class Serve:
 
         @app.post('/ping') # type: ignore
         def ping():
-            i = request.cookies.get('gen', None)
+            i = request.cookies.get('g', None)
             if i is not None and i != str(self.generation):
                 resp = jsonify({'gen': self.generation})
-                resp.set_cookie('gen', str(self.generation))
+                resp.set_cookie('g', str(self.generation))
                 return resp
             q = Queue[None]()
             with self.notify_reload_lock:
@@ -200,7 +201,7 @@ class Serve:
                 with self.notify_reload_lock:
                     self.notify_reload.remove(q)
             resp = jsonify({'gen': self.generation})
-            resp.set_cookie('gen', str(self.generation))
+            resp.set_cookie('g', str(self.generation))
             return resp
 
     def route(self, rule: str = '/'):
@@ -308,16 +309,20 @@ class Serve:
         classes = body_node.make_classes({})
 
         if classes:
-            head_node += style(raw(minify('\n'.join(inst for _, inst in classes.values()), loader='css')))
+            head_node += style(raw('\n'.join(inst for _, inst in classes.values())))
 
         if include_hot:
             head_node += script(src="/viable.js", defer=True)
 
-        resp = make_response(
+        html_str = (
             f'<!doctype html>{newline}' +
             html(head_node, body_node, lang='en').to_str(indent)
         )
-        resp.set_cookie('gen', str(self.generation))
+        if compress:
+            html_str = minify(html_str, 'html')
+
+        resp = make_response(html_str)
+        resp.set_cookie('g', str(self.generation))
         return resp
 
     def run(self, host: str | None = None, port: int | None = None):
@@ -332,7 +337,6 @@ class Serve:
             HOST = os.environ.get('VIABLE_HOST', host)
             PORT = os.environ.get('VIABLE_PORT', port)
             PORT = int(PORT) if PORT else None
-            print(port)
             app.run(host=HOST, port=PORT, threaded=True)
 
     def suppress_flask_logging(self):

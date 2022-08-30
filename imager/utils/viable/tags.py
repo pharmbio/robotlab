@@ -1,10 +1,7 @@
 from __future__ import annotations
 from typing import Iterable, cast, Any
 
-from .minifier import minify
-
 import abc
-import re
 
 def esc(txt: str, __table: dict[int, str] = str.maketrans({
     "<": "&lt;",
@@ -84,7 +81,9 @@ css_props = {
         margin-bottom margin-left margin-right margin-top max-height max-width
         min-height min-width mix-blend-mode object-fit object-position opacity
         order orphans outline outline-color outline-offset outline-style
-        outline-width overflow overflow-wrap overflow-x overflow-y padding
+        outline-width overflow overflow-wrap overflow-x overflow-y
+        place-items place-self
+        padding
         padding-bottom padding-left padding-right padding-top page-break-after
         page-break-before page-break-inside perspective perspective-origin
         pointer-events position quotes resize right row-gap scroll-behavior
@@ -202,15 +201,7 @@ class Tag(Node):
                     kvs += [k]
                 else:
                     assert isinstance(v, str)
-                    if k.startswith('on'):
-                        v = minify(v)
-                    if re.match(r'[\w\-\.,:;/+@#?(){}[\]]+$', v):
-                        # https://html.spec.whatwg.org/multipage/syntax.html#unquoted
-                        kvs += [f'{k}={v}']
-                    elif re.match(r'[\s<>=`\w\-\.,:;/+@#?(){}[\]"]+$', v):
-                        kvs += [f"{k}='{v}'"]
-                    else:
-                        kvs += [f'{k}="{esc(v)}"']
+                    kvs += [f'{k}="{esc(v)}"']
             attrs = ' ' + ' '.join(kvs)
         else:
             attrs = ''

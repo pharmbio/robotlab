@@ -1,7 +1,5 @@
 from __future__ import annotations
 from functools import lru_cache
-from subprocess import run
-import shutil
 import sys
 from typing import ContextManager
 from contextlib import contextmanager
@@ -27,35 +25,22 @@ def timeit(desc: str='') -> ContextManager[None]:
 
     return worker()
 
-def minify(s: str, loader: str='js') -> str:
-    s = s.strip()
-    if loader == 'js' and '\n' not in s:
-        return s
-    elif esbuild_missing():
-        return s
-    else:
-        return minify_nontrivial(s, loader)
-
 @lru_cache
-def esbuild_missing():
-    if shutil.which("esbuild") is None:
-        print('esbuild not found, skipping minifying', file=sys.stderr)
-        return True
-    else:
-        return False
-
-@lru_cache
-def minify_nontrivial(s: str, loader: str='js') -> str:
+def minify_string() -> Callable[[str, str], str]:
     try:
-        with timeit(f'esbuild {loader}'):
-            res = run(
-                ['esbuild', '--minify', f'--loader={loader}'],
-                capture_output=True, input=s, encoding='utf-8'
-            )
-            if res.stderr:
-                print(loader, s, res.stderr, file=sys.stderr)
-                return s
-            # print(f'minify({s[:80]!r}, {loader=})\n  = {res.stdout[:80]!r}')
-            return res.stdout.strip()
-    except:
-        return s
+        import minify
+        return minify.string
+    except Exception as e:
+        print('Not using tdewolff-minify:', str(e), file=sys.stderr)
+        return lambda _, s: s
+
+def minify(s: str, loader: str='js') -> str:
+    if loader in ('js', 'javascript'):
+        loader = 'application/javascript'
+    elif loader in ('html', 'css'):
+        loader = 'text/' + loader
+    else:
+        print('???', loader)
+        return(s)
+    with timeit():
+        return minify_string()(loader, s)
