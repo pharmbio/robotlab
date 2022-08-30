@@ -4,7 +4,7 @@ import signal
 import atexit
 import sys
 
-Handler: TypeAlias = Callable[[int, Any], int | None]
+Handler: TypeAlias = Callable[[int, Any], None]
 
 _handlers: list[Handler] = []
 
@@ -13,17 +13,11 @@ def add_handler(h: Handler):
 
 def handle_signal(signum: int, _frame: Any):
     print('Handling signal', signum)
-    exc: int | None = None
     for h in _handlers:
-        print('Running handler', h)
-        e = h(signum, _frame)
-        if e is not None:
-            exc = e
-    if signum in (signal.SIGTERM, signal.SIGINT):
-        exc = 1
-    print('result', signum, exc)
-    if exc is not None:
-        sys.exit(exc)
+        h(signum, _frame)
+    print('Done handling signal', signum)
+    if signum != 0:
+        sys.exit(1)
 
 signal.signal(signal.SIGTERM, handle_signal)
 signal.signal(signal.SIGINT, handle_signal)

@@ -8,7 +8,6 @@ import secrets
 import sqlite3
 import threading
 import time
-import signal
 from threading import Lock
 
 from .exit import add_handler
@@ -17,14 +16,13 @@ from . import serve
 def add_writer(con: sqlite3.Connection):
     closing: bool = False
 
-    def handle_signal(signum: int, _frame: Any) -> int | None:
+    def handle_signal(signum: int, _frame: Any) -> None:
         nonlocal closing
-        if closing:
+        if not closing:
+            closing = True
             con.commit()
             con.close()
-            closing = True
-            if signum in (signal.SIGTERM, signal.SIGINT):
-                return 1
+            print('commited and closed db')
 
     add_handler(handle_signal)
 

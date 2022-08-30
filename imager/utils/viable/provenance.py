@@ -11,7 +11,7 @@ import abc
 import json
 
 from . import js, serve, input
-from .. import viable as V
+from . import tags as V
 from .db_con import get_viable_db
 
 def get_store() -> Store:
