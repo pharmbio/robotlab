@@ -118,10 +118,16 @@ sheet = '''
     }
 '''
 
+@dataclass(frozen=True)
+class Todo:
+    hotel_pos: int
+    plate_id: str
+    hts: HTS
+
 @serve.route()
 def index():
     yield {'sheet': sheet}
-    yield V.title('imx imager scheduler gui')
+    yield V.head(V.title('imx imager scheduler gui'))
     htss = {hts.path: hts for hts in get_htss()}
     datalist  = V.datalist(id='htss', width='800px')
     for _, hts in htss.items():
@@ -132,14 +138,14 @@ def index():
 
     grid += div()
     grid += div('plate_id', justify_self='center')
-    grid += div('hts path (shortened)', justify_self='center')
+    grid += div('hts path', justify_self='center')
     grid += div()
 
     errors: list[str] = []
-    todo: list[tuple[str, str, HTS]] = []
+    todo: list[Todo] = []
 
     with store.db:
-        hotels = list(reversed([i + 1 for i in range(10)]))
+        hotels = list(reversed([i + 1 for i in range(11)]))
         for i, hotel_pos in enumerate(hotels):
             hotel = f'H{hotel_pos}'
             with store.sub(hotel):
@@ -147,7 +153,7 @@ def index():
                 path = store.str(name='path')
                 hts = htss.get(path.value)
                 grid += div(hotel + ':', justify_self='right')
-                grid += plate_id.input().extend(font_family='monospace', margin='5px', padding='5px', tabindex=str(i+1), spellcheck='false')
+                grid += plate_id.input().extend(margin='5px', padding='5px', tabindex=str(i+1), spellcheck='false')
                 grid += path.input().extend(list='htss', width='auto', font_family='monospace', margin='5px', padding='5px', tabindex=str(i+1+len(hotels)), spellcheck='false')
                 if not hts and path.value:
                     grid += div('?', color='var(--red)', title=f'Unknown path {path.value!r}')
@@ -157,13 +163,13 @@ def index():
                     grid += V.label('ok!', color='var(--green)', title=title, data_title=title, cursor='pointer', onclick='alert(this.dataset.title)')
                 else:
                     grid += div()
-                print(i, hotel, plate_id.value, hts and hts.path)
+                print(i, hotel, repr(plate_id.value), repr(hts and hts.path), sep='\t')
                 if hts and not plate_id.value:
                     errors += [f'No plate id on {hotel}']
                 if plate_id.value and not path.value:
                     errors += [f'No path on {hotel}']
                 if plate_id.value and hts:
-                    todo += [(hotel, plate_id.value, hts)]
+                    todo += [Todo(hotel_pos, plate_id.value, hts)]
 
     if not todo:
         errors += ['Nothing to do']

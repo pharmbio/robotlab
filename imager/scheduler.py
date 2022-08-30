@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Literal, Any, cast
+from typing import Literal, Any, cast, ClassVar
 from dataclasses import dataclass, field
 from contextlib import contextmanager
 from datetime import datetime, timedelta
@@ -15,20 +15,13 @@ from . import utils
 from .robotarm import Robotarm
 from .moves import movelists
 
-FRIDGE_LOCS = [
-    f'{slot+1}x{level+1}'
-    for slot in range(3)
-    for level in range(17)
-]
-EMPTY_FRIDGE: dict[str, str | None] = {loc: None for loc in FRIDGE_LOCS}
-
 def curl(url: str, data: None | bytes = None) -> dict[str, Any]:
     ten_minutes = 60 * 10
-    res = json.loads(urlopen(url, data=data, timeout=ten_minutes).read())
+    res: dict[str, Any] = json.loads(urlopen(url, data=data, timeout=ten_minutes).read())
     assert isinstance(res, dict)
     if not res.get('success'):
         utils.pr(res)
-    return cast(dict[str, Any], res)
+    return res
 
 def post(url: str, data: dict[str, str]) -> dict[str, Any]:
     return curl(url, urlencode(data).encode())
@@ -128,31 +121,6 @@ class Env:
     @property
     def barcode_reader(self):
         return BarcodeReader(self.barcode_url)
-
-@dataclass(frozen=True)
-class Runtime:
-    checkpoints: dict[str, datetime] = field(default_factory=dict)
-
-    # (Fridge location) -> (Plate barcode or empty)
-    fridge: dict[str, str | None] = field(default_factory=lambda: EMPTY_FRIDGE)
-
-    def get_empty_loc(self):
-        empty_locs = [loc for loc, plate_barcode in self.fridge.items() if plate_barcode is None]
-        return empty_locs.pop()
-
-    def get_by_barcode(self, barcode: str):
-        locs = [
-            loc
-            for loc, plate_barcode in self.fridge.items()
-            if plate_barcode and plate_barcode.endswith(barcode)
-            # change to plate_barcode == barcode for exact equality
-        ]
-        if not locs:
-            raise ValueError(f'{barcode} not in {self.fridge}')
-        elif len(locs) > 1:
-            raise ValueError(f'{barcode} several times in {self.fridge}')
-        else:
-            return locs[0]
 
 class Command(abc.ABC):
     pass
@@ -261,12 +229,61 @@ class WaitForCheckpoint(Command):
         else:
             return timedelta(seconds=self.plus_secs)
 
+
+# scheduler
+
+from .utils.mixins import DBMixin, DB, Meta
+
 @dataclass(frozen=True)
-class Queue:
-    cmds: list[Command]
-    runtime: Runtime
+class FridgeSlot(DBMixin):
+    name: str = ""
+    occupant: None | str = None
+    id: int = -1
+    __meta__: ClassVar = Meta(log=True)
+
+@dataclass(frozen=True)
+class ActiveCheckpoint(DBMixin):
+    name: str = ""
+    t: datetime = field(default_factory=datetime.now)
+    id: int = -1
+
+@dataclass(frozen=True)
+class Queued(DBMixin):
+    cmd: Command = field(default_factory=Noop)
+    started: datetime | None = None
+    finished: datetime | None = None
+    error: str | None = None
+    pos: int = -1
+    id: int = -1
+    __meta__: ClassVar = Meta(log=True)
 
 utils.serializer.register(globals())
+
+def get_empty_slot(db: DB):
+    for slot in db.get(FridgeSlot).where(occupant=None):
+        return slot
+
+def get_by_barcode(db: DB, barcode: str):
+    FridgeSlots = db.get(FridgeSlot)
+    slots = FridgeSlots.where(occupant=barcode)
+    if not slots:
+        raise ValueError(f'{barcode} not in {list(FridgeSlots)}')
+    elif len(slots) > 1:
+        raise ValueError(f'{barcode} several times in {list(FridgeSlots)}')
+    else:
+        return slots[0]
+
+FRIDGE_LOCS = [
+    f'{slot+1}x{level+1}'
+    for slot in range(1)
+    for level in range(17)
+]
+
+def initial_fridge(db: DB):
+    FridgeSlots = db.get(FridgeSlot)
+    for loc in FRIDGE_LOCS:
+        if not FridgeSlots.where(name=loc):
+            FridgeSlot(loc).save(db)
 
 def execute(cmds: list[Command]):
     env = Env()
