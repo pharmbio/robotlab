@@ -12,9 +12,13 @@ from .scheduler import (
     Open,              # type: ignore
     Close,             # type: ignore
     WaitForIMX,        # type: ignore
-    FridgeCmd,         # type: ignore
+    FridgeGet,
+    FridgePut,
+    FridgeGetByBarcode,
+    FridgePutByBarcode,
+    FridgeAction,
     BarcodeClear,      # type: ignore
-    Checkpoint,        # type: ignore
+    CheckpointCmd,     # type: ignore
     WaitForCheckpoint, # type: ignore
     Noop,              # type: ignore
 )
@@ -29,10 +33,10 @@ def image_plate_in_imx(params: list[str], hts_file: str, **_):
     assert hts_file and isinstance(hts_file, str), 'specify a --hts-file'
     [plate_id] = params
     cmds: list[Command] = [
-        Checkpoint(f'image-begin {plate_id}'),
+        CheckpointCmd(f'image-begin {plate_id}'),
         Acquire(hts_file=hts_file, plate_id=plate_id),
         WaitForIMX(),
-        Checkpoint(f'image-end {plate_id}'),
+        CheckpointCmd(f'image-end {plate_id}'),
     ]
     return cmds
 
@@ -42,7 +46,7 @@ def image_from_hotel(params: list[str], hts_file: str, thaw_secs: float, **_):
     assert hts_file and isinstance(hts_file, str), 'specify a --hts-file'
     cmds: list[Command] = []
     cmds += [
-        Checkpoint(f'initial delay'),
+        CheckpointCmd(f'initial delay'),
         WaitForCheckpoint(f'initial delay', plus_secs=thaw_secs),
     ]
     for hotel_loc, plate_id in zip(HotelLocs, params):
@@ -52,10 +56,10 @@ def image_from_hotel(params: list[str], hts_file: str, thaw_secs: float, **_):
             Open(),
             RobotarmCmd('H12-to-imx', keep_imx_open=True),
             Close(),
-            Checkpoint(f'image-begin {plate_id}'),
+            CheckpointCmd(f'image-begin {plate_id}'),
             Acquire(hts_file=hts_file, plate_id=plate_id),
             WaitForIMX(),
-            Checkpoint(f'image-end {plate_id}'),
+            CheckpointCmd(f'image-end {plate_id}'),
             Open(),
             RobotarmCmd('imx-to-H12', keep_imx_open=True),
             Close(),
@@ -95,12 +99,12 @@ def test_image_one(params: list[str], hts_file: str, **_):
         Open(),
         RobotarmCmd('H12-to-imx', keep_imx_open=True),
         Close(),
-        Checkpoint(f'image-begin {barcode}'),
+        CheckpointCmd(f'image-begin {barcode}'),
         Acquire(hts_file=hts_file, plate_id=barcode),
     ]
     cmds += [
         WaitForIMX(),
-        Checkpoint(f'image-end {barcode}'),
+        CheckpointCmd(f'image-end {barcode}'),
         Open(),
         RobotarmCmd('imx-to-H12', keep_imx_open=True),
         Close(),
@@ -108,7 +112,7 @@ def test_image_one(params: list[str], hts_file: str, **_):
     return cmds
 
 
-# @list_of_protocols.append
+@list_of_protocols.append
 def load_by_barcode(num_plates: int, **_):
     '''
     Loads the plates from H1, H2 to H# to empty locations in the fridge
@@ -119,11 +123,11 @@ def load_by_barcode(num_plates: int, **_):
         cmds += [
             RobotarmCmd(f'{hotel_loc}-to-H12') if hotel_loc != 'H12' else Noop(),
             RobotarmCmd('H12-to-fridge'),
-            FridgeCmd('put_by_barcode'),
+            FridgePutByBarcode(),
         ]
     return cmds
 
-# @list_of_protocols.append
+@list_of_protocols.append
 def unload_by_barcode(params: list[str], **_):
     '''
     Unloads plates with the given barcodes to the hotel, locations: H1, H2 to H# to empty locations in the fridge
@@ -133,13 +137,13 @@ def unload_by_barcode(params: list[str], **_):
     barcodes = params
     for hotel_loc, barcode in zip(HotelLocs, barcodes):
         cmds += [
-            FridgeCmd('get_by_barcode', barcode=barcode),
+            FridgeGetByBarcode(barcode=barcode),
             RobotarmCmd('fridge-to-H12'),
             RobotarmCmd(f'H12-to-{hotel_loc}') if hotel_loc != 'H12' else Noop(),
         ]
     return cmds
 
-# @list_of_protocols.append
+@list_of_protocols.append
 def image(params: list[str], hts_file: str, thaw_secs: float | int, **_):
     '''
     Images the plates with the given barcodes. These should already be in the fridge.
@@ -151,26 +155,26 @@ def image(params: list[str], hts_file: str, thaw_secs: float | int, **_):
     barcodes = params
     for i, barcode in enumerate(barcodes):
         cmds += [
-            FridgeCmd('get_by_barcode', barcode=barcode),
+            FridgeGetByBarcode(barcode=barcode),
             RobotarmCmd('fridge-to-H12'),
-            Checkpoint(f'RT {i}'),
+            CheckpointCmd(f'RT {i}'),
         ]
         cmds += [
             WaitForCheckpoint(f'RT {i}', plus_secs=thaw_secs),
             Open(),
             RobotarmCmd('H12-to-imx', keep_imx_open=True),
             Close(),
-            Checkpoint(f'image-begin {barcode}'),
+            CheckpointCmd(f'image-begin {barcode}'),
             Acquire(hts_file=hts_file, plate_id=barcode),
         ]
         cmds += [
             WaitForIMX(),
-            Checkpoint(f'image-end {barcode}'),
+            CheckpointCmd(f'image-end {barcode}'),
             Open(),
             RobotarmCmd('imx-to-H12', keep_imx_open=True),
             Close(),
             RobotarmCmd('H12-to-fridge'),
-            FridgeCmd('put_by_barcode'), # could check that it still has the same barcode
+            FridgePutByBarcode(), # could check that it still has the same barcode
         ]
     return cmds
 
@@ -195,7 +199,7 @@ If image time is much less than thaw time, several plates need to be in RT simul
 def reset_and_activate_fridge(**_):
     cmds: list[Command] = []
     cmds += [
-        FridgeCmd('reset_and_activate'),
+        FridgeAction('reset_and_activate'),
     ]
     return cmds
 

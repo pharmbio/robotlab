@@ -10,7 +10,6 @@ from . import serializer
 def collect_fields(cls: Any, args: tuple[Any], kws: dict[str, Any]) -> dict[str, Any]:
     for field, arg in zip(fields(cls), args):
         kws[field.name] = arg
-    print(kws)
     return kws
 
 class ReplaceMixin:
@@ -56,23 +55,73 @@ class Select(Generic[P, R], PrivateReplaceMixin):
     def __iter__(self):
         yield from self.where() # type: ignore
 
+from dataclasses import is_dataclass
+
 def sqlquote(s: str) -> str:
     c = "'"
     return c + s.replace(c, c+c) + c
 
+import typing
+import types
+from dataclasses import Field
+from datetime import datetime, timedelta
+
 @dataclass
 class DB:
     con: sqlite3.Connection
+
+    def _create_table(self, t: Callable[P, Any]):
+        Table = t.__name__
+        self.con.executescript(textwrap.dedent(f'''
+            create table if not exists {Table} (
+                id integer as (value ->> 'id') unique,
+                value text,
+                check (typeof(id) = 'integer'),
+                check (id >= 0),
+                check (json_valid(value))
+            );
+            create index if not exists {Table}_id on {Table} (id);
+        '''))
+        if is_dataclass(t):
+            TableView = f'{Table}View'
+            has_view = any(
+                self.con.execute(f'''
+                    select 1 from sqlite_master where type = "view" and name = ?
+                ''', [TableView])
+            )
+            if not has_view:
+                def pick_value(f: Field[Any]):
+                    # this is a bit silly, put these kind of hints in __meta__ instead
+                    import re
+                    ft = re.sub(r'\bNone\b\s*\|', '', f.type)
+                    ft = re.sub(r'\|\s*\bNone\b', '', f.type)
+                    ft = ft.replace(' ', '')
+                    if ft == 'datetime' or ft == 'timedelta':
+                        return sqlquote(f.name + '.value')
+                    else:
+                        return sqlquote(f.name)
+                xs = [
+                    f'(value ->> {pick_value(f)}) as {sqlquote(f.name)}'
+                    for f in fields(t)
+                ]
+                # _ = lambda x: (print(x), x)[-1]
+                def _(x: str) -> str: return x
+                self.con.execute(_(f'''
+                    create view {TableView} as select {', '.join(xs)} from {Table} order by id
+                '''))
+        return Table
+
     def get(self, t: Callable[P, R]) -> Select[P, R]:
+        Table = self._create_table(t)
         def where(opts: SelectOptions, *args: P.args, **kws: P.kwargs) -> list[R]:
             clauses: list[str] = []
             for f, a in collect_fields(t, args, kws).items():
-                clauses += [f"value -> {sqlquote(f)} = {sqlquote(serializer.dumps(a))} -> '$'"]
+                clauses += [f"value -> {sqlquote(f)} = {sqlquote(serializer.dumps(a, with_nub=False))} -> '$'"]
             if clauses:
                 where_clause = 'where ' + ' and '.join(clauses)
             else:
                 where_clause = ''
-            stmt = f'select value from {t.__name__} {where_clause} order by value ->> {opts.order!r}'
+            stmt = f'select value from {Table} {where_clause} order by value ->> {opts.order!r}'
             limit, offset = opts.limit, opts.offset
             if limit is None:
                 limit = -1
@@ -96,18 +145,9 @@ class DBMixin(ReplaceMixin):
     id: int
 
     def save(self, db: DB) -> Self:
-        Table = self.__class__.__name__
+        Table = db._create_table(self.__class__)
         meta = getattr(self.__class__, '__meta__', None)
-        db.con.executescript(textwrap.dedent(f'''
-            create table if not exists {Table} (
-                id integer as (value ->> 'id') unique,
-                value text,
-                check (typeof(id) = 'integer'),
-                check (id >= 0),
-                check (json_valid(value))
-            );
-            create index if not exists {Table}_id on {Table} (id);
-        '''))
+
         if isinstance(meta, Meta) and meta.log:
             LogTable = meta.log_table or f'{Table}Log'
             exists = any(
@@ -150,7 +190,7 @@ class DBMixin(ReplaceMixin):
         if exists:
             db.con.execute(f'''
                 update {Table} set value = ? -> '$' where id = ?
-            ''', [serializer.dumps(self), self.id])
+            ''', [serializer.dumps(self, with_nub=False), self.id])
             db.con.commit()
             return self
         else:
@@ -164,7 +204,7 @@ class DBMixin(ReplaceMixin):
                 res = self
             db.con.execute(f'''
                 insert into {Table} values (? -> '$')
-            ''', [serializer.dumps(res)])
+            ''', [serializer.dumps(res, with_nub=False)])
             db.con.commit()
             return res
 

@@ -5,7 +5,7 @@ from typing import *
 from pathlib import Path
 import json
 
-from .nub import nub
+from .nub import nub, asdict_shallow
 
 from datetime import datetime, timedelta
 
@@ -35,7 +35,7 @@ class Serializer:
         else:
             raise ValueError()
 
-    def to_json(self, x: Any) -> dict[str, Any] | list[Any] | None | float | int | bool | str:
+    def to_json(self, x: Any, with_nub: bool=True) -> dict[str, Any] | list[Any] | None | float | int | bool | str:
         if isinstance(x, datetime):
             return {
                 'type': 'datetime',
@@ -47,23 +47,26 @@ class Serializer:
                 'total_seconds': x.total_seconds(),
             }
         elif is_dataclass(x):
-            d = nub(x)
+            if with_nub:
+                d = nub(x)
+            else:
+                d = asdict_shallow(x)
             cls = x.__class__
             type = cls.__name__
             assert self.classes[type] == cls
             assert 'type' not in d
-            return self.to_json({'type': type, **d})
+            return self.to_json({'type': type, **d}, with_nub=with_nub)
         elif isinstance(x, dict):
-            return {k: self.to_json(v) for k, v in cast(dict[str, Any], x).items()}
+            return {k: self.to_json(v, with_nub=with_nub) for k, v in cast(dict[str, Any], x).items()}
         elif isinstance(x, list):
-            return [self.to_json(v) for v in cast(list[Any], x)]
+            return [self.to_json(v, with_nub=with_nub) for v in cast(list[Any], x)]
         elif isinstance(x, None | float | int | bool | str):
             return x
         else:
             raise ValueError()
 
-    def dumps(self, x: Any) -> str:
-        return json.dumps(self.to_json(x))
+    def dumps(self, x: Any, with_nub: bool=True) -> str:
+        return json.dumps(self.to_json(x, with_nub=with_nub))
 
     def loads(self, s: str) -> Any:
         return self.from_json(json.loads(s))
