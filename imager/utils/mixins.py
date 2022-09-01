@@ -2,14 +2,17 @@ from __future__ import annotations
 from contextlib import contextmanager
 from dataclasses import dataclass, replace, field, fields
 from dataclasses import is_dataclass
-from typing_extensions import Concatenate
-from typing_extensions import Self
 from typing import Any, Type, TypeVar, ParamSpec, Generic, cast, Callable, ClassVar
 from typing import Literal
 import sqlite3
 import textwrap
 
 from . import serializer
+
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from typing_extensions import Concatenate
+    from typing_extensions import Self
 
 def collect_fields(cls: Any, args: tuple[Any], kws: dict[str, Any]) -> dict[str, Any]:
     for field, arg in zip(fields(cls), args):
