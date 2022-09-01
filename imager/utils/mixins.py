@@ -85,7 +85,10 @@ class DB:
         Table = t.__name__
         TableView = f'{Table}View'
         if not self.has_table(Table):
-            self.con.executescript(textwrap.dedent(f'''
+            def _(x: str) -> str:
+                print(x)
+                return x
+            self.con.executescript(textwrap.dedent(_(f'''
                 create table if not exists {Table} (
                     id integer as (value ->> 'id') unique,
                     value text,
@@ -94,7 +97,7 @@ class DB:
                     check (json_valid(value))
                 );
                 create index if not exists {Table}_id on {Table} (id);
-            '''))
+            ''')))
         if is_dataclass(t) and not self.has_table(TableView, 'view'):
             meta = getattr(t, '__meta__', None)
             views: dict[str, str] = {
