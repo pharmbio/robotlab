@@ -93,12 +93,6 @@ class DB:
                 create index if not exists {Table}_id on {Table} (id);
             '''))
         if is_dataclass(t) and not self.has_table(TableView, 'view'):
-
-            # xs = [
-            #     f'(value ->> {pick_value(f)}) as {sqlquote(f.name)}'
-            #     for f in fields(t)
-            # ]
-
             meta = getattr(t, '__meta__', None)
             views: dict[str, str] = {
                 f.name: f'value ->> {sqlquote(f.name)}'
