@@ -1,10 +1,14 @@
 from __future__ import annotations
+from contextlib import contextmanager
 from dataclasses import dataclass, replace, field, fields
-from typing import Any, Type, TypeVar, ParamSpec, Generic, cast, Callable, ClassVar
-from typing_extensions import Self
+from dataclasses import is_dataclass
 from typing_extensions import Concatenate
+from typing_extensions import Self
+from typing import Any, Type, TypeVar, ParamSpec, Generic, cast, Callable, ClassVar
+from typing import Literal
 import sqlite3
 import textwrap
+
 from . import serializer
 
 def collect_fields(cls: Any, args: tuple[Any], kws: dict[str, Any]) -> dict[str, Any]:
@@ -34,6 +38,7 @@ class SelectOptions(ReplaceMixin):
     order: str = 'id'
     limit: int | None = None
     offset: int | None = None
+    where_str: str | None = None
 
 @dataclass(frozen=True)
 class Select(Generic[P, R], PrivateReplaceMixin):
@@ -42,6 +47,9 @@ class Select(Generic[P, R], PrivateReplaceMixin):
 
     def where(self, *args: P.args, **kws: P.kwargs) -> list[R]:
         return self._where(self._opts, *args, **kws)
+
+    def where_str(self, s: str, *args: P.args, **kws: P.kwargs) -> list[R]:
+        return self._where(self._opts.replace(where_str=s), *args, **kws)
 
     def get(self, *args: P.args, **kws: P.kwargs) -> R:
         return self._where(self._opts, *args, **kws)[0]
@@ -55,17 +63,9 @@ class Select(Generic[P, R], PrivateReplaceMixin):
     def __iter__(self):
         yield from self.where() # type: ignore
 
-from dataclasses import is_dataclass
-
 def sqlquote(s: str) -> str:
     c = "'"
     return c + s.replace(c, c+c) + c
-
-import typing
-import types
-from dataclasses import Field
-from datetime import datetime, timedelta
-from typing import Literal
 
 @dataclass
 class DB:
@@ -121,7 +121,10 @@ class DB:
             clauses: list[str] = []
             for f, a in collect_fields(t, args, kws).items():
                 clauses += [f"value -> {sqlquote(f)} = {sqlquote(serializer.dumps(a, with_nub=False))} -> '$'"]
-            if clauses:
+            if opts.where_str:
+                assert not clauses
+                where_clause = 'where ' + opts.where_str
+            elif clauses:
                 where_clause = 'where ' + ' and '.join(clauses)
             else:
                 where_clause = ''
@@ -140,10 +143,16 @@ class DB:
             ]
         return Select(_where=where)
 
-    @classmethod
-    def open(cls, s: str):
-        db = DB(sqlite3.connect(s)) #check same thread?
-        return db
+    @contextmanager
+    @staticmethod
+    def open(path: str):
+        with sqlite3.connect(path) as con:
+            print('opened', path)
+            yield DB(con)
+
+    @staticmethod
+    def connect(path: str):
+        return DB(sqlite3.connect(path))
 
 class DBMixin(ReplaceMixin):
     id: int
@@ -245,31 +254,31 @@ if __name__ == '__main__':
 
     serializer.register(globals())
 
-    db = DB.open(':memory:')
-    t0 = Todo('hello world').save(db)
-    t1 = Todo('hello again').save(db)
-    t2 = Todo('hello there').save(db)
-    t3 = Todo('goodbye world').save(db)
-    Todos = db.get(Todo)
-    print(*Todos, sep='\n')
-    print()
-    t2.replace(done=True).save(db)
-    print(*Todos.where(done=False), sep='\n')
-    print()
-    print(*Todos.where(done=True), sep='\n')
-    t1.delete(db)
-    t3.replace(deleted=datetime.now()).save(db)
-    import tempfile
-    from subprocess import check_output
-    with tempfile.NamedTemporaryFile(suffix='.db') as tmp:
-        db.con.execute('vacuum into ?', [tmp.name])
-        out = check_output([
-            'sqlite3',
-            tmp.name,
-            '.mode box',
-            'select t, action, ifnull(new, old) from TodoLog',
-            'select * from TodoView where done',
-            'select * from TodoView where not done',
-            'select * from TodoView where msg glob "*world"',
-        ], encoding='utf8')
-        print(out)
+    with DB.open(':memory:') as db:
+        t0 = Todo('hello world').save(db)
+        t1 = Todo('hello again').save(db)
+        t2 = Todo('hello there').save(db)
+        t3 = Todo('goodbye world').save(db)
+        Todos = db.get(Todo)
+        print(*Todos, sep='\n')
+        print()
+        t2.replace(done=True).save(db)
+        print(*Todos.where(done=False), sep='\n')
+        print()
+        print(*Todos.where(done=True), sep='\n')
+        t1.delete(db)
+        t3.replace(deleted=datetime.now()).save(db)
+        import tempfile
+        from subprocess import check_output
+        with tempfile.NamedTemporaryFile(suffix='.db') as tmp:
+            db.con.execute('vacuum into ?', [tmp.name])
+            out = check_output([
+                'sqlite3',
+                tmp.name,
+                '.mode box',
+                'select t, action, ifnull(new, old) from TodoLog',
+                'select * from TodoView where done',
+                'select * from TodoView where not done',
+                'select * from TodoView where msg glob "*world"',
+            ], encoding='utf8')
+            print(out)

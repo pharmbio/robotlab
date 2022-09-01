@@ -85,4 +85,5 @@ class Robotarm:
 
     def set_speed(self, value: int):
         assert 1 <= value <= 100
-        return self.execute(f'mspeed {value}')
+        self.execute(f'mspeed {value}')
+        return

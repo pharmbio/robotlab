@@ -1,26 +1,25 @@
 from __future__ import annotations
 from typing import Any, cast, Callable
 from dataclasses import dataclass
-from datetime import timedelta
 
 from .moves import HotelLocs
 
-from .scheduler import (
-    Command,           # type: ignore
-    RobotarmCmd,       # type: ignore
-    Acquire,           # type: ignore
-    Open,              # type: ignore
-    Close,             # type: ignore
-    WaitForIMX,        # type: ignore
+from .commands import (
+    Command,
+    RobotarmCmd,
+    Acquire,
+    Open,
+    Close,
+    WaitForIMX,
     FridgeGet,
     FridgePut,
     FridgeGetByBarcode,
     FridgePutByBarcode,
     FridgeAction,
-    BarcodeClear,      # type: ignore
-    CheckpointCmd,     # type: ignore
-    WaitForCheckpoint, # type: ignore
-    Noop,              # type: ignore
+    BarcodeClear,
+    CheckpointCmd,
+    WaitForCheckpoint,
+    Noop,
 )
 
 from . import utils
@@ -40,32 +39,48 @@ def image_plate_in_imx(params: list[str], hts_file: str, **_):
     ]
     return cmds
 
-@list_of_protocols.append
-def image_from_hotel(params: list[str], hts_file: str, thaw_secs: float, **_):
-    assert params and isinstance(params, list), 'specify some plate names'
-    assert hts_file and isinstance(hts_file, str), 'specify a --hts-file'
+@dataclass(frozen=True)
+class Todo:
+    hotel_loc: str  # 'H1'
+    plate_id: str
+    hts_path: str
+
+def image_todos_from_hotel(todos: list[Todo], thaw_secs: float) -> list[Command]:
     cmds: list[Command] = []
     cmds += [
         CheckpointCmd(f'initial delay'),
         WaitForCheckpoint(f'initial delay', plus_secs=thaw_secs),
     ]
-    for hotel_loc, plate_id in zip(HotelLocs, params):
-        assert hotel_loc != 'H12'
+    for todo in todos:
+        assert todo.hotel_loc != 'H12'
+        assert todo.hotel_loc in HotelLocs
         cmds += [
-            RobotarmCmd(f'{hotel_loc}-to-H12'),
+            RobotarmCmd(f'{todo.hotel_loc}-to-H12'),
             Open(),
             RobotarmCmd('H12-to-imx', keep_imx_open=True),
             Close(),
-            CheckpointCmd(f'image-begin {plate_id}'),
-            Acquire(hts_file=hts_file, plate_id=plate_id),
+            CheckpointCmd(f'image-begin {todo.plate_id}'),
+            Acquire(hts_file=todo.hts_path, plate_id=todo.plate_id),
             WaitForIMX(),
-            CheckpointCmd(f'image-end {plate_id}'),
+            CheckpointCmd(f'image-end {todo.plate_id}'),
             Open(),
             RobotarmCmd('imx-to-H12', keep_imx_open=True),
             Close(),
-            RobotarmCmd(f'H12-to-{hotel_loc}'),
+            RobotarmCmd(f'H12-to-{todo.hotel_loc}'),
         ]
     return cmds
+
+@list_of_protocols.append
+def image_from_hotel(params: list[str], hts_file: str, thaw_secs: float, **_):
+    assert params and isinstance(params, list), 'specify some plate names'
+    assert hts_file and isinstance(hts_file, str), 'specify a --hts-file'
+    return image_todos_from_hotel(
+        [
+            Todo(hotel_loc, plate_id, hts_file)
+            for hotel_loc, plate_id in zip(HotelLocs, params)
+        ],
+        thaw_secs=thaw_secs,
+    )
 
 @list_of_protocols.append
 def test_comm(**_):

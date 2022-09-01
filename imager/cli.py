@@ -2,8 +2,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from .utils.args import arg, option
 
-from .scheduler import execute, Env
-from . import scheduler
+from . import execute
+from .env import Env
 
 from .protocols import protocols_dict
 from . import utils
@@ -18,6 +18,7 @@ class Args:
     params:     list[str] = arg(help='list of barcodes etc')
     speed:      int       = arg(default=20, help='robotarm speed [1..100]')
     live:       bool      = arg(default=False, help='run live (otherwise dry run)')
+    keep_going: bool      = arg(default=False, help='work on the queue, keep going even if empty')
     protocol:   str  = arg(
         enum=[
             option(name, name, help=p.doc)
@@ -34,13 +35,17 @@ def main():
                 arm.set_speed(args.speed)
     p = protocols_dict.get(args.protocol)
     if not p:
-        parser.print_help()
+        if args.keep_going:
+            with Env.make(sim=sim) as env:
+                execute.execute(env, True)
+        else:
+            parser.print_help()
     else:
         cmds = p.make(**args.__dict__)
         utils.pr(cmds)
         with Env.make(sim=sim) as env:
-            scheduler.enqueue(env, cmds)
-            scheduler.execute(env)
+            execute.enqueue(env, cmds)
+            execute.execute(env, False)
 
 if __name__ == '__main__':
     main()
