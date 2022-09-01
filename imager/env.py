@@ -9,7 +9,6 @@ from urllib.parse import urlencode
 from urllib.request import urlopen
 import json
 import re
-import sqlite3
 import time
 
 from . import utils
@@ -34,14 +33,14 @@ class Curl(DBMixin):
 utils.serializer.register(globals())
 
 def curl(url: str, data: None | dict[str, str] = None) -> dict[str, Any]:
-    with sqlite3.connect('curl.db') as con:
-        log = Curl(url=url, data=url, started=datetime.now()).save(DB(con))
+    with DB.open('curl.db') as db:
+        log = Curl(url=url, data=url, started=datetime.now()).save(db)
 
         ten_minutes = 60 * 10
         binary: bytes | None = data if data is None else urlencode(data).encode()
         res: dict[str, Any] = json.loads(urlopen(url, data=binary, timeout=ten_minutes).read())
 
-        log = log.replace(res=res, finished=datetime.now()).save(DB(con))
+        log = log.replace(res=res, finished=datetime.now()).save(db)
 
         assert isinstance(res, dict)
         if not res.get('success'):

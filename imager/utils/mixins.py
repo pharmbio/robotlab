@@ -4,7 +4,7 @@ from dataclasses import dataclass, replace, field, fields
 from dataclasses import is_dataclass
 from typing import Any, Type, TypeVar, ParamSpec, Generic, cast, Callable, ClassVar
 from typing import Literal
-import sqlite3
+import apsw
 import textwrap
 
 from . import serializer
@@ -72,7 +72,11 @@ def sqlquote(s: str) -> str:
 
 @dataclass
 class DB:
-    con: sqlite3.Connection
+    _con: apsw.Connection
+
+    @property
+    def con(self):
+        return self._con.cursor()
 
     def has_table(self, name: str, type: Literal['table', 'view', 'index', 'trigger']="table") -> bool:
         return any(
@@ -85,10 +89,7 @@ class DB:
         Table = t.__name__
         TableView = f'{Table}View'
         if not self.has_table(Table):
-            def _(x: str) -> str:
-                print(x)
-                return x
-            self.con.executescript(textwrap.dedent(_(f'''
+            self.con.execute(textwrap.dedent(f'''
                 create table if not exists {Table} (
                     id integer as (value ->> 'id') unique,
                     value text,
@@ -97,7 +98,7 @@ class DB:
                     check (json_valid(value))
                 );
                 create index if not exists {Table}_id on {Table} (id);
-            ''')))
+            '''))
         if is_dataclass(t) and not self.has_table(TableView, 'view'):
             meta = getattr(t, '__meta__', None)
             views: dict[str, str] = {
@@ -142,23 +143,29 @@ class DB:
                 offset = 0
             if limit != -1 or offset != 0:
                 stmt += f' limit {limit} offset {offset}'
-            print(stmt)
+            # print(stmt)
+            def throw(e: Exception):
+                raise e
             return [
-                serializer.loads(v)
+                serializer.loads(v) if isinstance(v, str) else throw(ValueError(f'{v} is not string'))
                 for v, in self.con.execute(stmt).fetchall()
             ]
         return Select(_where=where)
 
+    def __post_init__(self):
+        self.con.execute('pragma journal_mode=WAL')
+
     @contextmanager
     @staticmethod
     def open(path: str):
-        with sqlite3.connect(path) as con:
-            print('opened', path)
-            yield DB(con)
+        con = apsw.Connection(path)
+        # print('opened', path)
+        yield DB(con)
+        con.close()
 
     @staticmethod
     def connect(path: str):
-        return DB(sqlite3.connect(path))
+        return DB(apsw.Connection(path))
 
 class DBMixin(ReplaceMixin):
     id: int
@@ -175,7 +182,7 @@ class DBMixin(ReplaceMixin):
                 ''', [LogTable])
             )
             if not exists:
-                db.con.executescript(textwrap.dedent(f'''
+                db.con.execute(textwrap.dedent(f'''
                     create table {LogTable} (
                         t timestamp default (strftime('%Y-%m-%d %H:%M:%f', 'now', 'localtime')),
                         action text,
@@ -204,13 +211,15 @@ class DBMixin(ReplaceMixin):
             db.con.execute(f'''
                 update {Table} set value = ? -> '$' where id = ?
             ''', [serializer.dumps(self, with_nub=False), self.id])
-            db.con.commit()
+            # db.con.commit()
             return self
         else:
             if self.id == -1:
-                id, = db.con.execute(f'''
+                reply = db.con.execute(f'''
                     select ifnull(max(id) + 1, 0) from {Table};
                 ''').fetchone()
+                assert reply is not None
+                id, = reply
                 res = self.replace(id=id) # type: ignore
             else:
                 id = self.id
@@ -218,15 +227,14 @@ class DBMixin(ReplaceMixin):
             db.con.execute(f'''
                 insert into {Table} values (? -> '$')
             ''', [serializer.dumps(res, with_nub=False)])
-            db.con.commit()
+            # db.con.commit()
             return res
 
-    def delete(self, db: DB) -> int:
+    def delete(self, db: DB):
         Table = self.__class__.__name__
-        c = db.con.execute(f'''
+        db.con.execute(f'''
             delete from {Table} where id = ?
         ''', [self.id])
-        return c.rowcount
 
     def reload(self, db: DB) -> Self:
         return db.get(self.__class__).where(id=self.id)[0]

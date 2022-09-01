@@ -2,6 +2,7 @@ from setuptools import setup
 
 requirements = '''
     flask
+    apsw>=3.39
 '''
 
 name='imager'
