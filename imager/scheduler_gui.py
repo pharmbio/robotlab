@@ -47,7 +47,6 @@ _get_htss_lock = Lock()
 @lru_cache(maxsize=1)
 def _get_htss(time: int):
     data = curl(f'{IMX_URL}/dir_list/list')
-    print(time, data['success'], data.keys())
     if not data['success']:
         pp(data)
     htss: list[HTS] = [HTS(h['path'], h['full'], datetime.fromisoformat(h['modified'])) for h in data['value']]
@@ -288,7 +287,8 @@ def index():
                         grid += V.label('ok!', color='var(--green)', title=title, data_title=title, cursor='pointer', onclick='alert(this.dataset.title)')
                     else:
                         grid += div()
-                    print(i, hotel, repr(plate_id.value), repr(hts and hts.path), sep='\t')
+                    if plate_id.value or path.value:
+                        print(i, hotel, repr(plate_id.value), repr(hts and hts.path), sep='\t')
                     if hts and not plate_id.value:
                         errors += [f'No plate id on {hotel}']
                     if plate_id.value and not path.value:

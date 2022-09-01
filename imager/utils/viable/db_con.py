@@ -6,39 +6,9 @@ from flask import after_this_request, request
 import os
 import secrets
 import sqlite3
-import threading
-import time
 from threading import Lock
 
-from .exit import add_handler
 from . import serve
-
-def add_writer(con: sqlite3.Connection):
-    closing: bool = False
-
-    def handle_signal(signum: int, _frame: Any) -> None:
-        nonlocal closing
-        if not closing:
-            closing = True
-            con.commit()
-            con.close()
-            print('commited and closed db')
-
-    add_handler(handle_signal)
-
-    def writer():
-        last = 0
-        while True:
-            time.sleep(1.0)
-            if closing:
-                return
-            changes = con.total_changes - last
-            if changes:
-                print(f'committing {changes} changes')
-                last = con.total_changes
-                con.commit()
-
-    threading.Thread(target=writer, daemon=True).start()
 
 class DB:
     con: sqlite3.Connection
@@ -46,6 +16,7 @@ class DB:
     def __init__(self, path: str):
         self.con = sqlite3.connect(path, check_same_thread=False)
         self.con.executescript('''
+            pragma locking_mode=EXCLUSIVE;
             pragma journal_mode=WAL;
             create table if not exists data (
                 user text,
@@ -62,7 +33,6 @@ class DB:
                 primary key (user, key)
             );
         ''')
-        add_writer(self.con)
 
     def user(self, shared: bool) -> str:
         if shared:
@@ -76,6 +46,7 @@ class DB:
                     'insert into meta(user, key, value) values (?, ?, ?)',
                     [(user, k, v) for k, v in request.headers.items()]
                 )
+                self.con.commit()
                 @after_this_request
                 def later(response: Response) -> Response:
                     response.set_cookie('u', user)
@@ -93,6 +64,7 @@ class DB:
             ''',
             [(user, k, v) for k, v in kvs.items()]
         )
+        self.con.commit()
         # todo: do nothing if updated diff was zero
         if shared:
             serve.reload()
