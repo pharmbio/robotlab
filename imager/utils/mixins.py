@@ -65,54 +65,64 @@ import typing
 import types
 from dataclasses import Field
 from datetime import datetime, timedelta
+from typing import Literal
 
 @dataclass
 class DB:
     con: sqlite3.Connection
 
-    def _create_table(self, t: Callable[P, Any]):
+    def has_table(self, name: str, type: Literal['table', 'view', 'index', 'trigger']="table") -> bool:
+        return any(
+            self.con.execute(f'''
+                select 1 from sqlite_master where name = ? and type = ?
+            ''', [name, type])
+        )
+
+    def table_name(self, t: Callable[P, Any]):
         Table = t.__name__
-        self.con.executescript(textwrap.dedent(f'''
-            create table if not exists {Table} (
-                id integer as (value ->> 'id') unique,
-                value text,
-                check (typeof(id) = 'integer'),
-                check (id >= 0),
-                check (json_valid(value))
-            );
-            create index if not exists {Table}_id on {Table} (id);
-        '''))
-        if is_dataclass(t):
-            TableView = f'{Table}View'
-            has_view = any(
-                self.con.execute(f'''
-                    select 1 from sqlite_master where type = "view" and name = ?
-                ''', [TableView])
-            )
-            if not has_view:
-                def pick_value(f: Field[Any]):
-                    # this is a bit silly, put these kind of hints in __meta__ instead
-                    import re
-                    ft = re.sub(r'\bNone\b\s*\|', '', f.type)
-                    ft = re.sub(r'\|\s*\bNone\b', '', f.type)
-                    ft = ft.replace(' ', '')
-                    if ft == 'datetime' or ft == 'timedelta':
-                        return sqlquote(f.name + '.value')
-                    else:
-                        return sqlquote(f.name)
-                xs = [
-                    f'(value ->> {pick_value(f)}) as {sqlquote(f.name)}'
-                    for f in fields(t)
-                ]
-                # _ = lambda x: (print(x), x)[-1]
-                def _(x: str) -> str: return x
-                self.con.execute(_(f'''
-                    create view {TableView} as select {', '.join(xs)} from {Table} order by id
-                '''))
+        TableView = f'{Table}View'
+        if not self.has_table(Table):
+            self.con.executescript(textwrap.dedent(f'''
+                create table if not exists {Table} (
+                    id integer as (value ->> 'id') unique,
+                    value text,
+                    check (typeof(id) = 'integer'),
+                    check (id >= 0),
+                    check (json_valid(value))
+                );
+                create index if not exists {Table}_id on {Table} (id);
+            '''))
+        if is_dataclass(t) and not self.has_table(TableView, 'view'):
+
+            # xs = [
+            #     f'(value ->> {pick_value(f)}) as {sqlquote(f.name)}'
+            #     for f in fields(t)
+            # ]
+
+            meta = getattr(t, '__meta__', None)
+            views: dict[str, str] = {
+                f.name: f'value ->> {sqlquote(f.name)}'
+                for f in sorted(
+                    fields(t),
+                    key=lambda f: f.name != 'id',
+                )
+            }
+            if isinstance(meta, Meta):
+                views.update(meta.views)
+            xs = [
+                f'({expr}) as {sqlquote(name)}'
+                for name, expr in views.items()
+            ]
+            self.con.execute(textwrap.dedent(f'''
+                create view {TableView} as select
+                    {""",
+                    """.join(xs)}
+                    from {Table} order by id
+            '''))
         return Table
 
     def get(self, t: Callable[P, R]) -> Select[P, R]:
-        Table = self._create_table(t)
+        Table = self.table_name(t)
         def where(opts: SelectOptions, *args: P.args, **kws: P.kwargs) -> list[R]:
             clauses: list[str] = []
             for f, a in collect_fields(t, args, kws).items():
@@ -145,7 +155,7 @@ class DBMixin(ReplaceMixin):
     id: int
 
     def save(self, db: DB) -> Self:
-        Table = db._create_table(self.__class__)
+        Table = db.table_name(self.__class__)
         meta = getattr(self.__class__, '__meta__', None)
 
         if isinstance(meta, Meta) and meta.log:
@@ -160,23 +170,17 @@ class DBMixin(ReplaceMixin):
                     create table {LogTable} (
                         t timestamp default (strftime('%Y-%m-%d %H:%M:%f', 'now', 'localtime')),
                         action text,
-                        id integer,
+                        old json,
                         new json
                     );
-                    create trigger
-                        {Table}_insert after insert on {Table}
-                    begin
-                        insert into {LogTable}(id, new, action) values (NEW.id, NEW.value, "insert");
+                    create trigger {Table}_insert after insert on {Table} begin
+                        insert into {LogTable}(action, old, new) values ("insert", NULL, NEW.value);
                     end;
-                    create trigger
-                        {Table}_update after update on {Table}
-                    begin
-                        insert into {LogTable}(id, new, action) values (OLD.id, NEW.value, "update");
+                    create trigger {Table}_update after update on {Table} begin
+                        insert into {LogTable}(action, old, new) values ("update", OLD.value, NEW.value);
                     end;
-                    create trigger
-                        {Table}_delete after delete on {Table}
-                    begin
-                        insert into {LogTable}(id, new, action) values (OLD.id, NULL, "delete");
+                    create trigger {Table}_delete after delete on {Table} begin
+                        insert into {LogTable}(action, old, new) values ("delete", OLD.value, NULL);
                     end;
                 '''))
         if self.id == -1:
@@ -222,6 +226,7 @@ class DBMixin(ReplaceMixin):
 class Meta:
     log: bool = False
     log_table: None | str = None
+    views: dict[str, str] = field(default_factory=dict)
 
 if __name__ == '__main__':
     '''
@@ -233,10 +238,16 @@ if __name__ == '__main__':
     class Todo(DBMixin):
         msg: str = ''
         done: bool = False
-        deleted: None | datetime = None
         created: datetime = field(default_factory=lambda: datetime.now())
+        deleted: None | datetime = None
         id: int = -1
-        __meta__: ClassVar = Meta(log=True)
+        __meta__: ClassVar = Meta(
+            log=True,
+            views={
+                'created': 'value ->> "created.value"',
+                'deleted': 'value ->> "deleted.value"',
+            },
+        )
 
     serializer.register(globals())
 
@@ -246,14 +257,25 @@ if __name__ == '__main__':
     t2 = Todo('hello there').save(db)
     t3 = Todo('goodbye world').save(db)
     Todos = db.get(Todo)
-    print(list(Todos))
+    print(*Todos, sep='\n')
     print()
     t2.replace(done=True).save(db)
-    print(list(Todos.where(done=False)))
+    print(*Todos.where(done=False), sep='\n')
     print()
-    print(list(Todos.where(done=True)))
-    t2.delete(db)
-    print()
-    print(*db.con.execute('select * from Todo where value ->> "msg" glob "*world"').fetchall(), sep='\n')
-    print()
-    print(*db.con.execute('select * from TodoLog').fetchall(), sep='\n')
+    print(*Todos.where(done=True), sep='\n')
+    t1.delete(db)
+    t3.replace(deleted=datetime.now()).save(db)
+    import tempfile
+    from subprocess import check_output
+    with tempfile.NamedTemporaryFile(suffix='.db') as tmp:
+        db.con.execute('vacuum into ?', [tmp.name])
+        out = check_output([
+            'sqlite3',
+            tmp.name,
+            '.mode box',
+            'select t, action, ifnull(new, old) from TodoLog',
+            'select * from TodoView where done',
+            'select * from TodoView where not done',
+            'select * from TodoView where msg glob "*world"',
+        ], encoding='utf8')
+        print(out)
