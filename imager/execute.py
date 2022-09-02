@@ -80,6 +80,7 @@ def execute(env: Env, keep_going: bool):
                 item = todo[0]
                 print('item:', item)
                 if item.started and item.error:
+                    print(item.error)
                     print('the top of the queue has errored')
                     break
                 if item.started and not item.finished:

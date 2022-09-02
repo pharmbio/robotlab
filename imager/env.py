@@ -22,6 +22,7 @@ class Curl(DBMixin):
     res: Any = None
     started: datetime | None = None
     finished: datetime | None = None
+    id: int = -1
     __meta__: ClassVar = Meta(
         views={
             'success': 'value ->> "res.success"',
