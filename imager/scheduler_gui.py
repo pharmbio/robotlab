@@ -29,7 +29,7 @@ serve.suppress_flask_logging()
 
 live = '--live' in sys.argv
 
-IMX_URL = 'http://10.10.0.99:5000'
+IMX_URL = 'http://10.10.0.99:5050'
 if platform.node() == 'halvdan':
     IMX_URL = 'http://127.0.0.1:5099'
 

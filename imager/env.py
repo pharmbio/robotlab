@@ -28,6 +28,9 @@ class Curl(DBMixin):
             'success': 'value ->> "res.success"',
             'started': 'value ->> "started.value"',
             'finished': 'value ->> "finished.value"',
+            'lines': 'value ->> "value.res.lines"',
+            'success': 'value ->> "value.res.success"',
+            'valval': 'value ->> "value.res.value"',
         },
     )
 
@@ -35,7 +38,7 @@ utils.serializer.register(globals())
 
 def curl(url: str, data: None | dict[str, str] = None) -> dict[str, Any]:
     with DB.open('curl.db') as db:
-        log = Curl(url=url, data=url, started=datetime.now()).save(db)
+        log = Curl(url=url, data=data, started=datetime.now()).save(db)
 
         ten_minutes = 60 * 10
         binary: bytes | None = data if data is None else urlencode(data).encode()
@@ -130,6 +133,7 @@ class IMX(IMXLike):
             for char in plate_id
         )
         _res = self.send(f'RUN,{plate_id},{hts_file}')
+        time.sleep(0.5)
         while self.status().code not in ('RUNNING', 'DONE'):
             time.sleep(0.5)
         return
