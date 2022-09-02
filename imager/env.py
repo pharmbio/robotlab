@@ -94,10 +94,11 @@ class IMX(IMXLike):
     def send(self, msg: str):
         res = post(self.url, {'msg': msg})
         if not res['success']:
-            if isinstance(v := res['value'], str):
-                raise ValueError(f'IMX errored! {res} {v}')
+            nl = '\n'
+            if isinstance(v := res.get('value'), str):
+                raise ValueError(f'IMX errored!{nl}{res}{nl}{v}')
             else:
-                raise ValueError(f'IMX errored! {res}')
+                raise ValueError(f'IMX errored!{nl}{res}')
         return res
 
     def open(self, sync: bool=True):
