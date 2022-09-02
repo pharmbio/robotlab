@@ -131,7 +131,7 @@ sheet = '''
 
 @serve.expose
 def enqueue_todos(todos: list[Todo], thaw_secs: float=0):
-    cmds = image_todos_from_hotel(todos, thaw_secs=thaw_secs)
+    cmds = image_todos_from_hotel(todos, thaw_secs)
     with Env.make(sim=not live) as env:
         execute.enqueue(env, cmds)
 
@@ -296,6 +296,15 @@ def index():
                     if plate_id.value and hts:
                         todos += [Todo(hotel, plate_id.value, hts.full)]
 
+        thaw_hours = store.str('0', name='thaw_hours')
+
+        try:
+            thaw_secs = float(thaw_hours.value) * 3600
+        except:
+            thaw_secs = 0.0
+            errors += ['Enter a valid number of hours']
+
+
         if not todos:
             errors += ['Nothing to do']
 
@@ -305,13 +314,12 @@ def index():
 
         enabled = not error and todos
 
-        thaw_secs = store.int(0, name='thaw_secs')
 
         yield V.div(
             V.div(
                 V.label(
-                    'initial thaw delay (secs):',
-                    thaw_secs.input(),
+                    'initial thaw delay (hours):',
+                    thaw_hours.input(),
                 ),
                 V.button(
                     'clear',
@@ -324,7 +332,7 @@ def index():
                     disabled=not enabled,
                     title=error,
                     onclick=
-                        (enqueue_todos.call(todos) + '\n;' + store.update(page, 'queue').goto())
+                        (enqueue_todos.call(todos, thaw_secs=thaw_secs) + '\n;' + store.update(page, 'queue').goto())
                         if enabled else
                         ''
                 ),
