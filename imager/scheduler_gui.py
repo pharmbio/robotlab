@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Iterator, Any, cast
+from typing import Iterator, Any, cast, Callable
 
 from .utils.viable import serve, esc, div, pre, Node, js
 from .utils.viable.provenance import store, Var
@@ -28,6 +28,24 @@ import textwrap
 from .protocols import Todo, image_todos_from_hotel
 
 import csv
+
+from .utils.save_callable import Function
+from inspect import signature
+
+@serve.expose
+def call_saved(f: Function, *args: Any, **kws: Any) -> Any:
+    res = f.thaw()(*args, **kws)
+    if isinstance(res, dict):
+        return {'refresh': True} | res
+    else:
+        return {'refresh': True}
+
+def call(f: Callable[..., Any], *args: Any | js, **kws: Any | js) -> str:
+    # apply any defaults to the arguments now so that js fragments get evaluated
+    s = signature(f)
+    b = s.bind(*args, **kws)
+    b.apply_defaults()
+    return call_saved.call(Function.freeze(f), *b.args, **b.kwargs)
 
 def parse_csv(s: str):
     try:
@@ -164,7 +182,7 @@ def enqueue_plates_with_metadata(plates: list[PlateMetadata], thaw_secs: float=0
 from typing import Literal
 
 @serve.expose
-def modify(item: QueueItem, action: Literal['restart', 'remove']):
+def modify_queue(item: QueueItem, action: Literal['restart', 'remove']):
     with Env.make(sim=not live) as env:
         if action == 'restart':
             item.replace(started=None, finished=None, error=None).save(env.db)
@@ -202,9 +220,9 @@ def queue_table(items: list[QueueItem]):
 
         purge = f'''
             if (this.dataset.started && window.confirm(`Rerun command? (item: ${{this.dataset.item}})`))
-                {modify.call(item, "restart")};
+                {modify_queue.call(item, "restart")};
             else if (window.confirm(`Remove command? (item: ${{this.dataset.item}})`))
-                {modify.call(item, "remove")};
+                {modify_queue.call(item, "remove")};
         '''
         if item.finished:
             purge=''
@@ -244,22 +262,23 @@ class PlateMetadata(DBMixin):
 
 serializer.register(globals())
 
-@serve.expose
-def add_plate_metadata(rows: list[PlateMetadata]):
-    with DB.open('plate.db') as db:
-        for row in rows:
-            dups = db.get(PlateMetadata).where(base_name=row.base_name)
-            if not dups:
-                row.save(db)
-        # table, ok = plate_metadata_table(list(db.get(PlateMetadata)))
-        # yield table
-    return {'refresh': True}
+from flask import after_this_request,  g
+from flask.wrappers import Response
+from werkzeug.local import LocalProxy
 
-@serve.expose
-def remove_plate_metadata(row: PlateMetadata):
-    with DB.open('plate.db') as db:
-        row.delete(db)
-    return {'refresh': True}
+def get_plate_db() -> DB:
+    if not g.get('plate_db'):
+        g.plate_db = db = DB.connect('plate.db')
+        @after_this_request
+        def _close_db(response: Response) -> Response:
+            db.con.close()
+            del g.plate_db
+            return response
+    return g.plate_db
+
+plate_db: DB = LocalProxy(get_plate_db) # type: ignore
+
+# should add a unique index on base name ...
 
 def plate_metadata_table(data: list[PlateMetadata], with_remove: bool=True, check_duplicates: bool=False):
     with DB.open('plate.db') as db:
@@ -289,14 +308,15 @@ def plate_metadata_table(data: list[PlateMetadata], with_remove: bool=True, chec
                 all_ok = False
             tr = V.tr(base_td, hts_td)
             if with_remove:
-                tr += V.td(V.button('remove',
+                tr += V.td(V.button(
+                    'remove',
                     padding='2px 8px',
                     css='''
                         &:hover { border-color: var(--red); }
                         & { border-color: #0000; }
                     ''',
-                    onclick=remove_plate_metadata.call(row))
-                )
+                    onclick=call(lambda: row.delete(plate_db)),
+                ))
             table += tr
         return table, all_ok
 
@@ -464,7 +484,10 @@ def index_page(page: Var[str]):
             ]
             table, ok = plate_metadata_table(plates, with_remove=False, check_duplicates=True)
             yield table
-            yield V.button('add to database', onclick=add_plate_metadata.call(plates), disabled=not(ok))
+            yield V.button('add to database',
+                onclick=call(lambda: [plate.save(plate_db) for plate in plates]),
+                disabled=not(ok)
+            )
         yield div('database contents:', padding='0px 10px', margin_top='40px')
         with DB.open('plate.db') as db:
             table, ok = plate_metadata_table(db.get(PlateMetadata).order(by='base_name').where())
