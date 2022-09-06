@@ -45,6 +45,7 @@ class Todo:
     plate_id: str
     hts_path: str
 
+
 def image_todos_from_hotel(todos: list[Todo], thaw_secs: float) -> list[Command]:
     cmds: list[Command] = []
     cmds += [

@@ -15,7 +15,7 @@ from .profiling import timeit, memit # type: ignore
 from .args import doc_header # type: ignore
 
 import json
-from urllib.request import urlopen
+from urllib.request import urlopen, Request
 
 A = TypeVar('A')
 B = TypeVar('B')
@@ -23,6 +23,16 @@ B = TypeVar('B')
 def curl(url: str) -> Any:
     ten_minutes = 60 * 10
     res = json.loads(urlopen(url, timeout=ten_minutes).read())
+    return res
+
+def post_json(url: str, data: dict[str, str]) -> dict[str, Any]:
+    ten_minutes = 60 * 10
+    req = Request(
+        url,
+        data=json.dumps(data).encode(),
+        headers={'Content-type': 'application/json'},
+    )
+    res = json.loads(urlopen(req, timeout=ten_minutes).read())
     return res
 
 def spawn(f: Callable[[], None]) -> None:

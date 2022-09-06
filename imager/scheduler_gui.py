@@ -4,9 +4,10 @@ from typing import Iterator, Any, cast
 from .utils.viable import serve, esc, div, pre, Node, js
 from .utils.viable.provenance import store, Var
 from .utils import viable as V
-from .utils import curl
+from .utils import curl, post_json
 from .utils import humanize_time
-from .utils.mixins import DBMixin, DB
+from .utils import serializer
+from .utils.mixins import DBMixin, DB, Meta
 
 from .env import Env
 from .execute import QueueItem, FridgeSlot, Checkpoint
@@ -22,8 +23,21 @@ import platform
 import time
 import sys
 import re
+import textwrap
 
 from .protocols import Todo, image_todos_from_hotel
+
+import csv
+
+def parse_csv(s: str):
+    try:
+        niff = csv.Sniffer()
+        dialect = niff.sniff(s)
+    except:
+        dialect = None
+    if dialect:
+        reader = csv.DictReader(s.splitlines(), dialect=dialect)
+        return list(reader)
 
 serve.suppress_flask_logging()
 
@@ -43,6 +57,14 @@ class HTS:
         return datetime.now() - self.ts
 
 _get_htss_lock = Lock()
+
+def mod_hts(hts_file: str, todo: str):
+    return post_json(f'{IMX_URL}/dir_list', {
+        'cmd': 'mod_hts',
+        'path': hts_file,
+        'experiment_set': todo,
+        'experiment_base_name': todo,
+    })
 
 @lru_cache(maxsize=1)
 def _get_htss(time: int):
@@ -124,7 +146,7 @@ sheet = '''
         border-color: var(--blue);
     }
     body {
-        width: 900px;
+        width: 1100px;
         margin: 0 auto;
     }
 '''
@@ -134,6 +156,10 @@ def enqueue_todos(todos: list[Todo], thaw_secs: float=0):
     cmds = image_todos_from_hotel(todos, thaw_secs)
     with Env.make(sim=not live) as env:
         execute.enqueue(env, cmds)
+
+@serve.expose
+def enqueue_plates_with_metadata(plates: list[PlateMetadata], thaw_secs: float=0):
+    pass
 
 from typing import Literal
 
@@ -203,33 +229,78 @@ def queue_table(items: list[QueueItem]):
             )
     return grid
 
-@serve.route()
-def index():
+@dataclass(frozen=True)
+class TodoV2:
+    hotel_loc: str  # 'H1'
+    plate_id: str
+    hts_path: str
 
-    pages = '''
-        image-from-hotel
-        queue-and-log
-        queue
-        log
-    '''.split()
+@dataclass(frozen=True)
+class PlateMetadata(DBMixin):
+    base_name: str = ''
+    hts_file: str = ''
+    id: int = -1
+    __meta__ = Meta(log=True)
 
-    with store.query:
-        page = store.str(default=pages[0], name='page')
+serializer.register(globals())
 
-    yield V.head(V.title(f'imx imager scheduler gui - {page.value}'))
-    yield {'sheet': sheet}
+@serve.expose
+def add_plate_metadata(rows: list[PlateMetadata]):
+    with DB.open('plate.db') as db:
+        for row in rows:
+            dups = db.get(PlateMetadata).where(base_name=row.base_name)
+            if not dups:
+                row.save(db)
+        # table, ok = plate_metadata_table(list(db.get(PlateMetadata)))
+        # yield table
+    return {'refresh': True}
 
-    nav = div(css='&>* {margin: 20px 10px}')
+@serve.expose
+def remove_plate_metadata(row: PlateMetadata):
+    with DB.open('plate.db') as db:
+        row.delete(db)
+    return {'refresh': True}
 
-    for p in pages:
-        nav += V.button(
-            p.replace('-', ' '),
-            onclick=store.update(page, p).goto(),
-            color='var(--yellow)' if page.value == p else '',
-        )
+def plate_metadata_table(data: list[PlateMetadata], with_remove: bool=True, check_duplicates: bool=False):
+    with DB.open('plate.db') as db:
+        htss = {hts.path.lower(): hts for hts in get_htss()}
+        table = V.table(css='& td, & tr {background: var(--bg-bright); padding: 5px}')
+        all_ok = True
+        for row in data:
+            base_td = V.td(row.base_name)
+            hts_td = V.td(row.hts_file)
+            hts = htss.get(row.hts_file.lower())
+            if check_duplicates:
+                dups = db.get(PlateMetadata).where(base_name=row.base_name)
+                if dups:
+                    title=f'{row.base_name} already in database as\n{" and ".join(map(str, dups))}'
+                    base_td = base_td.extend(
+                        color='var(--red)', title=title, data_title=title, cursor='pointer', onclick='alert(this.dataset.title)'
+                    )
+                    all_ok = False
+                else:
+                    title=f'base name ok'
+                    base_td = base_td.extend(title=title)
+            if hts:
+                title = f'{hts.full}\nlast modified: {str(hts.ts)} ({humanize_time.naturaldelta(hts.age)} ago)'
+                hts_td = hts_td.extend(title=title, data_title=title, cursor='pointer', onclick='alert(this.dataset.title)')
+            else:
+                hts_td = hts_td.extend(title='file not found', color='var(--red)')
+                all_ok = False
+            tr = V.tr(base_td, hts_td)
+            if with_remove:
+                tr += V.td(V.button('remove',
+                    padding='2px 8px',
+                    css='''
+                        &:hover { border-color: var(--red); }
+                        & { border-color: #0000; }
+                    ''',
+                    onclick=remove_plate_metadata.call(row))
+                )
+            table += tr
+        return table, all_ok
 
-    yield nav
-
+def index_page(page: Var[str]):
     if page.value == 'queue-and-log':
         with Env.make(sim=not live) as env:
             todo = env.db.get(QueueItem).order(by='pos').limit(10).where(finished=None)
@@ -250,9 +321,8 @@ def index():
             yield queue_table(items)
         yield V.queue_refresh(300)
 
-    if page.value == 'image-from-hotel':
-
-        htss = {hts.path: hts for hts in get_htss()}
+    if page.value == 'image-from-hotel-v1':
+        htss = {hts.path.lower(): hts for hts in get_htss()}
         datalist  = V.datalist(id='htss', width='800px')
         for _, hts in htss.items():
             datalist += V.option(value=hts.path)
@@ -275,7 +345,7 @@ def index():
                 with store.sub(hotel):
                     plate_id = store.str(name='plate_id')
                     path = store.str(name='path')
-                    hts = htss.get(path.value)
+                    hts = htss.get(path.value.lower())
                     grid += div(hotel + ':', justify_self='right')
                     grid += plate_id.input().extend(margin='5px', padding='5px', tabindex=str(i+1), spellcheck='false')
                     grid += path.input().extend(list='htss', width='auto', font_family='monospace', margin='5px', padding='5px', tabindex=str(i+1+len(hotels)), spellcheck='false')
@@ -314,7 +384,6 @@ def index():
 
         enabled = not error and todos
 
-
         yield V.div(
             V.div(
                 V.label(
@@ -347,6 +416,194 @@ def index():
             place_items='center right',
         )
 
+    if page.value == 'plate-metadata':
+        paste = store.str(name='paste')
+        yield div('paste csv:', padding='0px 10px', margin_top='10px')
+        yield div(paste.textarea().extend(
+            placeholder='Paste csv with fields "base_name" and "hts_file" (relative to 384 well protocol root)',
+            rows='8',
+            cols='100',
+            spellcheck='false',
+        ))
+        example1 = '''
+            base_name,hts_file
+            protac35-v1-FA-P12340314-U2OS-24h-P1-L1,protac35/protac35-v1-FA-BARCODE-U2OS-24h.HTS
+            protac35-v1-FA-P12340317-U2OS-24h-P2-L2,protac35/protac35-v1-FA-BARCODE-U2OS-24h.HTS
+            protac35-v1-GR-P12340315-U2OS-24h-P1-L1,protac35/protac35-v1-GR-BARCODE-U2OS-24h.HTS
+            protac35-v1-GR-P12340318-U2OS-24h-P2-L2,protac35/protac35-v1-GR-BARCODE-U2OS-24h.HTS
+        '''
+        example2 = '''
+            base_name,hts_file
+            fridge-short-test-1,fridge-test/short protocol.hts
+            fridge-short-test-2,fridge-test/short protocol.hts
+            fridge-short-test-3,fridge-test/short protocol.hts
+            fridge-short-test-4,fridge-test/short protocol.hts
+        '''
+        example1 = textwrap.dedent(example1).strip()
+        example2 = textwrap.dedent(example2).strip()
+        yield div(
+            V.button('clear', onclick=store.update(paste, '').goto()),
+            V.button('load example 1', onclick=store.update(paste, example1).goto()),
+            V.button('load example 2', onclick=store.update(paste, example2).goto()),
+        )
+        yield div('csv contents:', padding='0px 10px', margin_top='40px')
+        data = parse_csv(paste.value)
+        if data:
+            keys = data[0].keys()
+            ok = True
+            if 'id' in keys:
+                yield div(f'Field "id" not allowed (csv has: {", ".join(keys)})', color='var(--red)')
+                ok = False
+            for key in 'base_name hts_file'.split():
+                if key not in keys:
+                    yield div(f'Field {key} not provided (csv has: {", ".join(keys)})', color='var(--red)')
+                    ok = False
+            plates = [
+                PlateMetadata(**row)
+                for row in data
+            ]
+            table, ok = plate_metadata_table(plates, with_remove=False, check_duplicates=True)
+            yield table
+            yield V.button('add to database', onclick=add_plate_metadata.call(plates), disabled=not(ok))
+        yield div('database contents:', padding='0px 10px', margin_top='40px')
+        with DB.open('plate.db') as db:
+            table, ok = plate_metadata_table(db.get(PlateMetadata).order(by='base_name').where())
+            yield table
+
+    if page.value == 'image-from-hotel-using-metadata':
+        # htss = {hts.path: hts for hts in get_htss()}
+
+        datalist  = V.datalist(id='base_names', width='800px')
+        with DB.open('plate.db') as db:
+            plates = db.get(PlateMetadata).order(by='base_name').where()
+        for plate in plates:
+            datalist += V.option(value=plate.base_name)
+        plates_by_base_name = {plate.base_name: plate for plate in plates}
+        yield datalist
+
+        grid = div(padding_top='20px', display='grid', grid_template_columns='50px 1fr 1fr', align_items='center',
+            css='''
+                & > input {
+                    padding: 5px;
+                    margin: 5px;
+                }
+                & > input[error] {
+                    outline-color: var(--red);
+                    border-color: var(--red);
+                }
+            ''')
+
+        grid += div()
+        grid += div('base_name', justify_self='center')
+        grid += div('hts_file', justify_self='center')
+
+        errors: list[str] = []
+        plates_todo: list[PlateMetadata] = []
+
+        with store.db:
+            hotels = list(reversed([i + 1 for i in range(11)]))
+            for i, hotel_pos in enumerate(hotels):
+                my_errors: list[str] = []
+                hotel = f'H{hotel_pos}'
+                with store.sub(hotel):
+                    base_name = store.str()
+                    grid += div(hotel + ':', justify_self='right')
+                    grid += base_name.input().extend(list='base_names', tabindex='1', spellcheck='false')
+                    plate = plates_by_base_name.get(base_name.value)
+                    if plate:
+                        grid += div(plate.hts_file)
+                        plates_todo += [plate]
+                    elif base_name.value:
+                        grid += div('base name not in database', color='var(--red)')
+                        errors += [f'base name {base_name.value!r} not in database']
+                    else:
+                        grid += div()
+
+                    errors += [hotel + ': ' + error for error in my_errors]
+
+        thaw_hours = store.str('0', name='thaw_hours')
+
+        try:
+            thaw_secs = float(thaw_hours.value) * 3600
+        except:
+            thaw_secs = 0.0
+            errors += ['Enter a valid number of hours']
+
+
+        if not plates_todo:
+            errors += ['Nothing to do']
+
+        error = ',\n'.join(errors)
+
+        yield grid
+
+        enabled = not error and plates_todo
+
+
+        yield V.div(
+            V.div(
+                V.label(
+                    'initial thaw delay (hours):',
+                    thaw_hours.input(),
+                ),
+                V.button(
+                    'clear',
+                    margin_top='20px',
+                    onclick=store.defaults.goto(),
+                ),
+                V.button(
+                    'add to queue',
+                    margin_top='20px',
+                    disabled=not enabled,
+                    title=error,
+                    onclick=
+                        (enqueue_plates_with_metadata.call(plates_todo, thaw_secs=thaw_secs) + '\n;' + store.update(page, 'queue').goto())
+                        if enabled else
+                        ''
+                ),
+                css='''& > * {
+                    margin-left: 10px;
+                    min-width: 100px;
+                    margin-top: 20px;
+                    padding: 10px 20px;
+                }''',
+            ),
+            display='grid',
+            place_items='center right',
+        )
+
+@serve.route()
+def index():
+
+    pages = '''
+        image-from-hotel-v1
+        plate-metadata
+        image-from-hotel-using-metadata
+        queue-and-log
+        queue
+        log
+    '''.split()
+
+    with store.query:
+        page = store.str(default=pages[0], name='page')
+
+    yield V.head(V.title(f'imx imager scheduler gui - {page.value}'))
+    yield {'sheet': sheet}
+
+    nav = div(css='&>* {margin: 20px 10px}')
+
+    for p in pages:
+        nav += V.button(
+            p.replace('-', ' '),
+            onclick=store.update(page, p).goto(),
+            color='var(--yellow)' if page.value == p else '',
+        )
+
+    yield nav
+
+    with store.db:
+        with store.sub(page.value.replace('-', '')):
+            yield from index_page(page)
 def main():
     print('main', __name__)
     serve.run(port=5051)

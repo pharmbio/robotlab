@@ -82,7 +82,7 @@ viable_js = str(r'''
                     prev.setAttribute(name, next.getAttribute(name))
                 }
             }
-            if (prev.tagName === 'INPUT' && (document.activeElement !== prev || !in_focus)) {
+            if (prev.tagName === 'INPUT' && (document.activeElement !== prev || !in_focus || window.ignore_focus)) {
                 if (prev.type == 'radio' && document.activeElement.name === prev.name) {
                     // pass
                 } else {
@@ -94,16 +94,22 @@ viable_js = str(r'''
                     }
                 }
             }
-            const pc = [...prev.childNodes]
-            const nc = [...next.childNodes]
-            const num_max = Math.max(pc.length, nc.length)
-            for (let i = 0; i < num_max; ++i) {
-                if (i >= nc.length) {
-                    prev.removeChild(pc[i])
-                } else if (i >= pc.length) {
-                    prev.appendChild(nc[i])
-                } else {
-                    morph(pc[i], nc[i])
+            if (prev.tagName === 'TEXTAREA') {
+                if (document.activeElement !== prev || !in_focus || window.ignore_focus) {
+                    prev.value = next.textContent
+                }
+            } else {
+                const pc = [...prev.childNodes]
+                const nc = [...next.childNodes]
+                const num_max = Math.max(pc.length, nc.length)
+                for (let i = 0; i < num_max; ++i) {
+                    if (i >= nc.length) {
+                        prev.removeChild(pc[i])
+                    } else if (i >= pc.length) {
+                        prev.appendChild(nc[i])
+                    } else {
+                        morph(pc[i], nc[i])
+                    }
                 }
             }
         } else if (
@@ -183,28 +189,6 @@ viable_js = str(r'''
         }
     }
     window.onpopstate = () => refresh()
-    function input_values() {
-        const inputs = document.querySelectorAll('input:not([type=radio]),input[type=radio]:checked,select')
-        const vals = {}
-        for (let i of inputs) {
-            if (i.getAttribute('truth') == 'server') {
-                continue
-            }
-            if (!i.name) {
-                console.error(i, 'has no name attribute')
-                continue
-            }
-            if (i.type == 'radio') {
-                console.assert(i.checked)
-                vals[i.name] = i.value
-            } else if (i.type == 'checkbox') {
-                vals[i.name] = i.checked
-            } else {
-                vals[i.name] = i.value
-            }
-        }
-        return vals
-    }
     function throttle(f, ms=150) {
         let last
         let timer

@@ -12,6 +12,7 @@ import json
 
 from . import js, serve, input
 from . import tags as V
+from .core import is_true
 from .db_con import get_viable_db
 
 def get_store() -> Store:
@@ -100,7 +101,7 @@ class Bool(Var[bool]):
         if isinstance(s, bool):
             return s
         else:
-            return s.lower() == 'true'
+            return is_true(s)
 
     def input(self):
         return input(
@@ -140,7 +141,8 @@ class Str(Var[str]):
             return input(**self.bind(iff))
 
     def textarea(self):
-        return V.textarea(**self.bind())
+        b = self.bind()
+        return V.textarea(b['value'], oninput=b['oninput'])
 
     def bind(self, iff:str|None=None):
         return {
