@@ -58,7 +58,7 @@ def dir_list_repl(root: Path, ext: str, enable_write_file: bool=False):
                 }))
             elif d['cmd'] == 'write':
                 assert enable_write_file
-                full_path = Path(d['path']).resolve()
+                full_path = (root / Path(d['path'])).resolve()
                 rel_path = full_path.relative_to(root)
                 contents = d['contents']
                 assert not full_path.exists()
