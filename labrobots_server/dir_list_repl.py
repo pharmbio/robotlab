@@ -49,7 +49,7 @@ def dir_list_repl(root: Path, ext: str, enable_write_file: bool=False):
                     }]
                 print('value', json.dumps(value))
             elif d['cmd'] == 'read':
-                full_path = Path(d['path']).resolve()
+                full_path = (root / Path(d['path'])).resolve()
                 rel_path = full_path.relative_to(root)
                 print('value', json.dumps({
                     'path': str(rel_path).replace('\\', '/'),
