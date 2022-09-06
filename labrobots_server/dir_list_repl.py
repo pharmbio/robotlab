@@ -48,6 +48,37 @@ def dir_list_repl(root: Path, ext: str, enable_write_file: bool=False):
                         # 'sha256': sha256(lhc.read_bytes()).hexdigest(),
                     }]
                 print('value', json.dumps(value))
+            elif d['cmd'] == 'hts_mod':
+                assert enable_write_file
+                experiment_set = d['experiment_set']
+                experiment_base_name = d['experiment_base_name']
+                full_path = (root / Path(d['path'])).resolve()
+                rel_path = full_path.relative_to(root)
+                lines = full_path.read_bytes().splitlines(keepends=True)
+                assert lines[1].startswith(b'"stExperimentSet", "'), lines[:3]
+                assert lines[2].startswith(b'"stDataFile", "'), lines[:3]
+                assert lines[1].endswith(b'"\r\n'), lines[:3]
+                assert lines[2].endswith(b'"\r\n'), lines[:3]
+                lines[1] = f'"stExperimentSet", "{experiment_set}"\r\n'.encode('ascii')
+                lines[2] = f'"stDataFile", "{experiment_base_name}"\r\n'.encode('ascii')
+                assert lines[1].startswith(b'"stExperimentSet", "'), lines[:3]
+                assert lines[2].startswith(b'"stDataFile", "'), lines[:3]
+                assert lines[1].endswith(b'"\r\n'), lines[:3]
+                assert lines[2].endswith(b'"\r\n'), lines[:3]
+                # now save it in the same dir but with a new filename based on base name
+                for i in range(10000):
+                    si = f' ({i})' if i else ''
+                    new_full_path = full_path.with_name(experiment_base_name + si + '.HTS')
+                    new_rel_path = new_full_path.relative_to(root)
+                    if not new_full_path.exists():
+                        new_full_path.write_bytes(b''.join(lines))
+                        print('value', json.dumps({
+                            'path': str(new_rel_path).replace('\\', '/'),
+                            'full': str(new_full_path),
+                        }))
+                        break
+                else:
+                    print('error could not make a filename for file')
             elif d['cmd'] == 'read':
                 full_path = (root / Path(d['path'])).resolve()
                 rel_path = full_path.relative_to(root)
