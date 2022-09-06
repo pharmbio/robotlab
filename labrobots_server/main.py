@@ -155,12 +155,12 @@ def main_with_args(port: int, host: str, test: bool, node_name: str):
     elif node_name == 'ImageXpress':
         machines = [
             Machine('example',  args=[exe('labrobots-example-repl')]),
-            Machine('dir_list', args=[exe('labrobots-dir-list-repl'), '--root-dir', HTS_PROTOCOLS_ROOT, '--extension', 'HTS']),
+            Machine('dir_list', args=[exe('labrobots-dir-list-repl'), '--enable-write-file', '--root-dir', HTS_PROTOCOLS_ROOT, '--extension', 'HTS']),
         ]
     else:
         machines = [
             Machine('example',  args=[exe('labrobots-example-repl')]),
-            Machine('dir_list', args=[exe('labrobots-dir-list-repl'), '--root-dir', '.', '--extension', 'py']),
+            Machine('dir_list', args=[exe('labrobots-dir-list-repl'), '--enable-write-file', '--root-dir', '.', '--extension', 'py']),
         ]
 
     machine_by_name = {m.name: m for m in machines}
@@ -179,7 +179,11 @@ def main_with_args(port: int, host: str, test: bool, node_name: str):
 
     @app.post('/<machine>') # type: ignore
     def post(machine: str):
-        cmd = json.dumps(request.form)
+        if request.form:
+            cmd = json.dumps(request.form)
+        else:
+            cmd = request.data.decode()
+        print(cmd)
         return jsonify(machine_by_name[machine].message(cmd))
 
     _ = get, post # mark them as used for typechecker
