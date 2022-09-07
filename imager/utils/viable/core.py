@@ -99,27 +99,33 @@ class Serve:
         b = sig.bind(*args, **kwargs)
         b.apply_defaults()
         py_args: dict[str | int, Any] = {}
-        js_args: dict[str, JS] = {}
+        js_args: dict[str | int, str] = {}
         all_args: dict[str | int, Any | JS] = {**dict(enumerate(b.args)), **b.kwargs}
         for k, arg in all_args.items():
             if isinstance(arg, JS):
-                js_args[str(k)] = arg
+                js_args[k] = arg.fragment
             else:
                 py_args[k] = arg
         func = FrozenFunction.freeze(f)
-        func_and_py_args = self._serializer.dumps((func, py_args))
-        if isinstance(func_and_py_args, bytes):
-            func_and_py_args = func_and_py_args.decode()
+        js_args_keys = [k for k, _ in js_args.items()]
+        js_args_vals = [v for _, v in js_args.items()]
+        func_and_py_args_and_js_args_keys = (func, py_args, js_args_keys)
+        enc = self._serializer.dumps(func_and_py_args_and_js_args_keys)
+        if isinstance(enc, bytes):
+            enc = enc.decode()
         call_args = ','.join([
-            json.dumps(func_and_py_args),
-            JS.convert_dict(js_args).fragment,
+            json.dumps(enc),
+            *js_args_vals,
         ])
-        return f'call({call_args})\n/* {f} {py_args} */'
+        return f'call({call_args})\n/* {f} {py_args} {js_args_keys} */'
 
-    def handle_call(self, func_and_py_args: str, js_args: dict[str, Any]) -> Response:
+    def handle_call(self, enc: str, js_args_vals: list[Any]) -> Response:
         func: FrozenFunction;
         py_args: dict[str | int, Any]
-        func, py_args = self._serializer.loads(func_and_py_args)
+        js_args_keys: list[str | int]
+        func, py_args, js_args_keys = self._serializer.loads(enc)
+        js_args = dict(zip(js_args_keys, js_args_vals))
+        assert js_args.keys().isdisjoint(py_args.keys())
         arg_dict: dict[int, Any] = {}
         kwargs: dict[str, Any] = {}
         for k, v in (py_args | js_args).items():
@@ -141,9 +147,9 @@ class Serve:
         @app.post('/call') # type: ignore
         def call():
             assert request.json is not None
-            func_and_py_args, js_args = request.json
+            enc, *js_args_vals = request.json
             try:
-                return self.handle_call(func_and_py_args, js_args)
+                return self.handle_call(enc, js_args_vals)
             except:
                 traceback.print_exc()
                 return '', 400
@@ -279,13 +285,13 @@ class Serve:
             head_node += style(raw('\n'.join(inst for _, inst in classes.values())))
 
         if include_hot:
-            head_node += script(src="/viable.js", defer=True)
+            head_node += script(src=f"/viable.js", defer=True)
 
         html_str = (
             f'<!doctype html>{newline}' +
             html(head_node, body_node, lang='en').to_str(indent)
         )
-        if compress and 1:
+        if compress:
             html_str = minify(html_str, 'html')
 
         resp = make_response(html_str)

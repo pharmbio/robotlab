@@ -28,11 +28,11 @@ viable_js = str(r'''
             }
         }
     }
-    async function call(py_name_and_args, js_args) {
+    async function call(...args) {
         const resp = await fetch('/call', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify([py_name_and_args, js_args]),
+            body: JSON.stringify([...args]),
         })
         const body = await resp.json()
         await execute(body)
