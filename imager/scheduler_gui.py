@@ -29,11 +29,11 @@ from .protocols import Todo, image_todos_from_hotel
 
 import csv
 
-from .utils.save_callable import Function
+from .utils.freeze_function import FrozenFunction
 from inspect import signature
 
 @serve.expose
-def call_saved(f: Function, *args: Any, **kws: Any) -> Any:
+def call_saved(f: FrozenFunction, *args: Any, **kws: Any) -> Any:
     res = f.thaw()(*args, **kws)
     if isinstance(res, dict):
         return {'refresh': True} | res
@@ -45,7 +45,7 @@ def call(f: Callable[..., Any], *args: Any | js, **kws: Any | js) -> str:
     s = signature(f)
     b = s.bind(*args, **kws)
     b.apply_defaults()
-    return call_saved.call(Function.freeze(f), *b.args, **b.kwargs)
+    return call_saved.call(FrozenFunction.freeze(f), *b.args, **b.kwargs)
 
 def parse_csv(s: str):
     try:
