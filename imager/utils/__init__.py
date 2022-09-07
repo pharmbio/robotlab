@@ -25,7 +25,7 @@ def curl(url: str) -> Any:
     res = json.loads(urlopen(url, timeout=ten_minutes).read())
     return res
 
-def post_json(url: str, data: dict[str, str]) -> dict[str, Any]:
+def post_json(url: str, data: dict[str, Any]) -> dict[str, Any]:
     ten_minutes = 60 * 10
     req = Request(
         url,

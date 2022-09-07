@@ -43,8 +43,7 @@ def image_plate_in_imx(params: list[str], hts_file: str, **_):
 class Todo:
     hotel_loc: str  # 'H1'
     plate_id: str
-    hts_path: str
-
+    hts_path: str   # full path
 
 def image_todos_from_hotel(todos: list[Todo], thaw_secs: float) -> list[Command]:
     cmds: list[Command] = []

@@ -24,6 +24,7 @@ import time
 import sys
 import re
 import textwrap
+from pathlib import Path
 
 from .protocols import Todo, image_todos_from_hotel
 
@@ -57,14 +58,6 @@ class HTS:
         return datetime.now() - self.ts
 
 _get_htss_lock = Lock()
-
-def mod_hts(hts_file: str, todo: str):
-    return post_json(f'{IMX_URL}/dir_list', {
-        'cmd': 'mod_hts',
-        'path': hts_file,
-        'experiment_set': todo,
-        'experiment_base_name': todo,
-    })
 
 @lru_cache(maxsize=1)
 def _get_htss(time: int):
@@ -156,8 +149,28 @@ def enqueue_todos(todos: list[Todo], thaw_secs: float=0):
     with Env.make(sim=not live) as env:
         execute.enqueue(env, cmds)
 
-def enqueue_plates_with_metadata(plates: list[PlateMetadata], thaw_secs: float=0):
-    pass
+def enqueue_plates_with_metadata(plates: list[tuple[str, PlateMetadata]], thaw_secs: float=0):
+    todos: list[Todo] = []
+    for hotel_loc, plate in plates:
+        full = modify_hts_file(plate.hts_file, plate.base_name)
+        todos += [
+            Todo(
+                hotel_loc=hotel_loc,
+                plate_id='',
+                hts_path=full,
+            )
+        ]
+    enqueue_todos(todos, thaw_secs)
+
+def modify_hts_file(hts_file: str, base_name: str):
+    project = str(Path(hts_file).parent)
+    res = post_json(f'{IMX_URL}/dir_list', {
+        'cmd': 'hts_mod',
+        'path': hts_file,
+        'experiment_set': project,
+        'experiment_base_name': base_name,
+    })
+    return res['value']['full']
 
 from typing import Literal
 
@@ -225,12 +238,6 @@ def queue_table(items: list[QueueItem]):
                 cursor='pointer',
             )
     return grid
-
-@dataclass(frozen=True)
-class TodoV2:
-    hotel_loc: str  # 'H1'
-    plate_id: str
-    hts_path: str
 
 @dataclass(frozen=True)
 class PlateMetadata(DBMixin):
@@ -500,7 +507,7 @@ def index_page(page: Var[str]):
         grid += div('hts_file', justify_self='center')
 
         errors: list[str] = []
-        plates_todo: list[PlateMetadata] = []
+        plates_todo: list[tuple[str, PlateMetadata]] = []
 
         with store.db:
             hotels = list(reversed([i + 1 for i in range(11)]))
@@ -514,7 +521,7 @@ def index_page(page: Var[str]):
                     plate = plates_by_base_name.get(base_name.value)
                     if plate:
                         grid += div(plate.hts_file)
-                        plates_todo += [plate]
+                        plates_todo += [(hotel, plate)]
                     elif base_name.value:
                         grid += div('base name not in database', color='var(--red)')
                         errors += [f'base name {base_name.value!r} not in database']
@@ -578,9 +585,9 @@ def index_page(page: Var[str]):
 def index():
 
     pages = '''
-        image-from-hotel-v1
-        plate-metadata
         image-from-hotel-using-metadata
+        plate-metadata
+        image-from-hotel-v1
         queue-and-log
         queue
         log
