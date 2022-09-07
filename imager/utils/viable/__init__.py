@@ -4,11 +4,12 @@ from .minifier import minify
 from .tags import *
 from .core import (
     Node,    # type: ignore
-    js,      # type: ignore
-    Exposed, # type: ignore
+    JS,      # type: ignore
     app,     # type: ignore
     Serve,   # type: ignore
     serve,   # type: ignore
+    call,    # type: ignore
+    js,      # type: ignore
 )
 
 def queue_refresh(after_ms: float=100):
@@ -20,11 +21,4 @@ def queue_refresh(after_ms: float=100):
         )
     ''')
     return script(raw(js), eval=True)
-
-def trim(s: str, soft: bool=False, sep: str=' '):
-    import textwrap
-    if soft:
-        return textwrap.dedent(s).strip()
-    else:
-        return re.sub(r'\s*\n\s*', sep, s, flags=re.MULTILINE).strip()
 

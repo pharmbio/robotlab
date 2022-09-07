@@ -10,7 +10,7 @@ from werkzeug.local import LocalProxy
 import abc
 import json
 
-from . import js, serve, input
+from . import JS, serve, input
 from . import tags as V
 from .core import is_true
 from .db_con import get_viable_db
@@ -82,7 +82,7 @@ class Int(Var[int]):
     def input(self, type: Literal['input', 'range', 'number'] = 'input'):
         return input(
             value=str(self.value),
-            oninput=store.update(self, js('this.value')).goto(),
+            oninput=store.update(self, JS('this.value')).goto(),
             min=None_map(self.min, str),
             max=None_map(self.max, str),
         )
@@ -106,7 +106,7 @@ class Bool(Var[bool]):
     def input(self):
         return input(
             checked=self.value,
-            oninput=store.update(self, js('this.checked')).goto(),
+            oninput=store.update(self, JS('this.checked')).goto(),
             type='checkbox',
         )
 
@@ -135,7 +135,7 @@ class Str(Var[str]):
                     )
                     for key in self.options
                 ],
-                oninput=store.update(self, js('this.selectedOptions[0].dataset.key')).goto(iff=iff),
+                oninput=store.update(self, JS('this.selectedOptions[0].dataset.key')).goto(iff=iff),
             )
         else:
             return input(**self.bind(iff))
@@ -147,12 +147,12 @@ class Str(Var[str]):
     def bind(self, iff:str|None=None):
         return {
             'value': str(self.value),
-            'oninput': store.update(self, js('this.value')).goto(iff),
+            'oninput': store.update(self, JS('this.value')).goto(iff),
         }
 
 @dataclass(frozen=False)
 class StoredValue:
-    goto_value: Any | js
+    goto_value: Any | JS
     updated: bool
     var: Var[Any]
     provenance: str
@@ -171,8 +171,8 @@ class StoredValue:
     def default_value(self) -> Any:
         return self.var.default
 
-def update_query(kvs: dict[str, Any | js]):
-    s = js.convert_dict(kvs).fragment
+def update_query(kvs: dict[str, Any | JS]):
+    s = JS.convert_dict(kvs).fragment
     return f'update_query({s})'
 
 def update_cookies(kvs: dict[str, str]) -> Any:
@@ -189,7 +189,7 @@ def update_cookies(kvs: dict[str, str]) -> Any:
 
 @dataclass(frozen=True)
 class Provenance:
-    js_side: None | Callable[[dict[str, Any | js]], str] = None
+    js_side: None | Callable[[dict[str, Any | JS]], str] = None
     py_side: None | Callable[[dict[str, str]], dict[str, Any]] = None
     get: Callable[[str, Any], Any] = lambda k, d: d
 
@@ -199,15 +199,6 @@ provenances: dict[str, Provenance] = {
     'shared': Provenance(None,         lambda kvs: get_viable_db().update(kvs, shared=True),   lambda k, d: get_viable_db().get(k, d, shared=True)),
     'db':     Provenance(None,         lambda kvs: get_viable_db().update(kvs, shared=False),  lambda k, d: get_viable_db().get(k, d, shared=False)),
 }
-
-@serve.expose
-def update_py_side(pkvs: dict[str, dict[str, Any]]) -> Response:
-    out: dict[str, Any] = {}
-    for p_name, kvs in pkvs.items():
-        p = provenances[p_name]
-        assert p.py_side
-        out |= p.py_side(kvs)
-    return jsonify(out)
 
 from contextlib import contextmanager
 from typing import ClassVar
@@ -281,10 +272,10 @@ class Store:
             if isinstance(v, Var) and not v.name and (sv := self.values.get(id(v))):
                 self[v] = replace(sv, name=k)
 
-    def update(self, var: Var[A], val: A | js) -> Store:
+    def update(self, var: Var[A], val: A | JS) -> Store:
         return self.update_untyped((var, val))
 
-    def update_untyped(self, *to: tuple[Var[Any], Any | js]) -> Store:
+    def update_untyped(self, *to: tuple[Var[Any], Any | JS]) -> Store:
         next = replace(self, values=self.values.copy())
         for var, goto in to:
             next[var] = replace(
@@ -302,30 +293,46 @@ class Store:
         }
         return replace(self, values=values)
 
-    def goto(self, iff: str | None=None) -> str:
-        by_provenance: dict[str, dict[str, Any | js]] = defaultdict(dict)
-        for _v, sv in self.values.items():
-            if sv.updated and sv.goto_value != sv.initial_value:
-                by_provenance[sv.provenance][sv.full_name] = sv.goto_value
-        out_parts: list[str] = []
-        py_side: dict[str, dict[str, Any | js]] = {}
-        for p_name, kvs in by_provenance.items():
-            p = provenances[p_name]
-            if p.js_side:
-                out_parts += [p.js_side(kvs).strip(';')]
-            if p.py_side:
-                py_side[p_name] = kvs
-        if py_side:
-            out_parts += [update_py_side.call(js.convert_dicts(py_side))]
-        out = ';'.join(out_parts)
-        if iff:
-            return 'if(' + iff + '){' + out + '}'
-        else:
-            return out
-
     def goto_script(self) -> V.Node:
         script = self.goto()
         if script:
             return V.script(V.raw(script), eval=True)
         else:
             return V.text('')
+
+    def goto(self, iff: str | None=None) -> str:
+        by_provenance: dict[str, dict[str, Any | JS]] = defaultdict(dict)
+        for _v, sv in self.values.items():
+            if sv.updated and sv.goto_value != sv.initial_value:
+                by_provenance[sv.provenance][sv.full_name] = sv.goto_value
+        out_parts: list[str] = []
+        py_side_kvs: list[tuple[tuple[str, str], Any | JS]] = []
+        for p_name, kvs in by_provenance.items():
+            p = provenances[p_name]
+            if p.js_side:
+                out_parts += [p.js_side(kvs).strip(';')]
+            if p.py_side:
+                for k, v in kvs.items():
+                    py_side_kvs += [((p_name, k), v)]
+        if py_side_kvs:
+            py_side_keys   = [k for k, _ in py_side_kvs]
+            py_side_values = [v for _, v in py_side_kvs]
+            out_parts += [serve.call(update_py_side, py_side_keys, *py_side_values)]
+        out = ';'.join(out_parts)
+        if iff:
+            return 'if(' + iff + '){' + out + '}'
+        else:
+            return out
+
+def update_py_side(keys: list[tuple[str, str]], *values: Any) -> Response:
+    pkvs: dict[str, dict[str, Any]] = defaultdict(dict)
+    assert len(keys) == len(values)
+    for (p, k), v in zip(keys, values):
+        pkvs[p][k] = v
+    out: dict[str, Any] = {}
+    for p_name, kvs in pkvs.items():
+        p = provenances[p_name]
+        assert p.py_side
+        out |= p.py_side(kvs)
+    return jsonify(out)
+

@@ -1,6 +1,6 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
-from typing import Iterable, Callable, ParamSpec, TypeVar, Generic
+from typing import Iterable, Callable, ParamSpec, TypeVar
 
 import os
 import pickle
@@ -9,12 +9,15 @@ import secrets
 import sys
 import json
 import traceback
+from inspect import signature
 from queue import Queue, Empty
 from threading import RLock
 
 from flask import Flask, request, jsonify, make_response
 from flask.wrappers import Response
 from itsdangerous import Serializer, URLSafeSerializer
+
+from .freeze_function import FrozenFunction
 
 from .tags import *
 from .minifier import minify
@@ -50,101 +53,31 @@ def serializer_factory() -> Serializer:
     return URLSafeSerializer(secret, serializer=pickle)
 
 @dataclass(frozen=True)
-class js:
+class JS:
     fragment: str
 
     @staticmethod
-    def convert_dict(d: dict[str, Any | js]) -> js:
+    def convert_dict(d: dict[str, Any | JS]) -> JS:
         out = ','.join(
             f'''{
                 k if re.match('^(0|[1-9][0-9]*|[_a-zA-Z][_a-zA-Z0-9]*)$', k)
                 else json.dumps(k)
             }:{
-                v.fragment if isinstance(v, js) else json.dumps(v)
+                v.fragment if isinstance(v, JS) else json.dumps(v)
             }'''
             for k, v in d.items()
         )
-        return js('{' + out + '}')
+        return JS('{' + out + '}')
 
     @staticmethod
-    def convert_dicts(d: dict[str, dict[str, Any | js]]) -> js:
-        return js.convert_dict({k: js.convert_dict(vs) for k, vs in d.items()})
+    def convert_dicts(d: dict[str, dict[str, Any | JS]]) -> JS:
+        return JS.convert_dict({k: JS.convert_dict(vs) for k, vs in d.items()})
+
+def js(fragment: str) -> Any:
+    return JS(fragment)
 
 P = ParamSpec('P')
 R = TypeVar('R')
-
-@dataclass(frozen=True)
-class Exposed(Generic[P, R]):
-    _f: Callable[P, R]
-    _serializer: Serializer
-
-    def __call__(self, *args: P.args, **kws: P.kwargs) -> R:
-        '''
-        Call from python.
-
-        >>> @serve.expose
-        ... def Sum(*args: str | int | float) -> float
-        ...     res = sum(map(float, args))
-        ...     print(res)
-        ...     return res
-        >>> print('{Sum(1,2)=}')
-        3.0
-        Sum(1,2)=3.0
-        '''
-        return self._f(*args, **kws)
-
-    # def call(self, *args: P.args | js, **kws: P.kwargs | js) -> str:
-    def call(self, *args: Any | js, **kws: Any | js) -> str:
-        '''
-        The handler, optionally already applied to some arguments, which may be javascript fragments.
-
-        >>> @serve.expose
-        ... def Sum(*args: str | int | float) -> float
-        ...     res = sum(map(float, args))
-        ...     print(res)
-        ...     return res
-        >>> elem = input(onclick=Sum.call(1, js('this.value')))
-        '''
-        py_args: dict[str | int, Any] = {}
-        js_args: dict[str, js] = {}
-        for k, arg in (dict(enumerate(args)) | kws).items():
-            if isinstance(arg, js):
-                js_args[str(k)] = arg
-            else:
-                py_args[k] = arg
-        name = Exposed.function_name(self._f)
-        py_name_and_args = self._serializer.dumps((name, py_args))
-        if isinstance(py_name_and_args, bytes):
-            py_name_and_args = py_name_and_args.decode()
-        call_args = ','.join([
-            json.dumps(py_name_and_args),
-            js.convert_dict(js_args).fragment,
-        ])
-        return f'call({call_args}) // {name} {py_args}'
-
-    def from_request(self, py_args: dict[str | int, Any], js_args: dict[str, Any]) -> Response:
-        arg_dict: dict[int, Any] = {}
-        kws: dict[str, Any] = {}
-        for k, v in (py_args | js_args).items():
-            if isinstance(k, int) or k.isdigit():
-                k = int(k)
-                arg_dict[k] = v
-            else:
-                assert isinstance(k, str)
-                kws[k] = v
-        args: list[Any] = [v for _, v in sorted(arg_dict.items(), key=lambda kv: kv[0])]
-        ret = self(*args, **kws)
-        if isinstance(ret, Response):
-            return ret
-        else:
-            return jsonify(ret)
-
-    @staticmethod
-    def function_name(f: Callable[..., Any]) -> str:
-        if f.__module__ == '__main__':
-            return f.__qualname__
-        else:
-            return f.__module__ + '.' + f.__qualname__
 
 app = Flask(__name__)
 
@@ -153,8 +86,6 @@ class Serve:
     # Routes
     routes: dict[str, Callable[..., Iterable[Node | str | dict[str, str]]]] = field(default_factory=dict)
 
-    # Exposed functions
-    exposed: dict[str, Exposed[Any, Any]] = field(default_factory=dict)
     _serializer: Serializer = field(default_factory=serializer_factory)
 
     # State for reloading
@@ -162,21 +93,57 @@ class Serve:
     notify_reload: list[Queue[None]] = field(default_factory=list)
     generation: int = 1
 
-    def expose(self, f: Callable[P, R]) -> Exposed[P, R]:
-        name = Exposed.function_name(f)
-        assert name != '<lambda>'
-        assert name not in self.exposed
-        res = self.exposed[name] = Exposed(f, self._serializer)
-        return res
+    def call(self, f: Callable[P, Any], *args: P.args, **kwargs: P.kwargs) -> str:
+        # apply any defaults to the arguments now so that js fragments get evaluated
+        sig = signature(f)
+        b = sig.bind(*args, **kwargs)
+        b.apply_defaults()
+        py_args: dict[str | int, Any] = {}
+        js_args: dict[str, JS] = {}
+        all_args: dict[str | int, Any | JS] = {**dict(enumerate(b.args)), **b.kwargs}
+        for k, arg in all_args.items():
+            if isinstance(arg, JS):
+                js_args[str(k)] = arg
+            else:
+                py_args[k] = arg
+        func = FrozenFunction.freeze(f)
+        func_and_py_args = self._serializer.dumps((func, py_args))
+        if isinstance(func_and_py_args, bytes):
+            func_and_py_args = func_and_py_args.decode()
+        call_args = ','.join([
+            json.dumps(func_and_py_args),
+            JS.convert_dict(js_args).fragment,
+        ])
+        return f'call({call_args})\n/* {f} {py_args} */'
+
+    def handle_call(self, func_and_py_args: str, js_args: dict[str, Any]) -> Response:
+        func: FrozenFunction;
+        py_args: dict[str | int, Any]
+        func, py_args = self._serializer.loads(func_and_py_args)
+        arg_dict: dict[int, Any] = {}
+        kwargs: dict[str, Any] = {}
+        for k, v in (py_args | js_args).items():
+            if isinstance(k, int) or k.isdigit():
+                k = int(k)
+                arg_dict[k] = v
+            else:
+                assert isinstance(k, str)
+                kwargs[k] = v
+        args: list[Any] = [v for _, v in sorted(arg_dict.items(), key=lambda kv: kv[0])]
+        f = func.thaw()
+        ret = f(*args, **kwargs)
+        if isinstance(ret, Response):
+            return ret
+        else:
+            return jsonify(refresh=True)
 
     def __post_init__(self):
         @app.post('/call') # type: ignore
         def call():
-            request_json: Any = request.json
-            py_name_and_args, js_args = request_json
-            py_name, py_args = self._serializer.loads(py_name_and_args)
+            assert request.json is not None
+            func_and_py_args, js_args = request.json
             try:
-                return self.exposed[py_name].from_request(py_args, js_args)
+                return self.handle_call(func_and_py_args, js_args)
             except:
                 traceback.print_exc()
                 return '', 400
@@ -318,7 +285,7 @@ class Serve:
             f'<!doctype html>{newline}' +
             html(head_node, body_node, lang='en').to_str(indent)
         )
-        if compress:
+        if compress and 1:
             html_str = minify(html_str, 'html')
 
         resp = make_response(html_str)
@@ -346,3 +313,4 @@ class Serve:
         log.setLevel(logging.ERROR)
 
 serve = Serve()
+call = serve.call

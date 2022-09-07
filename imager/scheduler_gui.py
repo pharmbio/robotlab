@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import Iterator, Any, cast, Callable
 
-from .utils.viable import serve, esc, div, pre, Node, js
+from .utils.viable import serve, esc, div, pre, Node, js, call
 from .utils.viable.provenance import store, Var
 from .utils import viable as V
 from .utils import curl, post_json
@@ -28,24 +28,6 @@ import textwrap
 from .protocols import Todo, image_todos_from_hotel
 
 import csv
-
-from .utils.freeze_function import FrozenFunction
-from inspect import signature
-
-@serve.expose
-def call_saved(f: FrozenFunction, *args: Any, **kws: Any) -> Any:
-    res = f.thaw()(*args, **kws)
-    if isinstance(res, dict):
-        return {'refresh': True} | res
-    else:
-        return {'refresh': True}
-
-def call(f: Callable[..., Any], *args: Any | js, **kws: Any | js) -> str:
-    # apply any defaults to the arguments now so that js fragments get evaluated
-    s = signature(f)
-    b = s.bind(*args, **kws)
-    b.apply_defaults()
-    return call_saved.call(FrozenFunction.freeze(f), *b.args, **b.kwargs)
 
 def parse_csv(s: str):
     try:
@@ -169,19 +151,16 @@ sheet = '''
     }
 '''
 
-@serve.expose
 def enqueue_todos(todos: list[Todo], thaw_secs: float=0):
     cmds = image_todos_from_hotel(todos, thaw_secs)
     with Env.make(sim=not live) as env:
         execute.enqueue(env, cmds)
 
-@serve.expose
 def enqueue_plates_with_metadata(plates: list[PlateMetadata], thaw_secs: float=0):
     pass
 
 from typing import Literal
 
-@serve.expose
 def modify_queue(item: QueueItem, action: Literal['restart', 'remove']):
     with Env.make(sim=not live) as env:
         if action == 'restart':
@@ -220,9 +199,9 @@ def queue_table(items: list[QueueItem]):
 
         purge = f'''
             if (this.dataset.started && window.confirm(`Rerun command? (item: ${{this.dataset.item}})`))
-                {modify_queue.call(item, "restart")};
+                {call(modify_queue, item, "restart")};
             else if (window.confirm(`Remove command? (item: ${{this.dataset.item}})`))
-                {modify_queue.call(item, "remove")};
+                {call(modify_queue, item, "remove")};
         '''
         if item.finished:
             purge=''
@@ -421,7 +400,7 @@ def index_page(page: Var[str]):
                     disabled=not enabled,
                     title=error,
                     onclick=
-                        (enqueue_todos.call(todos, thaw_secs=thaw_secs) + '\n;' + store.update(page, 'queue').goto())
+                        (call(enqueue_todos, todos, thaw_secs=thaw_secs) + '\n;' + store.update(page, 'queue').goto())
                         if enabled else
                         ''
                 ),
@@ -580,7 +559,7 @@ def index_page(page: Var[str]):
                     disabled=not enabled,
                     title=error,
                     onclick=
-                        (enqueue_plates_with_metadata.call(plates_todo, thaw_secs=thaw_secs) + '\n;' + store.update(page, 'queue').goto())
+                        (call(enqueue_plates_with_metadata, plates_todo, thaw_secs=thaw_secs) + '\n;' + store.update(page, 'queue').goto())
                         if enabled else
                         ''
                 ),
