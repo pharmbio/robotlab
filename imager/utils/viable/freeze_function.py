@@ -84,7 +84,7 @@ class __TestCallable:
     def __call__(self, i: int):
         return i + 1
 
-def main():
+def test():
     import pickle
 
     global __test
@@ -138,13 +138,13 @@ def main():
     for f in fs:
         b = FrozenFunction.freeze(f)
         f_copy = b.thaw()
-        print(f.__name__, f_copy.__name__)
-        print(f.__module__, f_copy.__module__)
-        print(f.__qualname__, f_copy.__qualname__)
-        print(f(1), f_copy(1))
+        assert_same(f.__name__, f_copy.__name__)
+        assert_same(f.__module__, f_copy.__module__)
+        assert_same(f.__qualname__, f_copy.__qualname__)
+        assert_same(f(1), f_copy(1))
         __test += 1
         t.value += 1
-        print(f(1), f_copy(1))
+        assert_same(f(1), f_copy(1))
         print('bytes:', len(pickle.dumps(b)))
         print('---')
 
@@ -162,4 +162,4 @@ def main():
         raise ValueError
 
 if __name__ == '__main__':
-    main()
+    test()

@@ -245,7 +245,7 @@ class Meta:
     log_table: None | str = None
     views: dict[str, str] = field(default_factory=dict)
 
-if __name__ == '__main__':
+def test():
     '''
     python -m imager.utils.mixins
     '''
@@ -266,7 +266,7 @@ if __name__ == '__main__':
             },
         )
 
-    serializer.register(globals())
+    serializer.register({'Todo': Todo})
 
     with DB.open(':memory:') as db:
         t0 = Todo('hello world').save(db)
@@ -296,3 +296,6 @@ if __name__ == '__main__':
                 'select * from TodoView where msg glob "*world"',
             ], encoding='utf8')
             print(out)
+
+if __name__ == '__main__':
+    test()
