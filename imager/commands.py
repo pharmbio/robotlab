@@ -62,6 +62,7 @@ class FridgeGet:
 @dataclass(frozen=True)
 class FridgePut:
     loc: str
+    project: str
     barcode: str
 
 @dataclass(frozen=True)
@@ -69,10 +70,12 @@ class FridgePutByBarcode:
     '''
     Puts the plate on some empty location using its barcode
     '''
-    pass
+    project: str
+    check_barcode: str | None = None
 
 @dataclass(frozen=True)
 class FridgeGetByBarcode:
+    project: str
     barcode: str
 
 @dataclass(frozen=True)

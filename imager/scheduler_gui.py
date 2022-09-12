@@ -1,7 +1,8 @@
 from __future__ import annotations
 from typing import Iterator, Any, cast, Callable
+from typing import Literal
 
-from .utils.viable import serve, esc, div, pre, Node, js, call
+from .utils.viable import serve, div, pre, Node, js, call
 from .utils.viable.provenance import store, Var
 from .utils import viable as V
 from .utils import curl, post_json
@@ -10,7 +11,8 @@ from .utils import serializer
 from .utils.mixins import DBMixin, DB, Meta
 
 from .env import Env
-from .execute import QueueItem, FridgeSlot, Checkpoint
+from .execute import QueueItem, FridgeSlot, Checkpoint, FridgeOccupant
+from .commands import Command
 from . import execute
 from . import commands as cmds
 
@@ -26,7 +28,8 @@ import re
 import textwrap
 from pathlib import Path
 
-from .protocols import Todo, image_todos_from_hotel
+from . import protocols
+from .protocols import FromHotelTodo, FromFridgeTodo
 
 import csv
 
@@ -127,10 +130,6 @@ sheet = '''
     button:disabled {
         opacity: 60%;
     }
-    select {
-        width: 100%;
-        padding-left: 4px;
-    }
     input:focus-visible, button:focus-visible, select:focus-visible {
         outline: 2px  var(--blue) solid;
         outline-color: var(--blue);
@@ -144,20 +143,23 @@ sheet = '''
     }
 '''
 
-def enqueue_todos(todos: list[Todo], thaw_secs: float=0):
-    cmds = image_todos_from_hotel(todos, thaw_secs)
+def enqueue(cmds: list[Command], where: Literal['first', 'last'] = 'last'):
     with Env.make(sim=not live) as env:
         execute.enqueue(env, cmds)
 
+def enqueue_todos(todos: list[FromHotelTodo], thaw_secs: float=0):
+    cmds = protocols.image_todos_from_hotel(todos, thaw_secs)
+    enqueue(cmds)
+
 def enqueue_plates_with_metadata(plates: list[tuple[str, PlateMetadata]], thaw_secs: float=0):
-    todos: list[Todo] = []
+    todos: list[FromHotelTodo] = []
     for hotel_loc, plate in plates:
         full = modify_hts_file(plate.hts_file, plate.base_name)
         todos += [
-            Todo(
+            FromHotelTodo(
                 hotel_loc=hotel_loc,
                 plate_id='',
-                hts_path=full,
+                hts_full_path=full,
             )
         ]
     enqueue_todos(todos, thaw_secs)
@@ -176,13 +178,15 @@ from typing import Literal
 
 def modify_queue(item: QueueItem, action: Literal['restart', 'remove']):
     with Env.make(sim=not live) as env:
-        if action == 'restart':
-            item.replace(started=None, finished=None, error=None).save(env.db)
-        elif action == 'remove':
-            if item.started:
-                item.replace(finished=datetime.now(), error=None).save(env.db)
-            else:
-                item.replace(started=datetime.now(), finished=datetime.now(), error=None).save(env.db)
+        with env.db.transaction:
+            assert item == item.reload(env.db) # possible race with handling this item
+            if action == 'restart':
+                item.replace(started=None, finished=None, error=None).save(env.db)
+            elif action == 'remove':
+                if item.started:
+                    item.replace(finished=datetime.now(), error=None).save(env.db)
+                else:
+                    item.replace(started=datetime.now(), finished=datetime.now(), error=None).save(env.db)
 
 def queue_table(items: list[QueueItem]):
     grid = div(
@@ -310,7 +314,7 @@ def index_page(page: Var[str]):
     if page.value == 'queue-and-log':
         with Env.make(sim=not live) as env:
             todo = env.db.get(QueueItem).order(by='pos').limit(10).where(finished=None)
-            done = env.db.get(QueueItem).order(by='finished').where_str('value ->> "finished" is not null')
+            done = env.db.get(QueueItem).order(by='finished').where_not(finished=None).list()
             yield queue_table([*done[-10:], *todo])
         yield V.queue_refresh(300)
 
@@ -322,7 +326,7 @@ def index_page(page: Var[str]):
 
     if page.value == 'log':
         with Env.make(sim=not live) as env:
-            items = env.db.get(QueueItem).order(by='finished').where_str('value ->> "finished" is not null')
+            items = env.db.get(QueueItem).order(by='finished').where_not(finished=None).list()
             items = list(reversed(items))
             yield queue_table(items)
         yield V.queue_refresh(300)
@@ -342,7 +346,7 @@ def index_page(page: Var[str]):
         grid += div()
 
         errors: list[str] = []
-        todos: list[Todo] = []
+        todos: list[FromHotelTodo] = []
 
         with store.db:
             hotels = list(reversed([i + 1 for i in range(11)]))
@@ -370,7 +374,7 @@ def index_page(page: Var[str]):
                     if plate_id.value and not path.value:
                         errors += [f'No path on {hotel}']
                     if plate_id.value and hts:
-                        todos += [Todo(hotel, plate_id.value, hts.full)]
+                        todos += [FromHotelTodo(hotel, plate_id.value, hts.full)]
 
         thaw_hours = store.str('0', name='thaw_hours')
 
@@ -465,7 +469,10 @@ def index_page(page: Var[str]):
                     yield div(f'Field {key} not provided (csv has: {", ".join(keys)})', color='var(--red)')
                     ok = False
             plates = [
-                PlateMetadata(**row)
+                PlateMetadata(
+                    base_name=row['base_name'],
+                    hts_file=row['hts_file'],
+                )
                 for row in data
             ]
             table, ok = plate_metadata_table(plates, with_remove=False, check_duplicates=True)
@@ -548,7 +555,6 @@ def index_page(page: Var[str]):
 
         enabled = not error and plates_todo
 
-
         yield V.div(
             V.div(
                 V.label(
@@ -581,15 +587,244 @@ def index_page(page: Var[str]):
             place_items='center right',
         )
 
+    if page.value == 'image-from-fridge':
+        paste = store.str(name='paste')
+        desc = '''
+            Paste csv with fields "project", "barcode", "base_name" and "hts_file" (relative to 384 well protocol root).
+            Other fields are allowed but will be ignored.
+            The plates need to already be in the fridge.
+            The plates will be imaged in the order specified here.
+        '''
+        desc = textwrap.dedent(desc).strip()
+        yield div(V.p(desc.strip().splitlines()[0]), padding='0px 10px', margin_top='10px')
+        yield div(paste.textarea().extend(
+            placeholder=desc,
+            rows='20',
+            cols='100',
+            spellcheck='false',
+        ))
+        with Env.make(sim=not live) as env:
+            with env.db.transaction:
+                lines: list[str] = ['project,barcode,base_name,hts_file']
+                for slot in env.db.get(FridgeSlot):
+                    if slot.occupant:
+                        lines += [f'{slot.occupant.project},{slot.occupant.barcode},,']
+        examples = {
+            'protac': '''
+                project,barcode,base_name,hts_file
+                protac35,(384)P000314,protac35-v1-FA-P000314-U2OS-24h-P1-L1,protac35/protac35-v1-FA-BARCODE-U2OS-24h.HTS
+                protac35,(384)P000317,protac35-v1-FA-P000317-U2OS-24h-P2-L2,protac35/protac35-v1-FA-BARCODE-U2OS-24h.HTS
+                protac35,(384)P000315,protac35-v1-GR-P000315-U2OS-24h-P1-L1,protac35/protac35-v1-GR-BARCODE-U2OS-24h.HTS
+                protac35,(384)P000318,protac35-v1-GR-P000318-U2OS-24h-P2-L2,protac35/protac35-v1-GR-BARCODE-U2OS-24h.HTS
+            ''',
+            'fridge-test': '''
+                project,barcode,base_name,hts_file
+                fridge-test,(384)P000008,fridge-short-test-1,fridge-test/short protocol.hts
+                fridge-test,(384)P000008,fridge-short-test-2,fridge-test/short protocol.hts
+                fridge-test,(384)P000008,fridge-short-test-3,fridge-test/short protocol.hts
+                fridge-test,(384)P000008,fridge-short-test-4,fridge-test/short protocol.hts
+            ''',
+            'fridge-contents': '\n'.join(lines),
+        }
+        examples = {k: textwrap.dedent(v).strip() for k, v in examples.items()}
+        yield div(
+            V.button('clear', onclick=store.update(paste, '').goto()),
+            *[
+                V.button(f'load example {k}', onclick=store.update(paste, v).goto())
+                for k, v in examples.items()
+            ]
+        )
+        data = parse_csv(paste.value)
+        if not data:
+            return
+        keys = data[0].keys()
+        ok = True
+        htss = {hts.path.lower(): hts for hts in get_htss()}
+        errors: list[str] = []
+        fridge_todo: list[FromFridgeTodo] = []
+        with Env.make(sim=not live) as env:
+            for i, row in enumerate(data, start=1):
+                my_errors: list[str] = []
+                fields = 'project barcode base_name hts_file'.split()
+                trimmed = {
+                    k: (v if isinstance(v := row.get(k), str) else '')
+                    for k in fields
+                }
+                project, barcode, base_name, hts_file = trimmed.values()
+                for k, v in trimmed.items():
+                    if not v:
+                        my_errors += [f'Missing value for {k}']
+                if project and barcode:
+                    occupant = FridgeOccupant(project=project, barcode=barcode)
+                    occs = env.db.get(FridgeSlot).where(occupant=occupant)
+                    if len(occs) == 0:
+                        my_errors += [f'Barcode not in fridge']
+                    elif len(occs) > 1:
+                        my_errors += [f'Barcode duplicated in fridge']
+                hts = htss.get(hts_file.lower())
+                if hts_file and not hts:
+                    my_errors += [f'File {hts_file!r} not found']
+                if hts:
+                    title = f'{hts.full}\nlast modified: {str(hts.ts)} ({humanize_time.naturaldelta(hts.age)} ago)'
+                    hts_info = div(hts.path, title=title, data_title=title, cursor='pointer', onclick='alert(this.dataset.title)')
+                if my_errors:
+                    desc = row.get('barcode', row.get('base_name', ''))
+                    if desc:
+                        desc = f' ({desc})'
+                    errors += [
+                        f'Row {i}{desc}:',
+                        *['  ' + err for err in my_errors]
+                    ]
+                if hts:
+                    fridge_todo += [FromFridgeTodo(
+                        plate_project=project,
+                        plate_barcode=barcode,
+                        base_name=base_name,
+                        hts_full_path=hts.full,
+                    )]
+
+        pop_delay_hours = store.str('0')
+        min_thaw_hours = store.str('0')
+
+        try:
+            pop_delay_secs = float(pop_delay_hours.value) * 3600
+        except:
+            pop_delay_secs = 0.0
+            errors += ['Enter a valid number of pop delay hours']
+
+        try:
+            min_thaw_secs = float(min_thaw_hours.value) * 3600
+        except:
+            min_thaw_secs = 0.0
+            errors += ['Enter a valid number of min thaw hours']
+
+        yield V.pre(
+            '\n'.join(errors),
+            color='var(--red)',
+            padding='10px',
+        )
+        ok = not errors
+
+        yield V.div(
+            dict(
+                css='''
+                    & div {
+                        margin-bottom: 10px;
+                    }
+                '''
+            ),
+            V.div(
+                div(V.label('delay from imx start acquire to take out next plate (hours):', pop_delay_hours.input()), align='right', ),
+                div(V.label('minimum time in room temperature before acquire (hours):', min_thaw_hours.input()), align='right', ),
+            ),
+            V.div(
+            V.button('add to queue',
+                onclick=
+                    (
+                        call(enqueue, protocols.image_from_fridge(fridge_todo, 0, 0)) + ';\n' +
+                        store.update(page, 'queue-and-log').goto()
+                    )
+                    if ok else '',
+                disabled=not(ok),
+                title='\n'.join(errors),
+                ),
+                align='center',
+            ),
+            width='fit-content',
+        )
+
+    if page.value == 'system':
+        yield V.div(
+            dict(
+                css='''
+                    & > * {
+                        border: 1px #fff2 solid;
+                        padding: 5px;
+                        margin-top: 5px;
+                    }
+                    & > * > * { margin: 5px; }
+                '''
+            ),
+            V.div(
+                V.span('test-comm:'),
+                V.button(
+                    'Test communication with robotarm, barcode reader, imx and fridge.',
+                    onclick=
+                        call(enqueue, protocols.test_comm(), where='first') + '\n;' +
+                        store.update(page, 'queue-and-log').goto()
+                ),
+            ),
+            V.div(
+                V.span('Robotarm:'),
+                V.button(
+                    'restart',
+                    onclick=call(enqueue, protocols.home_robot(), where='first')
+                ),
+                V.button(
+                    'start freedrive',
+                    onclick=call(enqueue, protocols.start_freedrive(), where='first')
+                ),
+                V.button(
+                    'stop freedrive',
+                    onclick=call(enqueue, protocols.stop_freedrive(), where='first')
+                ),
+            )
+        )
+
+    if page.value == 'fridge':
+        with Env.make(sim=not live) as env:
+            with env.db.transaction:
+                slots = env.db.get(FridgeSlot).order(by='occupant').list()
+        project_name= store.str()
+        num_plates = store.int()
+        store.assign_names(locals())
+        ok = project_name.value and (1 <= num_plates.value <= 12)
+        yield div(
+            div('Load plates from hotel', color='var(--green)'),
+            div('Place plates in hotel positions H1, H2, ...'),
+            div(V.label('project name:',     project_name.input().extend(spellcheck='false')), align='right'),
+            div(V.label('number of plates:', num_plates.input()),                              align='right'),
+            V.button('load',
+                onclick=call(
+                    enqueue,
+                    protocols.load_fridge( project_name.value, num_plates.value)
+                ) if ok else '',
+                disabled=not ok,
+            ),
+            border='1px #fff1 solid',
+            padding='8px',
+            margin='20px 0',
+            css='& > * {padding: 4px}',
+            width='fit-content',
+        )
+        tbl = V.table(css='''
+            & td, & th {
+                padding: 3px 8px;
+                border: 1px #fff2 solid;
+            }
+        ''')
+        tbl += V.tr(*map(V.th, 'location project barcode'.split()))
+        for slot in slots:
+            tbl += V.tr(
+                V.td(slot.loc),
+                V.td(slot.occupant.project if slot.occupant else ''),
+                V.td(slot.occupant.barcode if slot.occupant else ''),
+            )
+        yield tbl
+        yield V.queue_refresh(after_ms=1000)
+
 @serve.route()
 def index():
 
     pages = '''
-        image-from-hotel-using-metadata
-        plate-metadata
-        image-from-hotel-v1
-        queue-and-log
+        -image-from-hotel-using-metadata
+        -plate-metadata
+        -image-from-hotel-v1
+        system
+        fridge
+        image-from-fridge
         queue
+        -queue-and-log
         log
     '''.split()
 
@@ -600,14 +835,27 @@ def index():
     yield {'sheet': sheet}
 
     nav = div(css='&>* {margin: 20px 10px}')
+    hidden = V.select(
+        V.option('more methods...', value=''),
+        onchange=store.update(page, js('this.selectedOptions[0].value')).goto()
+    )
 
     for p in pages:
-        nav += V.button(
-            p.replace('-', ' '),
-            onclick=store.update(page, p).goto(),
-            color='var(--yellow)' if page.value == p else '',
-        )
+        if p.startswith('-'):
+            po = p.removeprefix('-')
+            hidden += V.option(
+                p.replace('-', ' '),
+                value=po,
+                color='var(--yellow)' if page.value == po else '',
+            )
+        else:
+            nav += V.button(
+                p.replace('-', ' '),
+                onclick=store.update(page, p).goto(),
+                color='var(--yellow)' if page.value == p else '',
+            )
 
+    nav += hidden
     yield nav
 
     with store.db:

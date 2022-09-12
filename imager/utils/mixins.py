@@ -41,18 +41,51 @@ class SelectOptions(ReplaceMixin):
     order: str = 'id'
     limit: int | None = None
     offset: int | None = None
-    where_str: str | None = None
+    where_str: list[str] = field(default_factory=list)
+    where_ops: list[tuple[str, tuple[Any, ...], dict[str, Any]]] = field(default_factory=list)
+    verbose: bool = False
+
+    def add_where_op(self, op: str, *args: Any, **kws: Any) -> SelectOptions:
+        return self.replace(where_ops=[*self.where_ops, (op, args, kws)])
+
+    def add_where_str(self, *clauses: str) -> SelectOptions:
+        return self.replace(where_str=[*self.where_str, *clauses])
 
 @dataclass(frozen=True)
 class Select(Generic[P, R], PrivateReplaceMixin):
     _opts: SelectOptions = SelectOptions()
-    _where: Callable[Concatenate[SelectOptions, P], list[R]] = cast(Any, ...)
+    _where: Callable[[SelectOptions], list[R]] = cast(Any, ...)
+
+    def list(self) -> list[R]:
+        return self._where(self._opts)
 
     def where(self, *args: P.args, **kws: P.kwargs) -> list[R]:
-        return self._where(self._opts, *args, **kws)
+        return self.where_eq(*args, **kws).list()
 
-    def where_str(self, s: str, *args: P.args, **kws: P.kwargs) -> list[R]:
-        return self._where(self._opts.replace(where_str=s), *args, **kws)
+    def where_op_curry(self, op: str) -> Callable[P, Select[P, R]]:
+        def where_op(*args: P.args, **kws: P.kwargs):
+            return self._replace(_opts=self._opts.add_where_op(op, *args, **kws))
+        return where_op
+
+    @property
+    def where_eq(self):   return self.where_op_curry('==')
+    @property
+    def where_not(self):  return self.where_op_curry('!=')
+    @property
+    def where_lt(self):   return self.where_op_curry('<')
+    @property
+    def where_le(self):   return self.where_op_curry('<=')
+    @property
+    def where_gt(self):   return self.where_op_curry('>')
+    @property
+    def where_ge(self):   return self.where_op_curry('>=')
+    @property
+    def where_like(self): return self.where_op_curry('LIKE')
+    @property
+    def where_glob(self): return self.where_op_curry('GLOB')
+
+    def where_str(self, *clauses: str) -> Select[P, R]:
+        return self._replace(_opts=self._opts.add_where_str(*clauses))
 
     def get(self, *args: P.args, **kws: P.kwargs) -> R:
         return self._where(self._opts, *args, **kws)[0]
@@ -63,6 +96,13 @@ class Select(Generic[P, R], PrivateReplaceMixin):
     def order(self, by: str) -> Select[P, R]:
         return self._replace(self._opts.replace(order=by))
 
+    @property
+    def verbose(self) -> Select[P, R]:
+        return self.set_verbose()
+
+    def set_verbose(self, value: bool=True) -> Select[P, R]:
+        return self._replace(self._opts.replace(verbose=value))
+
     def __iter__(self):
         yield from self.where() # type: ignore
 
@@ -70,13 +110,19 @@ def sqlquote(s: str) -> str:
     c = "'"
     return c + s.replace(c, c+c) + c
 
+import contextlib
+
 @dataclass
 class DB:
-    _con: apsw.Connection
+    con: apsw.Connection
 
     @property
-    def con(self):
-        return self._con.cursor()
+    @contextlib.contextmanager
+    def transaction(self):
+        # self.con.execute('begin exclusive')
+        with self.con:
+            yield
+        # self.con.execute('commit')
 
     def has_table(self, name: str, type: Literal['table', 'view', 'index', 'trigger']="table") -> bool:
         return any(
@@ -124,18 +170,31 @@ class DB:
 
     def get(self, t: Callable[P, R]) -> Select[P, R]:
         Table = self.table_name(t)
-        def where(opts: SelectOptions, *args: P.args, **kws: P.kwargs) -> list[R]:
+        def where(opts: SelectOptions) -> list[R]:
             clauses: list[str] = []
-            for f, a in collect_fields(t, args, kws).items():
-                clauses += [f"value -> {sqlquote(f)} = {sqlquote(serializer.dumps(a, with_nub=False))} -> '$'"]
-            if opts.where_str:
-                assert not clauses
-                where_clause = 'where ' + opts.where_str
-            elif clauses:
-                where_clause = 'where ' + ' and '.join(clauses)
+            for op, args, kws in opts.where_ops:
+                for f, a in collect_fields(t, args, kws).items():
+                    if op in ('==', '!='):
+                        # can change to '->>' together with 'is' and 'is not'
+                        # None needs to be NULL though
+                        clauses += [f"(value -> {sqlquote(f)}) {op} ({sqlquote(serializer.dumps(a, with_nub=False))} -> '$')"]
+                    else:
+                        assert isinstance(a, (str, int, float))
+                        clauses += [f"(value ->> {sqlquote(f)}) {op} {sqlquote(a) if isinstance(a, str) else a}"]
+            clauses += [*opts.where_str]
+            if clauses:
+                where_clause = ''' and
+                    '''.join(clauses)
             else:
-                where_clause = ''
-            stmt = f'select value from {Table} {where_clause} order by value ->> {opts.order!r}'
+                where_clause = 'TRUE'
+            stmt = f'''
+                select value
+                from {Table}
+                where
+                    {where_clause}
+                order by value ->> {sqlquote(opts.order)}
+            '''
+            stmt = textwrap.dedent(stmt).strip()
             limit, offset = opts.limit, opts.offset
             if limit is None:
                 limit = -1
@@ -143,7 +202,8 @@ class DB:
                 offset = 0
             if limit != -1 or offset != 0:
                 stmt += f' limit {limit} offset {offset}'
-            # print(stmt)
+            if opts.verbose:
+                print(stmt)
             def throw(e: Exception):
                 raise e
             return [
@@ -171,64 +231,65 @@ class DBMixin(ReplaceMixin):
     id: int
 
     def save(self, db: DB) -> Self:
-        Table = db.table_name(self.__class__)
-        meta = getattr(self.__class__, '__meta__', None)
+        with db.transaction:
+            Table = db.table_name(self.__class__)
+            meta = getattr(self.__class__, '__meta__', None)
 
-        if isinstance(meta, Meta) and meta.log:
-            LogTable = meta.log_table or f'{Table}Log'
-            exists = any(
-                db.con.execute(f'''
-                    select 1 from sqlite_master where type = "table" and name = ?
-                ''', [LogTable])
-            )
-            if not exists:
-                db.con.execute(textwrap.dedent(f'''
-                    create table {LogTable} (
-                        t timestamp default (strftime('%Y-%m-%d %H:%M:%f', 'now', 'localtime')),
-                        action text,
-                        old json,
-                        new json
-                    );
-                    create trigger {Table}_insert after insert on {Table} begin
-                        insert into {LogTable}(action, old, new) values ("insert", NULL, NEW.value);
-                    end;
-                    create trigger {Table}_update after update on {Table} begin
-                        insert into {LogTable}(action, old, new) values ("update", OLD.value, NEW.value);
-                    end;
-                    create trigger {Table}_delete after delete on {Table} begin
-                        insert into {LogTable}(action, old, new) values ("delete", OLD.value, NULL);
-                    end;
-                '''))
-        if self.id == -1:
-            exists = False
-        else:
-            exists = any(
-                db.con.execute(f'''
-                    select 1 from {Table} where id = ?
-                ''', [self.id])
-            )
-        if exists:
-            db.con.execute(f'''
-                update {Table} set value = ? -> '$' where id = ?
-            ''', [serializer.dumps(self, with_nub=False), self.id])
-            # db.con.commit()
-            return self
-        else:
+            if isinstance(meta, Meta) and meta.log:
+                LogTable = meta.log_table or f'{Table}Log'
+                exists = any(
+                    db.con.execute(f'''
+                        select 1 from sqlite_master where type = "table" and name = ?
+                    ''', [LogTable])
+                )
+                if not exists:
+                    db.con.execute(textwrap.dedent(f'''
+                        create table {LogTable} (
+                            t timestamp default (strftime('%Y-%m-%d %H:%M:%f', 'now', 'localtime')),
+                            action text,
+                            old json,
+                            new json
+                        );
+                        create trigger {Table}_insert after insert on {Table} begin
+                            insert into {LogTable}(action, old, new) values ("insert", NULL, NEW.value);
+                        end;
+                        create trigger {Table}_update after update on {Table} begin
+                            insert into {LogTable}(action, old, new) values ("update", OLD.value, NEW.value);
+                        end;
+                        create trigger {Table}_delete after delete on {Table} begin
+                            insert into {LogTable}(action, old, new) values ("delete", OLD.value, NULL);
+                        end;
+                    '''))
             if self.id == -1:
-                reply = db.con.execute(f'''
-                    select ifnull(max(id) + 1, 0) from {Table};
-                ''').fetchone()
-                assert reply is not None
-                id, = reply
-                res = self.replace(id=id) # type: ignore
+                exists = False
             else:
-                id = self.id
-                res = self
-            db.con.execute(f'''
-                insert into {Table} values (? -> '$')
-            ''', [serializer.dumps(res, with_nub=False)])
-            # db.con.commit()
-            return res
+                exists = any(
+                    db.con.execute(f'''
+                        select 1 from {Table} where id = ?
+                    ''', [self.id])
+                )
+            if exists:
+                db.con.execute(f'''
+                    update {Table} set value = ? -> '$' where id = ?
+                ''', [serializer.dumps(self, with_nub=False), self.id])
+                # db.con.commit()
+                return self
+            else:
+                if self.id == -1:
+                    reply = db.con.execute(f'''
+                        select ifnull(max(id) + 1, 0) from {Table};
+                    ''').fetchone()
+                    assert reply is not None
+                    id, = reply
+                    res = self.replace(id=id) # type: ignore
+                else:
+                    id = self.id
+                    res = self
+                db.con.execute(f'''
+                    insert into {Table} values (? -> '$')
+                ''', [serializer.dumps(res, with_nub=False)])
+                # db.con.commit()
+                return res
 
     def delete(self, db: DB):
         Table = self.__class__.__name__
@@ -266,6 +327,8 @@ def test():
             },
         )
 
+    Todo.__qualname__ = 'Todo'
+
     serializer.register({'Todo': Todo})
 
     with DB.open(':memory:') as db:
@@ -273,8 +336,16 @@ def test():
         t1 = Todo('hello again').save(db)
         t2 = Todo('hello there').save(db)
         t3 = Todo('goodbye world').save(db)
-        Todos = db.get(Todo)
+        Todos = db.get(Todo).verbose
         print(*Todos, sep='\n')
+        print(*Todos.where_glob(msg='*world'), sep='\n')
+        print(*Todos.where_like(msg='hello%'), sep='\n')
+        print(*Todos.where_ge(id=1).where_le(id=2), sep='\n')
+        now = datetime.now()
+        t3.replace(deleted=now).save(db)
+        print(*Todos.where_not(deleted=None), sep='\n')
+        print(*Todos.where(deleted=now), sep='\n')
+        quit()
         print()
         t2.replace(done=True).save(db)
         print(*Todos.where(done=False), sep='\n')

@@ -11,15 +11,26 @@ from .commands import Command
 
 from .env import Env
 
-from .utils.mixins import DBMixin, DB, Meta
+from .utils.mixins import ReplaceMixin, DBMixin, DB, Meta
 from . import utils
+
+@dataclass(frozen=True)
+class FridgeOccupant(ReplaceMixin):
+    project: str = ""
+    barcode: str = ""
 
 @dataclass(frozen=True)
 class FridgeSlot(DBMixin):
     loc: str = ""
-    occupant: None | str = None
+    occupant: FridgeOccupant | None = None
     id: int = -1
-    __meta__: ClassVar = Meta(log=True)
+    __meta__: ClassVar = Meta(
+        log=True,
+        views={
+            'project': 'value ->> "occupant.project"',
+            'barcode': 'value ->> "occupant.barcode"',
+        },
+    )
 
 @dataclass(frozen=True)
 class Checkpoint(DBMixin):
@@ -58,16 +69,30 @@ FRIDGE_LOCS = [
 ]
 
 def ensure_fridge(db: DB):
-    FridgeSlots = db.get(FridgeSlot)
-    for loc in FRIDGE_LOCS:
-        if not FridgeSlots.where(loc=loc):
-            FridgeSlot(loc).save(db)
+    with db.transaction:
+        FridgeSlots = db.get(FridgeSlot)
+        for loc in FRIDGE_LOCS:
+            if not FridgeSlots.where(loc=loc):
+                FridgeSlot(loc).save(db)
 
-def enqueue(env: Env, cmds: list[Command]):
-    ensure_fridge(env.db)
-    last_pos = max((q.pos for q in env.db.get(QueueItem)), default=0)
-    for pos, cmd in enumerate(cmds, start=last_pos + 1):
-        QueueItem(cmd=cmd, pos=pos).save(env.db)
+from typing import Literal
+
+def enqueue(env: Env, cmds: list[Command], where: Literal['first', 'last'] = 'last'):
+    with env.db.transaction:
+        ensure_fridge(env.db)
+        if where == 'last':
+            last_pos = max((q.pos for q in env.db.get(QueueItem)), default=0)
+            for pos, cmd in enumerate(cmds, start=last_pos + 1):
+                assert pos > last_pos
+                QueueItem(cmd=cmd, pos=pos).save(env.db)
+        elif where == 'first':
+            first_pos = min((q.pos for q in env.db.get(QueueItem)), default=0)
+            for pos, cmd in enumerate(cmds, start=first_pos - len(cmds)):
+                assert pos < first_pos
+                QueueItem(cmd=cmd, pos=pos).save(env.db)
+        else:
+            raise ValueError(f'{where=} not valid')
+
 
 def execute(env: Env, keep_going: bool):
     while True:
@@ -90,7 +115,8 @@ def execute(env: Env, keep_going: bool):
                 try:
                     execute_one(item.cmd, env)
                     if env.is_sim and not isinstance(item.cmd, cmds.CheckpointCmd):
-                        time.sleep(5)
+                        pass
+                        # time.sleep(5)
                 except:
                     item = item.replace(error=tb.format_exc()).save(env.db)
                 else:
@@ -98,6 +124,7 @@ def execute(env: Env, keep_going: bool):
                 print('item:', item)
         if keep_going:
             time.sleep(3)
+            pass
         else:
             return
 
@@ -126,18 +153,26 @@ def execute_one(cmd: Command, env: Env) -> None:
         case cmds.FridgePutByBarcode():
             barcode = env.barcode_reader.read_and_clear()
             assert barcode
+            if cmd.check_barcode is not None:
+                if env.is_sim:
+                    barcode = cmd.check_barcode
+                # check that the plate has the barcode we thought we were holding
+                assert barcode == cmd.check_barcode, f'Expected {cmd.check_barcode} but read {barcode}'
             slot, *_ = FridgeSlots.where(occupant=None)
-            return execute_one(cmds.FridgePut(slot.loc, barcode), env)
-
-        case cmds.FridgeGetByBarcode():
-            [slot] = FridgeSlots.where(occupant=cmd.barcode)
-            return execute_one(cmds.FridgeGet(slot.loc, check_barcode=True), env)
+            next_cmd = cmds.FridgePut(loc=slot.loc, project=cmd.project, barcode=barcode)
+            return execute_one(next_cmd, env)
 
         case cmds.FridgePut():
             [slot] = FridgeSlots.where(loc=cmd.loc)
             assert slot.occupant is None
             env.fridge.put(cmd.loc)
-            slot.replace(occupant=cmd.barcode).save(env.db)
+            occupant = FridgeOccupant(project=cmd.project, barcode=cmd.barcode)
+            slot.replace(occupant=occupant).save(env.db)
+
+        case cmds.FridgeGetByBarcode():
+            occupant = FridgeOccupant(project=cmd.project, barcode=cmd.barcode)
+            [slot] = FridgeSlots.where(occupant=occupant)
+            return execute_one(cmds.FridgeGet(slot.loc, check_barcode=True), env)
 
         case cmds.FridgeGet():
             [slot] = FridgeSlots.where(loc=cmd.loc)
@@ -146,7 +181,7 @@ def execute_one(cmd: Command, env: Env) -> None:
             if cmd.check_barcode and not env.is_sim:
                 # check that the popped plate has the barcode we thought was in the fridge
                 barcode = env.barcode_reader.read_and_clear()
-                assert slot.occupant == barcode
+                assert slot.occupant.barcode == barcode
             slot.replace(occupant=None).save(env.db)
 
         case cmds.FridgeAction():
