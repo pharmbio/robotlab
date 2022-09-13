@@ -19,6 +19,7 @@ from .commands import (
     BarcodeClear,
     CheckpointCmd,
     WaitForCheckpoint,
+    Pause,
     Noop,
 )
 
@@ -30,7 +31,7 @@ def add_to_cli(p: Callable[..., list[Command]]) -> Callable[..., list[Command]]:
     return p
 
 @add_to_cli
-def image_plate_in_imx(params: list[str], hts_file: str, **_):
+def image_plate_in_imx(params: list[str], hts_file: str, **_: Any):
     assert isinstance(params, list) and len(params) == 1, 'provide one plate name'
     assert hts_file and isinstance(hts_file, str), 'specify a --hts-file'
     [plate_id] = params
@@ -74,7 +75,7 @@ def image_todos_from_hotel(todos: list[FromHotelTodo], thaw_secs: float) -> list
     return cmds
 
 @add_to_cli
-def image_from_hotel(params: list[str], hts_file: str, thaw_secs: float, **_):
+def image_from_hotel(params: list[str], hts_file: str, thaw_secs: float, **_: Any):
     assert params and isinstance(params, list), 'specify some plate names'
     assert hts_file and isinstance(hts_file, str), 'specify a --hts-file'
     return image_todos_from_hotel(
@@ -86,7 +87,7 @@ def image_from_hotel(params: list[str], hts_file: str, thaw_secs: float, **_):
     )
 
 @add_to_cli
-def test_comm(**_):
+def test_comm(**_: Any):
     cmds: list[Command] = []
     cmds += [
         RobotarmCmd('test-comm'),
@@ -97,7 +98,7 @@ def test_comm(**_):
     return cmds
 
 @add_to_cli
-def home_robot(**_):
+def home_robot(**_: Any):
     cmds: list[Command] = []
     cmds += [
         RobotarmCmd('home'),
@@ -105,7 +106,7 @@ def home_robot(**_):
     return cmds
 
 @add_to_cli
-def start_freedrive(**_):
+def start_freedrive(**_: Any):
     cmds: list[Command] = []
     cmds += [
         RobotarmCmd('freedrive'),
@@ -113,15 +114,22 @@ def start_freedrive(**_):
     return cmds
 
 @add_to_cli
-def stop_freedrive(**_):
+def stop_freedrive(**_: Any):
     cmds: list[Command] = []
     cmds += [
         RobotarmCmd('stop-freedrive'),
     ]
     return cmds
 
+def pause(**_: Any):
+    cmds: list[Command] = []
+    cmds += [
+        Pause(),
+    ]
+    return cmds
+
 @add_to_cli
-def test_image_one(params: list[str], hts_file: str, **_):
+def test_image_one(params: list[str], hts_file: str, **_: Any):
     '''
     Image one plate from H12, specify its barcode
     '''
@@ -164,14 +172,14 @@ def load_fridge(project: str, num_plates: int):
 
 def local_scope(outer=load_fridge):
     @add_to_cli
-    def load_fridge(params: list[str], num_plates: int, **_):
+    def load_fridge(params: list[str], num_plates: int, **_: Any):
         assert len(params) == 1, 'Specify project name'
         return outer(params[0], num_plates)
 
 local_scope()
 
 # @add_to_cli
-def load_by_barcode(num_plates: int, **_):
+def load_by_barcode(num_plates: int, **_: Any):
     '''
     Loads the plates from H1, H2 to H# to empty locations in the fridge
     '''
@@ -186,7 +194,7 @@ def load_by_barcode(num_plates: int, **_):
     return cmds
 
 # @add_to_cli
-def unload_by_barcode(params: list[str], **_):
+def unload_by_barcode(params: list[str], **_: Any):
     '''
     Unloads plates with the given barcodes to the hotel, locations: H1, H2 to H# to empty locations in the fridge
     '''
@@ -320,7 +328,7 @@ def image_from_fridge(todos: list[FromFridgeTodo], pop_delay_secs: float | int, 
     return cmds
 
 # @add_to_cli
-def image(params: list[str], hts_file: str, thaw_secs: float | int, **_):
+def image(params: list[str], hts_file: str, thaw_secs: float | int, **_: Any):
     '''
     Images the plates with the given barcodes. These should already be in the fridge.
     '''
@@ -372,7 +380,7 @@ If image time is much less than thaw time, several plates need to be in RT simul
 '''
 
 # @add_to_cli
-def reset_and_activate_fridge(**_):
+def reset_and_activate_fridge(**_: Any):
     cmds: list[Command] = []
     cmds += [
         FridgeAction('reset_and_activate'),
@@ -383,7 +391,7 @@ def reset_and_activate_fridge(**_):
 from .moves import movelists
 
 @add_to_cli
-def run_robotarm(params: list[str], **_):
+def run_robotarm(params: list[str], **_: Any):
     nl = '\n'
     assert params, f'No params, pick from:{nl}{nl.join(movelists.keys())}'
     for p in params:

@@ -26,6 +26,13 @@ class Noop:
     pass
 
 @dataclass(frozen=True)
+class Pause:
+    '''
+    Pause execution.
+    '''
+    pass
+
+@dataclass(frozen=True)
 class Acquire:
     '''
     Acquires the plate on the IMX (closing it first if necessary).
@@ -107,6 +114,7 @@ class WaitForCheckpoint:
 
 Command: TypeAlias = Union[
     Noop,
+    Pause,
     RobotarmCmd,
     Acquire,
     Open,

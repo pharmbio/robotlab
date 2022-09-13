@@ -145,7 +145,7 @@ sheet = '''
 
 def enqueue(cmds: list[Command], where: Literal['first', 'last'] = 'last'):
     with Env.make(sim=not live) as env:
-        execute.enqueue(env, cmds)
+        execute.enqueue(env, cmds, where=where)
 
 def enqueue_todos(todos: list[FromHotelTodo], thaw_secs: float=0):
     cmds = protocols.image_todos_from_hotel(todos, thaw_secs)
@@ -607,7 +607,13 @@ def index_page(page: Var[str]):
             with env.db.transaction:
                 lines: list[str] = ['project,barcode,base_name,hts_file']
                 for slot in env.db.get(FridgeSlot):
-                    if slot.occupant:
+                    if slot.occupant and slot.occupant.project == 'fridge-test':
+                        barcode = slot.occupant.barcode
+                        barcode = re.sub('[(].*?[)]', '', barcode)
+                        barcode = re.sub('[^0-9]', '', barcode)
+                        name = f'test-{barcode}'
+                        lines += [f'{slot.occupant.project},{slot.occupant.barcode},{name},fridge-test/short protocol.hts']
+                    elif slot.occupant:
                         lines += [f'{slot.occupant.project},{slot.occupant.barcode},,']
         examples = {
             'protac': '''
@@ -743,6 +749,7 @@ def index_page(page: Var[str]):
                         margin-top: 5px;
                     }
                     & > * > * { margin: 5px; }
+                    & { width: fit-content; }
                 '''
             ),
             V.div(
@@ -768,6 +775,17 @@ def index_page(page: Var[str]):
                     'stop freedrive',
                     onclick=call(enqueue, protocols.stop_freedrive(), where='first')
                 ),
+            ),
+            V.div(
+                V.span('Queue processing:'),
+                V.button(
+                    'Pause',
+                    onclick=(
+                        call(enqueue, protocols.pause(), where='first') + '\n;' +
+                        store.update(page, 'queue-and-log').goto()
+                    )
+                ),
+                V.span('(resume by removing pause from queue)', opacity='0.85'),
             )
         )
 
@@ -785,9 +803,12 @@ def index_page(page: Var[str]):
             div(V.label('project name:',     project_name.input().extend(spellcheck='false')), align='right'),
             div(V.label('number of plates:', num_plates.input()),                              align='right'),
             V.button('load',
-                onclick=call(
-                    enqueue,
-                    protocols.load_fridge( project_name.value, num_plates.value)
+                onclick=(
+                    call(
+                        enqueue,
+                        protocols.load_fridge(project_name.value, num_plates.value)
+                    ) + ';\n' +
+                        store.update(page, 'queue-and-log').goto()
                 ) if ok else '',
                 disabled=not ok,
             ),

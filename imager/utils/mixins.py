@@ -112,17 +112,34 @@ def sqlquote(s: str) -> str:
 
 import contextlib
 
+A = TypeVar('A')
+
 @dataclass
 class DB:
     con: apsw.Connection
+    transaction_depth: int = 0
 
     @property
     @contextlib.contextmanager
     def transaction(self):
-        # self.con.execute('begin exclusive')
-        with self.con:
+        '''
+        Exclusive transaction (begin exclusive .. commit), context manager version.
+        '''
+        self.transaction_depth += 1
+        if self.transaction_depth == 1:
+            self.con.execute('begin exclusive')
             yield
-        # self.con.execute('commit')
+            self.con.execute('commit')
+        else:
+            yield
+        self.transaction_depth -= 1
+
+    def with_transaction(self, do: Callable[[], A]) -> A:
+        '''
+        Exclusive transaction (begin exclusive .. commit), expression version.
+        '''
+        with self.transaction:
+            return do()
 
     def has_table(self, name: str, type: Literal['table', 'view', 'index', 'trigger']="table") -> bool:
         return any(
@@ -336,7 +353,7 @@ def test():
         t1 = Todo('hello again').save(db)
         t2 = Todo('hello there').save(db)
         t3 = Todo('goodbye world').save(db)
-        Todos = db.get(Todo).verbose
+        Todos = db.get(Todo) # .verbose
         print(*Todos, sep='\n')
         print(*Todos.where_glob(msg='*world'), sep='\n')
         print(*Todos.where_like(msg='hello%'), sep='\n')

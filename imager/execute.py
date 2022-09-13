@@ -87,9 +87,10 @@ def enqueue(env: Env, cmds: list[Command], where: Literal['first', 'last'] = 'la
                 QueueItem(cmd=cmd, pos=pos).save(env.db)
         elif where == 'first':
             first_pos = min((q.pos for q in env.db.get(QueueItem)), default=0)
+            print(f'{first_pos=}')
             for pos, cmd in enumerate(cmds, start=first_pos - len(cmds)):
                 assert pos < first_pos
-                QueueItem(cmd=cmd, pos=pos).save(env.db)
+                print(QueueItem(cmd=cmd, pos=pos).save(env.db))
         else:
             raise ValueError(f'{where=} not valid')
 
@@ -108,19 +109,21 @@ def execute(env: Env, keep_going: bool):
                     print(item.error)
                     print('the top of the queue has errored')
                     break
-                if item.started and not item.finished:
-                    print('the top of the queue is already running')
-                    break
-                item = item.replace(started=datetime.now()).save(env.db)
+                if not item.started:
+                    item = item.replace(started=datetime.now()).save(env.db)
+                else:
+                    assert isinstance(item.cmd, (cmds.WaitForIMX, cmds.Pause, cmds.WaitForCheckpoint))
                 try:
-                    execute_one(item.cmd, env)
+                    res = execute_one(item.cmd, env)
                     if env.is_sim and not isinstance(item.cmd, cmds.CheckpointCmd):
-                        pass
-                        # time.sleep(5)
+                        time.sleep(1)
                 except:
                     item = item.replace(error=tb.format_exc()).save(env.db)
                 else:
-                    item = item.replace(finished=datetime.now()).save(env.db)
+                    if res == 'wait':
+                        time.sleep(1)
+                    else:
+                        item = item.replace(finished=datetime.now()).save(env.db)
                 print('item:', item)
         if keep_going:
             time.sleep(3)
@@ -128,7 +131,7 @@ def execute(env: Env, keep_going: bool):
         else:
             return
 
-def execute_one(cmd: Command, env: Env) -> None:
+def execute_one(cmd: Command, env: Env) -> None | Literal['wait']:
     FridgeSlots = env.db.get(FridgeSlot)
     Checkpoints = env.db.get(Checkpoint)
     utils.pr(cmd)
@@ -147,8 +150,10 @@ def execute_one(cmd: Command, env: Env) -> None:
         case cmds.Close():
             env.imx.close()
         case cmds.WaitForIMX():
-            while not env.imx.is_ready():
-                time.sleep(1)
+            if not env.imx.is_ready():
+                return 'wait'
+        case cmds.Pause():
+            return 'wait'
 
         case cmds.FridgePutByBarcode():
             barcode = env.barcode_reader.read_and_clear()
@@ -196,8 +201,8 @@ def execute_one(cmd: Command, env: Env) -> None:
             Checkpoint(name=cmd.name).save(env.db)
         case cmds.WaitForCheckpoint():
             [checkpoint] = Checkpoints.where(name=cmd.name)
-            while datetime.now() < checkpoint.t + cmd.plus_timedelta:
-                time.sleep(1)
+            if datetime.now() < checkpoint.t + cmd.plus_timedelta:
+                return 'wait'
 
         case cmds.Noop():
             pass
