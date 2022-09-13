@@ -151,6 +151,13 @@ def enqueue_todos(todos: list[FromHotelTodo], thaw_secs: float=0):
     cmds = protocols.image_todos_from_hotel(todos, thaw_secs)
     enqueue(cmds)
 
+def make_hts_files(todos: list[tuple[str, FromFridgeTodo]]) -> list[FromFridgeTodo]:
+    out: list[FromFridgeTodo] = []
+    for rel, todo in todos:
+        full = modify_hts_file(rel, todo.base_name)
+        out += [todo.replace(hts_full_path=full)]
+    return out
+
 def enqueue_plates_with_metadata(plates: list[tuple[str, PlateMetadata]], thaw_secs: float=0):
     todos: list[FromHotelTodo] = []
     for hotel_loc, plate in plates:
@@ -164,11 +171,11 @@ def enqueue_plates_with_metadata(plates: list[tuple[str, PlateMetadata]], thaw_s
         ]
     enqueue_todos(todos, thaw_secs)
 
-def modify_hts_file(hts_file: str, base_name: str):
-    project = str(Path(hts_file).parent)
+def modify_hts_file(hts_file_rel: str, base_name: str):
+    project = str(Path(hts_file_rel).parent)
     res = post_json(f'{IMX_URL}/dir_list', {
         'cmd': 'hts_mod',
-        'path': hts_file,
+        'path': hts_file_rel,
         'experiment_set': project,
         'experiment_base_name': base_name,
     })
@@ -647,7 +654,7 @@ def index_page(page: Var[str]):
         ok = True
         htss = {hts.path.lower(): hts for hts in get_htss()}
         errors: list[str] = []
-        fridge_todo: list[FromFridgeTodo] = []
+        fridge_todo: list[tuple[str, FromFridgeTodo]] = []
         with Env.make(sim=not live) as env:
             for i, row in enumerate(data, start=1):
                 my_errors: list[str] = []
@@ -682,12 +689,12 @@ def index_page(page: Var[str]):
                         *['  ' + err for err in my_errors]
                     ]
                 if hts:
-                    fridge_todo += [FromFridgeTodo(
+                    fridge_todo += [(hts.path, FromFridgeTodo(
                         plate_project=project,
                         plate_barcode=barcode,
                         base_name=base_name,
-                        hts_full_path=hts.full,
-                    )]
+                        hts_full_path='error: must run make_hts_files first',
+                    ))]
 
         pop_delay_hours = store.str('0')
         min_thaw_hours = store.str('0')
@@ -727,7 +734,15 @@ def index_page(page: Var[str]):
             V.button('add to queue',
                 onclick=
                     (
-                        call(enqueue, protocols.image_from_fridge(fridge_todo, 0, 0)) + ';\n' +
+                        call(lambda:
+                                enqueue(
+                                    protocols.image_from_fridge(
+                                        make_hts_files(fridge_todo),
+                                        pop_delay_secs=pop_delay_secs,
+                                        min_thaw_secs=min_thaw_secs,
+                                    )
+                                ))
+                            + ';\n' +
                         store.update(page, 'queue-and-log').goto()
                     )
                     if ok else '',

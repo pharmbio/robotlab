@@ -4,6 +4,8 @@ from dataclasses import dataclass
 
 from .moves import HotelLocs
 
+from .utils.mixins import ReplaceMixin
+
 from .commands import (
     Command,
     RobotarmCmd,
@@ -210,11 +212,11 @@ def unload_by_barcode(params: list[str], **_: Any):
     return cmds
 
 @dataclass(frozen=True)
-class FromFridgeTodo:
-    plate_project: str
-    plate_barcode: str
-    base_name: str
-    hts_full_path: str
+class FromFridgeTodo(ReplaceMixin):
+    plate_project: str = ''
+    plate_barcode: str = ''
+    base_name: str     = ''
+    hts_full_path: str = ''
 
 from collections import defaultdict, Counter
 
