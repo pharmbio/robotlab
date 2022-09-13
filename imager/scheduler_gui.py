@@ -343,7 +343,7 @@ def index_page(page: Var[str]):
         if items:
             yield V.button(
                 'clear queue',
-                onclick='window.config("really?") && ' + call(clear_queue)
+                onclick='window.confirm("really?") && ' + call(clear_queue)
             )
 
     if page.value == 'log':
