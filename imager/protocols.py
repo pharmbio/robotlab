@@ -164,8 +164,8 @@ def load_fridge(project: str, num_plates: int):
     for hotel_loc in reversed(HotelLocs[:num_plates]):
         cmds += [
             RobotarmCmd(f'{hotel_loc}-to-H12') if hotel_loc != 'H12' else Noop(),
-            RobotarmCmd('H12-to-fridge'),
             BarcodeClear(),
+            RobotarmCmd('H12-to-fridge'),
             FridgePutByBarcode(project=project),
         ]
     return cmds
@@ -277,6 +277,7 @@ def image_from_fridge(todos: list[FromFridgeTodo], pop_delay_secs: float | int, 
                     WaitForCheckpoint(f'pop delay {name}', plus_secs=pop_delay_secs),
                 ]
             ),
+            BarcodeClear(),
             FridgeGetByBarcode(project=project, barcode=barcode),
             RobotarmCmd('fridge-to-H12'),
             CheckpointCmd(f'RT {name}'),
@@ -297,8 +298,8 @@ def image_from_fridge(todos: list[FromFridgeTodo], pop_delay_secs: float | int, 
             Open(),
             RobotarmCmd('imx-to-H12', keep_imx_open=True),
             Close(),
-            RobotarmCmd('H12-to-fridge'),
             BarcodeClear(),
+            RobotarmCmd('H12-to-fridge'),
             FridgePutByBarcode(project=project, check_barcode=barcode),
         ]
 

@@ -777,6 +777,13 @@ def index_page(page: Var[str]):
                 ),
             ),
             V.div(
+                V.span('Fridge:'),
+                V.button(
+                    'restart',
+                    onclick=call(enqueue, protocols.reset_and_activate_fridge(), where='first')
+                ),
+            ),
+            V.div(
                 V.span('Queue processing:'),
                 V.button(
                     'Pause',
