@@ -292,7 +292,7 @@ def image_from_fridge(todos: list[FromFridgeTodo], pop_delay_secs: float | int, 
             RobotarmCmd('H12-to-imx', keep_imx_open=True),
             Close(),
             CheckpointCmd(f'image-begin {barcode}'),
-            Acquire(hts_file=todo.hts_full_path, plate_id=barcode),
+            Acquire(hts_file=todo.hts_full_path, plate_id=''),
         ]
         chunks[('imx -> fridge', i)] = [
             WaitForIMX(),
