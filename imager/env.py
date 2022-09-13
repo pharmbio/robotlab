@@ -106,17 +106,16 @@ class IMX(IMXLike):
             _res = self.send('GOTO,LOAD')
         else:
             _res = self.send('GOTO,LOAD')
-            while True:
-                time.sleep(0.5)
-                if self.status() == IMXStatus('READY', 'LOAD'):
-                    break
+            while not self.is_ready():
+                time.sleep(1)
 
     def close(self):
-        _res = self.send('GOTO,SAMPLE')
-        while True:
-            time.sleep(0.5)
-            if self.status() == IMXStatus('READY', 'SAMPLE'):
-                break
+        try:
+            _res = self.send('GOTO,SAMPLE')
+        except ValueError as e:
+            print('ignoring', e)
+        while not self.is_ready():
+            time.sleep(1)
         # does this work if there is no plate in?
         # otherwise use RUNJOURNAL on the close.JNL
 
@@ -129,10 +128,13 @@ class IMX(IMXLike):
         _imx_id, status_code, details, *more_details = reply.split(',')
         ret = IMXStatus(code=status_code, details=details)
         print('imx:', ret, more_details)
+        if ret.code == 'ERROR':
+            nl = '\n'
+            raise ValueError(f'IMX errored!{nl}{ret}')
         return ret
 
     def is_ready(self):
-        return self.status().code in ('READY', 'DONE')
+        return self.status().code in ('READY', 'DONE', 'OK')
 
     def acquire(self, *, plate_id: str, hts_file: str):
         plate_id = ''.join(
@@ -140,9 +142,9 @@ class IMX(IMXLike):
             for char in plate_id
         )
         _res = self.send(f'RUN,{plate_id},{hts_file}')
-        time.sleep(0.5)
+        time.sleep(1)
         while self.status().code not in ('RUNNING', 'DONE'):
-            time.sleep(0.5)
+            time.sleep(1)
         return
 
 import random

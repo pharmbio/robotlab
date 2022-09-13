@@ -8,8 +8,6 @@ from .env import Env
 from .protocols import protocols_dict
 from . import utils
 
-import time
-
 @dataclass(frozen=True)
 class Args:
     num_plates: int       = arg(help='number of plates to work on the hotel (H1,H2,...,H#)')
