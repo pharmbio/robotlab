@@ -235,14 +235,15 @@ class DB:
     @contextmanager
     @staticmethod
     def open(path: str):
-        con = apsw.Connection(path)
-        # print('opened', path)
-        yield DB(con)
-        con.close()
+        db = DB.connect(path)
+        yield db
+        db.con.close()
 
     @staticmethod
     def connect(path: str):
-        return DB(apsw.Connection(path))
+        con = apsw.Connection(path)
+        con.setbusytimeout(2000)
+        return DB(con)
 
 class DBMixin(ReplaceMixin):
     id: int
