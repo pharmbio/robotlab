@@ -134,7 +134,7 @@ class IMX(IMXLike):
         return ret
 
     def is_ready(self):
-        return self.status().code in ('READY', 'DONE', 'OK')
+        return self.status().code in ('READY', 'DONE')
 
     def acquire(self, *, plate_id: str, hts_file: str):
         plate_id = ''.join(
