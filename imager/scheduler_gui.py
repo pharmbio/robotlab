@@ -195,6 +195,15 @@ def modify_queue(item: QueueItem, action: Literal['restart', 'remove']):
                 else:
                     item.replace(started=datetime.now(), finished=datetime.now(), error=None).save(env.db)
 
+def clear_queue():
+    with Env.make(sim=not live) as env:
+        with env.db.transaction:
+            for item in env.db.get(QueueItem).where(finished=None):
+                if item.started:
+                    item.replace(finished=datetime.now(), error=None).save(env.db)
+                else:
+                    item.replace(started=datetime.now(), finished=datetime.now(), error=None).save(env.db)
+
 def queue_table(items: list[QueueItem]):
     grid = div(
         padding_top='20px',
@@ -330,6 +339,12 @@ def index_page(page: Var[str]):
             items = env.db.get(QueueItem).order(by='pos').where(finished=None)
             yield queue_table(items)
         yield V.queue_refresh(300)
+
+        if items:
+            yield V.button(
+                'clear queue',
+                onclick='window.config("really?") && ' + call(clear_queue)
+            )
 
     if page.value == 'log':
         with Env.make(sim=not live) as env:
