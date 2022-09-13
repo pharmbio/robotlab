@@ -107,7 +107,7 @@ class IMX(IMXLike):
         except ValueError as e:
             print('ignoring', e)
         while True:
-            time.sleep(0.5)
+            time.sleep(0.1)
             if self.status() == IMXStatus('READY', 'LOAD'):
                 break
 
@@ -124,7 +124,7 @@ class IMX(IMXLike):
         except ValueError as e:
             print('ignoring', e)
         while True:
-            time.sleep(0.5)
+            time.sleep(0.1)
             if self.status() == IMXStatus('READY', 'SAMPLE'):
                 break
         # does this work if there is no plate in?
