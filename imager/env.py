@@ -102,20 +102,19 @@ class IMX(IMXLike):
         return res
 
     def open(self, sync: bool=True):
-        if not sync:
-            _res = self.send('GOTO,LOAD')
-        else:
-            _res = self.send('GOTO,LOAD')
-            while not self.is_ready():
-                time.sleep(1)
+        self.ensure_ready()
+        _res = self.send('GOTO,LOAD')
+        if sync:
+            self.ensure_ready()
 
     def close(self):
+        self.ensure_ready()
         try:
             _res = self.send('GOTO,SAMPLE')
         except ValueError as e:
             print('ignoring', e)
-        while not self.is_ready():
-            time.sleep(1)
+        time.sleep(1)
+        self.ensure_ready()
         # does this work if there is no plate in?
         # otherwise use RUNJOURNAL on the close.JNL
 
@@ -133,10 +132,15 @@ class IMX(IMXLike):
             raise ValueError(f'IMX errored!{nl}{ret}')
         return ret
 
+    def ensure_ready(self):
+        while not self.is_ready():
+            time.sleep(1)
+
     def is_ready(self):
         return self.status().code in ('READY', 'DONE')
 
     def acquire(self, *, plate_id: str, hts_file: str):
+        self.ensure_ready()
         plate_id = ''.join(
             char if re.match(r'^[\w\d_ ]$', char) else '-'
             for char in plate_id
