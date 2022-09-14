@@ -64,7 +64,7 @@ utils.serializer.register(globals())
 
 FRIDGE_LOCS = [
     f'{slot+1}x{level+1}'
-    for slot in range(1)
+    for slot in range(8)
     for level in range(17)
 ]
 

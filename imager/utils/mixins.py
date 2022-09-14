@@ -209,7 +209,7 @@ class DB:
                 from {Table}
                 where
                     {where_clause}
-                order by value ->> {sqlquote(opts.order)}
+                order by value ->> {sqlquote(opts.order)} nulls last
             '''
             stmt = textwrap.dedent(stmt).strip()
             limit, offset = opts.limit, opts.offset
