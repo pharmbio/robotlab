@@ -33,14 +33,23 @@ from .protocols import FromHotelTodo, FromFridgeTodo
 
 import csv
 
-def parse_csv(s: str):
+def parse_csv(s: str, fieldnames: list[str]):
     try:
         niff = csv.Sniffer()
         dialect = niff.sniff(s)
     except:
         dialect = None
-    if dialect:
-        reader = csv.DictReader(s.splitlines(), dialect=dialect)
+    lines = s.splitlines()
+    if dialect and lines:
+        has_header = True
+        for name in fieldnames:
+            if name not in lines[0]:
+                has_header = False
+        reader = csv.DictReader(
+            lines,
+            dialect=dialect,
+            fieldnames=None if has_header else fieldnames
+        )
         return list(reader)
 
 serve.suppress_flask_logging()
@@ -479,7 +488,7 @@ def index_page(page: Var[str]):
             V.button('load example 2', onclick=store.update(paste, example2).goto()),
         )
         yield div('csv contents:', padding='0px 10px', margin_top='40px')
-        data = parse_csv(paste.value)
+        data = parse_csv(paste.value, fieldnames='base_name hts_file'.split())
         if data:
             keys = data[0].keys()
             ok = True
@@ -508,6 +517,7 @@ def index_page(page: Var[str]):
             table, ok = plate_metadata_table(db.get(PlateMetadata).order(by='base_name').where())
             yield table
 
+            css='& > button { margin-right: 6px; margin-top: 6px; }'
     if page.value == 'image-from-hotel-using-metadata':
         # htss = {hts.path: hts for hts in get_htss()}
 
@@ -660,10 +670,17 @@ def index_page(page: Var[str]):
             *[
                 V.button(f'load example {k}', onclick=store.update(paste, v).goto())
                 for k, v in examples.items()
-            ]
+            ],
         )
-        data = parse_csv(paste.value)
+        fieldnames = 'project barcode base_name hts_file'.split()
+        data = parse_csv(paste.value, fieldnames=fieldnames)
         if not data:
+            yield div(
+                'No valid csv data found in textarea',
+                padding='10px',
+                color='var(--red)',
+                opacity='0.9'
+            )
             return
         keys = data[0].keys()
         ok = True
@@ -673,10 +690,9 @@ def index_page(page: Var[str]):
         with Env.make(sim=not live) as env:
             for i, row in enumerate(data, start=1):
                 my_errors: list[str] = []
-                fields = 'project barcode base_name hts_file'.split()
                 trimmed = {
                     k: (v if isinstance(v := row.get(k), str) else '')
-                    for k in fields
+                    for k in fieldnames
                 }
                 project, barcode, base_name, hts_file = trimmed.values()
                 for k, v in trimmed.items():
@@ -686,9 +702,9 @@ def index_page(page: Var[str]):
                     occupant = FridgeOccupant(project=project, barcode=barcode)
                     occs = env.db.get(FridgeSlot).where(occupant=occupant)
                     if len(occs) == 0:
-                        my_errors += [f'Barcode not in fridge']
+                        my_errors += [f'Barcode {barcode} in project {project!r} not in fridge']
                     elif len(occs) > 1:
-                        my_errors += [f'Barcode duplicated in fridge']
+                        my_errors += [f'Barcode {barcode} in project {project!r} duplicated in fridge']
                 hts = htss.get(hts_file.lower())
                 if hts_file and not hts:
                     my_errors += [f'File {hts_file!r} not found']
@@ -698,7 +714,7 @@ def index_page(page: Var[str]):
                 if my_errors:
                     desc = row.get('barcode', row.get('base_name', ''))
                     if desc:
-                        desc = f' ({desc})'
+                        desc = f', {desc}'
                     errors += [
                         f'Row {i}{desc}:',
                         *['  ' + err for err in my_errors]
