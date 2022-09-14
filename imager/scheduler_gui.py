@@ -866,16 +866,24 @@ def index_page(page: Var[str]):
             div('Place plates in hotel positions H1, H2, ...'),
             div(V.label('project name:',     project_name.input().extend(spellcheck='false')), align='right'),
             div(V.label('number of plates:', num_plates.input()),                              align='right'),
-            V.button('load',
-                onclick=(
-                    call(
-                        enqueue,
-                        protocols.load_fridge(project_name.value, num_plates.value)
-                    ) + ';\n' +
-                        store.update(page, 'queue-and-log').goto()
-                ) if ok else '',
-                disabled=not ok,
-            ),
+            *[
+                V.button(text,
+                    onclick=(
+                        call(
+                            enqueue,
+                            protocols.load_fridge(project_name.value, num_plates.value),
+                            where=where,
+                        ) + ';\n' +
+                            store.update(page, 'queue-and-log').goto()
+                    ) if ok else '',
+                    disabled=not ok,
+                    margin_right='10px',
+                )
+                for where, text in [
+                    ('first', 'load immediately'),
+                    ('last', 'load at end of queue'),
+                ]
+            ],
             border='1px #fff1 solid',
             padding='8px',
             margin='20px 0',
