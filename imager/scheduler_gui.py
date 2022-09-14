@@ -251,7 +251,7 @@ def queue_table(items: list[QueueItem]):
         grid += V.div(
             item.cmd.__class__.__name__,
             data_item=str(item),
-            data_started=bool(item.started),
+            data_started='true' if item.started else '',
             onclick=purge,
             cursor=purge and 'pointer',
         )
