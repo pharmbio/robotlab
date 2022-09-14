@@ -713,6 +713,7 @@ def index_page(page: Var[str]):
 
         pop_delay_hours = store.str('0')
         min_thaw_hours = store.str('0')
+        first_plate_in_rt = store.bool(False)
 
         try:
             pop_delay_secs = float(pop_delay_hours.value) * 3600
@@ -733,6 +734,8 @@ def index_page(page: Var[str]):
         )
         ok = not errors
 
+        first_plate_in_rt_value = first_plate_in_rt.value
+
         yield V.div(
             dict(
                 css='''
@@ -742,8 +745,30 @@ def index_page(page: Var[str]):
                 '''
             ),
             V.div(
-                div(V.label('delay from imx start acquire to take out next plate (hours):', pop_delay_hours.input()), align='right', ),
-                div(V.label('minimum time in room temperature before acquire (hours):', min_thaw_hours.input()), align='right', ),
+                V.label(V.span('delay from imx start acquire to take out next plate (hours):'), pop_delay_hours.input()),
+                V.label(V.span('minimum time in room temperature before acquire (hours):'),     min_thaw_hours.input()),
+                V.label(V.span('ignore minimum time requirement for first plate:'),             first_plate_in_rt.input()),
+                css='''
+                    & > label {
+                        display: contents;
+                    }
+                    & > label > *:first-child {
+                        place-self: center right;
+                    }
+                    & > label > *:last-child {
+                        place-self: center left;
+                    }
+                    & input[type=checkbox] {
+                        filter: invert(83%) hue-rotate(135deg);
+                        transform: scale(120%);
+                        margin-left: 5px;
+                    }
+                    & {
+                        display: grid;
+                        grid-template-columns: 1fr 200px;
+                        grid-gap: 10px;
+                    }
+                '''
             ),
             V.div(
             V.button('add to queue',
@@ -755,6 +780,7 @@ def index_page(page: Var[str]):
                                         make_hts_files(fridge_todo),
                                         pop_delay_secs=pop_delay_secs,
                                         min_thaw_secs=min_thaw_secs,
+                                        first_plate_in_rt=first_plate_in_rt_value,
                                     )
                                 ))
                             + ';\n' +
@@ -765,6 +791,7 @@ def index_page(page: Var[str]):
                 title='\n'.join(errors),
                 ),
                 align='center',
+                margin='20px',
             ),
             width='fit-content',
         )

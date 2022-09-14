@@ -255,7 +255,7 @@ Desc = tuple[str, int]
 
 import graphlib
 
-def image_from_fridge(todos: list[FromFridgeTodo], pop_delay_secs: float | int, min_thaw_secs: float | int) -> list[Command]:
+def image_from_fridge(todos: list[FromFridgeTodo], pop_delay_secs: float | int, min_thaw_secs: float | int, first_plate_in_rt: bool) -> list[Command]:
     adjacent: dict[Desc, set[Desc]] = defaultdict(set)
 
     def seq(descs: list[Desc | None]):
@@ -281,11 +281,12 @@ def image_from_fridge(todos: list[FromFridgeTodo], pop_delay_secs: float | int, 
             ),
             BarcodeClear(),
             FridgeGetByBarcode(project=project, barcode=barcode),
-            RobotarmCmd('fridge-to-H12'),
             CheckpointCmd(f'RT {name}'),
+            RobotarmCmd('fridge-to-H12'),
             RobotarmCmd('H12-to-H11'),
         ]
         chunks[('RT -> imx', i)] = [
+            Noop() if i == 0 and first_plate_in_rt else
             WaitForCheckpoint(f'RT {name}', plus_secs=min_thaw_secs),
             RobotarmCmd('H11-to-H12'),
             Open(),
