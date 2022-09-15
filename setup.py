@@ -6,6 +6,7 @@ requirements = '''
 '''
 
 console_scripts = '''
+    labrobots=labrobots.server:main
     labrobots-server=labrobots_server.main:main
     labrobots-example-repl=labrobots_server.main:example_repl
     labrobots-dir-list-repl=labrobots_server.dir_list_repl:main
@@ -19,6 +20,7 @@ name='labrobots'
 packages=f'''
     labrobots_server
     incubator_repl
+    labrobots
 '''
 
 setup(
