@@ -10,16 +10,16 @@ import sys
 
 def main():
     parser = ArgumentParser('labrobots_dir_list_repl')
-    parser.add_argument('--enable-write-file', action='store_true')
+    parser.add_argument('--enable-hts-mod', action='store_true')
     parser.add_argument('--root-dir', type=str, required=True)
     parser.add_argument('--extension', type=str, required=True)
     args = parser.parse_args(sys.argv[1:])
     root_dir = args.root_dir
     ext = args.extension.strip('.')
     root = Path(root_dir).resolve()
-    dir_list_repl(root, ext, args.enable_write_file)
+    dir_list_repl(root, ext, args.enable_hts_mod)
 
-def dir_list_repl(root: Path, ext: str, enable_write_file: bool=False):
+def dir_list_repl(root: Path, ext: str, enable_hts_mod: bool=False):
     print('message', locals())
     while True:
         print('ready')
@@ -49,11 +49,10 @@ def dir_list_repl(root: Path, ext: str, enable_write_file: bool=False):
                     }]
                 print('value', json.dumps(value))
             elif d['cmd'] == 'hts_mod':
-                assert enable_write_file
+                assert enable_hts_mod
                 experiment_set = d['experiment_set']
                 experiment_base_name = d['experiment_base_name']
                 full_path = (root / Path(d['path'])).resolve()
-                rel_path = full_path.relative_to(root)
                 lines = full_path.read_bytes().splitlines(keepends=True)
                 assert lines[1].startswith(b'"stExperimentSet", "'), lines[:3]
                 assert lines[2].startswith(b'"stDataFile", "'), lines[:3]
@@ -79,26 +78,6 @@ def dir_list_repl(root: Path, ext: str, enable_write_file: bool=False):
                         break
                 else:
                     print('error could not make a filename for file')
-            elif d['cmd'] == 'read':
-                full_path = (root / Path(d['path'])).resolve()
-                rel_path = full_path.relative_to(root)
-                print('value', json.dumps({
-                    'path': str(rel_path).replace('\\', '/'),
-                    'full': str(full_path),
-                    'contents': full_path.read_text(),
-                }))
-            elif d['cmd'] == 'write':
-                assert enable_write_file
-                full_path = (root / Path(d['path'])).resolve()
-                rel_path = full_path.relative_to(root)
-                contents = d['contents']
-                assert not full_path.exists()
-                full_path.write_text(contents)
-                print('value', json.dumps({
-                    'path': str(rel_path).replace('\\', '/'),
-                    'full': str(full_path),
-                    'contents': full_path.read_text(),
-                }))
             else:
                 print('message no such command')
                 print('error')

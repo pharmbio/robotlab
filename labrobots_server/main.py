@@ -155,12 +155,12 @@ def main_with_args(port: int, host: str, test: bool, node_name: str):
     elif node_name == 'ImageXpress':
         machines = [
             Machine('example',  args=[exe('labrobots-example-repl')]),
-            Machine('dir_list', args=[exe('labrobots-dir-list-repl'), '--enable-write-file', '--root-dir', HTS_PROTOCOLS_ROOT, '--extension', 'HTS']),
+            Machine('dir_list', args=[exe('labrobots-dir-list-repl'), '--enable-hts-mod', '--root-dir', HTS_PROTOCOLS_ROOT, '--extension', 'HTS']),
         ]
     else:
         machines = [
             Machine('example',  args=[exe('labrobots-example-repl')]),
-            Machine('dir_list', args=[exe('labrobots-dir-list-repl'), '--enable-write-file', '--root-dir', '.', '--extension', 'py']),
+            Machine('dir_list', args=[exe('labrobots-dir-list-repl'), '--enable-hts-mod', '--root-dir', '.', '--extension', 'py']),
         ]
 
     machine_by_name = {m.name: m for m in machines}
