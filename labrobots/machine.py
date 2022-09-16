@@ -172,7 +172,10 @@ class Git(Machine):
         print('killed.')
 
     def head(self) -> str:
-        return check_output(['git', 'rev-parse', 'HEAD']).decode()
+        return check_output(['git', 'rev-parse', 'HEAD']).decode().strip()
+
+    def show(self) -> list[str]:
+        return check_output(['git', 'show']).decode().strip().splitlines()
 
 A = TypeVar('A')
 
