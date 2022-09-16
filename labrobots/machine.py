@@ -1,17 +1,20 @@
 from __future__ import annotations
+
+from contextlib import contextmanager
+from dataclasses import dataclass, field, Field, fields
+from dataclasses import dataclass, field, replace
+from threading import Thread, Lock
+from typing_extensions import Self
+from typing import Callable, Any, TypeVar
+from typing import Union, Tuple, Dict, Callable, Any
+from urllib.request import urlopen, Request
+import inspect
+import json
+import re
 import socket
 import traceback
-import re
-from dataclasses import dataclass, field, replace
-from typing import Union, Tuple, Dict, Callable, Any
-import typing as t
-import typing_extensions as te
-import json
-from threading import Thread, Lock
-from contextlib import contextmanager
-from urllib.request import urlopen, Request
 import traceback as tb
-import inspect
+import typing as t
 
 from flask import Flask, jsonify, request
 
@@ -121,7 +124,7 @@ class Machine:
             return jsonify(call(cmd, **req))
 
     @classmethod
-    def remote(cls, name: str, host: str) -> te.Self:
+    def remote(cls, name: str, host: str) -> Self:
         def call(attr_path: list[str], *args: Any, **kwargs: Any) -> Any:
             assert len(attr_path) == 1
             cmd = attr_path[0]
@@ -157,24 +160,26 @@ class Echo(Machine):
     def echo(self, *args: str, **kws: str) -> str:
         return f'echo {args!r} {kws!r}'
 
-    def git_pull_and_shutdown(self):
-        from subprocess import run
-        import os
-        import signal
+from subprocess import run, check_output
+import os
+import signal
+
+class Git(Machine):
+    def pull_and_shutdown(self):
         run(['git', 'pull'])
         print('killing process...')
         os.kill(os.getpid(), signal.SIGTERM)
         print('killed.')
 
-from dataclasses import dataclass, field, Field, fields
-from typing import Callable, Any, TypeVar
-from typing_extensions import Self
+    def head(self) -> str:
+        return check_output(['git', 'rev-parse', 'HEAD']).decode()
 
 A = TypeVar('A')
 
 @dataclass(frozen=True)
 class Machines:
     echo: Echo = Echo()
+    git: Git = Git()
 
     @classmethod
     def remote(cls, host: str) -> te.Self:
