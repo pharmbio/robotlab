@@ -10,11 +10,9 @@ from typing import Union, Tuple, Dict, Callable, Any
 from urllib.request import urlopen, Request
 import inspect
 import json
-import re
-import socket
-import traceback
 import traceback as tb
 import typing as t
+import textwrap
 
 from flask import Flask, jsonify, request
 
@@ -37,7 +35,7 @@ class Machine:
         pass
 
     def help(self):
-        docs: dict[str, list[str]] = {}
+        out: dict[str, list[str]] = {}
         for name, fn in self.__class__.__dict__.items():
             if not callable(fn):
                 continue
@@ -46,10 +44,12 @@ class Machine:
             if name.startswith('_'):
                 continue
             sig = inspect.signature(fn)
-            doc = f'{name}{sig}\n\n{fn.__doc__ or ""}'
-            doc = doc.strip().splitlines()
-            docs[name] = doc
-        return docs
+            doc = fn.__doc__ or ""
+            doc = textwrap.dedent(doc).strip()
+            help = f'{name}{sig}\n\n{doc}'
+            help = help.strip().splitlines()
+            out[name] = help
+        return out
 
     def routes(self, name: str, app: Any):
         is_ready: bool = True
@@ -151,13 +151,16 @@ class Machine:
         return Proxy(cls, call) # type: ignore
 
 class Echo(Machine):
-    def test(self):
-        return 'test'
-
     def error(self, *args: str, **kws: str):
         raise ValueError(f'error {args!r} {kws!r}')
 
     def echo(self, *args: str, **kws: str) -> str:
+        '''
+        Returns the arguments.
+
+        Example:
+            curl -s http://localhost:5050/echo/echo/some/arguments?keywords=supported
+        '''
         return f'echo {args!r} {kws!r}'
 
 from subprocess import run, check_output
