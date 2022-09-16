@@ -98,7 +98,7 @@ class Machine:
 
         @app.get(f'/{name}/<cmd>/<path:arg>', endpoint=f'{name}_get')  # type: ignore
         def get(cmd: str, arg: str):
-            return jsonify(call(cmd, arg.split('/'), **request.args))
+            return jsonify(call(cmd, *arg.split('/'), **request.args))
 
         @app.post(f'/{name}', endpoint=f'{name}_post') # type: ignore
         def post():
