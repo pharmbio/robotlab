@@ -13,6 +13,7 @@ HTS_PROTOCOLS_ROOT = "C:\\Users\\MolDev\\Desktop\\Protocols\\Plate protocols\\38
 
 @dataclass(frozen=True)
 class WindowsNUC(Machines):
+    incu: STX = STX()
     wash: ReplWrap = ReplWrap('wash', [LHC_CALLER_CLI_PATH, "405 TS/LS", "USB 405 TS/LS sn:191107F", LHC_PROTOCOLS_ROOT])
     disp: ReplWrap = ReplWrap('disp', [LHC_CALLER_CLI_PATH, "MultiFloFX", "USB MultiFloFX sn:19041612", LHC_PROTOCOLS_ROOT])
     dir_list: DirList = DirList(root_dir=LHC_PROTOCOLS_ROOT, ext='LHC')
