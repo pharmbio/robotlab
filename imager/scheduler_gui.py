@@ -262,7 +262,7 @@ def queue_table(items: list[QueueItem]):
             grid += V.pre(
                 item.error, color='var(--red)', grid_column='1 / -1',
                 data_item=str(item),
-                data_started=bool(item.started),
+                data_started='true' if item.started else '',
                 onclick=purge,
                 cursor='pointer',
             )
