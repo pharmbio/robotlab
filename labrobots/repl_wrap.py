@@ -16,7 +16,7 @@ class ReplWrap(Machine):
     input_queue: 'Queue[Tuple[str, Queue[Any]]]' = field(default_factory=Queue)
     is_ready: bool = False
 
-    def __post_init__(self):
+    def init(self):
         threading.Thread(target=self._handler, daemon=True).start()
 
     def message(self, cmd: str, arg: str=""):

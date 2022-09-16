@@ -11,7 +11,6 @@ from serial import Serial # type: ignore
 
 from .machine import Machine
 
-COM_PORT = os.environ.get('COM_PORT', 'COM3')
 
 @dataclass
 class BarcodeReader(Machine):
@@ -20,12 +19,12 @@ class BarcodeReader(Machine):
         'date': '',
     })
 
-    def __post_init__(self):
-        print('message using COM_PORT', COM_PORT)
+    def init(self):
         Thread(target=self._scanner_thread, daemon=True).start()
 
     def _scanner_thread(self):
-        global last_seen
+        COM_PORT: str = os.environ.get('BARCODE_COM_PORT', 'COM3')
+        print('barcode_reader: Using BARCODE_COM_PORT', COM_PORT)
         scanner: t.Any = Serial(COM_PORT, timeout=60)
         while True:
             try:
@@ -33,21 +32,21 @@ class BarcodeReader(Machine):
                 line = b.decode('ascii')
             except Exception as e:
                 traceback.print_exc()
-                last_seen = {
+                self.last_seen = {
                     'error': str(e),
                     'traceback': traceback.format_exc().splitlines(keepends=False)
                 }
                 continue
             line = line.strip()
             if line:
-                last_seen = {
+                self.last_seen = {
                     'barcode': line,
                     'date': datetime.now().replace(microsecond=0).isoformat(sep=' ')
                 }
                 print('message', line)
 
     def read(self):
-        return last_seen
+        return self.last_seen
 
     def clear(self):
         self.last_seen = {

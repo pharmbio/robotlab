@@ -32,10 +32,11 @@ ErrorCodes = {
     '23': 'Failed to Find A01 Centerpoint for Round Bottom Plates (MetaXpress version 6.6 and above)',
 }
 
-COM_PORT = os.environ.get('COM_PORT', 'COM4')
 
 class IMX(Machine):
-    def __init__(self):
+    def init(self):
+        COM_PORT = os.environ.get('IMX_COM_PORT', 'COM4')
+        print('imx: Using IMX_COM_PORT', COM_PORT)
         self.imx: Any = Serial(COM_PORT, timeout=5)
 
     def _send(self, cmd: str, *args: str):
