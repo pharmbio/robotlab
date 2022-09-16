@@ -157,6 +157,15 @@ class Echo(Machine):
     def echo(self, *args: str, **kws: str) -> str:
         return f'echo {args!r} {kws!r}'
 
+    def git_pull_and_shutdown(self):
+        from subprocess import run
+        import os
+        import signal
+        run(['git', 'pull'])
+        print('killing process...')
+        os.kill(os.getpid(), signal.SIGTERM)
+        print('killed.')
+
 from dataclasses import dataclass, field, Field, fields
 from typing import Callable, Any, TypeVar
 from typing_extensions import Self
