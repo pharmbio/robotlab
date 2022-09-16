@@ -27,12 +27,12 @@ class STX(Machine):
         level = int(pos[1:])
         return slot, level
 
-    def parse_climate(self, response: str) -> Dict[str, float]:
+    def _parse_climate(self, response: str) -> Dict[str, float]:
         """
-        temp:  target temperature in °C.
-        humid: target relative humidity in percent.
-        co2:   target CO₂ concentration in percent.
-        n2:    target N₂ concentration in percent.
+        temp:  temperature in °C.
+        humid: relative humidity in percent.
+        co2:   CO₂ concentration in percent.
+        n2:    N₂ concentration in percent.
         """
         temp, humid, co2, n2 = map(float, response.split(";"))
         climate = {
@@ -49,7 +49,7 @@ class STX(Machine):
         response = self.call("STX2Activate")
         assert response == "1" or response == "1;1"
 
-    def get_status(self):
+    def get_status(self) -> dict[str, bool]:
         response = self.call("STX2GetSysStatus")
         response = int(response)
         assert response != -1
@@ -67,29 +67,48 @@ class STX(Machine):
             name: bool(response & (1 << bit))
             for name, bit in bits.items()
         }
-        print("value", value)
+        return value
 
     def get_climate(self):
+        """
+        temp:  current temperature in °C.
+        humid: current relative humidity in percent.
+        co2:   current CO2 concentration in percent.
+        n2:    current N2 concentration in percent.
+        """
         response = self.call("STX2ReadActualClimate")
-        return self.parse_climate(response)
+        return self._parse_climate(response)
 
-    def get_target_climate(self):
+    def get_target_climate(self) -> dict[str, float]:
+        """
+        temp:  target temperature in °C.
+        humid: target relative humidity in percent.
+        co2:   target CO2 concentration in percent.
+        n2:    target N2 concentration in percent.
+        """
         response = self.call("STX2ReadSetClimate")
-        return self.parse_climate(response)
+        return self._parse_climate(response)
 
-    def set_target_climate(self, temp, humid, co2, n2):
-        # I think the STX driver wants co2 and n2 in the opposite order here...
+    def set_target_climate(self, temp: str, humid: str, co2: str, n2: str):
+        """
+        temp:  target temperature in °C.
+        humid: target relative humidity in percent.
+        co2:   target CO2 concentration in percent.
+        n2:    target N2 concentration in percent.
+
+        Maybe driver wants co2 and n2 in the opposite order here...
+        """
         self.call("STX2WriteSetClimate", temp, humid, co2, n2)
 
     def get(self, pos: str):
         slot, level = self.parse_pos(pos)
-        self.move(src_pos='Hotel', src_slot=slot, src_level=level)
+        self._move(src_pos='Hotel', src_slot=slot, src_level=level)
 
     def put(self, pos: str):
         slot, level = self.parse_pos(pos)
-        self.move(trg_pos='Hotel', trg_slot=slot, trg_level=level)
+        self._move(trg_pos='Hotel', trg_slot=slot, trg_level=level)
 
-    def move(
+    def _move(
         self,
         src_pos:   str = 'TransferStation',
         src_slot:  int = 0,
