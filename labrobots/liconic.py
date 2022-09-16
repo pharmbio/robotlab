@@ -11,6 +11,38 @@ class STX(Machine):
     host="localhost"
     port=3333
 
+    def call(self, command_name: str, *args: Union[str, float, int]):
+        '''
+        Call any STX command.
+
+        Example: curl -s 10.10.0.56:5050/incu/call/STX2ReadActualClimate
+        '''
+        args = (self.id, *args)
+        csv_args = ",".join(str(arg) for arg in args)
+        return self._send(f'{command_name}({csv_args})')
+
+    def _send(self, cmd: str) -> str:
+        RECEIVE_BUFFER_SIZE = 8192 # Also max response length since we are not looping response if buffer gets full
+
+        cmd_as_bytes = (cmd + '\r').encode("ascii")
+
+        # send and recieve
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.connect((self.host, self.port))
+        s.sendall(cmd_as_bytes)
+        print("sent", cmd_as_bytes)
+        received = s.recv(RECEIVE_BUFFER_SIZE)
+        print("received", repr(received))
+        s.close()
+
+        # decode recieved byte array to ascii
+        response = received.decode('ascii')
+        response = response.strip()
+
+        print("response", response)
+
+        return response
+
     def _parse_pos(self, pos: str) -> Tuple[int, int]:
         if pos[0] == "L":
             slot = 1
@@ -43,11 +75,6 @@ class STX(Machine):
         }
         print("value", climate)
         return climate
-
-    def reset_and_activate(self):
-        self.call("STX2Reset")
-        response = self.call("STX2Activate")
-        assert response == "1" or response == "1;1"
 
     def get_status(self) -> dict[str, bool]:
         response = self.call("STX2GetSysStatus")
@@ -100,11 +127,22 @@ class STX(Machine):
         '''
         self.call("STX2WriteSetClimate", temp, humid, co2, n2)
 
+    def reset_and_activate(self):
+        self.call("STX2Reset")
+        response = self.call("STX2Activate")
+        assert response == "1" or response == "1;1"
+
     def get(self, pos: str):
+        """
+        Gets the plate from a position, L<LEVEL> or R<LEVEL> indicate cassette 1 or 2, or <CASETTE>x<LEVEL>.
+        """
         slot, level = self._parse_pos(pos)
         self._move(src_pos='Hotel', src_slot=slot, src_level=level)
 
     def put(self, pos: str):
+        """
+        Puts the plate to a position, L<LEVEL> or R<LEVEL> indicate cassette 1 or 2, or <CASETTE>x<LEVEL>.
+        """
         slot, level = self._parse_pos(pos)
         self._move(trg_pos='Hotel', trg_slot=slot, trg_level=level)
 
@@ -141,34 +179,3 @@ class STX(Machine):
         }
         assert self.call('STX2ServiceMovePlate', *args.values()) == "1"
 
-    def call(self, command_name: str, *args: Union[str, float, int]):
-        '''
-        Call any STX command.
-
-        Example: curl -s 10.10.0.56:5050/incu/call/STX2ReadActualClimate
-        '''
-        args = (self.id, *args)
-        csv_args = ",".join(str(arg) for arg in args)
-        return self._send(f'{command_name}({csv_args})')
-
-    def _send(self, cmd: str) -> str:
-        RECEIVE_BUFFER_SIZE = 8192 # Also max response length since we are not looping response if buffer gets full
-
-        cmd_as_bytes = (cmd + '\r').encode("ascii")
-
-        # send and recieve
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.connect((self.host, self.port))
-        s.sendall(cmd_as_bytes)
-        print("sent", cmd_as_bytes)
-        received = s.recv(RECEIVE_BUFFER_SIZE)
-        print("received", repr(received))
-        s.close()
-
-        # decode recieved byte array to ascii
-        response = received.decode('ascii')
-        response = response.strip()
-
-        print("response", response)
-
-        return response
