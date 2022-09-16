@@ -1,35 +1,47 @@
+from __future__ import annotations
 from dataclasses import dataclass, field
 from queue import Queue
 from subprocess import Popen, PIPE, STDOUT
-from typing import Any, List, Tuple
+from typing import Any, List, Tuple, TypedDict
 
-import ast
 import threading
 import time
 
 from .machine import Machine
 
+class BiotekResult(TypedDict):
+    success: bool
+    lines: list[str]
+
 @dataclass
-class ReplWrap(Machine):
+class Biotek(Machine):
     name: str
     args: List[str]
     input_queue: 'Queue[Tuple[str, Queue[Any]]]' = field(default_factory=Queue)
-    is_ready: bool = False
 
     def init(self):
         threading.Thread(target=self._handler, daemon=True).start()
 
-    def message(self, cmd: str, arg: str=""):
-        if self.is_ready:
-            reply_queue: Queue[Any] = Queue()
-            if arg:
-                msg = cmd + ' ' + arg
-            else:
-                msg = cmd
-            self.input_queue.put((msg, reply_queue))
-            return reply_queue.get()
+    def TestCommunications(self):
+        return self._send("TestCommunications")
+
+    def Run(self, *protocol_file_parts: str):
+        return self._send("Run", '\\'.join(protocol_file_parts))
+
+    def RunValidated(self, *protocol_file_parts: str):
+        return self._send("RunValidated", '\\'.join(protocol_file_parts))
+
+    def Validate(self, *protocol_file_parts: str):
+        return self._send("Validate", '\\'.join(protocol_file_parts))
+
+    def _send(self, cmd: str, arg: str="") -> BiotekResult:
+        reply_queue: Queue[Any] = Queue()
+        if arg:
+            msg = cmd + ' ' + arg
         else:
-            return dict(success=False, lines=["not ready"])
+            msg = cmd
+        self.input_queue.put((msg, reply_queue))
+        return reply_queue.get()
 
     def _handler(self):
         with Popen(
@@ -47,9 +59,8 @@ class ReplWrap(Machine):
             assert stdin
             assert stdout
 
-            def read_until_ready(t0: float):
+            def read_until_ready(t0: float) -> list[str]:
                 lines: List[str] = []
-                value: None = None
                 while True:
                     exc = p.poll()
                     if exc is not None:
@@ -64,28 +75,16 @@ class ReplWrap(Machine):
                         short_line = short_line[:250] + '... (truncated)'
                     print(t, self.name, short_line)
                     if line.startswith('ready'):
-                        return lines, value
-                    value_line = False
-                    if line.startswith('value'):
-                        try:
-                            value = ast.literal_eval(line[len('value '):])
-                            value_line = True
-                        except:
-                            pass
-                    if not value_line:
-                        lines += [line]
+                        return lines
+                    lines += [line]
 
             lines = read_until_ready(time.monotonic())
             while True:
-                self.is_ready = True
                 msg, reply_queue = self.input_queue.get()
-                self.is_ready = False
                 t0 = time.monotonic()
                 stdin.write(msg + '\n')
                 stdin.flush()
-                lines, value = read_until_ready(t0)
+                lines = read_until_ready(t0)
                 success = any(line.startswith('success') for line in lines)
                 response = dict(lines=lines, success=success)
-                if value is not None:
-                    response['value'] = value
                 reply_queue.put_nowait(response)

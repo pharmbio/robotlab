@@ -3,7 +3,7 @@ from .liconic import STX
 from .barcode_reader import BarcodeReader
 from .imx import IMX
 from .dir_list import DirList
-from .repl_wrap import ReplWrap
+from .biotek import Biotek
 
 from dataclasses import dataclass
 
@@ -14,8 +14,8 @@ HTS_PROTOCOLS_ROOT = "C:\\Users\\MolDev\\Desktop\\Protocols\\Plate protocols\\38
 @dataclass
 class WindowsNUC(Machines):
     incu: STX = STX()
-    wash: ReplWrap = ReplWrap('wash', [LHC_CALLER_CLI_PATH, "405 TS/LS", "USB 405 TS/LS sn:191107F", LHC_PROTOCOLS_ROOT])
-    disp: ReplWrap = ReplWrap('disp', [LHC_CALLER_CLI_PATH, "MultiFloFX", "USB MultiFloFX sn:19041612", LHC_PROTOCOLS_ROOT])
+    wash: Biotek = Biotek('wash', [LHC_CALLER_CLI_PATH, "405 TS/LS", "USB 405 TS/LS sn:191107F", LHC_PROTOCOLS_ROOT])
+    disp: Biotek = Biotek('disp', [LHC_CALLER_CLI_PATH, "MultiFloFX", "USB MultiFloFX sn:19041612", LHC_PROTOCOLS_ROOT])
     dir_list: DirList = DirList(root_dir=LHC_PROTOCOLS_ROOT, ext='LHC')
 
 @dataclass

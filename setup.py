@@ -8,19 +8,11 @@ requirements = '''
 
 console_scripts = '''
     labrobots=labrobots:main
-    labrobots-server=labrobots_server.main:main
-    labrobots-example-repl=labrobots_server.main:example_repl
-    labrobots-dir-list-repl=labrobots_server.dir_list_repl:main
-    incubator-repl=incubator_repl.main:main
-    barcode-repl=barcode_repl.main:main
-    imx-repl=imx_repl.main:main
 '''
 
 name='labrobots'
 
 packages=f'''
-    labrobots_server
-    incubator_repl
     labrobots
 '''
 
