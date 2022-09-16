@@ -175,7 +175,7 @@ class Git(Machine):
         return check_output(['git', 'rev-parse', 'HEAD']).decode().strip()
 
     def show(self) -> list[str]:
-        return check_output(['git', 'show']).decode().strip().splitlines()
+        return check_output(['git', 'show', '--stat']).decode().strip().splitlines()
 
 A = TypeVar('A')
 
