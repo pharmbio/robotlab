@@ -182,7 +182,7 @@ class Git(Machine):
 
 A = TypeVar('A')
 
-@dataclass(frozen=True)
+@dataclass
 class Machines:
     echo: Echo = Echo()
     git: Git = Git()

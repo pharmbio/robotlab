@@ -11,24 +11,24 @@ LHC_CALLER_CLI_PATH = "C:\\Program Files (x86)\\BioTek\\Liquid Handling Control 
 LHC_PROTOCOLS_ROOT = "C:\\ProgramData\\BioTek\\Liquid Handling Control 2.22\\Protocols\\"
 HTS_PROTOCOLS_ROOT = "C:\\Users\\MolDev\\Desktop\\Protocols\\Plate protocols\\384-Well_Plate_Protocols\\"
 
-@dataclass(frozen=True)
+@dataclass
 class WindowsNUC(Machines):
     incu: STX = STX()
     wash: ReplWrap = ReplWrap('wash', [LHC_CALLER_CLI_PATH, "405 TS/LS", "USB 405 TS/LS sn:191107F", LHC_PROTOCOLS_ROOT])
     disp: ReplWrap = ReplWrap('disp', [LHC_CALLER_CLI_PATH, "MultiFloFX", "USB MultiFloFX sn:19041612", LHC_PROTOCOLS_ROOT])
     dir_list: DirList = DirList(root_dir=LHC_PROTOCOLS_ROOT, ext='LHC')
 
-@dataclass(frozen=True)
+@dataclass
 class WindowsGBG(Machines):
     fridge: STX = STX()
     barcode: BarcodeReader = BarcodeReader()
     imx: IMX = IMX()
 
-@dataclass(frozen=True)
+@dataclass
 class WindowsIMX(Machines):
     dir_list = DirList(root_dir=HTS_PROTOCOLS_ROOT, ext='HTS', enable_hts_mod=True)
 
-@dataclass(frozen=True)
+@dataclass
 class Example(Machines):
     dir_list: DirList = DirList(root_dir='.', ext='py', enable_hts_mod=True)
 
