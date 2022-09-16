@@ -3,6 +3,7 @@ from __future__ import annotations
 from contextlib import contextmanager
 from dataclasses import dataclass, field, Field, fields
 from dataclasses import dataclass, field, replace
+from subprocess import run, check_output
 from threading import Thread, Lock
 from typing_extensions import Self
 from typing import Callable, Any, TypeVar
@@ -74,8 +75,12 @@ class Machine:
                     raise ValueError(f'Cannot call {cmd} on {name} remotely')
                 if cmd == 'up?':
                     return {'value': True}
+                fn = getattr(self, cmd, None)
+                if fn is None:
+                    raise ValueError(f'No such command {cmd} on {name}')
                 with ensure_ready():
-                    return {'value': getattr(self, cmd)(*args, **kwargs)}
+                    value = fn(*args, **kwargs)
+                    return {'value': value}
             except Exception as e:
                 return {
                     'error': str(e),
@@ -163,12 +168,10 @@ class Echo(Machine):
         '''
         return f'echo {args!r} {kws!r}'
 
-from subprocess import run, check_output
-import os
-import signal
-
 class Git(Machine):
     def pull_and_shutdown(self):
+        import os
+        import signal
         run(['git', 'pull'])
         print('killing process...')
         os.kill(os.getpid(), signal.SIGTERM)
@@ -180,15 +183,13 @@ class Git(Machine):
     def show(self) -> list[str]:
         return check_output(['git', 'show', '--stat']).decode().strip().splitlines()
 
-A = TypeVar('A')
-
 @dataclass
 class Machines:
     echo: Echo = Echo()
     git: Git = Git()
 
     @classmethod
-    def remote(cls, host: str) -> te.Self:
+    def remote(cls, host: str) -> Self:
         d = {}
         for f in fields(cls):
             d[f.name] = f.default.__class__.remote(f.name, host)
