@@ -208,3 +208,19 @@ def zip_sub(xs: list[float], ys: list[float], ndigits: int=1) -> list[float]:
 
 def zip_add(xs: list[float], ys: list[float], ndigits: int=1) -> list[float]:
     return zip_with(lambda a, b: a + b, xs, ys, ndigits=ndigits)
+
+class PP:
+    def __call__(self, thing: A) -> A:
+        from pprint import pp
+        pp(thing)
+        return thing
+
+    def __or__(self, thing: A) -> A:
+        self(thing)
+        return thing
+
+    def __ror__(self, thing: A) -> A:
+        self(thing)
+        return thing
+
+p = PP()
