@@ -207,7 +207,7 @@ def modify_queue(item: QueueItem, action: Literal['restart', 'remove']):
 def clear_queue():
     with Env.make(sim=not live) as env:
         with env.db.transaction:
-            for item in env.db.get(QueueItem).where(finished=None):
+            for item in env.db.get(QueueItem).where(QueueItem.finished == None):
                 if item.started:
                     item.replace(finished=datetime.now(), error=None).save(env.db)
                 else:
@@ -305,7 +305,7 @@ def plate_metadata_table(data: list[PlateMetadata], with_remove: bool=True, chec
             hts_td = V.td(row.hts_file)
             hts = htss.get(row.hts_file.lower())
             if check_duplicates:
-                dups = db.get(PlateMetadata).where(base_name=row.base_name)
+                dups = db.get(PlateMetadata).where(PlateMetadata.base_name == row.base_name)
                 if dups:
                     title=f'{row.base_name} already in database as\n{" and ".join(map(str, dups))}'
                     base_td = base_td.extend(
@@ -338,14 +338,14 @@ def plate_metadata_table(data: list[PlateMetadata], with_remove: bool=True, chec
 def index_page(page: Var[str]):
     if page.value == 'queue-and-log':
         with Env.make(sim=not live) as env:
-            todo = env.db.get(QueueItem).order(by='pos').limit(10).where(finished=None)
-            done = env.db.get(QueueItem).order(by='finished').where_not(finished=None).list()
+            todo = env.db.get(QueueItem).where(QueueItem.finished == None).order(QueueItem.pos).limit(10)
+            done = env.db.get(QueueItem).where(QueueItem.finished != None).order(QueueItem.finished).list()
             yield queue_table([*done[-10:], *todo])
         yield V.queue_refresh(300)
 
     if page.value == 'queue':
         with Env.make(sim=not live) as env:
-            items = env.db.get(QueueItem).order(by='pos').where(finished=None)
+            items = env.db.get(QueueItem).where(QueueItem.finished == None).order(QueueItem.pos).list()
             yield queue_table(items)
         yield V.queue_refresh(300)
 
@@ -357,7 +357,7 @@ def index_page(page: Var[str]):
 
     if page.value == 'log':
         with Env.make(sim=not live) as env:
-            items = env.db.get(QueueItem).order(by='finished').where_not(finished=None).list()
+            items = env.db.get(QueueItem).where(QueueItem.finished != None).order(QueueItem.finished).list()
             items = list(reversed(items))
             yield queue_table(items)
         yield V.queue_refresh(300)
@@ -514,7 +514,7 @@ def index_page(page: Var[str]):
             )
         yield div('database contents:', padding='0px 10px', margin_top='40px')
         with DB.open('plate.db') as db:
-            table, ok = plate_metadata_table(db.get(PlateMetadata).order(by='base_name').where())
+            table, ok = plate_metadata_table(db.get(PlateMetadata).order(PlateMetadata.base_name).list())
             yield table
 
             css='& > button { margin-right: 6px; margin-top: 6px; }'
@@ -523,7 +523,7 @@ def index_page(page: Var[str]):
 
         datalist  = V.datalist(id='base_names', width='800px')
         with DB.open('plate.db') as db:
-            plates = db.get(PlateMetadata).order(by='base_name').where()
+            plates = db.get(PlateMetadata).order(PlateMetadata.base_name).where()
         for plate in plates:
             datalist += V.option(value=plate.base_name)
         plates_by_base_name = {plate.base_name: plate for plate in plates}
@@ -700,7 +700,7 @@ def index_page(page: Var[str]):
                         my_errors += [f'Missing value for {k}']
                 if project and barcode:
                     occupant = FridgeOccupant(project=project, barcode=barcode)
-                    occs = env.db.get(FridgeSlot).where(occupant=occupant)
+                    occs = env.db.get(FridgeSlot).where(FridgeSlot.occupant == occupant).list()
                     if len(occs) == 0:
                         my_errors += [f'Barcode {barcode} in project {project!r} not in fridge']
                     elif len(occs) > 1:
@@ -872,7 +872,7 @@ def index_page(page: Var[str]):
     if page.value == 'fridge':
         with Env.make(sim=not live) as env:
             with env.db.transaction:
-                slots = env.db.get(FridgeSlot).order(by='occupant').list()
+                slots = env.db.get(FridgeSlot).order(FridgeSlot.occupant, 'asc').list()
         project_name= store.str()
         num_plates = store.int()
         store.assign_names(locals())

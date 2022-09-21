@@ -72,7 +72,7 @@ def ensure_fridge(db: DB):
     with db.transaction:
         FridgeSlots = db.get(FridgeSlot)
         for loc in FRIDGE_LOCS:
-            if not FridgeSlots.where(loc=loc):
+            if not FridgeSlots.where(FridgeSlot.loc == loc):
                 FridgeSlot(loc).save(db)
 
 from typing import Literal
@@ -98,7 +98,7 @@ def enqueue(env: Env, cmds: list[Command], where: Literal['first', 'last'] = 'la
 def execute(env: Env, keep_going: bool):
     while True:
         while True:
-            todo = env.db.get(QueueItem).order(by='pos').limit(1).where(finished=None)
+            todo = env.db.get(QueueItem).where(QueueItem.finished == None).order(QueueItem.pos).limit(1).list()
             if not todo:
                 print('nothing to do')
                 break
@@ -163,12 +163,12 @@ def execute_one(cmd: Command, env: Env) -> None | Literal['wait']:
                     barcode = cmd.check_barcode
                 # check that the plate has the barcode we thought we were holding
                 assert barcode == cmd.check_barcode, f'Expected {cmd.check_barcode} but read {barcode}'
-            slot, *_ = FridgeSlots.where(occupant=None)
+            slot, *_ = FridgeSlots.where(FridgeSlot.occupant == None)
             next_cmd = cmds.FridgePut(loc=slot.loc, project=cmd.project, barcode=barcode)
             return execute_one(next_cmd, env)
 
         case cmds.FridgePut():
-            [slot] = FridgeSlots.where(loc=cmd.loc)
+            [slot] = FridgeSlots.where(FridgeSlot.loc == cmd.loc)
             assert slot.occupant is None
             env.fridge.put(cmd.loc)
             occupant = FridgeOccupant(project=cmd.project, barcode=cmd.barcode)
@@ -176,11 +176,11 @@ def execute_one(cmd: Command, env: Env) -> None | Literal['wait']:
 
         case cmds.FridgeGetByBarcode():
             occupant = FridgeOccupant(project=cmd.project, barcode=cmd.barcode)
-            [slot] = FridgeSlots.where(occupant=occupant)
+            [slot] = FridgeSlots.where(FridgeSlot.occupant == occupant)
             return execute_one(cmds.FridgeGet(slot.loc, check_barcode=True), env)
 
         case cmds.FridgeGet():
-            [slot] = FridgeSlots.where(loc=cmd.loc)
+            [slot] = FridgeSlots.where(FridgeSlot.loc == cmd.loc)
             assert slot.occupant is not None
             env.fridge.get(cmd.loc)
             if cmd.check_barcode and not env.is_sim:
@@ -196,11 +196,11 @@ def execute_one(cmd: Command, env: Env) -> None | Literal['wait']:
             env.barcode_reader.clear()
 
         case cmds.CheckpointCmd():
-            for dup in Checkpoints.where(name=cmd.name):
+            for dup in Checkpoints.where(Checkpoint.name == cmd.name):
                 dup.delete(env.db)
             Checkpoint(name=cmd.name).save(env.db)
         case cmds.WaitForCheckpoint():
-            [checkpoint] = Checkpoints.where(name=cmd.name)
+            [checkpoint] = Checkpoints.where(Checkpoint.name == cmd.name)
             if datetime.now() < checkpoint.t + cmd.plus_timedelta:
                 return 'wait'
 
