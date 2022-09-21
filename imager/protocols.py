@@ -195,6 +195,20 @@ def load_by_barcode(num_plates: int, **_: Any):
         ]
     return cmds
 
+from .execute import FridgeOccupant
+
+def unload_fridge(occs: list[FridgeOccupant]):
+    assert 1 <= len(occs) <= len(HotelLocs)
+    cmds: list[Command] = []
+    for occ, hotel_loc in zip(occs, HotelLocs):
+        cmds += [
+            BarcodeClear(),
+            FridgeGetByBarcode(occ.project, occ.barcode),
+            RobotarmCmd('fridge-to-H12'),
+            RobotarmCmd(f'H12-to-{hotel_loc}') if hotel_loc != 'H12' else Noop(),
+        ]
+    return cmds
+
 # @add_to_cli
 def unload_by_barcode(params: list[str], **_: Any):
     '''

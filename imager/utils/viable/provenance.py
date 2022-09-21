@@ -63,6 +63,14 @@ class Var(Generic[A], abc.ABC):
         return store[self].provenance
 
 @dataclass(frozen=True)
+class StrList(Var[list[str]]):
+    def from_str(self, s: str | Any) -> list[str]:
+        try:
+            return json.loads(s)
+        except (json.JSONDecodeError, TypeError):
+            return []
+
+@dataclass(frozen=True)
 class Int(Var[int]):
     default: int=0
     min: int|None=None
