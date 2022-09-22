@@ -40,7 +40,7 @@ class IMX(Machine):
         self.imx: Any = Serial(COM_PORT, timeout=5)
 
     def _send(self, cmd: str, *args: str):
-        msg_str = ','.join([cmd, *args])
+        msg_str = ','.join(['1', cmd, *args])
         msg = msg_str.strip().encode()
         assert b'\n' not in msg
         assert b'\r' not in msg
