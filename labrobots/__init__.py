@@ -26,7 +26,7 @@ class WindowsGBG(Machines):
 
 @dataclass
 class WindowsIMX(Machines):
-    dir_list = DirList(root_dir=HTS_PROTOCOLS_ROOT, ext='HTS', enable_hts_mod=True)
+    dir_list: DirList = DirList(root_dir=HTS_PROTOCOLS_ROOT, ext='HTS', enable_hts_mod=True)
 
 @dataclass
 class Example(Machines):
