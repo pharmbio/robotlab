@@ -210,7 +210,7 @@ class Machines:
         app.config['JSON_SORT_KEYS'] = False             # type: ignore
 
         for name, m in self.items():
-            m.init()
+            Thread(target=m.init).start()
             m.routes(name, app)
 
         @app.get('/') # type: ignore
