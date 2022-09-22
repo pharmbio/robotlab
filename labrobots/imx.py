@@ -2,6 +2,7 @@ from typing import Any
 import os
 from serial import Serial # type: ignore
 from .machine import Machine
+from dataclasses import dataclass
 
 # from ExternalControlProtocolRevC.pdf
 ErrorCodes = {
@@ -32,7 +33,7 @@ ErrorCodes = {
     '23': 'Failed to Find A01 Centerpoint for Round Bottom Plates (MetaXpress version 6.6 and above)',
 }
 
-
+@dataclass
 class IMX(Machine):
     def init(self):
         COM_PORT = os.environ.get('IMX_COM_PORT', 'COM4')
