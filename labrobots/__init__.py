@@ -32,6 +32,25 @@ class WindowsIMX(Machines):
 class Example(Machines):
     dir_list: DirList = DirList(root_dir='.', ext='py', enable_hts_mod=True)
 
+LOCAL_IP = {
+    'NUC-robotlab': '10.10.0.55', # ubuntu computer connected to the local network
+    'WINDOWS-NUC': '10.10.0.56', # connected to the bioteks and 37C incubator
+    'WINDOWS-GBG': '10.10.0.97', # connected to the fridge incubator in imx room
+    'ImageXpress': '10.10.0.99', # connected to the imx
+}
+
+def lookup_node_name(node_name: str) -> Machines:
+    if node_name == 'test':
+        return Example()
+    elif node_name == 'WINDOWS-NUC':
+        return WindowsNUC()
+    elif node_name == 'WINDOWS-GBG':
+        return WindowsGBG()
+    elif node_name == 'ImageXpress':
+        return WindowsIMX()
+    else:
+        raise ValueError(f'{node_name} not configured (did you want to run with --test?)')
+
 def main():
     import sys
     import platform
@@ -49,27 +68,10 @@ def main():
     if args.test:
         node_name = 'test'
 
-    machines: Machines
-    if node_name == 'test':
-        machines = Example()
-    elif node_name == 'WINDOWS-NUC':
-        machines = WindowsNUC()
-    elif node_name == 'WINDOWS-GBG':
-        machines = WindowsGBG()
-    elif node_name == 'ImageXpress':
-        machines = WindowsIMX()
-    else:
-        raise ValueError(f'{node_name} not configured (did you want to run with --test?)')
-
-    LOCAL_IP = {
-        'WINDOWS-NUC': '10.10.0.56', # connected to the bioteks and 37C incubator
-        'WINDOWS-GBG': '10.10.0.97', # connected to the fridge incubator in imx room
-        'ImageXpress': '10.10.0.99', # connected to the imx
-    }
-
     if host == 'default':
         host = LOCAL_IP.get(node_name, 'localhost')
 
+    machines = lookup_node_name(node_name)
     machines.serve(port=args.port, host=host)
 
 if __name__ == '__main__':

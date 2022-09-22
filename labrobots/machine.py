@@ -155,6 +155,7 @@ class Machine:
         assert res['value']
         return Proxy(cls, call) # type: ignore
 
+@dataclass
 class Echo(Machine):
     def error(self, *args: str, **kws: str):
         raise ValueError(f'error {args!r} {kws!r}')
@@ -168,6 +169,7 @@ class Echo(Machine):
         '''
         return f'echo {args!r} {kws!r}'
 
+@dataclass
 class Git(Machine):
     def pull_and_shutdown(self):
         import os
@@ -216,10 +218,9 @@ class Machines:
             url = request.url
             while url.endswith('/'):
                 url = url[:-1]
-            d: dict[str, list[str]] = {}
+            d: dict[str, str] = {}
             for name, m in self.items():
-                for cmd, doc in m.help().items():
-                    d[url + '/' + name + '/' + cmd] = doc
+                d[url + '/' + name] = str(m)
             return jsonify(d)
 
         app.run(host=host, port=port, threaded=True, processes=1)
