@@ -39,7 +39,7 @@ class IMX(Machine):
         print('imx: Using IMX_COM_PORT', COM_PORT)
         self.imx: Any = Serial(COM_PORT, timeout=5)
 
-    def _send(self, cmd: str, *args: str):
+    def send(self, cmd: str, *args: str):
         msg_str = ','.join(['1', cmd, *args])
         msg = msg_str.strip().encode()
         assert b'\n' not in msg
@@ -67,14 +67,14 @@ class IMX(Machine):
             return reply
 
     def online(self):
-        return self._send('ONLINE')
+        return self.send('ONLINE')
 
     def status(self):
-        return self._send('STATUS')
+        return self.send('STATUS')
 
     def goto(self, pos: str):
-        return self._send('GOTO', pos.upper())
+        return self.send('GOTO', pos.upper())
 
     def run(self, plate_id: str, hts_file: str):
-        return self._send('RUN', plate_id, hts_file)
+        return self.send('RUN', plate_id, hts_file)
 
