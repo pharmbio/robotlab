@@ -84,9 +84,10 @@ class __TestCallable:
     def __call__(self, i: int):
         return i + 1
 
-def test():
-    import pickle
+from .. import check
 
+@check.test
+def tests():
     global __test
 
     def H1(xs: list[int]) -> Callable[[int], int]:
@@ -131,22 +132,16 @@ def test():
 
     fs: list[Callable[[int], int]] = [f1, f2, f3, f4, f5, f6, f7]
 
-    def assert_same(x: Any, y: Any):
-        print(x, y)
-        assert x == y
-
     for f in fs:
         b = FrozenFunction.freeze(f)
         f_copy = b.thaw()
-        assert_same(f.__name__, f_copy.__name__)
-        assert_same(f.__module__, f_copy.__module__)
-        assert_same(f.__qualname__, f_copy.__qualname__)
-        assert_same(f(1), f_copy(1))
+        check(f.__name__ == f_copy.__name__)
+        check(f.__module__ == f_copy.__module__)
+        check(f.__qualname__ == f_copy.__qualname__)
+        check(f(1) == f_copy(1))
         __test += 1
         t.value += 1
-        assert_same(f(1), f_copy(1))
-        print('bytes:', len(pickle.dumps(b)))
-        print('---')
+        check(f(1) == f_copy(1))
 
     def G():
         def f(i: int) -> int:
@@ -154,12 +149,5 @@ def test():
         return f
 
     f_err = G()
-    try:
+    with check.expect_exception():
         FrozenFunction.freeze(f_err)
-    except ValueError as e:
-        print('OK, expected failure:', e)
-    else:
-        raise ValueError
-
-if __name__ == '__main__':
-    test()

@@ -73,22 +73,70 @@ def read_commasep(s: str, p: Callable[[str], A] = lambda x: x) -> list[A]:
 def now_str_for_filename() -> str:
     return str(datetime.now()).split('.')[0].replace(' ', '_')
 
-@dataclass(frozen=True)
-class test(Generic[A]):
-    lhs: A
-    def __eq__(self, rhs: A) -> bool:
-        if self.lhs == rhs:
-            import os
-            if os.environ.get('verbose'):
-                green = Color().green
-                print(green('✔   '), show(self.lhs))
-                print(green('  =='), show(rhs))
+from contextlib import contextmanager
+
+@dataclass(frozen=False)
+class Check:
+    _reached_main: bool = False
+
+    def test(self, f: Callable[[], None]):
+        import sys
+        from_main = f.__module__ == '__main__'
+        if from_main or '--check-tests' in sys.argv:
+            if f.__module__ == '__main__':
+                print(f.__name__ + ':')
+            else:
+                print(f.__module__ + '.' + f.__name__ + ':')
+            self._reached_main = True
+            f()
+
+    @staticmethod
+    def red(s: str) -> str:
+        return '\033[31m' + s + '\033[0m'
+
+    @staticmethod
+    def green(s: str) -> str:
+        return '\033[32m' + s + '\033[0m'
+
+    @contextmanager
+    def expect_exception(self):
+        try:
+            yield
+        except BaseException as e:
+            print(Check.green('✔'), 'Excepted expected exception', type(e).__name__ + ':', str(e))
             return True
         else:
-            red = Color().red
-            print(red('✗   '), show(self.lhs))
-            print(red('  !='), show(rhs))
-            raise ValueError('Equality test failed')
+            print(Check.red('✗'), 'No exception raised!')
+            assert False
+
+    def __call__(self, e: bool):
+        import executing # type: ignore
+        import inspect
+        import ast
+        _, fr, *_ = inspect.getouterframes(inspect.currentframe())
+        src: str = executing.Source.executing(fr.frame).text() # type: ignore
+        lstr, _, rstr = src.removeprefix('check(').removesuffix(')').partition('==')
+        lhs = eval(f'({lstr})', fr.frame.f_locals, fr.frame.f_globals)
+        rhs = eval(f'({rstr})', fr.frame.f_locals, fr.frame.f_globals)
+        lstr = lstr.strip()
+        rstr = rstr.strip()
+        if e:
+            try:
+                rstr_val = ast.literal_eval(rstr)
+            except:
+                rstr_val = object()
+            if rstr_val != rhs:
+                print(Check.green('✔'), lstr, '==', rstr, '==', repr(rhs))
+            else:
+                print(Check.green('✔'), lstr, '==', rstr)
+        else:
+            print(Check.red('✗'), lstr, '!=', rstr)
+            print(' ', Check.red('·'), lstr, '==', repr(lhs))
+            print(' ', Check.red('·'), rstr, '==', repr(rhs))
+            assert False, f'{lstr} != {rstr} ({lhs!r} != {rhs!r})'
+        return e
+
+check = Check()
 
 def iterate_with_full_context(xs: Iterable[A]) -> list[tuple[list[A], A, list[A]]]:
     xs = list(xs)
@@ -115,19 +163,21 @@ def iterate_with_prev(xs: Iterable[A]) -> list[tuple[A | None, A]]:
         for prev, x, _ in iterate_with_context(xs)
     ]
 
-test(iterate_with_full_context([1,2,3,4])) == [
-    ([], 1, [2, 3, 4]),
-    ([1], 2, [3, 4]),
-    ([1, 2], 3, [4]),
-    ([1, 2, 3], 4, []),
-]
+@check.test
+def iterate_tests():
+    check(iterate_with_full_context([1,2,3,4]) == [
+        ([], 1, [2, 3, 4]),
+        ([1], 2, [3, 4]),
+        ([1, 2], 3, [4]),
+        ([1, 2, 3], 4, []),
+    ])
 
-test(iterate_with_context([1,2,3,4])) == [
-    (None, 1, 2),
-    (1, 2, 3),
-    (2, 3, 4),
-    (3, 4, None)
-]
+    check(iterate_with_context([1,2,3,4]) == [
+        (None, 1, 2),
+        (1, 2, 3),
+        (2, 3, 4),
+        (3, 4, None)
+    ])
 
 def git_HEAD() -> str | None:
     from subprocess import run
