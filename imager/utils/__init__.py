@@ -116,7 +116,6 @@ class Check:
         _, fr, *_ = inspect.getouterframes(inspect.currentframe())
         src: str = executing.Source.executing(fr.frame).text() # type: ignore
         lstr, _, rstr = src.removeprefix('check(').removesuffix(')').partition('==')
-        lhs = eval(f'({lstr})', fr.frame.f_locals, fr.frame.f_globals)
         rhs = eval(f'({rstr})', fr.frame.f_locals, fr.frame.f_globals)
         lstr = lstr.strip()
         rstr = rstr.strip()
@@ -131,6 +130,7 @@ class Check:
                 print(Check.green('✔'), lstr, '==', rstr)
         else:
             print(Check.red('✗'), lstr, '!=', rstr)
+            lhs = eval(f'({lstr})', fr.frame.f_locals, fr.frame.f_globals)
             print(' ', Check.red('·'), lstr, '==', repr(lhs))
             print(' ', Check.red('·'), rstr, '==', repr(rhs))
             assert False, f'{lstr} != {rstr} ({lhs!r} != {rhs!r})'

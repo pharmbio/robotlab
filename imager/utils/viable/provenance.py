@@ -6,27 +6,22 @@ from collections import defaultdict
 from contextlib import contextmanager
 from flask import after_this_request, jsonify, request, g
 from flask.wrappers import Response
+from typing import ClassVar, Type
 from werkzeug.local import LocalProxy
 import abc
+import functools
 import json
 
 from . import JS, serve, input
 from . import tags as V
 from .core import is_true
 from .db_con import get_viable_db
+from .. import check
 
 def get_store() -> Store:
     if not g.get('viable_stores'):
         g.viable_stores = [Store()]
     return g.viable_stores[-1]
-
-@contextmanager
-def _focus_store(s: Store):
-    assert g.viable_stores
-    g.viable_stores.append(s)
-    yield
-    res = g.viable_stores.pop()
-    assert res is s
 
 store: Store = LocalProxy(get_store) # type: ignore
 
@@ -47,9 +42,6 @@ class Var(Generic[A], abc.ABC):
     def from_str(self, s: str | Any) -> A:
         raise NotImplementedError
 
-    def __post_init__(self):
-        store.init_var(self)
-
     @property
     def value(self) -> A:
         return store.value(self)
@@ -62,13 +54,53 @@ class Var(Generic[A], abc.ABC):
     def provenance(self) -> str:
         return store[self].provenance
 
+SomeVar = TypeVar('SomeVar', bound=Var[Any])
+
+import typing
+
+class Serializer(typing.Protocol):
+    def loads(self, s: str) -> Any:
+        ...
+
+    def dumps(self, obj: Any) -> str:
+        ...
+
 @dataclass(frozen=True)
-class StrList(Var[list[str]]):
-    def from_str(self, s: str | Any) -> list[str]:
+class List(Var[list[A]]):
+    default: list[A] = field(default_factory=list)
+    options: list[A] = field(default_factory=lambda: typing.cast(Any, 'specify some options!'[404]))
+
+    def from_str(self, s: str | Any) -> list[A]:
+        return [self.options[i] for i in self._indicies(s)]
+
+    def _indicies(self, s: str |  Any) -> list[int]:
         try:
-            return json.loads(s)
-        except (json.JSONDecodeError, TypeError):
+            ixs = json.loads(s)
+        except:
             return []
+        if isinstance(ixs, list):
+            return [int(i) for i in ixs] # type: ignore
+        else:
+            return []
+
+    def selected_indicies(self):
+        return self._indicies(store.str_value(self))
+
+    def select_options(self) -> list[tuple[A, V.option]]:
+        ixs = self.selected_indicies()
+        return [
+            (a, V.option(value=str(i), selected=i in ixs))
+            for i, a in enumerate(self.options)
+        ]
+
+    def select(self, options: list[V.option]):
+        return V.select(
+            *options,
+            multiple=True,
+            onchange=store.update(self, JS('''
+                JSON.stringify([...this.selectedOptions].map(o => o.value))
+            ''')).goto(),
+        )
 
 @dataclass(frozen=True)
 class Int(Var[int]):
@@ -208,8 +240,7 @@ provenances: dict[str, Provenance] = {
     'db':     Provenance(None,         lambda kvs: get_viable_db().update(kvs, shared=False),  lambda k, d: get_viable_db().get(k, d, shared=False)),
 }
 
-from contextlib import contextmanager
-from typing import ClassVar
+P = typing.ParamSpec('P')
 
 @dataclass(frozen=True)
 class Store:
@@ -217,9 +248,16 @@ class Store:
     values: dict[int, StoredValue] = field(default_factory=dict)
     sub_prefix: str = ''
 
-    int: ClassVar = Int
-    str: ClassVar = Str
-    bool: ClassVar = Bool
+    @staticmethod
+    def _wrap_init_var(t: Callable[P, SomeVar]) -> Callable[P, SomeVar]:
+        @functools.wraps(t)
+        def wrapped(self: Store, *a: P.args, **kw: P.kwargs):
+            return self.init_var(t(*a, **kw))
+        return wrapped # type: ignore
+
+    int: ClassVar = _wrap_init_var(Int)
+    str: ClassVar = _wrap_init_var(Str)
+    bool: ClassVar = _wrap_init_var(Bool)
 
     @property
     def cookie(self):
@@ -237,20 +275,22 @@ class Store:
     def db(self):
         return self.at('db')
 
-    @contextmanager
-    def at(self, provenance: str):
-        next = replace(self, default_provenance=provenance)
-        with _focus_store(next):
-            yield
+    def __enter__(self):
+        assert g.viable_stores
+        g.viable_stores.append(self)
 
-    @contextmanager
+    def __exit__(self, *_exc: Any):
+        res = g.viable_stores.pop()
+        assert res is self
+
+    def at(self, provenance: str):
+        return replace(self, default_provenance=provenance)
+
     def sub(self, prefix: str):
         full_prefix = self.sub_prefix + prefix + '_'
-        next = replace(self, sub_prefix=full_prefix)
-        with _focus_store(next):
-            yield
+        return replace(self, sub_prefix=full_prefix)
 
-    def init_var(self, x: Var[Any]):
+    def init_var(self, x: SomeVar) -> SomeVar:
         provenance = self.default_provenance
         name = x.name
         if not name:
@@ -263,11 +303,16 @@ class Store:
             sub_prefix=self.sub_prefix,
             name=name,
         )
+        return x
+
+    def str_value(self, x: Var[Any]) -> str:
+        sv = self[x]
+        s = provenances[sv.provenance].get(sv.full_name, sv.default_value)
+        return s
 
     def value(self, x: Var[A]) -> A:
         sv = self[x]
-        s = provenances[sv.provenance].get(sv.full_name, sv.default_value)
-        return sv.var.from_str(s)
+        return sv.var.from_str(self.str_value(x))
 
     def __getitem__(self, x: Var[Any]) -> StoredValue:
         return self.values[id(x)]
@@ -277,7 +322,11 @@ class Store:
 
     def assign_names(self, names: dict[str, Var[Any] | Any]):
         for k, v in names.items():
-            if isinstance(v, Var) and not v.name and (sv := self.values.get(id(v))):
+            try:
+                i = isinstance(v, Var)
+            except:
+                i = False
+            if i and not v.name and (sv := self.values.get(id(v))):
                 self[v] = replace(sv, name=k)
 
     def update(self, var: Var[A], val: A | JS) -> Store:
@@ -344,3 +393,58 @@ def update_py_side(keys: list[tuple[str, str]], *values: Any) -> Response:
         out |= p.py_side(kvs)
     return jsonify(out)
 
+@check.test
+def test():
+    s = Store()
+    x = s.int()
+    sx = s[x]
+    check(sx.provenance == 'cookie')
+    check(sx.name == '_0')
+    s.assign_names(globals() | locals())
+    sx = s[x]
+    check(sx.provenance == 'cookie')
+    check(sx.name == 'x')
+
+    y = s.query.bool()
+    check(s[y].provenance == 'query')
+
+@check.test
+def test_app():
+    from flask import Flask
+    app = Flask(__name__)
+    with app.test_request_context(path='http://localhost:5050?a_y=ayay'):
+        x = store.cookie.str(default='xoxo')
+
+        with store.query:
+            with store.sub('a'):
+                y = store.str(name='y', default='ynone')
+
+        with store.query.sub('b').sub('c'):
+            z = store.sub('d').str(name='z')
+
+        store.assign_names(locals())
+
+        check(store[x].provenance == 'cookie')
+        check(store[y].provenance == 'query')
+        check(store[z].provenance == 'query')
+        check(store[x].full_name == 'x')
+        check(store[y].full_name == 'a_y')
+        check(store[z].full_name == 'b_c_d_z')
+        check(x.value == 'xoxo')
+        check(y.value == 'ayay')
+        check(store[y].default_value == 'ynone')
+        check(store[y].initial_value == 'ayay')
+        check(store[y].goto_value is None)
+        check(store.update(y, 'yaya')[y].goto_value == 'yaya')
+        check(store.goto() == '')
+        check(store.update(y, 'yaya').goto() == 'update_query({a_y:"yaya"})')
+
+@check.test
+def test_List():
+    from flask import Flask
+    app = Flask(__name__)
+    with app.test_request_context(path='http://localhost:5050?xs=[1,2]'):
+        xs = store.query.init_var(List(options=['a', 'b', 'c']))
+        store.assign_names(locals())
+        check(xs.selected_indicies() == [1, 2])
+        check(xs.value == ['b', 'c'])

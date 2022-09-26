@@ -1,5 +1,6 @@
 from __future__ import annotations
 from typing import Iterable, cast, Any
+import typing_extensions as tx
 
 import abc
 
@@ -113,7 +114,7 @@ class Tag(Node):
         self.append(*children)
         self.extend(attrs)
 
-    def append(self, *children: Node | str | dict[str, str | bool | None], **kws: str | bool | None) -> Tag:
+    def append(self, *children: Node | str | dict[str, str | bool | None], **kws: str | bool | None) -> tx.Self:
         self.children += [
             text(child) if isinstance(child, str) else child
             for child in children
@@ -125,7 +126,7 @@ class Tag(Node):
         self.extend(kws)
         return self
 
-    def extend(self, attrs: dict[str, str | bool | None] = {}, **kws: str | bool | None) -> Tag:
+    def extend(self, attrs: dict[str, str | bool | None] = {}, **kws: str | bool | None) -> tx.Self:
         for k, v in {**attrs, **kws}.items():
             k = k.strip('_')
             if k == 'css':

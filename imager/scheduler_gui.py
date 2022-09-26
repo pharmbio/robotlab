@@ -3,7 +3,7 @@ from typing import Iterator, Any, cast, Callable
 from typing import Literal
 
 from .utils.viable import serve, div, pre, Node, js, call
-from .utils.viable.provenance import store, Var
+from .utils.viable.provenance import store, Var, List
 from .utils import viable as V
 from .utils import curl, post_json
 from .utils import humanize_time
@@ -906,40 +906,29 @@ def index_page(page: Var[str]):
             css='& > * {padding: 4px}',
             width='fit-content',
         )
-        tbl = V.table(css='''
-            & td, & th {
-                padding: 3px 8px;
-                border: 1px #fff2 solid;
-            }
-            & input[type=checkbox] {
-                filter: invert(83%) hue-rotate(135deg);
-                transform: scale(120%) translateY(2px);
-                margin: auto;
-            }
-        ''')
-        # tbl += V.tr(*map(V.th, 'location project barcode'.split()))
-        selected = StrList([], 'selected')
-        sel = V.select(
-            multiple=True, size='20', overflow='auto',
-            display='block',
-            width='100%',
-            onchange=store.update(selected, js('JSON.stringify([...this.selectedOptions].map(o => o.value))')).goto()
-        )
-        selected_values: list[FridgeOccupant] = [serializer.loads(s) for s in selected.value]
-        for slot in slots:
-            if slot.occupant:
-                sel += V.option(
+        selected = store.init_var(List(options=slots))
+        sel = selected.select(
+            [
+                option.append(
                     slot.occupant.project, ' ',
                     slot.occupant.barcode, ' ',
                     slot.loc,
-                    value=serializer.dumps(slot.occupant),
-                    selected=slot.occupant in selected_values,
                     css='''
                         &:checked { background: var(--cyan) !important; color: var(--bg); }
                     '''
                 )
+                for slot, option in selected.select_options()
+                if slot.occupant
+            ]
+        ).extend(
+            size='20',
+            overflow='auto',
+            display='block',
+            width='100%',
+        )
+        selected_values = [slot.occupant for slot in selected.value if slot.occupant]
         ok = True
-        if len(selected.value) > 8:
+        if len(selected_values) > 8:
             ok = False
         if not selected:
             ok = False
@@ -954,9 +943,10 @@ def index_page(page: Var[str]):
                 V.button(text,
                     onclick=(
                         call(
-                            enqueue,
-                            protocols.unload_fridge(selected_values),
-                            where=where,
+                            lambda: enqueue(
+                                protocols.unload_fridge(selected_values),
+                                where=cast(Any, where),
+                            )
                         ) + ';\n' +
                             store.update(page, 'queue-and-log').goto()
                     ) if ok else '',
@@ -975,8 +965,6 @@ def index_page(page: Var[str]):
             width='fit-content',
         )
         yield V.queue_refresh(after_ms=1000)
-
-from .utils.viable.provenance import StrList
 
 @serve.route()
 def index():
