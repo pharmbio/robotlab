@@ -4,6 +4,7 @@ from .barcode_reader import BarcodeReader
 from .imx import IMX
 from .dir_list import DirList
 from .biotek import Biotek
+from .squid import Squid
 
 from dataclasses import dataclass
 
@@ -31,6 +32,10 @@ class WindowsIMX(Machines):
 @dataclass
 class Example(Machines):
     dir_list: DirList = DirList(root_dir='.', ext='py', enable_hts_mod=True)
+
+@dataclass
+class MikroAsus(Machines):
+    squid: Squid = Squid()
 
 LOCAL_IP = {
     'NUC-robotlab': '10.10.0.55', # ubuntu computer connected to the local network

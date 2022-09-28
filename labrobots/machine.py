@@ -19,6 +19,15 @@ from flask import Flask, jsonify, request
 
 R = t.TypeVar('R')
 
+def try_json_loads(s: str) -> t.Any:
+    try:
+        return json.loads(s)
+    except json.JSONDecodeError:
+        return s
+
+def json_request_args() -> dict[str, t.Any]:
+    return {k: try_json_loads(v) for k, v in request.args.items()}
+
 @dataclass(frozen=True)
 class Proxy(t.Generic[R]):
     wrapped: Callable[..., R]
@@ -56,6 +65,12 @@ class Machine:
         is_ready: bool = True
         is_ready_lock: Lock = Lock()
 
+        i = 0
+        def make_endpoint_name():
+            nonlocal i
+            i += 1
+            return f'{name}{i}'
+
         @contextmanager
         def ensure_ready():
             nonlocal is_ready
@@ -88,9 +103,9 @@ class Machine:
                     'traceback_lines': tb.format_exc().splitlines()
                 }
 
-        @app.get(f'/{name}', endpoint=f'{name}_root')             # type: ignore
+        @app.get(f'/{name}', endpoint=make_endpoint_name()) # type: ignore
         def root(cmd: str="", arg: str=""):
-            args = dict(request.args)
+            args = json_request_args()
             if args:
                 cmd = args.pop('cmd')
                 return jsonify(call(cmd, **args))
@@ -100,15 +115,15 @@ class Machine:
                     url = url[:-1]
                 return jsonify({url + '/' + name: doc for name, doc in self.help().items()})
 
-        @app.get(f'/{name}/<string:cmd>', endpoint=f'{name}_get0')             # type: ignore
+        @app.get(f'/{name}/<string:cmd>', endpoint=make_endpoint_name()) # type: ignore
         def get0(cmd: str):
-            return jsonify(call(cmd, **request.args))
+            return jsonify(call(cmd, **json_request_args()))
 
-        @app.get(f'/{name}/<cmd>/<path:arg>', endpoint=f'{name}_get')  # type: ignore
+        @app.get(f'/{name}/<cmd>/<path:arg>', endpoint=make_endpoint_name()) # type: ignore
         def get(cmd: str, arg: str):
-            return jsonify(call(cmd, *arg.split('/'), **request.args))
+            return jsonify(call(cmd, *arg.split('/'), **json_request_args()))
 
-        @app.post(f'/{name}', endpoint=f'{name}_post') # type: ignore
+        @app.post(f'/{name}', endpoint=make_endpoint_name()) # type: ignore
         def post():
             if request.form:
                 req = dict(request.form)
@@ -120,7 +135,7 @@ class Machine:
             assert isinstance(kwargs, dict)
             return jsonify(call(cmd, *args, **kwargs))
 
-        @app.post(f'/{name}/<cmd>', endpoint=f'{name}_post_cmd') # type: ignore
+        @app.post(f'/{name}/<cmd>', endpoint=make_endpoint_name()) # type: ignore
         def post_cmd(cmd: str):
             if request.form:
                 req = dict(request.form)
