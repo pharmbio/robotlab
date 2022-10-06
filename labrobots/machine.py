@@ -85,6 +85,7 @@ class Machine:
                     is_ready = True
 
         def call(cmd: str, *args: Any, **kwargs: Any):
+            print(name, cmd, args, kwargs)
             try:
                 if cmd in 'remote routes init'.split() or cmd.startswith('_'):
                     raise ValueError(f'Cannot call {cmd} on {name} remotely')
@@ -166,8 +167,7 @@ class Machine:
                 return res['value']
             else:
                 raise ValueError(res['error'])
-        res = call(['up?'])
-        assert res['value']
+        assert call(['up?'])
         return Proxy(cls, call) # type: ignore
 
 @dataclass
@@ -202,14 +202,27 @@ class Git(Machine):
 
 @dataclass
 class Machines:
+    ip: t.ClassVar[str]
+    node_name: t.ClassVar[str]
     echo: Echo = Echo()
     git: Git = Git()
 
+    @staticmethod
+    def lookup_node_name(node_name: str) -> Machines:
+        for m in Machines.__subclasses__():
+            if m.node_name == node_name:
+                return m()
+        raise ValueError(f'{node_name} not configured (did you want to run with --test?)')
+
     @classmethod
-    def remote(cls, host: str) -> Self:
+    def remote(cls, host: str | None = None, port: int = 5050) -> Self:
+        if host is None:
+            url = f'http://{cls.ip}:{port}'
+        else:
+            url = f'http://{host}:{port}'
         d = {}
         for f in fields(cls):
-            d[f.name] = f.default.__class__.remote(f.name, host)
+            d[f.name] = f.default.__class__.remote(f.name, url)
         return cls(**d)
 
     def items(self) -> list[tuple[str, Machine]]:

@@ -1,4 +1,4 @@
-from .machine import Machine, Echo, Machines
+from .machine import Machines
 from .liconic import STX
 from .barcode_reader import BarcodeReader
 from .imx import IMX
@@ -14,6 +14,8 @@ HTS_PROTOCOLS_ROOT = "C:\\Users\\MolDev\\Desktop\\Protocols\\Plate protocols\\38
 
 @dataclass
 class WindowsNUC(Machines):
+    ip = '10.10.0.55'
+    node_name = 'WINDOWS-NUC'
     incu: STX = STX()
     wash: Biotek = Biotek('wash', [LHC_CALLER_CLI_PATH, "405 TS/LS", "USB 405 TS/LS sn:191107F", LHC_PROTOCOLS_ROOT])
     disp: Biotek = Biotek('disp', [LHC_CALLER_CLI_PATH, "MultiFloFX", "USB MultiFloFX sn:19041612", LHC_PROTOCOLS_ROOT])
@@ -21,40 +23,29 @@ class WindowsNUC(Machines):
 
 @dataclass
 class WindowsGBG(Machines):
+    ip = '10.10.0.97'
+    node_name = 'WINDOWS-GBG'
     fridge: STX = STX()
     barcode: BarcodeReader = BarcodeReader()
     imx: IMX = IMX()
 
 @dataclass
 class WindowsIMX(Machines):
+    ip = '127.0.0.1'
+    node_name = 'ImageXpress'
     dir_list: DirList = DirList(root_dir=HTS_PROTOCOLS_ROOT, ext='HTS', enable_hts_mod=True)
 
 @dataclass
 class Example(Machines):
+    ip = '127.0.0.1'
+    node_name = 'example'
     dir_list: DirList = DirList(root_dir='.', ext='py', enable_hts_mod=True)
 
 @dataclass
 class MikroAsus(Machines):
+    ip = '10.10.0.95'
+    node_name = 'mikro-asus'
     squid: Squid = Squid()
-
-LOCAL_IP = {
-    'NUC-robotlab': '10.10.0.55', # ubuntu computer connected to the local network
-    'WINDOWS-NUC': '10.10.0.56', # connected to the bioteks and 37C incubator
-    'WINDOWS-GBG': '10.10.0.97', # connected to the fridge incubator in imx room
-    'ImageXpress': '10.10.0.99', # connected to the imx
-}
-
-def lookup_node_name(node_name: str) -> Machines:
-    if node_name == 'test':
-        return Example()
-    elif node_name == 'WINDOWS-NUC':
-        return WindowsNUC()
-    elif node_name == 'WINDOWS-GBG':
-        return WindowsGBG()
-    elif node_name == 'ImageXpress':
-        return WindowsIMX()
-    else:
-        raise ValueError(f'{node_name} not configured (did you want to run with --test?)')
 
 def main():
     import sys
@@ -68,16 +59,12 @@ def main():
     parser.add_argument('--node-name', type=str, default=platform.node())
     args = parser.parse_args(sys.argv[1:])
     node_name = args.node_name
-    print('node_name:', node_name)
-    host = args.host
     if args.test:
-        node_name = 'test'
+        node_name = 'example'
+    print('node_name:', node_name)
 
-    if host == 'default':
-        host = LOCAL_IP.get(node_name, 'localhost')
-
-    machines = lookup_node_name(node_name)
-    machines.serve(port=args.port, host=host)
+    machines = Machines.lookup_node_name(node_name)
+    machines.serve(port=args.port, host=machines.ip if args.host == 'default' else args.host)
 
 if __name__ == '__main__':
     main()
