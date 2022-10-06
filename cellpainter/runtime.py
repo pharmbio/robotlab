@@ -24,30 +24,21 @@ from .moves import World, Effect
 
 from .log import LogEntry, Metadata, Error, Running, Log
 
-@dataclass(frozen=True)
-class Env:
-    robotarm_host: str = 'http://[100::]' # RFC 6666: A Discard Prefix for IPv6
-    robotarm_port: int = 30001
-    incu_url: str      = 'http://httpbin.org/anything'
-    biotek_url: str    = 'http://httpbin.org/anything'
-
-live_env = Env(
-    robotarm_host = '10.10.0.112',
-    incu_url      = 'http://10.10.0.56:5050/incu',
-    biotek_url    = 'http://10.10.0.56:5050',
-)
-
-simulator_env = Env(
-    robotarm_host = 'localhost',
-)
-
-forward_env = Env(
-    robotarm_host = 'localhost',
-)
-
-dry_env = Env()
-
 import time
+
+from labrobots import WindowsNUC, Biotek, STX
+
+@dataclass(frozen=True)
+class RobotarmEnv:
+    mode: Literal['noop', 'execute', 'execute no gripper', ]
+    host: str # = 'http://[100::]' # RFC 6666: A Discard Prefix for IPv6
+    port: int # = 30001
+
+class RobotarmEnvs:
+    live      = RobotarmEnv('execute', '10.10.0.112', 30001)
+    forward   = RobotarmEnv('execute', 'localhost', 30001)
+    simulator = RobotarmEnv('execute no gripper', 'localhost', 30001)
+    dry       = RobotarmEnv('noop', '', 0)
 
 @dataclass(frozen=True)
 class ResumeConfig:
@@ -75,10 +66,9 @@ keep = Keep()
 class RuntimeConfig:
     name:               str
     timelike_factory:   Callable[[], Timelike]
-    disp_and_wash_mode: Literal['noop', 'execute',                       ]
-    incu_mode:          Literal['noop', 'execute',                       ]
-    robotarm_mode:      Literal['noop', 'execute', 'execute no gripper', ]
-    env: Env
+    robotarm_env:       RobotarmEnv
+    run_incu_wash_disp: bool
+
     robotarm_speed: int = 100
     log_filename: str | None = None
     running_log_filename: str | None = None
@@ -138,12 +128,11 @@ class RuntimeConfig:
 
 configs: list[RuntimeConfig]
 configs = [
-    RuntimeConfig('live',          WallTime,        disp_and_wash_mode='execute', incu_mode='execute', robotarm_mode='execute',            env=live_env),
-    RuntimeConfig('live-no-incu',  WallTime,        disp_and_wash_mode='execute', incu_mode='noop',    robotarm_mode='execute',            env=live_env),
-    RuntimeConfig('simulator',     WallTime,        disp_and_wash_mode='noop',    incu_mode='noop',    robotarm_mode='execute no gripper', env=simulator_env),
-    RuntimeConfig('forward',       WallTime,        disp_and_wash_mode='noop',    incu_mode='noop',    robotarm_mode='execute',            env=forward_env),
-    RuntimeConfig('dry-wall',      WallTime,        disp_and_wash_mode='noop',    incu_mode='noop',    robotarm_mode='noop',               env=dry_env),
-    RuntimeConfig('dry-run',       SimulatedTime,   disp_and_wash_mode='noop',    incu_mode='noop',    robotarm_mode='noop',               env=dry_env),
+    RuntimeConfig('live',      WallTime,      robotarm_env=RobotarmEnvs.live,      run_incu_wash_disp=True,),
+    RuntimeConfig('simulator', WallTime,      robotarm_env=RobotarmEnvs.simulator, run_incu_wash_disp=False),
+    RuntimeConfig('forward',   WallTime,      robotarm_env=RobotarmEnvs.forward,   run_incu_wash_disp=False),
+    RuntimeConfig('dry-wall',  WallTime,      robotarm_env=RobotarmEnvs.dry,       run_incu_wash_disp=False),
+    RuntimeConfig('dry-run',   SimulatedTime, robotarm_env=RobotarmEnvs.dry,       run_incu_wash_disp=False),
 ]
 
 def config_lookup(name: str) -> RuntimeConfig:
@@ -167,13 +156,13 @@ def trim_LHC_filenames(s: str) -> str:
         return s
 
 def get_robotarm(config: RuntimeConfig, quiet: bool = False, include_gripper: bool = True) -> Robotarm:
-    if config.robotarm_mode == 'noop':
+    if config.robotarm_env.mode == 'noop':
         return Robotarm.init_noop(with_gripper=include_gripper, quiet=quiet)
-    assert config.robotarm_mode == 'execute' or config.robotarm_mode == 'execute no gripper'
-    with_gripper = config.robotarm_mode == 'execute'
+    assert config.robotarm_env.mode == 'execute' or config.robotarm_env.mode == 'execute no gripper'
+    with_gripper = config.robotarm_env.mode == 'execute'
     if not include_gripper:
         with_gripper = False
-    return Robotarm.init(config.env.robotarm_host, config.env.robotarm_port, with_gripper, quiet=quiet)
+    return Robotarm.init(config.robotarm_env.host, config.robotarm_env.port, with_gripper, quiet=quiet)
 
 import typing
 class CheckpointLike(typing.Protocol):
@@ -185,6 +174,11 @@ A = TypeVar('A')
 class Runtime:
     config: RuntimeConfig
     timelike: Timelike
+
+    incu: STX    | None = None
+    wash: Biotek | None = None
+    disp: Biotek | None = None
+
     log_entries: list[LogEntry] = field(default_factory=list)
     lock: RLock = field(default_factory=RLock)
 
@@ -211,6 +205,12 @@ class Runtime:
             signal.signal(signal.SIGABRT, handle_signal)
 
             print('Signal handlers installed')
+
+        if self.config.run_incu_wash_disp:
+            nuc = WindowsNUC.remote()
+            self.incu = nuc.incu
+            self.wash = nuc.wash
+            self.disp = nuc.disp
 
         self.set_robotarm_speed(self.config.robotarm_speed)
 
@@ -259,13 +259,6 @@ class Runtime:
             self.log(LogEntry(err=Error(reprlib.repr(e), traceback.format_exc())))
             if not isinstance(e, SystemExit):
                 os.kill(os.getpid(), signal.SIGTERM)
-
-    @property
-    def env(self):
-        '''
-        The runtime environment, forwarded from the config
-        '''
-        return self.config.env
 
     def log(self, entry: LogEntry, t0: float | None = None) -> LogEntry:
         with self.lock:

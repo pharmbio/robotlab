@@ -1,6 +1,9 @@
 from dataclasses import dataclass, asdict
 from typing import TypedDict
-from .utils import curl
+
+import labrobots
+from labrobots.dir_list import PathInfo
+
 from . import utils
 
 def nonempty(*xs: str) -> list[str]:
@@ -80,29 +83,6 @@ template_protocol_paths = ProtocolPaths(
 
 utils.serializer.register(globals())
 
-dir_list_url: str = 'http://10.10.0.56:5050/dir_list'
-# dir_list_url: str = 'http://localhost:5050/dir_list'
-
-class PathInfo(TypedDict):
-    '''
-    Info about a path:
-
-    posix-style path relative to protocol root
-    last modified timestamp in isoformat
-    sha256 hexdigest
-
-    example:
-
-    {
-      "path": "automation_v5.0/7_W_3X_beforeStains_leaves10ul_PBS.LHC",
-      "modified": "2022-02-15 10:57:50",
-      "sha256": "cf9eaf0e9a4cbaacba35433ae811f9a657b9a3ddc2ddca0b72d1ace3397259a2"
-    }
-    '''
-    path: str
-    modified: str
-    sha256: str
-
 class Response(TypedDict):
     value: list[PathInfo]
 
@@ -113,8 +93,8 @@ def paths_v5():
     return get_protocol_paths()['automation_v5.0']
 
 def update_protocol_dir(protocol_dir: str):
-    res: Response = curl(dir_list_url)
-    protocol_paths = make_protocol_paths(protocol_dir, res['value'])
+    paths = labrobots.WindowsNUC().remote().dir_list.list()
+    protocol_paths = make_protocol_paths(protocol_dir, paths)
     all_protocol_paths = get_protocol_paths()
     all_protocol_paths[protocol_dir] = protocol_paths
     utils.serializer.write_json(all_protocol_paths, 'protocol_paths.json', indent=2)

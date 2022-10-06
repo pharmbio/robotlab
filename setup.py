@@ -4,6 +4,7 @@ requirements = '''
     z3-solver
     flask
     sorcery
+    labrobots
 '''
 
 console_scripts = '''

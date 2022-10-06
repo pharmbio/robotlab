@@ -41,7 +41,7 @@ server_start = datetime.now()
 
 @utils.spawn
 def poll() -> None:
-    if config.robotarm_mode == 'noop':
+    if config.robotarm_env.mode == 'noop':
         return None
     arm = runtime.get_robotarm(config, quiet=False)
     arm.send('write_output_integer_register(1, 0)\n')

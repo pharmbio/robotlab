@@ -6,7 +6,6 @@ from .runtime import Runtime
 
 from .log import Metadata, LogEntry, Error
 from .commands import BiotekAction
-from .utils import curl
 
 def execute(
     runtime: Runtime,
@@ -57,22 +56,34 @@ def execute(
         }
 
     '''
+    if machine == 'wash':
+        biotek = runtime.wash
+    elif machine == 'disp':
+        biotek = runtime.disp
+    else:
+        raise ValueError(f'No such biotek {machine=}')
     while True:
-        if runtime.config.disp_and_wash_mode == 'noop':
+        if biotek is None:
             est = entry.metadata.est
             assert isinstance(est, float)
             runtime.sleep(est, entry.add(Metadata(dry_run_sleep=True)))
             res: Any = {"success":True, "lines":[]}
         else:
-            assert runtime.config.disp_and_wash_mode == 'execute'
-            url = (
-                runtime.env.biotek_url +
-                '/' + machine +
-                '/' + action +
-                '/' + (protocol_path or '')
-            )
-            url = url.rstrip('/')
-            res: Any = curl(url)
+            match action:
+                case 'Run':
+                    assert isinstance(protocol_path, str)
+                    res = biotek.Run(*protocol_path.split('/'))
+                case 'Validate':
+                    assert isinstance(protocol_path, str)
+                    res = biotek.Validate(*protocol_path.split('/'))
+                case 'RunValidated':
+                    assert isinstance(protocol_path, str)
+                    res = biotek.RunValidated(*protocol_path.split('/'))
+                case 'TestCommunications':
+                    assert protocol_path is None
+                    res = biotek.TestCommunications()
+                case _:
+                    raise ValueError(f'No such biotek {action=}')
         success: bool = res.get('success', False)
         lines: list[str] = res.get('lines', [])
         details = '\n'.join(lines)

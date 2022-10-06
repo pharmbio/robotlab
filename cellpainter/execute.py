@@ -96,7 +96,7 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
 
         case RobotarmCmd():
             with runtime.timeit(entry):
-                if runtime.config.robotarm_mode == 'noop':
+                if runtime.config.robotarm_env.mode == 'noop':
                     runtime.sleep(estimate(cmd), entry.add(Metadata(dry_run_sleep=True)))
                 else:
                     movelist = MoveList(movelists[cmd.program_name])

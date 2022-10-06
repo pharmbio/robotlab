@@ -1,16 +1,15 @@
 {
-    "include": ["src"],
     "pythonVersion": "3.10",
     "pythonPlatform": "Linux",
     "typeCheckingMode": "strict",
     "useLibraryCodeForTypes": true,
     "reportWildcardImportFromLibrary": "none",
-    "reportMissingTypeStubs": "warning",
+    "reportMissingTypeStubs": "none",
     "reportUnusedImport": "warning",
     "reportUnusedVariable": "warning",
     "reportUnusedClass": "none",
     "reportUnusedFunction": "none",
-    "reportUnusedExpression": "warning",
+    "reportUnusedExpression": "none",
     "reportPrivateUsage": "warning",
     "reportConstantRedefinition": "none",
     "reportUnknownLambdaType": "warning"
