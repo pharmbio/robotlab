@@ -14,7 +14,7 @@ HTS_PROTOCOLS_ROOT = "C:\\Users\\MolDev\\Desktop\\Protocols\\Plate protocols\\38
 
 @dataclass
 class WindowsNUC(Machines):
-    ip = '10.10.0.55'
+    ip = '10.10.0.56'
     node_name = 'WINDOWS-NUC'
     incu: STX = STX()
     wash: Biotek = Biotek('wash', [LHC_CALLER_CLI_PATH, "405 TS/LS", "USB 405 TS/LS sn:191107F", LHC_PROTOCOLS_ROOT])
