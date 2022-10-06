@@ -80,7 +80,7 @@ template_protocol_paths = ProtocolPaths(
 
 utils.serializer.register(globals())
 
-dir_list_url: str = 'http://10.10.0.56:5050/dir_list/list'
+dir_list_url: str = 'http://10.10.0.56:5050/dir_list'
 # dir_list_url: str = 'http://localhost:5050/dir_list'
 
 class PathInfo(TypedDict):
