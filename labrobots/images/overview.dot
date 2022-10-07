@@ -1,0 +1,38 @@
+# Build the svg with:
+# dot overview.dot -Tsvg -o overview.svg
+graph {
+    node [fontname="Roboto", fontsize=12]
+    edge [fontname="Roboto", fontsize=12]
+    node [shape=box]
+    wash [label="BioTek washer"]
+    disp [label="BioTek dispenser"]
+    incu [label="LiCONiC incubator"]
+    rank=same {wash; disp; incu}
+    dll [label="BTILHCCaller.dll"]
+    biotek_repl [label=<
+        LHC_Caller (C# repl)
+        <BR/><BR/>
+        <FONT FACE="Consolas">biotek_repl/</FONT>
+    >, margin=0.2]
+    labrobots_server [label=<
+        http server (python flask)
+        <BR/><BR/>
+        <FONT FACE="Consolas">labrobots_server/</FONT>
+    >, margin=0.2]
+    incu_java [label="STXdriver (Java)"]
+    incu_repl [label=<
+        incubator repl (python)
+        <BR/><BR/>
+        <FONT FACE="Consolas">incubator_repl/</FONT>
+    >, margin=0.2]
+    wash -- dll [label="   USB"]
+    disp -- dll [label="   USB"]
+    dll -- biotek_repl [label="  dll call"]
+    biotek_repl -- labrobots_server [label="  subprocess"]
+    incu -- incu_java [label="  USB serial converter"]
+    incu_java -- incu_repl [label="  TCP socket"]
+    controller [label="external use (robot controller system)"]
+    incu_repl -- labrobots_server [label="    subprocess"]
+    labrobots_server -- controller [label="   http"]
+}
+

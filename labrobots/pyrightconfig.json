@@ -1,0 +1,10 @@
+{
+    "pythonVersion": "3.7",
+    "typeCheckingMode": "strict",
+    "reportWildcardImportFromLibrary": "warning",
+    "reportMissingTypeStubs": "warning",
+    "reportUnusedImport": "warning",
+    "reportUnusedClass": "warning",
+    "reportUnusedFunction": "warning",
+    "reportUnusedVariable": "warning"
+}
