@@ -1,0 +1,172 @@
+#Region "Functions"
+' Copyright (c) 2006, 2007, 2012, 2015 by Precise Automation, Inc.
+' All rights reserved.
+' =======================================================================
+' Permission is granted to customers of Precise Automation to use this
+' software for any purpose, including commercial applications, and to
+' alter it and redistribute it freely, so long as this notice is included
+' with any modified or unmodified version of this software.
+'
+' This software is provided "as is," without warranty of any kind, express or
+' implied.  In no event shall Precise Automation be held liable for any
+' direct, indirect, incidental, special or consequential damages arising
+' out of the use of or inability to use this software.
+' =======================================================================
+
+Module Functions
+
+#Region "Backspace"
+' Backspace -- Handle backspace character
+'
+' ABSTRACT: Handles backspace character by deleting the backspace
+'   character and the one preceding.  Handles short strings.
+'
+' INPUTS:   index       The index of the backspace character, starting at 0.
+'
+'           msg         The string to be edited.  It contains the backspace
+'                       character.  Also an output.
+'
+' OUTPUTS:  msg         The edited string.
+'
+' RETURNS:  none
+
+    Public Sub Backspace(ByVal index As Integer, ByRef msg As String)
+
+        If index > 1 Then
+            If msg.Length > index Then
+                msg = msg.SubString(0, index-1) & msg.SubString(index + 1)
+            Else
+                msg = msg.SubString(0, index-1)
+            End If
+        Else
+            If msg.Length > index Then
+                msg = msg.SubString(index + 1)
+            Else
+                msg = ""
+            End If
+        End If
+
+    End Sub
+#End Region
+#Region "sFormat"
+' sFormat -- Format a floating point value
+'
+' ABSTRACT: Basic routine to format a floating point value to a specified
+'   fractional precision.
+'
+' INPUTS:  value           Input value.
+'          frac            Fractional precision digits.
+'
+' OUTPUTS: none
+'
+' RETURNS: Formatted string for the input value.
+'
+    Public Function sFormat(ByVal value As Double, ByVal frac As Integer) As String
+
+        Dim tmpf, scl As Double
+        Dim result As String
+
+        frac = Math.Max(frac, 0)
+        scl = Math.Pow(10, frac)
+        ' Take Abs value, Scale up, round, truncate fraction,
+        tmpf = Math.Floor(Math.Abs(value)*scl+0.5) ' Take abs value and scale up
+        tmpf = (tmpf / scl) * Math.Sign(value) ' Scale down, restore sign
+
+        result = CStr(tmpf).ToUpper     ' Convert to a string
+
+        Return result
+
+    End Function
+#End Region
+#Region "sAngles"
+' sAngles -- Format a joint angle location
+'
+' ABSTRACT: Format a location in joint angles for display purpose. A
+'   location header is optionally prepended.
+'
+' INPUTS: naxes           The number of axis angles to display
+'         header          Optional string to be prepended to the output string.
+'         lc              Location, which should be joint angles type.
+'         frac            Location angles display precision.
+'
+' OUTPUTS: none
+'
+' RETURNS:  Formatted location angles string.
+'
+    Public Function sAngles(ByVal naxes As Integer, ByVal header As String, _
+        ByVal lc As Location, _
+        ByVal frac As Integer) As String
+
+        Dim reply As String
+        Dim ii As Integer
+
+        ' Prepend the header message.
+
+        If header.Length > 0 Then
+            If bTelnetMode Then
+                reply = header & " = "
+            Else
+                reply = header & " "
+            End If
+        End If
+
+        ' Format the joint angles and append to the output String.
+
+        For ii = 1 To naxes
+            reply &= sFormat(lc.Angle(ii), frac)
+            If ii = naxes Then
+                reply &= ""
+            Else
+                reply &= " "
+            End If
+        Next ii
+
+        Return reply
+
+    End Function
+
+#End Region
+#Region "sCartesian"
+' sCartesian -- Format a Cartesian location for display
+'
+' ABSTRACT: Format a location in Cartesian coordinates for display purpose.
+'   A location header is optionally prepended.
+'
+' INPUTS:  header          Optional string to be prepended to the output string.
+'          lc              Location, which should be Cartesian coordinates type.
+'          frac            Location values display precision.
+'
+' OUTPUTS: none
+'
+' RETURNS: Formatted location Cartesian coordinates string.
+'
+    Public Function sCartesian(ByVal header As String, _
+        ByVal lc As Location, _
+        ByVal frac As Integer) As String
+        Dim reply As String
+
+        ' Prepend the header message.
+
+        If header.Length > 0 Then
+            If bTelnetMode Then
+                reply = header & " = "
+            Else
+                reply = header & " "
+            End If
+        End If
+
+        ' Format the location components and append to the output String.
+
+        reply &= sFormat(lc.X, frac) & " " & _
+            sFormat(lc.Y, frac) & " " & _
+            sFormat(lc.Z, frac) & " " & _
+            sFormat(lc.Yaw, frac) & " " & _
+            sFormat(lc.Pitch, frac) & " " & _
+            sFormat(lc.Roll, frac)
+
+        Return reply
+
+    End Function
+#End Region
+
+End Module

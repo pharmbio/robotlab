@@ -1,0 +1,398 @@
+#Region "Classes"
+
+' Copyright (c) 2012-2019 by Precise Automation Inc.  All rights reserved.
+' =======================================================================
+' Permission is granted to customers of Precise Automation to use this
+' software for any purpose, including commercial applications, and to
+' alter it and redistribute it freely, so long as this notice is included
+' with any modified or unmodified version of this software.
+'
+' This software is provided "as is," without warranty of any kind, express or
+' implied.  In no event shall Precise Automation be held liable for any
+' direct, indirect, incidental, special or consequential damages arising
+' out of the use of or inability to use this software.
+' =======================================================================
+'
+' DESCRIPTION:  This file contains the definition for the class "Command".
+'       An object of this class contains the data for a single command
+'       being processed
+
+#Region "RobData Class"
+Class RobData
+
+' Public robot data
+
+    Public RobNum As Integer            ' The robot number from 1 to n
+                                        ' or 0 if no robot.
+    Public RobNumAxes As Integer        ' The number of axes on this robot
+                                        ' Includes servoed gripper and rail
+                                        ' Does not include non-servoed gripper
+    Public RobType As Integer           ' The robot type from DataID 2007:
+                                        '  200 - PrecisePlace 1xx
+                                        '  400 - PreciseFlex 400
+                                        '  800 - PreciseFlex 300 Tube Handler
+
+    Public GripAxis As Integer          ' The optional electric gripper axis
+                                        '  number, or 0 if no egripper.
+
+    Public RailAxis As Integer          ' The optional linear rail axis
+                                        '  number, or 0 if no rail axis
+
+    Public ThetaAxis As Integer         ' The optional theta rotary axis
+                                        '  number, or 0 if no theta axis
+
+    Public InactiveGripAxis As Integer  ' The optional 2nd electric gripper axis
+                                        '  number, or 0 if not dual gripper.
+
+    Public ActiveGripper As Integer     ' The Active gripper,
+                                        ' GripperA = 0,
+                                        ' GripperB = 1,
+                                        ' 0 If Not dual gripper.
+
+' Motion data
+
+    Public RobProf(N_PROF) As Profile
+    Public RobSta(N_LOC) As Station
+
+#End Region
+#Region "New RobData"
+' New -- Constructor for RobData Class objects
+'
+' ABSTRACT: Constructor for RobData Class objects.
+'
+'       The location variables are pre-initialized to be joint angles type.
+'       However, they may be re-cast to be Cartesian coordinates type at
+'       run-time.
+'
+'       The motion profiles are initialized as follows:
+'
+'           speed = 50, accel/decel = 100, accelRamp/decelRamp = 0.1
+'           joint moves, inRange = 10
+'
+'       As in the case of locations, these motion profile parameters may be
+'       updated dynamically in run-time.
+'
+' INPUTS:   Me          The new object
+'           RobNumArg   The robot number for this object, or 0 if no robot.
+'
+' OUTPUTS:  none
+'
+' RETURNS:  none
+
+'
+    Public Sub New(ByVal RobNumArg As Integer)
+        Dim ii As Integer
+
+        RobNum = RobNumArg          ' Save the robot number
+        If (RobNum = 0) OrElse (Robnum > Controller.PdbNum(113)) Then
+            Goto _exit
+        End If
+
+        ' -- Initialize robot-related values
+
+        RobNumAxes = Controller.PdbNum(2000, RobNum, 0, 0)
+        RobType = Controller.PdbNum(2007, RobNum, 0, 0)
+        ActiveGripper = 0
+
+
+        ' -- Initialize the motion Profile objects
+
+        For ii = 1 To N_PROF
+            RobProf(ii) = New Profile
+            RobProf(ii).Speed = 50
+            RobProf(ii).Speed2 = 0
+            RobProf(ii).Accel = 100
+            RobProf(ii).Decel = 100
+            RobProf(ii).AccelRamp = 0.1
+            RobProf(ii).DecelRamp = 0.1
+            RobProf(ii).inRange = 10
+            RobProf(ii).Straight = False
+        Next ii
+
+        For ii = 1 To N_LOC
+            RobSta(ii) = New Station
+        Next ii
+
+    _exit:
+
+        Return
+    End Sub
+End Class
+#End Region
+#Region "Command Class"
+Class Command
+
+' Communications buffers
+
+    Public InMsg As String              ' The raw input command from the client
+    Public Reply As String              ' The reply to be sent back to the client
+
+' Public command data
+
+    Public Nparm As Integer             ' The number of parameters received
+    Public sData() As String            ' The received parameters as strings
+                                        ' sData(0) is the command
+    Public cData() As Double            ' The received parameters as Doubles
+                                        ' after StringToDouble() is called.
+
+    Public IsStatus As Boolean          ' True if this is the status thread
+
+    Public NewRobNum As Integer         ' Set to >= 0 to request a different
+                                        ' robot number for a thread
+' Robot data
+
+    Public Rob As RobData               ' Robot data associdated with command
+
+' Plug-in data
+
+    Public Const MAX_PLUGIN As Integer = 8 ' Maximum number of plugins allowed
+    Public Shared PluginVersion(MAX_PLUGIN-1) As String ' Names of plug+version
+    Public Shared PluginModule(MAX_PLUGIN-1) As String ' Names of plugin modules
+    Public Shared NumPlugins As Integer = 0 ' Number of plugin routines defined
+
+#End Region
+#Region "Delegate"
+' Delegate for command handler
+
+    Private Delegate Sub CommandDelegate( _
+            ByVal Cmd As Command, _
+            ByRef Reply As String)
+
+#End Region
+#Region "RunPluginHook"
+' RunPluginHook -- Run any plugin hook routines
+'
+' ABSTRACT: This routine runs any custom plugin routines that may have
+'       been specified by the AddPlugin() method.
+'
+'       This routine should be called immediately after allocating a new
+'       command object using "New".  It cannot be called from inside the
+'       New routine because of a GPL bug.
+'
+' INPUTS:   Me          The new object
+'           hook        A string containing the name of the routine to run
+'
+' OUTPUTS:  Reply       If no error, unchanged from input
+'                       If error, contains error string.
+'
+' RETURNS:  0 if no error, -1 if error
+
+'
+    Public Function RunPluginHook(ByVal hook As String, _
+           ByRef Reply As String) As Integer
+        Dim cmdDel As CommandDelegate
+        Dim ii As Integer
+        Dim ss As String
+        Dim exc As Exception
+        Dim save_reply As String
+        Dim ret As Integer = 0         ' Assume success
+
+        ' Call any init routines associated with this new Object
+
+        For ii = 0 To NumPlugins-1
+            ss = PluginModule(ii) & "." & hook
+            Try
+                cmdDel = New CommandDelegate(ss) ' Get plugin init Delegate
+            Catch exc
+                cmdDel = Nothing
+            End Try
+            If Not cmdDel Is Nothing Then
+                Try
+                    save_reply = Reply
+                    cmdDel(Me, Reply)
+                    If save_reply <> Reply Then
+                        ret = -1
+                    End If
+                Catch exc
+                    Reply = CStr(exc.ErrorCode) & " " & exc.Message _
+                        & ", Hook: " & ss _
+                        & ", Robot:" & CStr(Me.Rob.RobNum)
+                    ret = -1
+                End Try
+            End If
+        Next ii
+
+        Return ret
+    End Function
+#End Region
+#Region "AddPlugin"
+' AddPlugin - Routine to add a plugin routine called for new command objects
+'
+' ABSTRACT:  This routine allows an external module to add a routine that
+'       is called at by the Command object constructor whenever a new command
+'       object is created.  It permits custom data items to be initialized
+'
+'       Appends the plugin routine name to the NewPlugin string array.
+'
+' INPUTS:   version     The name and version of the plugin, displayed by
+'                       the version command.
+'
+'           modname      The name of the module containing the plug-in.
+'
+' OUTPUTS:  none
+
+
+Public Shared Sub AddPlugin(ByVal version As String, ByVal modname As String)
+    PluginVersion(NumPlugins) = version
+    PluginModule(NumPlugins) = modname
+    NumPlugins += 1
+    Controller.SystemMessage(version)
+End Sub
+#End Region
+#Region "Handler"
+' Handler -- Handle all commands
+'
+' ABSTRACT:  This routine handles all received commands.
+'       It parses the command to extract the command string CmdStr,
+'       and the received parameters.
+'       It then dispatches to the handler for the specific command.
+'
+' INPUTS:   me      Command object containing
+'                   RobNum - The robot number from 1 to n or 0 for no robot.
+'
+'           InMsg   The unprocessed message string received from the client.
+'
+' OUTPUTS:  reply   The reply string to be sent to the client.
+
+    Public Sub Handler()
+        Dim token() As String
+        Dim ss As String
+        Dim ii As Integer
+        Dim c As Integer
+        Dim cmdDel As CommandDelegate
+        Dim ex As Exception
+
+        Try
+
+            ' Strip control characters if Telnet mode
+
+            If bTelnetMode Then
+                ss = ""
+                For ii = 1 To InMsg.Length
+                    c = Asc(Mid(InMsg, ii, 1))
+                    If c >= &H20 Then
+                        ss &= Chr(c)
+                    End If
+                Next ii
+                InMsg = ss.Trim             ' Remove leading and trailing space
+                Reply = "Ok"                ' Set default reply
+            Else
+                Reply = "0"                 ' Set default reply
+            End If
+
+            ' Split the input based on blanks
+
+            sData = InMsg.Split(" ")
+            Nparm = sData.Length-1
+            If Nparm < 0 Then
+                Goto _exit              ' Ignore if empty command
+            End If
+
+            ' Display diagnostics messages.
+
+            If DBG_CMD_SERVER Then
+                Console.Write("cmd = " & sData(0) _
+                       & ", # of parm  = " & CStr(Nparm))
+                For ii = 1 To Nparm
+                    Console.Write(", " & sData(ii))
+                Next ii
+                Console.WriteLine("")
+            End If
+
+            ' Call the command handler
+
+            cmdDel = New CommandDelegate("Cmd_" & sData(0)) ' Get delegate
+            cmdDel(Me, Reply)
+
+        Catch ex
+
+            ' If asynchronous error, attempt to find the underlying code
+
+            If (ex.ErrorCode = -1029) _
+               OrElse (ex.ErrorCode = -1030) _
+               OrElse (ex.ErrorCode = -1043) Then
+                Thread.Sleep(10)
+                ex.UpdateErrorCode
+            End If
+
+            ' Change "undefined symbol" to "unknown command"
+
+            If ex.ErrorCode = -729 Then
+                Reply = EcUnknown
+                If bTelnetMode Then
+                    Reply &= ": " & sData(0)
+                End If
+            Else
+                Reply = CStr(ex.ErrorCode)
+                If bTelnetMode Then
+                    Reply &= " " & ex.Message
+                End If
+            End If
+        End Try
+
+        ' Display reply message if in debug mode.
+
+        If DBG_CMD_SERVER Then
+            Console.WriteLine("Reply = '" & Reply & "'")
+        End If
+    _exit:
+        Return
+    End Sub
+
+#End Region
+#Region "StringToDouble"
+' StringToDouble - Conversion utility
+'
+' ABSTRACT:  This procedure converts all of the string parameters in sData()
+'       to double values in cData().  If any error occurs during conversion
+'       the corresonding cData() element is set to 0.
+'
+' INPUTS:   Me          The Command class object to be converted
+'           PadCount    The minimum number of cData() elements to be
+'                       converted.  cData() is padded to this value
+'                       with zeros if necessary.
+'
+
+    Public Sub StringToDouble(PadCount As Integer)
+        Dim ii As Integer
+        Dim ex As Exception
+
+        ' ReDim forces all values to zero initially
+
+        ReDim cData(Math.Max(sData.Length, PadCount))
+
+        For ii = 1 To Nparm
+            Try
+                cData(ii) = CDbl(sData(ii))
+            Catch ex
+            End Try
+            If (cData(ii) = 0) AndAlso _
+                (sData(ii).TrimStart("-+0.").Length <> 0) Then
+                ex = New Exception
+                ex.ErrorCode = -717     ' Invalid number format
+                Throw ex
+            End If
+
+        Next ii
+
+    End Sub
+
+
+#End Region
+
+' StoreDobules - Conversion utility, stores the cData doubles back to strings
+    Public Sub StoreDoubles(StartFrom As Integer)
+        Dim ii As Integer
+        For ii = StartFrom To Nparm
+            sData(ii) = CStr(cData(ii))
+        Next ii
+    End Sub
+
+' SetNumParams
+    Public Sub SetNumParams(NumParams As Integer)
+        Nparm = NumParams
+        ReDim sData(Nparm)
+        ReDim cData(Nparm)
+    End Sub
+
+End Class

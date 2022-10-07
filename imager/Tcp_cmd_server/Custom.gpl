@@ -1,0 +1,128 @@
+#Region "Module CustomCommands"
+' Copyright (c) 2012 by Precise Automation Inc.  All rights reserved.
+' =======================================================================
+' Permission is granted to customers of Precise Automation to use this
+' software for any purpose, including commercial applications, and to
+' alter it and redistribute it freely, so long as this notice is included
+' with any modified or unmodified version of this software.
+'
+' This software is provided "as is," without warranty of any kind, express or
+' implied.  In no event shall Precise Automation be held liable for any
+' direct, indirect, incidental, special or consequential damages arising
+' out of the use of or inability to use this software.
+' =======================================================================
+
+Module CustomCommands
+
+' A custom command may be added simply by copying this template file
+' and adding that file to your TCS project.
+'
+' The command will automatically be recognized by the command handler.
+'
+' This example implements the command "Custom" which is automatically
+' handled by the routine "Cmd_Custom" shown below.
+
+    Private Const Version As String = "Custom Module 1.0 02-01-2012"
+    Public Custom_global_value As Integer
+    Public Custom_robot_array(N_ROB) As Integer
+
+
+#End Region
+#Region "Init"
+' Init -- Module Initialization
+'
+' The Public Sub named "Init" in each module is automatically called during
+' startup before the main program.  It can be used to set up global variables
+
+    Public Sub Init()
+        Custom_global_value = 123
+' In a real plug-in, uncomment the following line
+'       Command.AddPlugin(Version, "CustomCommands")
+    End Sub
+#End Region
+#Region "Hook_InitCommand"
+' Hook_InitCommand -- Initialization routine called when a command object is created
+'
+' ABSTRACT:  This routine is called after a new command object is created for
+'       a robot.
+'
+'       It modifies the command object and builts local data structures.
+'
+' INPUTS:   Cmd     is the new Command object, filled in by the command New sub.
+'
+' OUTPUTS:  Reply   A dummy string, not used.
+
+    Public Sub Hook_InitCommand(ByVal Cmd As Command, ByRef Reply As String)
+
+       If Cmd.Rob.RobNum = 0 Then
+           GoTo _exit                   ' No robot
+       End If
+
+       Custom_robot_array(Cmd.Rob.RobNum) = Cmd.Rob.RobNum + 1000
+
+    _exit:
+       Return
+    End Sub
+
+#End Region
+#Region "Cmd_Custom"
+' Cmd_Custom -- Command handler for the "Custom" command
+'
+' INPUTS:   Cmd     An object of the class "Command" which contains the parsed
+'                   command message from the remote client.
+'
+'                   See the Class Command definition in the Class_command.gpl.
+'
+'                       Cmd.Rob.RobNum  is the assigned robot number, or 0
+'                                       if the status thread.
+'                       Cmd.Rob.RobNumAxes is the number of axes for this robot.
+
+'                       Cmd.sData(0)    is the command that invoked this routine
+'                       Cmd.Nparm       is the number of parameters
+'                       Cmd.sData(1...) are the parameter strings.
+'                       Cmd.cData(1...) are the parameter numeric values after
+'                                       StringToDouble is called.
+'
+' OUPUTS:   Reply   The string sent to the client in response to this command.
+'
+'                   In normal mode, success is indicated a zero "0" as the
+'                   first field and failure is indicated by a negative error
+'                   code.
+'
+'                   In Telnet mode, which is intended to be read by humans,
+'                   success is indicated by the string "Ok" and errors by
+'                   an error message string.
+'
+'                   Arbitrary string data may be appended afterwards.
+'
+'                   The default value upon entry is "0" if normal mode
+'                   and "Ok" if Telnet mode.
+
+    Public Sub Cmd_Custom(ByVal Cmd As Command, ByRef Reply As String)
+        Dim ii As Integer
+
+        Cmd.StringtoDouble(0)           ' Convert string parameters to numeric
+
+        If bTelnetMode Then
+            reply = "Robot: " & CStr(Cmd.Rob.RobNum) & _
+                  ", Command: " & Cmd.sData(0) & _
+                  ", Global value: " & CStr(Custom_global_value) & _
+                  ", # Parameters:"
+        Else
+            reply = "0 " & CStr(Cmd.Rob.RobNum) & _
+                  " " & Cmd.sData(0) & _
+                  " " & CStr(Custom_global_value)
+
+        End If
+
+        reply &= " " & CStr(Cmd.Nparm)
+
+        For ii = 1 To Cmd.Nparm
+            reply &= " " & CStr(Cmd.cData(ii))
+        Next ii
+
+    End Sub
+
+#End Region
+
+End Module

@@ -1,0 +1,1611 @@
+' Class_gpofile.gpl -- .gpo file handing routines
+
+' Copyright (c) 2015,2020 by Precise Automation Inc.  All rights reserved.
+' =======================================================================
+' Permission is granted to customers of Precise Automation to use this
+' software for any purpose, including commercial applications, and to
+' alter it and redistribute it freely, so long as this notice is included
+' with any modified or unmodified version of this software.
+'
+' This software is provided "as is," without warranty of any kind, express or
+' implied.  In no event shall Precise Automation be held liable for any
+' direct, indirect, incidental, special or consequential damages arising
+' out of the use of or inability to use this software.
+' =======================================================================
+
+#Region "Class Gpofilevar"
+
+' Gpo file variable
+
+Public Class GpoVar
+
+    Public Const GPV_TY_NONE As Integer = 0
+    Public Const GPV_TY_INTEGER As Integer = 1
+    Public Const GPV_TY_SINGLE As Integer = 2
+    Public Const GPV_TY_DOUBLE As Integer = 3
+    Public Const GPV_TY_STRING As Integer = 4
+    Public Const GPV_TY_LOCATION As Integer = 5
+    Public Const GPV_TY_PROFILE As Integer = 6
+    Public Const GPV_TY_REFFRAME As Integer = 7
+    Public Const GPV_TY_MAX As Integer = 7 ' Maximum type
+
+    Public link As GpoVar              ' Link to next variable or Nothing
+    Public name As String               ' The variable name
+    Public type As Integer              ' The variable type, one of GPV_TY_*
+    Public array As Integer             ' Max array index or -1 if non-array
+    Public numeric_value() As Double    ' Numeric value array
+    Public string_value() As String     ' String value array
+    Public location_value() As Location ' Location value array
+    Public profile_value() As Profile   ' Profile value array
+    Public refframe_value() As RefFrame ' RefFrame value array
+
+End Class ' GpoVar
+
+#End Region
+
+#Region "Class GpoFile"
+
+Public Class GpoFile
+    Public header() As String           ' File header
+    Public module_name As String = ""   ' Name of module
+    Private list_head As GpoVar      ' Head of variable list
+
+    ' Interlock for thread safety
+
+    Private list_lock As Integer
+
+    ' Names of data types for declarations
+
+    Private Shared TypeName(GPV_TY_MAX) As String
+
+    ' Names of data types for comments
+
+    Private Shared CommentType(GPV_TY_MAX) As String
+
+    ' Flag set true of type is an object
+
+    Private Shared IsObject(GPV_TY_MAX) As Boolean
+
+#End Region
+
+#Region "Init"
+' Init routine called automatically at startup
+
+    Private Shared Sub Init()
+
+        TypeName(GPV_TY_INTEGER) = "Integer"
+        TypeName(GPV_TY_SINGLE) = "Single"
+        TypeName(GPV_TY_DOUBLE) = "Double"
+        TypeName(GPV_TY_STRING) = "String"
+        TypeName(GPV_TY_LOCATION) = "Location"
+        TypeName(GPV_TY_PROFILE) = "Profile"
+        TypeName(GPV_TY_REFFRAME) = "RefFrame"
+
+        CommentType(GPV_TY_INTEGER) = "IntegerVariable"
+        CommentType(GPV_TY_SINGLE) = "SingleVariable"
+        CommentType(GPV_TY_DOUBLE) = "DoubleVariable"
+        CommentType(GPV_TY_STRING) = "StringVariable"
+        CommentType(GPV_TY_LOCATION) = "MotionLocation"
+        CommentType(GPV_TY_PROFILE) = "MotionProfile"
+        CommentType(GPV_TY_REFFRAME) = "MotionFrame"
+
+        IsObject(GPV_TY_INTEGER) = False ' Set flag for object types
+        IsObject(GPV_TY_SINGLE) = False
+        IsObject(GPV_TY_DOUBLE) = False
+        IsObject(GPV_TY_STRING) = False
+        IsObject(GPV_TY_LOCATION) = True
+        IsObject(GPV_TY_PROFILE) = True
+        IsObject(GPV_TY_REFFRAME) = True
+
+    End Sub
+
+#End Region
+
+#Region "ReadFile"
+' ReadFile - Read the indicated file
+
+' INPUTS:   Filename        The path and name of the file to read
+'
+' OUTPUTS:  Reply           If no error, unchanged from input
+'                           If error, contains the error message
+'
+' RETURNS:  0 if no error, -1 if error
+
+    Public Function ReadFile(ByVal Filename As String, ByRef Reply As String) As Integer
+        Dim in_file As StreamReader
+        Dim ret As Integer = -1         ' Assume error
+        Dim exc As Exception
+        Dim line As String
+        Dim sa() As String
+        Dim ln As Integer
+        Dim var As String
+        Dim value As String
+        Dim vartype As Integer
+        Dim index As Integer
+        Dim prop As String
+        Dim ii As Integer
+        Dim jj As Integer
+        Dim ss As String
+        Dim gvar As GpoVar
+
+        ' Open the input file
+
+        Try
+            in_file = New StreamReader(Filename)
+        Catch exc
+            Reply = CStr(exc.ErrorCode) & " " & exc.Message _
+                  & ", file: " & Filename
+            in_file = Nothing
+        End Try
+        If in_file Is Nothing Then
+            GoTo _exit
+        End If
+
+        ln = 0
+        Try
+
+            ' Process and save header
+
+            While True
+                line = in_file.ReadLine
+                ln += 1
+                sa = line.TrimStart().ToLower.Split(" ")
+                If sa(0) = "module" Then Exit While
+
+                If header Is Nothing Then ' Workaround Redim Preserve bug
+                    ReDim header(ln-1)
+                Else
+                    ReDim Preserve header(ln-1)
+                End If
+                header(ln-1) = line
+            End While
+
+            If module_name.Length > 0 Then GoTo bad_format
+            module_name = sa(1)         ' Save module name
+
+            ' Process declarations
+
+            While True
+                line = in_file.ReadLine.TrimStart()
+                ln += 1
+
+                If line.Length = 0 Then GoTo next_dcl
+                If line.Substring(0, 1) = "'" Then GoTo next_dcl
+
+                sa = line.ToLower.Split(" ")
+                If sa(0) <> "public" Then GoTo bad_format
+
+                If sa.Length < 3 Then GoTo bad_format
+                var = sa(1)
+                If var = "sub" Then Exit While
+
+                If sa.Length < 4 Then GoTo bad_format
+                If sa(2) <> "as" Then GoTo bad_format
+
+                vartype = LookupType(sa(3))
+                If vartype = 0 Then GoTo bad_format
+
+                sa = var.Split("(")     ' Handle possible array
+                If sa.Length > 1 Then
+                    index = CInt(sa(1))
+                Else
+                    index = -1
+                End If
+
+                If AddVariable(sa(0).TrimEnd, vartype, index) Is Nothing Then
+                    Reply = "-727 *Cannot redefine symbol* " & sa(0).TrimEnd
+                    GoTo exit_try
+                End If
+
+    next_dcl:
+            End While
+
+            If sa(2) <> "init" Then GoTo bad_format ' Public Sub Init
+
+            ' Parse assignments
+
+            While True
+                line = in_file.ReadLine.TrimStart()
+                ln += 1
+
+                If line.Length = 0 Then GoTo next_asn
+                If line.Substring(0, 1) = "'" Then GoTo next_asn
+
+                ' Split at first =
+
+                ii = line.IndexOf("=")
+                ' If no = check for xyz or angles
+                If ii < 0 Then
+                    ss = line.ToLower
+                    ii = ss.IndexOf(".xyz(")
+                    If ii >= 0 Then
+                        value = ss.SubString(ii+5).Trim
+                        var = ss.SubString(0, ii+4).Trim ' Get var.xyz
+                    Else
+                        ii = ss.IndexOf(".angles(")
+                        If ii >= 0 Then
+                            value = ss.SubString(ii+8).Trim
+                            var = ss.SubString(0, ii+7).Trim ' Get var.angles
+                        Else
+                            sa = ss.Split(" ")
+                            If (sa.Length > 1) AndAlso _
+                               (sa(0) = "end") AndAlso _
+                               (sa(1) = "sub") Then Exit While ' End assignments
+                            GoTo bad_format ' Otherwise bad file
+                        End If
+                    End If
+                Else
+                    value = line.SubString(ii+1).Trim
+                    var = line.SubString(0, ii).Trim.ToLower
+                End If
+
+                ' Check for array index "(" before any "."
+
+                ii = var.IndexOf("(")
+                jj = var.IndexOf(".")
+                If ii < 0 Then
+                    index = -1
+                ElseIf (jj >= 0) AndAlso (jj < ii) Then
+                    index = -1
+                Else
+                    ss = var.Substring(ii+1) ' Get LH of (
+                    var = var.Substring(0, ii) ' Get variable name
+                    ii = ss.IndexOf(")")
+                    If ii < 1 Then GoTo bad_format
+                    index = CInt(ss)
+                    var = var & ss.Substring(ii+1) ' Get var without index
+                End If
+
+                ' Check for object property or field
+
+                ii = var.IndexOf(".")
+                If ii > 1 Then
+                    prop = var.Substring(ii+1).TrimEnd ' Get property name
+                    var = var.SubString(0,ii) ' Get base variable name
+                Else
+                    prop = ""
+                End If
+
+                gvar = FindVarType(var.TrimEnd, GPV_TY_NONE, index, True)
+                If gvar Is Nothing Then
+                    Reply = "-729 *Undefined variable* " & var.TrimEnd
+                    GoTo exit_try ' Exit with Reply
+                End If
+                If index < 0 Then index = 0
+
+                ' Do the assignment based on the variable type
+
+                Select gvar.type
+                Case GPV_TY_INTEGER, GPV_TY_SINGLE, GPV_TY_DOUBLE
+                    If prop <> "" Then GoTo bad_format
+                    gvar.numeric_value(index) = CDbl(value)
+                Case GPV_TY_STRING
+                    If prop <> "" Then GoTo bad_format
+                    ' String 1st and last characters.  Assume they are quotes
+                    If value.Substring(0,1) = """" Then
+                        value = value.SubString(1, value.Length-2)
+                    End If
+                    gvar.string_value(index) = value
+                Case GPV_TY_LOCATION
+                    If ReadLocation(prop, value, gvar.location_value(index)) Then _
+                       GoTo bad_format
+                Case GPV_TY_PROFILE
+                    If ReadProfile(prop, value, gvar.profile_value(index)) Then _
+                       GoTo bad_format
+                Case GPV_TY_REFFRAME
+                    If ReadRefFrame(prop, value, gvar.refframe_value(index)) Then _
+                       GoTo bad_format
+                Case Else
+                    GoTo bad_format
+                End Select
+
+    next_asn:
+            End While
+
+            ' Check for "End Module"
+
+            While True
+                line = in_file.ReadLine.TrimStart()
+                ln += 1
+
+                If (line.Length > 0) AndAlso _
+                   (line.Substring(0, 1) <> "'") Then
+                    sa = line.ToLower.Split(" ")
+                    If (sa.Length > 1) AndAlso _
+                       (sa(0) = "end") AndAlso _
+                       (sa(1) = "module") Then Exit While ' End assignments
+                    GoTo bad_format ' Otherwise bad file
+                End If
+
+            End While
+
+            ret = 0                     ' Success
+            GoTo exit_try
+
+    bad_format:
+            exc = New Exception
+            exc.ErrorCode = -519        ' *Invalid file format*
+            Throw exc
+
+    exit_try:
+
+        Catch exc
+            Reply = CStr(exc.ErrorCode) & " " & exc.Message _
+                      & ", file: " & filename & ", line: " & CStr(ln)
+        End Try
+
+    _exit:
+        If Not in_file Is Nothing Then
+            in_file.Close
+        End If
+
+        Return ret
+
+    End Function
+
+#End Region
+
+#Region "ReadLocation"
+' ReadLocation
+'
+' INPUTS:   prop        A string containing the input properties keyword
+'           value       A string containing the value to be written
+'
+' OUTPUTS:  loc         The location variable to be written
+'
+' RETURNS:  0 if no error, -1 if error
+
+    Private Function ReadLocation(ByVal prop As String, _
+            ByVal value As String, _
+            ByRef loc As Location) As Integer
+
+        Dim ii As Integer
+        Dim sa() As String
+        Dim ret As Integer = -1         ' Assume error
+
+        Select prop
+        Case ""             ' Empty prop
+            If value.ToLower <> "new location" Then GoTo _exit
+            loc = New Location
+        Case "type"
+            loc.Type = CInt(value)
+        Case "xyz"
+            sa = value.Split(",")
+            If sa.Length < 6 Then GoTo _exit ' Exit with error
+            loc.XYZ( _
+                CDbl(sa(0)), _
+                CDbl(sa(1)), _
+                CDbl(sa(2)), _
+                CDbl(sa(3)), _
+                CDbl(sa(4)), _
+                CDbl(sa(5)))
+        Case "angles"
+            sa = value.Split(",")
+            For ii  = 1 To sa.Length
+                loc.Angle(ii) = CDbl(sa(ii-1))
+            Next ii
+        Case "zworld"
+            loc.ZWorld = (value = "True")
+        Case "zclearance"
+            loc.ZClearance = CDbl(value)
+        Case "config"
+            loc.Config = CInt(value)
+        Case "text"
+            If value.Substring(0,1) = """" Then
+                value = value.SubString(1, value.Length-2)
+            End If
+            loc.Text = value
+        End Select
+        ret = 0                         ' Success
+
+    _exit:
+        Return ret
+
+    End Function
+
+#End Region
+
+#Region "ReadProfile"
+' ReadProfile
+'
+' INPUTS:   prop        A string containing the input properties keyword
+'           value       A string containing the value to be written
+'
+' OUTPUTS:  prof        The profile variable to be written
+'
+' RETURNS:  0 if no error, -1 if error
+
+    Private Function ReadProfile(ByVal prop As String, _
+            ByVal value As String, _
+            ByRef prof As Profile) As Integer
+
+        Dim ii As Integer
+        Dim sa() As String
+        Dim ret As Integer = -1         ' Assume error
+
+        Select prop
+        Case ""             ' Empty prop
+            If value.ToLower <> "new profile" Then GoTo _exit
+            prof = New Profile
+        Case "speed"
+            prof.Speed = CDbl(value)
+        Case "speed2"
+            prof.Speed2 = CDbl(value)
+        Case "accel"
+            prof.Accel = CDbl(value)
+        Case "decel"
+            prof.Decel = CDbl(value)
+        Case "accelramp"
+            prof.AccelRamp = CDbl(value)
+        Case "decelramp"
+            prof.DecelRamp = CDbl(value)
+        Case "inrange"
+            prof.InRange = CDbl(value)
+        Case "straight"
+            prof.Straight = (value = "True")
+        Case "text"
+            If value.Substring(0,1) = """" Then
+                value = value.SubString(1, value.Length-2)
+            End If
+            prof.Text = value
+        End Select
+        ret = 0                         ' Success
+
+    _exit:
+        Return ret
+
+    End Function
+
+#End Region
+
+#Region "ReadRefFrame"
+' ReadRefFrame
+'
+' INPUTS:   prop        A string containing the input properties keyword
+'           value       A string containing the value to be written
+'
+' OUTPUTS:  frm         The refframe variable to be written
+'
+' RETURNS:  0 if no error, -1 if error
+
+    Private Function ReadRefFrame(ByVal prop As String, _
+            ByVal value As String, _
+            ByRef frm As RefFrame) As Integer
+
+        Dim ii As Integer
+        Dim sa() As String
+        Dim ret As Integer = -1         ' Assume error
+
+        Select prop
+        Case ""             ' Empty prop
+            If value.ToLower <> "new refframe" Then GoTo _exit
+            frm = New RefFrame
+        Case "type"
+            frm.Type = CInt(value)
+        Case "loc.xyz"
+            sa = value.Split(",")
+            If sa.Length < 6 Then GoTo _exit ' Exit with error
+            frm.Loc = Location.XYZValue( _
+               CDbl(sa(0)), _
+               CDbl(sa(1)), _
+               CDbl(sa(2)), _
+               CDbl(sa(3)), _
+               CDbl(sa(4)), _
+               CDbl(sa(5)))
+' Ignore reading PalletIndex from file
+'        Case "palletindex(1)"
+'            frm.PalletIndex(1) = CInt(value)
+'        Case "palletindex(2)"
+'            frm.PalletIndex(2) = CInt(value)
+'        Case "palletindex(3)"
+'            frm.PalletIndex(3) = CInt(value)
+        Case "palletmaxindex(1)"
+            frm.PalletMaxindex(1) = CInt(value)
+        Case "palletmaxindex(2)"
+            frm.PalletMaxindex(2) = CInt(value)
+        Case "palletmaxindex(3)"
+            frm.PalletMaxindex(3) = CInt(value)
+        Case "palletpitch(1)"
+            frm.PalletPitch(1) = CDbl(value)
+        Case "palletpitch(2)"
+            frm.PalletPitch(2) = CDbl(value)
+        Case "palletpitch(3)"
+            frm.PalletPitch(3) = CDbl(value)
+        Case "palletorder   "
+            frm.PalletOrder = CInt(value)
+        Case "text"
+            If value.Substring(0,1) = """" Then
+                value = value.SubString(1, value.Length-2)
+            End If
+            frm.Text = value
+        End Select
+        ret = 0                         ' Success
+
+    _exit:
+        Return ret
+
+    End Function
+
+#End Region
+
+#Region "WriteFile"
+' WriteFile - Write the variables to the indicated file
+
+' INPUTS:   Filename        The path and name of the file to write
+'
+'           bSetUpdate      If TRUE, add or update the "Updated: " line
+'                           in the header with the current date.
+'                           If no header, create default header.
+'
+' OUTPUTS:  Reply           If no error, unchanged from input
+'                           If error, contains the error message
+'
+' RETURNS:  0 if no error, -1 if error
+
+    Public Function WriteFile(ByVal Filename As String, _
+           ByVal bSetUpdate As Boolean, _
+           ByRef Reply As String) As Integer
+        Dim oFile As StreamWriter
+        Dim exc As Exception
+        Dim line As String
+        Dim sa() As String
+        Dim ln As Integer
+        Dim var As String
+        Dim value As String
+        Dim vartype As Integer
+        Dim index As Integer
+        Dim prop As String
+        Dim ii As Integer
+        Dim jj As Integer
+        Dim ret As Integer = -1         ' Assume error
+
+        ' Open the output file
+
+        Try
+            oFile = New StreamWriter(Filename)
+        Catch exc
+            Reply = CStr(exc.ErrorCode) & " " & exc.Message & ", file: " & Filename
+            oFile = Nothing
+        End Try
+        If oFile Is Nothing Then
+            GoTo _exit
+        End If
+
+        ' If specified, create or update "Updated:" header line
+
+        If bSetUpdate Then
+            If header Is Nothing Then
+                ' Create default header if none
+                ReDim header(2)
+                header(0) = "'TCS Generated code.  Please to not manually edit"
+                header(1) = "'Updated: " & Controller.Pdb(121)
+                header(2) = "'"
+            Else
+                ' Update existing header
+                For ii = 0 To header.Length-1
+                    If header(ii).ToLower.Indexof("updated:") >=0 Then Exit For
+                Next ii
+                If ii > (header.Length-1) Then
+                    ReDim Preserve header(ii)
+                End If
+                header(ii) = "'Updated: " & Controller.Pdb(121)
+            End If
+        End If
+
+        ' Output the header
+
+        If Not header Is Nothing Then
+            For ii = 0 To header.Length-1
+                oFile.WriteLine(header(ii))
+            Next ii
+        End If
+
+        ' Output module start
+
+        If module_name.Length = 0 Then
+            module_name = "Tcs"
+        End If
+
+        oFile.WriteLine("Module " & module_name)
+
+        ' Output declarations
+
+        For ii = 1 To GPV_TY_MAX
+            WriteDCL(oFile, ii, "  ")
+        Next ii
+
+        ' Output Init routine header
+
+        oFile.WriteLine("")
+        oFile.WriteLine("  Public Sub Init")
+
+        For ii = 1 To GPV_TY_MAX
+            WriteValue(oFile, ii, "    ")
+        Next ii
+
+        oFile.WriteLine("  End Sub" & ofile.NewLine)
+        oFile.WriteLine("End Module")
+        oFile.Close
+        ret = 0
+
+    _exit:
+        Return ret
+
+    End Function
+
+#End Region
+
+#Region "WriteDCL"
+' WriteDCL - Write the declaration
+'
+' ABSTRACT:  Writes the declarations for the variables of a specific
+'            type.
+'
+' INPUTS:   oFile       A streamwriter object open for output
+'           type        The code for the variables to be output.
+'                       one of GPV_TY_*
+'           indent      A string containing the line indentation.
+'
+' OUTPUTS:  none
+
+    Private Sub WriteDcl( _
+            ByVal oFile As StreamWriter, _
+            ByVal type As Integer, _
+            ByVal indent As String)
+
+        Dim gvar As GpoVar
+        Dim ss As String
+
+        gvar = list_head
+        While Not gvar Is Nothing
+            If gvar.type = type Then
+                ss = indent & "Public " & gvar.name
+                If gvar.array >= 0 Then
+                    ss &= "(" & CStr(gvar.array) & ")"
+                End If
+                ss &= " As " & TypeName(type)
+                oFile.WriteLine(ss)
+            End If
+            gvar = gvar.link
+        End While
+        Return
+    End Sub
+
+#End Region
+
+#Region "WriteValue"
+' WriteValue - Write the variable values
+'
+' ABSTRACT:  Writes the values s for the variables of a specific
+'            type.
+'
+' INPUTS:   oFile       A streamwriter object open for output
+'           type        The code for the variables to be output.
+'                       one of GPV_TY_*
+'           indent      A string containing the line indentation.
+'
+' OUTPUTS:  none
+
+    Private Sub WriteValue( _
+            ByVal oFile As StreamWriter, _
+            ByVal type As Integer, _
+            ByVal indent As String)
+
+        Dim gvar As GpoVar
+        Dim ss As String
+        Dim cmt_open As String
+        Dim cmt_close As String
+        Dim ii As Integer
+
+        gvar = list_head
+        While Not gvar Is Nothing
+            If gvar.type = type Then
+
+                ' Generate open and close comment lines
+
+                cmt_open = indent & "'<" & CommentType(type) & ">" _
+                         & gvar.name
+                If gvar.array >= 0 Then
+                    cmt_open &= "," & CStr(gvar.array)
+                End If
+                cmt_close = indent & "'</" & CommentType(type) & ">" _
+                          & ofile.NewLine
+
+                If gvar.array < 0 Then
+                    ' Non-array values
+                    oFile.WriteLine(cmt_open)
+                    WriteOneValue(oFile, gvar, -1, indent, "", "")
+                    oFile.WriteLine(cmt_close)
+                ElseIf IsObject(type) Then
+                    ' Object arrays
+                    For ii = 0 To gvar.array
+                        WriteOneValue(oFile, gvar, ii, indent, _
+                                     cmt_open, cmt_close)
+                    Next ii
+                Else
+                    ' Non-object arrays
+                    oFile.WriteLine(cmt_open)
+                    For ii = 0 To gvar.array
+                        WriteOneValue(oFile, gvar, ii, indent, "", "")
+                    Next ii
+                    oFile.WriteLine(cmt_close)
+                End If
+
+            End If
+            gvar = gvar.link
+        End While
+        Return
+    End Sub
+
+#End Region
+
+#Region "WriteOneValue"
+' WriteOneValue - Write a single variable value
+'
+' ABSTRACT:  Writes the value for a single variable
+'
+' INPUTS:   oFile       A streamwriter object open for output
+'           gvar        The GpoVar object for this value.
+'           index       The array index if an array
+'           indent      A string containing the line indentation.
+'           cmt_open    The open comment line, or "" if none.
+'           cmt_close   The close comment line, or "" if none.
+'
+' OUTPUTS:  none
+
+    Private Sub WriteOneValue( _
+            ByVal oFile As StreamWriter, _
+            ByVal gvar As GpoVar, _
+            ByVal index As Integer, _
+            ByVal indent As String, _
+            ByVal cmt_open As String, _
+            ByVal cmt_close As String)
+
+        Dim bn As String
+        Dim ss As String
+        Dim ii As Integer
+        Dim loc As Location
+
+        ' Generate the base name, accounting for any array
+
+        bn = indent & gvar.name
+        If gvar.array >= 0 Then
+            bn &= "(" & CStr(index) & ")"
+        Else
+            index = 0                   ' Use index 0 for non-array
+        End If
+
+        ' Output value based on type
+
+        Select gvar.type
+        Case GPV_TY_INTEGER
+            oFile.WriteLine(bn & " = " & sFormat(gvar.numeric_value(index), 0))
+        Case GPV_TY_SINGLE
+            oFile.WriteLine(bn & " = " & sFormat(gvar.numeric_value(index), 6))
+        Case GPV_TY_DOUBLE
+            oFile.WriteLine(bn & " = " & sFormat(gvar.numeric_value(index), 14))
+        Case GPV_TY_STRING
+            If gvar.string_value(index) Is Nothing Then
+                oFile.WriteLine(bn & " = """"")
+            Else
+                oFile.WriteLine(bn & " = """ & gvar.string_value(index) & """")
+            End If
+        Case GPV_TY_LOCATION
+            loc = gvar.location_value(index)
+            If Not loc Is Nothing Then
+                If cmt_open.Length > 0 Then
+                    oFile.WriteLine(cmt_open)
+                End If
+                oFile.WriteLine(bn & " = New Location")
+                oFile.WriteLine(bn & ".Type = " & CStr(loc.Type))
+                If loc.Type = 0 Then    ' Cartesian
+                    ss = ".XYZ(" & sFormat(loc.X, 6) _
+                       & "," & sFormat(loc.Y, 6) _
+                       & "," & sFormat(loc.Z, 6) _
+                       & "," & sFormat(loc.Yaw, 6) _
+                       & "," & sFormat(loc.Pitch, 6) _
+                       & "," & sFormat(loc.Roll, 6) & ")"
+                Else                    ' Angles
+                    ss = ".Angles("
+                    For ii = 1 To 11
+                        ss &= sFormat(loc.Angle(ii), 6) & ","
+                    Next ii
+                    ss &= sFormat(loc.Angle(12), 6) & ")"
+                End If
+                oFile.WriteLine(bn & ss)
+                If loc.Zworld Then
+                    ss = "True"
+                Else
+                    ss = "False"
+                End If
+                oFile.WriteLine(bn & ".ZWorld = " & ss)
+                oFile.WriteLine(bn & ".ZClearance = " & sFormat(loc.ZClearance, 6))
+                oFile.WriteLine(bn & ".Config = " & CStr(loc.Config))
+                If Not loc.Text Is Nothing Then
+                    oFile.WriteLine(bn & ".Text = """ & loc.Text & """")
+                End If
+                If cmt_close.Length > 0 Then
+                    oFile.WriteLine(cmt_close)
+                End If
+            End If
+
+        Case GPV_TY_PROFILE
+            Dim prof As Profile = gvar.profile_value(index)
+            If Not prof Is Nothing Then
+                If cmt_open.Length > 0 Then
+                    oFile.WriteLine(cmt_open)
+                End If
+                oFile.WriteLine(bn & " = New Profile")
+                oFile.WriteLine(bn & ".Speed = " & sFormat(prof.Speed, 3))
+                oFile.WriteLine(bn & ".Speed2 = " & sFormat(prof.Speed2, 3))
+                oFile.WriteLine(bn & ".Accel = " & sFormat(prof.Accel, 3))
+                oFile.WriteLine(bn & ".Decel = " & sFormat(prof.Decel, 3))
+                oFile.WriteLine(bn & ".AccelRamp = " & sFormat(prof.AccelRamp, 3))
+                oFile.WriteLine(bn & ".DecelRamp = " & sFormat(prof.DecelRamp, 3))
+                If prof.Straight Then
+                    ss = "True"
+                Else
+                    ss = "False"
+                End If
+                oFile.WriteLine(bn & ".Straight = " & ss)
+                oFile.WriteLine(bn & ".InRange = " & sFormat(prof.InRange, 3))
+                If Not prof.Text Is Nothing Then
+                    oFile.WriteLine(bn & ".Text = """ & prof.Text & """")
+                End If
+                If cmt_close.Length > 0 Then
+                    oFile.WriteLine(cmt_close)
+                End If
+            End If
+
+        Case GPV_TY_REFFRAME
+            Dim frm As RefFrame = gvar.refframe_value(index)
+            If Not frm Is Nothing Then
+                If cmt_open.Length > 0 Then
+                    oFile.WriteLine(cmt_open)
+                End If
+                oFile.WriteLine(bn & " = New RefFrame")
+                oFile.WriteLine(bn & ".Type = " & CStr(frm.Type))
+                If frm.Type = 1 Then    ' Pallet
+                    oFile.WriteLine(bn & ".PalletMaxIndex(1) = " _
+                         & CStr(frm.PalletMaxIndex(1)))
+                    oFile.WriteLine(bn & ".PalletMaxIndex(2) = " _
+                         & CStr(frm.PalletMaxIndex(2)))
+                    oFile.WriteLine(bn & ".PalletMaxIndex(3) = " _
+                         & CStr(frm.PalletMaxIndex(3)))
+' Do not save pallet index values.  They are transient
+'                    oFile.WriteLine(bn & ".PalletIndex(1) = " _
+'                         & CStr(frm.PalletIndex(1)))
+'                    oFile.WriteLine(bn & ".PalletIndex(2) = " _
+'                         & CStr(frm.PalletIndex(2)))
+'                    oFile.WriteLine(bn & ".PalletIndex(3) = " _
+'                         & CStr(frm.PalletIndex(3)))
+                    oFile.WriteLine(bn & ".PalletPitch(1) = " _
+                         & sFormat(frm.PalletPitch(1), 6))
+                    oFile.WriteLine(bn & ".PalletPitch(2) = " _
+                         & sFormat(frm.PalletPitch(2), 6))
+                    oFile.WriteLine(bn & ".PalletPitch(3) = " _
+                         & sFormat(frm.PalletPitch(3), 6))
+                    oFile.WriteLine(bn & ".PalletOrder = " _
+                         & CStr(frm.PalletOrder))
+                End If
+                loc = frm.Loc
+                ss = ".Loc.XYZ(" & sFormat(loc.X, 6) _
+                   & "," & sFormat(loc.Y, 6) _
+                   & "," & sFormat(loc.Z, 6) _
+                   & "," & sFormat(loc.Yaw, 6) _
+                   & "," & sFormat(loc.Pitch, 6) _
+                   & "," & sFormat(loc.Roll, 6) & ")"
+                oFile.WriteLine(bn & ss)
+                If Not frm.Text Is Nothing Then
+                    oFile.WriteLine(bn & ".Text = """ & frm.Text & """")
+                End If
+                If cmt_close.Length > 0 Then
+                    oFile.WriteLine(cmt_close)
+                End If
+            End If
+        End Select
+
+        Return
+    End Sub
+
+#End Region
+
+#Region "FindVarPrev"
+' FindVarPrev -- Find the variable preceding the input name.
+'
+' ABSTRACT:  This routine finds the variable lexically preceding the input name.
+'
+'       If the actual name is found, returns the preceding Object.
+'
+'       If the name is not found, returns the object with a name
+'       preceding the input name.
+'
+'       If no variable precedes the name, Nothing is returned.
+'
+'       Does not interlock
+'
+' INPUTS:   var_name    The name of the variable to find.
+'
+' RETURNS:  The object preceding the name.
+'           If no objects precedes, return Nothing
+
+    Private Function FindVarPrev(ByVal var_name As String) As GpoVar
+
+        Dim item As GpoVar
+        Dim next_item As GpoVar
+
+        ' Chain through the list to find the preceding item
+
+        item = Nothing
+        next_item = list_head
+        While Not next_item Is Nothing
+            If String.Compare(next_item.name, var_name) >= 0 Then Exit While
+            item = next_item
+            next_item = item.link
+        End While
+
+        Return item
+
+    End Function
+
+#End Region
+
+#Region "FindVar"
+' FindVar -- Find the variable matching the input name.
+'
+' ABSTRACT:  This routine finds the variable matchin the input name.
+'
+'       If the actual name is found, it.
+'
+'       Otherwise returns Nothing
+'
+'       Does not interlock
+'
+' INPUTS:   var_name    The name of the variable to find.
+'
+' RETURNS:  The object preceding the name.
+'           If no objects precedes, return Nothing
+
+    Private Function FindVar(ByVal var_name As String) As GpoVar
+
+        Dim next_item As GpoVar
+        Dim ii As Integer
+
+        ' Chain through the list to find the matching item
+
+        next_item = list_head
+        While Not next_item Is Nothing
+            ii = String.Compare(next_item.name, var_name)
+            If ii >= 0 Then
+                If ii > 0 Then
+                    next_item = Nothing
+                End If
+                Exit While
+            End If
+            next_item = next_item.link
+        End While
+
+        Return next_item
+
+    End Function
+
+#End Region
+
+#Region "AddVariable"
+' AddVariable -- Add a variable to the .gpo file
+'
+' ABSTRACT:  This routine adds a variable to the .gpo file.
+'       If the variable already exists, regardless of type, an error occurs.
+'
+'       If the variable does not exist, a new variable object is created
+'       and linked into the data structure in alphabetical order.
+'
+' INPUTS:   new_name    The name of the new variable
+'           new_type    The type of the new variable. One of GPV_TY_*
+'           new_index   If the variable is an array, the max index value.
+'                       Otherwise -1 for non-array.
+'
+' RETURNS:  If no error, a new GpoVar object.
+'           If error, Nothing
+
+    Public Function AddVariable( _
+           ByVal new_name As String, _
+           ByVal new_type As Integer, _
+           ByVal new_index As Integer) As GpoVar
+
+        Dim item As GpoVar
+        Dim next_item As GpoVar
+        Dim new_item As GpoVar = Nothing
+        Dim ii As Integer
+
+        new_item = New GpoVar
+        new_item.name = new_name
+        new_item.type = new_type
+        new_item.array = new_index
+
+        If new_index >= 0 Then
+            Select new_type
+            Case GPV_TY_INTEGER, GPV_TY_SINGLE, GPV_TY_DOUBLE
+                If new_item.numeric_value Is Nothing Then
+                    ReDim new_item.numeric_value(new_index)
+                Else
+                    ReDim Preserve new_item.numeric_value(new_index)
+                End If
+            Case GPV_TY_STRING
+                If new_item.string_value Is Nothing Then
+                    ReDim new_item.string_value(new_index)
+                Else
+                    ReDim Preserve new_item.string_value(new_index)
+                End If
+            Case GPV_TY_LOCATION
+                If new_item.location_value Is Nothing Then
+                    ReDim new_item.location_value(new_index)
+                Else
+                    ReDim Preserve new_item.location_value(new_index)
+                End If
+            Case GPV_TY_PROFILE
+                If new_item.profile_value Is Nothing Then
+                    ReDim new_item.profile_value(new_index)
+                Else
+                    ReDim Preserve new_item.profile_value(new_index)
+                End If
+            Case GPV_TY_REFFRAME
+                If new_item.refframe_value Is Nothing Then
+                    ReDim new_item.refframe_value(new_index)
+                Else
+                    ReDim Preserve new_item.refframe_value(new_index)
+                End If
+            Case Else
+                GoTo _exit
+            End Select
+        End If
+
+        ' Interlock list access
+
+        While Thread.TestAndSet(list_lock, 1) <> 0
+            Thread.Sleep(0)
+        End While
+
+        item = FindVarPrev(new_name)
+
+        ' Add to start of list
+
+        If item Is Nothing Then
+            new_item.link = list_head
+            list_head = new_item
+            GoTo unlock
+        End If
+
+        ' Insert into list
+
+        next_item = item.link
+        If (Not next_item Is Nothing) _
+           AndAlso (String.Compare(next_item.name, new_name) = 0) Then
+            new_item = Nothing
+        Else
+            new_item.link = next_item
+            item.link = new_item
+        End If
+
+    unlock:
+        list_lock = 0
+
+    _exit:
+        Return new_item
+    End Function
+
+#End Region
+
+#Region "FindVarType"
+' FindVarType -- Find variable of given type in the .gpo file
+'
+' ABSTRACT:  This routine finds a variable in the .gpo file.
+'
+'       If bCreate is set, the variable is created if it does not
+'       exist.
+'
+'       If the variable does exist, the type must match unless
+'       the input type is GPV_TY_NONE which matches any type.
+'
+'       If the array vs. non-array does not match an error occurs.
+'       if the array is out-of-bounds for the variable an error occurs.
+'
+' INPUTS:   var_name    The name of the variable
+'           var_type    The type of the variable. One of GPV_TY_*
+'                       GPV_TY_NONE matches all types.
+'                       If bCreate is True, var_type must not be GPV_TY_NONE.
+'           var_index   If the variable is an array, the index value to find.
+'                       Otherwise -1 for non-array.
+'           bCreate     If True and the variable does not exist, it is
+'                       created.
+'                       If True and the array is too short for the specified
+'                       index, extend the array.  Cannot change non-array
+'                       to array.
+'
+' RETURNS:  If no error, a GpoVar object.
+'           If error, Nothing
+
+    Public Function FindVarType( _
+           ByVal var_name As String, _
+           ByVal var_type As Integer, _
+           ByVal var_index As Integer, _
+           ByVal bCreate As Boolean) As GpoVar
+
+        Dim item As GpoVar
+        Dim ii As Integer
+
+        ' Interlock list access
+
+        While Thread.TestAndSet(list_lock, 1) <> 0
+            Thread.Sleep(0)
+        End While
+
+        item = FindVar(var_name)
+
+        list_lock = 0
+
+        ' Create the variable if it does not exist
+
+        If item Is Nothing Then
+            If Not bCreate Then GoTo fail
+            If var_type = GPV_TY_NONE Then GoTo fail
+
+            item = AddVariable(var_name, var_type, var_index)
+            If item Is Nothing Then GoTo fail
+        End If
+
+        ' Validate the type
+
+        If (item.type <> var_type) _
+           AndAlso (var_type <> GPV_TY_NONE) Then GoTo fail
+
+        If item.array >= 0 Then
+            if var_index > item.array Then
+                If Not bCreate Then GoTo fail
+
+                Select var_type
+                Case GPV_TY_INTEGER, GPV_TY_SINGLE, GPV_TY_DOUBLE
+                    If item.numeric_value Is Nothing Then
+                        ReDim item.numeric_value(var_index)
+                    Else
+                        ReDim Preserve item.numeric_value(var_index)
+                    End If
+                Case GPV_TY_STRING
+                    If item.string_value Is Nothing Then
+                        ReDim item.string_value(var_index)
+                    Else
+                        ReDim Preserve item.string_value(var_index)
+                    End If
+                Case GPV_TY_LOCATION
+                    If item.location_value Is Nothing Then
+                        ReDim item.location_value(var_index)
+                    Else
+                        ReDim Preserve item.location_value(var_index)
+                    End If
+                Case GPV_TY_PROFILE
+                    If item.profile_value Is Nothing Then
+                        ReDim item.profile_value(var_index)
+                    Else
+                        ReDim Preserve item.profile_value(var_index)
+                    End If
+                Case GPV_TY_REFFRAME
+                    If item.refframe_value Is Nothing Then
+                        ReDim item.refframe_value(var_index)
+                    Else
+                        ReDim Preserve item.refframe_value(var_index)
+                    End If
+                Case Else
+                    GoTo fail
+                End Select
+
+                item.array = var_index  ' Set new value
+            End If
+        Else
+            If var_index <> -1 Then GoTo fail
+        End If
+        GoTo _exit
+
+    fail:
+        item = Nothing
+
+    _exit:
+
+        Return item
+    End Function
+
+#End Region
+
+#Region "FindArrayType"
+' FindArrayType -- Find array variable of given type in the .gpo file
+'
+' ABSTRACT:  This routine finds a array variable in the .gpo file.
+'
+'       If bCreate is set, the variable is created if it does not
+'       exist but the array iself is not created.
+'
+'       If the variable does exist, the type must match unless
+'       the input type is GPV_TY_NONE which matches any type.
+'
+'       If the array vs. non-array does not match an error occurs.
+'       if the array is out-of-bounds for the variable an error occurs.
+'
+' INPUTS:   var_name    The name of the variable
+'           var_type    The type of the variable. One of GPV_TY_*
+'                       but not GPV_TY_NONE.
+'           var_index   The max index of the array to create.
+'                       Only used if bCreate is True.
+'           bCreate     If True and the variable does not exist, it is
+'                       created.
+'
+' RETURNS:  If no error, a GpoVar object.
+'           If error, Nothing
+
+    Public Function FindArrayType( _
+           ByVal var_name As String, _
+           ByVal var_type As Integer, _
+           ByVal var_index As Integer, _
+           ByVal bCreate As Boolean) As GpoVar
+
+        Dim item As GpoVar
+        Dim ii As Integer
+
+        If var_index < 0 Then GoTo fail
+        If var_type = GPV_TY_NONE Then GoTo fail
+
+        ' Interlock list access
+
+        While Thread.TestAndSet(list_lock, 1) <> 0
+            Thread.Sleep(0)
+        End While
+
+        item = FindVar(var_name)
+
+        list_lock = 0
+
+        ' Create the variable if it does not exist
+
+        If item Is Nothing Then
+            If Not bCreate Then GoTo fail
+            item = AddVariable(var_name, var_type, var_index)
+            If item Is Nothing Then GoTo fail
+        End If
+
+        ' Validate the type
+
+        If item.type <> var_type Then GoTo fail
+        GoTo _exit
+
+    fail:
+        item = Nothing
+
+    _exit:
+
+        Return item
+    End Function
+
+#End Region
+
+#Region "LookupType"
+' LookupType - Get the variable type code from the type String
+
+' INPUTS:   type_name           A string containing the type name
+'
+' RETURNS   The type name, or 0 if no found
+
+    Private Shared Function LookupType(ByVal type_name As String) As Integer
+        Dim ii As Integer
+        For ii = 1 To GPV_TY_MAX
+            If String.Compare(type_name, TypeName(ii), True) = 0 Then Exit For
+        Next ii
+        If ii > GPV_TY_MAX Then
+            ii = 0
+        End If
+        Return ii
+    End Function
+
+
+#End Region
+
+#Region "Set Values"
+
+' SetInteger - Set an integer value
+
+    Public Sub SetInteger(ByVal sName As String, _
+           ByVal index As Integer, _
+           ByVal value As Integer)
+        Dim gvar As GpoVar
+        gvar = FindVarType(sName, GPV_TY_INTEGER, index, True)
+        If Not gvar Is Nothing Then
+            If index < 0 Then index = 0
+            gvar.numeric_value(index) = value
+        End If
+    End Sub
+
+' SetDouble - Set an double value
+
+    Public Sub SetDouble(ByVal sName As String, _
+           ByVal index As Integer, _
+           ByVal value As Double)
+        Dim gvar As GpoVar
+        gvar = FindVarType(sName, GPV_TY_DOUBLE, index, True)
+        If Not gvar Is Nothing Then
+            If index < 0 Then index = 0
+            gvar.numeric_value(index) = value
+        End If
+    End Sub
+
+' SetLocation - Set a location value
+
+    Public Sub SetLocation(ByVal sName As String, _
+           ByVal index As Integer, _
+           ByVal value As Location)
+        Dim gvar As GpoVar
+        gvar = FindVarType(sName, GPV_TY_LOCATION, index, True)
+        If Not gvar Is Nothing Then
+            If index < 0 Then index = 0
+            gvar.location_value(index) = value.Clone
+        End If
+    End Sub
+
+' SetProfile - Set a profile value
+
+    Public Sub SetProfile(ByVal sName As String, _
+           ByVal index As Integer, _
+           ByVal value As Profile)
+        Dim gvar As GpoVar
+        gvar = FindVarType(sName, GPV_TY_PROFILE, index, True)
+        If Not gvar Is Nothing Then
+            If index < 0 Then index = 0
+            gvar.profile_value(index) = value.Clone
+        End If
+    End Sub
+
+' SetRefFrame - Set a refframe value
+
+    Public Sub SetRefFrame(ByVal sName As String, _
+           ByVal index As Integer, _
+           ByVal value As RefFrame)
+        Dim gvar As GpoVar
+        Dim ref As RefFrame
+        Dim ii As  Integer
+        gvar = FindVarType(sName, GPV_TY_REFFRAME, index, True)
+        If Not gvar Is Nothing Then
+            If index < 0 Then index = 0
+            ' There is no RefFrame.Clone method
+            ref = New RefFrame
+            ref.Type = value.Type
+            ref.Loc = value.Loc.Clone
+            For ii = 1 To 3
+                ref.PalletMaxIndex(ii) = value.PalletMaxIndex(ii)
+                ref.PalletIndex(ii) = value.PalletIndex(ii)
+                ref.PalletPitch(ii) = value.PalletPitch(ii)
+            Next ii
+            ref.PalletOrder = value.PalletOrder
+            ref.ConveyorRobot = value.ConveyorRobot
+            ref.Text = value.Text
+            gvar.refframe_value(index) = ref
+        End If
+    End Sub
+
+#End Region
+
+#Region "Set array values"
+
+' SetIntegerArray - Set an integer array
+
+    Public Sub SetIntegerArray(ByVal sName As String, _
+           ByVal varray() As Double)
+        Dim gvar As GpoVar
+        gvar = FindArrayType(sName, GPV_TY_INTEGER, varray.Length-1, True)
+        If Not gvar Is Nothing Then
+            gvar.numeric_value = varray
+        End If
+    End Sub
+
+' SetDoubleArray - Set a double array
+
+    Public Sub SetDoubleArray(ByVal sName As String, _
+           ByVal varray() As Double)
+        Dim gvar As GpoVar
+        gvar = FindArrayType(sName, GPV_TY_DOUBLE, varray.Length-1, True)
+        If Not gvar Is Nothing Then
+            gvar.numeric_value = varray
+        End If
+    End Sub
+
+' SetLocationArray - Set a location array
+
+    Public Sub SetLocationArray(ByVal sName As String, _
+           ByVal varray() As Location)
+        Dim gvar As GpoVar
+        gvar = FindArrayType(sName, GPV_TY_LOCATION, varray.Length-1, True)
+        If Not gvar Is Nothing Then
+            gvar.location_value = varray
+        End If
+    End Sub
+
+' SetProfileArray - Set a profile array
+
+    Public Sub SetProfileArray(ByVal sName As String, _
+           ByVal varray() As Profile)
+        Dim gvar As GpoVar
+        gvar = FindArrayType(sName, GPV_TY_PROFILE, varray.Length-1, True)
+        If Not gvar Is Nothing Then
+            gvar.profile_value = varray
+        End If
+    End Sub
+
+' SetRefFrameArray - Set a refframe array
+
+    Public Sub SetRefFrameArray(ByVal sName As String, _
+           ByVal varray() As RefFrame)
+        Dim gvar As GpoVar
+        gvar = FindArrayType(sName, GPV_TY_REFFRAME, varray.Length-1, True)
+        If Not gvar Is Nothing Then
+            gvar.refframe_value = varray
+        End If
+    End Sub
+
+#End Region
+
+#Region "Get values"
+
+' GetInteger - Get an integer value
+
+    Public Function GetInteger(ByVal sName As String, _
+           ByVal index As Integer) As Integer
+        Dim gvar As GpoVar
+        Dim retval As Integer = 0
+        gvar = FindVarType(sName, GPV_TY_INTEGER, index, False)
+        If Not gvar Is Nothing Then
+            If index < 0 Then index = 0
+            retval = gvar.numeric_value(index)
+        End If
+        Return retval
+    End Function
+
+' GetDouble - Get an double value
+
+    Public Function GetDouble(ByVal sName As String, _
+           ByVal index As Integer) As Double
+        Dim gvar As GpoVar
+        Dim retval As Double = 0
+        gvar = FindVarType(sName, GPV_TY_DOUBLE, index, False)
+        If Not gvar Is Nothing Then
+            If index < 0 Then index = 0
+            retval = gvar.numeric_value(index)
+        End If
+        Return retval
+    End Function
+
+' GetLocation - Get a location value
+
+    Public Function GetLocation(ByVal sName As String, _
+           ByVal index As Integer) As Location
+        Dim gvar As GpoVar
+        gvar = FindVarType(sName, GPV_TY_LOCATION, index, False)
+        If gvar Is Nothing Then
+            Return Nothing
+        Else
+            If index < 0 Then index = 0
+            Return gvar.location_value(index)
+        End If
+    End Function
+
+' GetProfile - Get a profile value
+
+    Public Function GetProfile(ByVal sName As String, _
+           ByVal index As Integer) As Profile
+        Dim gvar As GpoVar
+        gvar = FindVarType(sName, GPV_TY_PROFILE, index, False)
+        If gvar Is Nothing Then
+            Return Nothing
+        Else
+            If index < 0 Then index = 0
+            Return gvar.profile_value(index)
+        End If
+    End Function
+
+' GetRefFrame - Get a refframe value
+
+    Public Function GetRefFrame(ByVal sName As String, _
+           ByVal index As Integer) As RefFrame
+        Dim gvar As GpoVar
+        gvar = FindVarType(sName, GPV_TY_REFFRAME, index, False)
+        If gvar Is Nothing Then
+            Return Nothing
+        Else
+            If index < 0 Then index = 0
+            Return gvar.refframe_value(index)
+        End If
+    End Function
+
+#End Region
+
+#Region "Get array values"
+
+' INPUTS:   sName       The name of the array to Get
+'
+' OUTPUTS:  varray      The whole array that recieves the values
+'                       Only value if return is success.
+'
+' RETURNS:  0 if success, -1 if error
+
+' GetIntegerArray - Get an integer array
+
+    Public Function GetIntegerArray(ByVal sName As String, _
+           ByRef varray() As Double) As Integer
+        Dim gvar As GpoVar
+        Dim status As Integer = -1      ' Assume error
+
+        gvar = FindArrayType(sName, GPV_TY_INTEGER, 0, False)
+        If Not gvar Is Nothing Then
+            varray = gvar.numeric_value
+            status = 0
+        End If
+        Return status
+    End Function
+
+' GetDoubleArray - Get an double array
+
+    Public Function GetDoubleArray(ByVal sName As String, _
+           ByRef varray() As Double) As Integer
+        Dim gvar As GpoVar
+        Dim status As Integer = -1      ' Assume error
+
+        gvar = FindArrayType(sName, GPV_TY_DOUBLE, 0, False)
+        If Not gvar Is Nothing Then
+            varray = gvar.numeric_value
+            status = 0
+        End If
+        Return status
+    End Function
+
+' GetLocationArray - Get a location array
+
+    Public Function GetLocationArray(ByVal sName As String, _
+           ByRef varray() As Location) As Integer
+        Dim gvar As GpoVar
+        Dim status As Integer = -1      ' Assume error
+
+        gvar = FindArrayType(sName, GPV_TY_LOCATION, 0, False)
+        If Not gvar Is Nothing Then
+            varray = gvar.location_value
+            status = 0
+        End If
+        Return status
+    End Function
+
+' GetProfileArray - Get a profile array
+
+    Public Function GetProfileArray(ByVal sName As String, _
+           ByRef varray() As Profile) As Integer
+        Dim gvar As GpoVar
+        Dim status As Integer = -1      ' Assume error
+
+        gvar = FindArrayType(sName, GPV_TY_PROFILE, 0, False)
+        If Not gvar Is Nothing Then
+            varray = gvar.profile_value
+            status = 0
+        End If
+        Return status
+    End Function
+
+' GetRefFrameArray - Get a refframe array
+
+    Public Function GetRefFrameArray(ByVal sName As String, _
+           ByRef varray() As RefFrame) As Integer
+        Dim gvar As GpoVar
+        Dim status As Integer = -1      ' Assume error
+
+        gvar = FindArrayType(sName, GPV_TY_REFFRAME, 0, False)
+        If Not gvar Is Nothing Then
+            varray = gvar.refframe_value
+            status = 0
+        End If
+        Return status
+    End Function
+
+#End Region
+
+End Class ' Gpofile

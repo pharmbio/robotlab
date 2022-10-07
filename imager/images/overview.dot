@@ -1,0 +1,39 @@
+# Build the svg with:
+# dot overview.dot -Tsvg -o overview.svg
+graph {
+    # graph [bgcolor="#2d2d2d"]
+    # node [color="#d3d0c8" fontcolor="#d3d0c8"]
+    # edge [color="#d3d0c8" fontcolor="#d3d0c8"]
+
+    node [fontname="Roboto", fontsize=12]
+    edge [fontname="Roboto", fontsize=12]
+    node [shape=box]
+    pf      [label=<
+        PreciseFlex (PF) robotarm
+        <BR/><BR/> 10.10.0.98:{20,21,23}
+             <BR/> 10.10.0.98:{10000,10100}
+    >, margin=0.2]
+    imx     [label=< <BR/> ImageXpress (IMX) microscope<BR/> >, margin=0.2]
+    barcode [label=< <BR/> Barcode scanner (Honeywell)<BR/> >, margin=0.2]
+
+    gbg_server [label=<
+        python flask: <FONT FACE="Consolas">labrobots-server</FONT><BR/><BR/> gbg windows 10.10.0.97:5050
+    >, margin=0.2]
+    imx_server [label=<
+        python flask: <FONT FACE="Consolas">labrobots-server</FONT><BR/><BR/> imx windows 10.10.0.99:5050
+    >, margin=0.2]
+
+    imx -- imx_server [label=<filesystem for<BR/>.HTS listing>]
+    imx -- gbg_server [label=<COM port<BR/>(via USB)>]
+    barcode -- gbg_server [label=<COM port<BR/>(via USB)>]
+    pf -- scheduler [label=<TCP: socket<BR/>telnet, FTP>]
+
+    scheduler [label=< scheduler <BR/><BR/> on robotlab-ubuntu (10.10.0.55) >, margin=0.2]
+    gbg_server -- scheduler [label="  http"]
+    imx_server -- scheduler [label="  http"]
+
+    scheduler -- scheduler_ui [label="  filesystem on robotlab-ubuntu"]
+    scheduler_ui [label=< scheduler user interface <BR/><BR/> on robotlab-ubuntu (10.10.0.55:5051) >, margin=0.2]
+    operator [label=< operator <BR/><BR/> on robotlab-gbg (imx room) >, margin=0.2]
+    scheduler_ui -- operator
+}

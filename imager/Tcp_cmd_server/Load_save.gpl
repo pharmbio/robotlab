@@ -1,0 +1,145 @@
+#Region "Module LoadSave"
+
+' Load_save.gpl
+'
+' Copyright (c) 2012, 2015 by Precise Automation Inc.  All rights reserved.
+' =======================================================================
+' Permission is granted to customers of Precise Automation to use this
+' software for any purpose, including commercial applications, and to
+' alter it and redistribute it freely, so long as this notice is included
+' with any modified or unmodified version of this software.
+'
+' This software is provided "as is," without warranty of any kind, express or
+' implied.  In no event shall Precise Automation be held liable for any
+' direct, indirect, incidental, special or consequential damages arising
+' out of the use of or inability to use this software.
+' =======================================================================
+'
+' Saves and restores locations and profiles
+
+Module LoadSave ' Location load and save plug-in Module
+
+    Private Const Version As String = "Load-Save Module 3.0B2 12-04-2020"
+    Private Const defaultFile As String = "Tcs.gpo"
+
+    Public Gpo_File(N_ROB) As Gpofile   ' Global access to GPO files
+
+#End Region
+
+#Region "Init"
+' Init -- Perform one-time initialization for this module when the project is started
+
+   Public Sub Init()  ' Initialize Routine
+       ' Variable Declaration
+
+
+       ' Setup to call Sub NewCommand when command object created
+
+       Command.AddPlugin(Version, "LoadSave")
+
+   End Sub              ' Initalization Routine for PF400
+#End Region
+
+#Region "Cmd_LoadFile"
+' Cmd_LoadFile -- Load a file containing locations and profiles
+'
+' ABSTRACT: This command loads a named file into memory.
+'
+'       The locations and profiles contained in the file are loaded
+'       into the current robot.
+'
+'       Any existing values are lost.
+'
+'  Parameter 1: Optional - The name of the file to be loaded.
+'               If not specified, the file Tcs.gpo is loaded.
+'               If an extension is not specified, the default is .gpo
+
+    Public Sub Cmd_LoadFile(ByVal Cmd As Command, ByRef Reply As String)
+        Dim file As String
+        Dim exc As Exception
+        Dim ii As Integer
+        Dim gpf As New Gpofile
+
+        If Cmd.Nparm = 0 Then
+            file = defaultFile
+        Else
+            file = Cmd.sData(1)
+            If file.IndexOf(".") < 0 Then
+                file &= ".gpo"
+            End If
+        End If
+
+        ' Open the file for read
+
+        If gpf.ReadFile(file, Reply) Then GoTo _exit
+        Gpo_file(Cmd.Rob.Robnum) = gpf
+
+        ' Always read the station data
+
+        If Station.LoadFile(Cmd, Reply) Then GoTo _exit
+
+        ' Run any hook routines
+
+        If Cmd.RunPluginHook("Hook_LoadFile", Reply) Then GoTo _exit
+
+    _exit:
+        Gpo_file(Cmd.Rob.Robnum) = Nothing  ' Deallocate file
+
+    End Sub
+#End Region
+
+#Region "Cmd_StoreFile"
+' Cmd_StoreFile -- Store the location and profiles data in a file
+'
+' ABSTRACT: This command stores the named file by writing the
+'       locations and profiles for the current robot to the file.
+'
+'  Parameter 1: Optional - The name of the file.
+'               If not specified, the file Tcs.gpo is used.
+'               If an extension is not specified, the default is .gpo
+
+    Public Sub Cmd_StoreFile(ByVal Cmd As Command, ByRef Reply As String)
+        Dim filename As String
+        Dim exc As Exception
+        Dim status As Integer
+
+        If Cmd.Nparm = 0 Then
+            filename = defaultFile
+        Else
+            filename = Cmd.sData(1)
+            If filename.IndexOf(".") < 0 Then
+                filename &= ".gpo"
+            End If
+        End If
+
+        ' Collect all the data to be stored
+
+        Gpo_file(Cmd.Rob.Robnum) = New GpoFile
+
+        ' Always write the station data
+
+        If Station.StoreFile(Cmd, Reply) Then GoTo _exit
+
+        ' Run any hook routines
+
+        If Cmd.RunPluginHook("Hook_StoreFile", Reply) Then GoTo _exit
+
+        ' Write the file out
+
+        Try
+            Gpo_file(Cmd.Rob.Robnum).WriteFile(filename, True, Reply)
+        Catch exc
+            Reply = CStr(exc.ErrorCode) & " " & exc.Message _
+                  & ", file " & filename
+        End Try
+
+    _exit:
+
+        Gpo_file(Cmd.Rob.Robnum) = Nothing ' Deallocate data
+        Return
+
+    End Sub
+
+#End Region
+
+End Module ' LoadSave

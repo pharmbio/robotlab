@@ -1,0 +1,228 @@
+' Class_station.gpl -
+'
+' Copyright (c) 2015 by Precise Automation Inc.  All rights reserved.
+' =======================================================================
+' Permission is granted to customers of Precise Automation to use this
+' software for any purpose, including commercial applications, and to
+' alter it and redistribute it freely, so long as this notice is included
+' with any modified or unmodified version of this software.
+'
+' This software is provided "as is," without warranty of any kind, express or
+' implied.  In no event shall Precise Automation be held liable for any
+' direct, indirect, incidental, special or consequential damages arising
+' out of the use of or inability to use this software.
+' =======================================================================
+
+#Region "Station Class"
+
+Public Class Station
+    Public Const Z_ABOVE_DEFAULT As Double = 5 ' Default Z Above distance
+
+    Public Const STA_FL_PAL As Integer = &H0001 ' If set, pallet-relative
+    Public Const STA_FL_VERT As Integer = &H0010 ' If set, vertical access
+
+    Public flags As Integer              ' Flag bitmask of STA_FL_*
+    Public loc As Location              ' Station location
+    Public rail As Double               ' Rail position for this station
+    Public frame As RefFrame            ' Pallet and reference frame
+    Public z_above As Double            ' Z above distance for certain
+                                        ' robots using horizontal access
+    Public z_grasp_offset As Double     ' Additional approach offset
+                                        ' when grasping a part
+#End Region
+
+#Region "Constructor"
+
+' Constructor
+
+    Public Sub New
+        loc = New Location
+        loc.Type = 1                    ' Set type to angles
+        z_above = Z_ABOVE_DEFAULT       ' Set default
+        z_grasp_offset = 0              ' Default is 0
+    End Sub
+
+#End Region
+
+#Region "LoadFile"
+' LoadFile - Load the station array from a file
+'
+' ABSTRACT:  This routine loads the station class array for a robot
+'
+' INPUTS:   Cmd         The command object identifying the robot number
+'                       Also an output
+'
+' OUTPUTS:  Cmd         The command object that receives the loaded data
+'           Reply       If error, receives error code and message,
+'                       If no error, unchanged from input
+'
+' RETURNS:  0 if no error, -1 if error.
+
+    Public Shared Function LoadFile(ByVal Cmd As Command, _
+           ByRef Reply As String) As Integer
+        Dim ii As Integer
+        Dim sta As Station
+        Dim loc_array() As Location
+        Dim flags_array() As Double
+        Dim rail_array() As Double
+        Dim z_above_array() As Double
+        Dim z_grasp_offset_array() As Double
+        Dim frame_array() As RefFrame
+        Dim prof_array() As Profile
+        Dim gpf As GpoFile = Gpo_file(Cmd.Rob.Robnum)
+        Dim rs As String = CStr(Cmd.Rob.RobNum)
+        Dim sta_max As Integer
+        Dim var As String
+        Dim ret As Integer = -1         ' Assume error
+
+        ' Read station data into global arrays
+
+        var = "tcs_sta_flags_" & rs
+        If gpf.GetIntegerArray(var, flags_array) Then GoTo bad_var
+        sta_max = flags_array.Length-1
+
+        var = "tcs_sta_loc_" & rs
+        If gpf.GetLocationArray(var, loc_array) Then GoTo bad_var
+        sta_max = Math.Min(sta_max, loc_array.Length-1)
+
+        var ="tcs_sta_rail_" & rs
+        If gpf.GetDoubleArray(var, rail_array) Then GoTo bad_var
+        sta_max = Math.Min(sta_max, rail_array.Length-1)
+
+        var = "tcs_sta_z_above_" & rs
+        If gpf.GetDoubleArray(var, z_above_array) Then GoTo bad_var
+        sta_max = Math.Min(sta_max, z_above_array.Length-1)
+
+        var = "tcs_sta_z_grasp_offset_" & rs
+        If gpf.GetDoubleArray(var, z_grasp_offset_array) Then GoTo bad_var
+        sta_max = Math.Min(sta_max, z_grasp_offset_array.Length-1)
+
+        var = "tcs_sta_frame_" & rs
+        If gpf.GetRefFrameArray(var, frame_array) Then GoTo bad_var
+        sta_max = Math.Min(sta_max, frame_array.Length-1)
+
+        ' Copy global arrays to stations
+
+        If sta_max < 0 Then GoTo bad_length
+        ReDim Cmd.Rob.RobSta(sta_max)
+
+        For ii = 0 To sta_max
+            sta = New Station
+
+            sta.flags = flags_array(ii)
+            sta.loc = loc_array(ii)
+            sta.rail = rail_array(ii)
+            sta.frame = frame_array(ii)
+            sta.z_above = z_above_array(ii)
+            sta.z_grasp_offset = z_grasp_offset_array(ii)
+
+            ' Link to the frame if this is a pallet
+            If sta.flags And STA_FL_PAL Then
+                If Not sta.loc Is Nothing Then
+                    sta.loc.RefFrame = sta.frame
+                End If
+            End If
+
+            Cmd.Rob.RobSta(ii) = sta
+        Next ii
+
+        ' Read profile values into global variables
+
+        var = "tcs_prof_" & rs
+        If gpf.GetProfileArray(var, prof_array) Then GoTo bad_var
+        Cmd.Rob.RobProf = prof_array
+
+        ret = 0
+        GoTo _exit
+
+    bad_var:
+        Reply = "-729 *Undefined symbol*: " & var
+        GoTo _exit
+
+    bad_length:
+        Reply = "-767 *Invalid array index*: " & var
+        GoTo _exit
+
+    _exit:
+        Return ret
+
+    End Function
+
+#End Region
+
+#Region "StoreFile"
+' StoreFile -- Store the station location and profiles data in a file
+'
+' ABSTRACT: This command stores station data from the current robot
+'       to a disk file.
+'
+'       The data is read from the global array Gpo_file()
+'
+' INPUTS:   Cmd         The command object for this robot.
+'
+' OUTPUTS:  Reply       If error, receives error code and message,
+'                       If no error, unchanged from input
+' RETURNS:  0 if no error, -1 if error.
+
+    Public Shared Function StoreFile(ByVal Cmd As Command, _
+           ByRef Reply As String) As Integer
+        Dim ii As Integer
+        Dim sta As Station
+        Dim arr As String
+        Dim exc As Exception
+        Dim loc_array() As Location
+        Dim flags_array() As Double
+        Dim rail_array() As Double
+        Dim z_above_array() As Double
+        Dim z_grasp_offset_array() As Double
+        Dim frame_array() As RefFrame
+        Dim gpf As GpoFile = Gpo_file(Cmd.Rob.Robnum)
+        Dim rs As String = CStr(Cmd.Rob.RobNum)
+        Dim sta_max As Integer = Cmd.Rob.RobSta.Length-1
+
+        If sta_max < 0 Then GoTo _exit
+
+        ReDim flags_array(sta_max)
+        ReDim loc_array(sta_max)
+        ReDim rail_array(sta_max)
+        ReDim frame_array(sta_max)
+        ReDim z_above_array(sta_max)
+        ReDim z_grasp_offset_array(sta_max)
+
+        ' Copy station data to arrays
+
+        For ii = 0 To sta_max
+            sta = Cmd.Rob.RobSta(ii)
+            If Not sta Is Nothing Then
+                flags_array(ii) = sta.flags
+                loc_array(ii) = sta.loc
+                rail_array(ii) = sta.rail
+                frame_array(ii) = sta.frame
+                z_above_array(ii) = sta.z_above
+                z_grasp_offset_array(ii) = sta.z_grasp_offset
+            End If
+        Next ii
+
+        ' Set the station arrays for output
+
+        gpf.SetIntegerArray("tcs_sta_flags_" & rs, flags_array)
+        gpf.SetLocationArray("tcs_sta_loc_" & rs, loc_array)
+        gpf.SetDoubleArray("tcs_sta_rail_" & rs, rail_array)
+        gpf.SetDoubleArray("tcs_sta_z_above_" & rs, z_above_array)
+        gpf.SetDoubleArray("tcs_sta_z_grasp_offset_" & rs, z_grasp_offset_array)
+        gpf.SetRefFrameArray("tcs_sta_frame_" & rs, frame_array)
+
+        ' Set the profile data for output
+
+        gpf.SetProfileArray("tcs_prof_" & rs, Cmd.Rob.RobProf)
+
+
+    _exit:
+        Return 0
+
+    End Function
+
+#End Region
+
+
+End Class ' Station

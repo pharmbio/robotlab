@@ -1,0 +1,36 @@
+{"type": "Section", "sections": ["H12-to-H11"]}
+{"type": "MoveJ", "joints": [601.89, -5.32, 176.89, 186.76], "name": "neu"}
+{"type": "MoveGripper", "pos": 100.61}
+{"type": "MoveJ", "joints": [552.0, -72.51, 296.91, 133.76], "name": "hotel neu"}
+{"type": "MoveC", "xyz": [46.18, -495.9, 459.7], "yaw": -0.51, "name": "H12 entrance"}
+{"type": "MoveC", "xyz": [190.23, -496.02, 459.69], "yaw": -0.56, "name": "H12 neu"}
+{"type": "MoveC", "xyz": [190.23, -496.02, 453.68], "yaw": -0.56, "name": "H12 pick"}
+{"type": "MoveGripper", "pos": 75}
+{"type": "MoveC", "xyz": [190.23, -496.02, 459.69], "yaw": -0.56, "name": "H12 neu"}
+{"type": "MoveC", "xyz": [46.19, -496.01, 459.7], "yaw": -0.56, "name": "H12 entrance"}
+{"type": "MoveC", "xyz": [46.2, -495.91, 424.94], "yaw": -0.51, "name": "H11 entrance", "tag": "11/12"}
+{"type": "MoveC", "xyz": [190.24, -495.91, 424.93], "yaw": -0.51, "name": "H11 neu", "tag": "11/12"}
+{"type": "MoveC", "xyz": [190.25, -495.92, 419.9], "yaw": -0.51, "name": "H11 drop", "tag": "11/12"}
+{"type": "MoveGripper", "pos": 100}
+{"type": "MoveC", "xyz": [190.24, -495.91, 424.93], "yaw": -0.51, "name": "H11 neu", "tag": "11/12"}
+{"type": "MoveC", "xyz": [46.19, -495.9, 424.94], "yaw": -0.51, "name": "H11 entrance", "tag": "11/12"}
+{"type": "MoveJ", "joints": [552.0, -72.51, 296.91, 133.76], "name": "hotel neu"}
+{"type": "MoveJ", "joints": [601.89, -5.32, 176.89, 186.76], "name": "neu"}
+{"type": "Section", "sections": ["H11-to-H12"]}
+{"type": "MoveJ", "joints": [601.89, -5.32, 176.89, 186.76], "name": "neu"}
+{"type": "MoveGripper", "pos": 100.61}
+{"type": "MoveJ", "joints": [552.0, -72.51, 296.91, 133.76], "name": "hotel neu"}
+{"type": "MoveC", "xyz": [46.19, -495.9, 424.94], "yaw": -0.51, "name": "H11 entrance", "tag": "11/12"}
+{"type": "MoveC", "xyz": [190.24, -495.91, 424.93], "yaw": -0.51, "name": "H11 neu", "tag": "11/12"}
+{"type": "MoveC", "xyz": [190.25, -495.92, 418.4], "yaw": -0.51, "name": "H11 pick", "tag": "11/12"}
+{"type": "MoveGripper", "pos": 75}
+{"type": "MoveC", "xyz": [190.24, -495.91, 424.93], "yaw": -0.51, "name": "H11 neu", "tag": "11/12"}
+{"type": "MoveC", "xyz": [46.2, -495.91, 424.94], "yaw": -0.51, "name": "H11 entrance", "tag": "11/12"}
+{"type": "MoveC", "xyz": [46.19, -496.01, 459.7], "yaw": -0.56, "name": "H12 entrance"}
+{"type": "MoveC", "xyz": [190.23, -496.02, 459.69], "yaw": -0.56, "name": "H12 neu"}
+{"type": "MoveC", "xyz": [190.23, -496.02, 453.68], "yaw": -0.56, "name": "H12 drop"}
+{"type": "MoveGripper", "pos": 100}
+{"type": "MoveC", "xyz": [190.23, -496.02, 459.69], "yaw": -0.56, "name": "H12 neu"}
+{"type": "MoveC", "xyz": [46.18, -495.9, 459.7], "yaw": -0.51, "name": "H12 entrance"}
+{"type": "MoveJ", "joints": [552.0, -72.51, 296.91, 133.76], "name": "hotel neu"}
+{"type": "MoveJ", "joints": [601.89, -5.32, 176.89, 186.76], "name": "neu"}

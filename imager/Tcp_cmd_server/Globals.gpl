@@ -1,0 +1,159 @@
+' Command Server
+
+' Copyright (c) 2006, 2007, 2012-2021 by Precise Automation ,Inc.
+' All rights reserved.
+' =======================================================================
+' Permission is granted to customers of Precise Automation to use this
+' software for any purpose, including commercial applications, and to
+' alter it and redistribute it freely, so long as this notice is included
+' with any modified or unmodified version of this software.
+'
+' This software is provided "as is," without warranty of any kind, express or
+' implied.  In no event shall Precise Automation be held liable for any
+' direct, indirect, incidental, special or consequential damages arising
+' out of the use of or inability to use this software.
+' =======================================================================
+
+Module Globals 'Declare global variables for project here.
+
+    ' VERSION STRING
+    Public Version As String = "Command Server 3.0C1 05-27-2021 + pharmbio additions"
+
+    ' -- Debug operation flag.
+    ' 0 = no trace messages
+    ' 1 = trace messages output to GPL console
+    Public Const DBG_CMD_SERVER As Integer = 0
+
+    ' -- Maximum number of tokens for command parser
+
+    ' False = Raw Mode (no command prompt)
+    ' True = Console mode (used for debug in Telnet)
+    Public bTelnetMode As Boolean
+
+    ' -- Console mode prompt response while in console mode.
+    Public Const Prompt As String = "CMD> "
+
+    ' -- GPL encoded version number
+
+    Public Const GPL_Version As Integer = _
+        Controller.PDBNum(104)*1000000 _
+        + Controller.PDBNum(105)*10000 _
+        + Controller.PDBNum(106)
+
+    ' -- Global Error Codes used for message errors
+    Public Const EcPmm As String = "-2800 *Warning Parameter Mismatch*"
+    Public Const EcNoParm As String = "-2801 *Warning No Parameters"
+    Public Const EcIllMove As String = "-2802 *Warning Illegal move command*"
+    Public Const EcInvJa As String = "-2803 *Warning Invalid joint angles*"
+    Public Const EcInvCc As String = "-2804 *Warning: Invalid Cartesian coordinate values*"
+    Public Const EcUnknown As String = "-2805 *Unknown command*"
+    Public Const EcEx As String = "-2806 *Command Exception*"
+    Public Const EcIO As String = "-2807 *Warning cannot set Input states*"
+    Public Const EcCmdSrv As String = "-2808 *Not allowed by this thread*"
+    Public Const EcInvRobType As String = "-2809 *Invalid robot type*"
+    Public Const EcInvSerCmd As String = "-2810 *Invalid serial command*"
+    Public Const EcInvRobNum As String = "-2811 *Invalid robot number*"
+    Public Const EcBadRobSel As String = "-2812 *Robot already selected*"
+    Public Const EcModNotInit As String = "-2813 *Module not initialized*"
+    Public Const EcInvLocIdx As String = "-2814 *Invalid location index*"
+    Public Const EcInvProfIdx As String = "-2815 *Invalid profile index*"
+    Public Const EcUndefLoc As String = "-2816 *Undefined location*"
+    Public Const EcUndefProf As String = "-2817 *Undefined profile*"
+    Public Const EcUndefPal As String = "-2818 *Undefined pallet*"
+    Public Const EcNoPallet As String = "-2819 *Pallet not supported*"
+    Public Const EcInvStaIdx As String = "-2820 *Invalid station index*"
+    Public Const EcUndefSta As String = "-2821 *Undefined station*"
+    Public Const EcNotPallet As String = "-2822 *Not a pallet*"
+    Public Const EcNotOrigin As String = "-2823 *Not at pallet origin*"
+
+    Public Const EcInvPARobotInvSta As String = "-2852 *Invalid robot state to execute command*"
+
+    ' User-friendly State and SysState values
+
+    Public StateLabel(15) As String
+    Public SysStateLabel(31) As String
+
+    ' Define event used to signal back and forth between threads
+
+    Public Const CommEvent As Integer  = 1
+
+    ' -- Global Command Profile and Location Object Definition
+    Public Const N_LOC As Integer = 20  ' Number of locations to pre-allocate
+    Public Const N_PROF As Integer = 20 ' Number of profiles to pre-allocate
+    Public Const N_ROB As Integer = Startup.NumRobots ' Max number of robots
+
+    ' -- Arrays of Command and Robot Data Objects, one per thread
+
+    Public CmdObject(N_ROB) As Command
+    Public RobObject(N_ROB) As RobData
+
+    ' -- Array of threads
+
+    Public rbThread(N_ROB) As Thread    ' Robot command handler for robot n
+    Public comThread(N_ROB) As Thread   ' Communications thread by robot n
+
+    ' Array of mailboxes used to post command from communications thread
+    ' to robot command handler thread
+
+    Public rbMailbox(N_ROB) As Command
+
+    ' Arrays of serial communications buffers
+
+    Public SerialCmdList(N_ROB) As StringList ' Commands from client
+    Public SerialReplyList As StringList ' Replies to client
+
+    Public glbVision As New Vision      ' The global vision object
+    Public glbVisResult As VisResult    ' The global vision result Object
+
+    ' Module initialization routine
+
+    Public Sub Init
+
+        If Startup.CommType = 0 Then
+            Version = "TCP " & Version
+        Else
+            Version = "Serial " & Version
+        End If
+
+        StateLabel(0) = "Halted"
+        StateLabel(1) = "Idle"
+        StateLabel(2) = "Position mode - accel"
+        StateLabel(3) = "Position mode - constant"
+        StateLabel(4) = "Position mode - blending"
+        StateLabel(5) = "Position mode - decel"
+        StateLabel(6) = "Position mode - force overlap"
+        StateLabel(8) = "Velocity mode"
+        StateLabel(9) = "Homing or motor speed control mode"
+        StateLabel(10) = "Jog control mode"
+        StateLabel(11) = "External trajectory mode"
+        StateLabel(15) = "Motion terminated nulling"
+
+        SysStateLabel(0) = "Power off - initializing"
+        SysStateLabel(1) = "Power off - fatal error"
+        SysStateLabel(2) = "Power off - restarting fault"
+        SysStateLabel(3) = "Power going down - no fault"
+        SysStateLabel(4) = "Power going down - fault"
+        SysStateLabel(5) = "Power off - fault occurred"
+        SysStateLabel(6) = "Power off - waiting for power request FALSE"
+        SysStateLabel(7) = "Power off - waiting for power request TRUE"
+        SysStateLabel(8) = "Power on - enabling amplifiers"
+        SysStateLabel(9) = "Power on - performing commutation"
+        SysStateLabel(10) = "Power on - enabling servos and releasing brakes"
+        SysStateLabel(11) = "Power on - waiting for auto mode"
+        SysStateLabel(12) = "Power on - auto mode"
+        SysStateLabel(15) = "Power off - hard e-stop asserted"
+        SysStateLabel(20) = "Power on - ready to have GPL attach robot"
+        SysStateLabel(21) = "GPL project attached to robot"
+        SysStateLabel(22) = "MotionBlocks"
+        SysStateLabel(23) = "Analog input controlled velocity"
+        SysStateLabel(24) = "Analog input controlled torque"
+        SysStateLabel(25) = "Master/slave mode"
+        SysStateLabel(26) = "CANopen via network"
+        SysStateLabel(27) = "CANopen via serial line"
+        SysStateLabel(28) = "Homing"
+        SysStateLabel(29) = "Virtual MCP Jog mode"
+        SysStateLabel(30) = "External trajectory mode"
+        SysStateLabel(31) = "Hardware MCP Jog mode"
+    End Sub
+
+End Module

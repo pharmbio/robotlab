@@ -1,0 +1,2112 @@
+#Region "Module Cmd"
+
+' Copyright (c) 2012, 2015, 2018, 2020-2021 by Precise Automation Inc.
+' All rights reserved.
+' =======================================================================
+' Permission is granted to customers of Precise Automation to use this
+' software for any purpose, including commercial applications, and to
+' alter it and redistribute it freely, so long as this notice is included
+' with any modified or unmodified version of this software.
+'
+' This software is provided "as is," without warranty of any kind, express or
+' implied.  In no event shall Precise Automation be held liable for any
+' direct, indirect, incidental, special or consequential damages arising
+' out of the use of or inability to use this software.
+' =======================================================================
+
+Module Cmd
+
+' DESCRIPTION:  This module contains the standard commands.  Each command
+'       must follow the template specified by the delegate
+'       Command.CommandDelegate:
+'
+'       Sub Cmd_<name>(ByVal Cmd As Command, ByRef Reply As String)
+'
+'       Where <name> is the name of the command
+'
+'       INPUTS:     Cmd     is the Command object containing the parsed command
+'                           received from the client.
+'
+'       OUTPUTS:    Reply   is a string which is returned to the client as
+'                           a response.  By default, the reply is set to
+'                           "0" for normal mode or "Ok" for Telnet mode.
+
+#End Region
+
+#Region "Check_LocIdx"
+' Check_LocIdx - Helper to validate a location index
+'
+' ABSTRACT:  This routine validates a location index range, verifies that
+'       the station and location are defined, and verifies that the
+'       station is not a pallet.
+'
+' INPUTS:   Cmd         is the Command object containing the robot data.
+'
+'           Index       The location index to check
+'
+'           bPalletOK   If True, a pallet-based location is allowed
+'
+' OUTPUTS:  Reply       If no error, unchanged from input.
+'                       If error, contains a reply error string
+'
+' RETURNS:  0 index is valid, -1 if error
+'
+    Public Function Check_LocIdx(ByVal Cmd As Command, _
+           ByVal Index As Integer, _
+           ByVal bPalletOK As Boolean, _
+           ByRef Reply As String) As Integer
+        Dim sta As Station
+        Dim ret As Integer = -1         ' Assume error
+
+        If index < 1 Then
+            Reply = EcInvLocIdx         'Invalid location index
+            GoTo _exit
+        End If
+
+        If index >= Cmd.Rob.RobSta.Length Then
+            Reply = EcUndefLoc          'Undefined location
+            GoTo _exit
+        End If
+
+        sta = Cmd.Rob.RobSta(index)
+        If sta Is Nothing Then
+            Reply = EcUndefLoc          'Undefined location
+            GoTo _exit
+        End If
+
+        If (sta.flags And STA_FL_PAL) <> 0 Then
+            If Not bPalletOK Then
+                Reply = EcNoPallet      'Pallet not supported
+                GoTo _exit
+            End If
+            If sta.frame Is Nothing Then
+                Reply = EcUndefPal      'Undefined pallet
+                GoTo _exit
+            End If
+        End If
+        ret = 0                 ' Success
+
+    _exit:
+        Return ret
+
+    End Function
+
+#End Region
+
+#Region "Check_ProfIdx"
+' Check_ProfIdx - Helper to validate a profile index
+'
+' ABSTRACT:  This routine validates a profile index range, verifies that
+'       the profile is defined.
+'
+' INPUTS:   Cmd         is the Command object containing the robot data.
+'
+'           Index       The location index to check
+'
+' OUTPUTS:  Reply       If no error, unchanged from input.
+'                       If error, contains a reply error string
+'
+' RETURNS:  0 index is valid, -1 if error
+'
+    Public Function Check_ProfIdx(ByVal Cmd As Command, _
+           ByVal Index As Integer, _
+           ByRef Reply As String) As Integer
+        Dim ret As Integer = -1         ' Assume error
+
+        If (index < 1) OrElse (index > N_PROF) Then
+            Reply = EcInvProfIdx        'Invalid profile index
+        ElseIf Cmd.Rob.RobProf(index) Is Nothing Then
+            ' Reply = EcUndefProf
+            Cmd.Rob.RobProf(index) = New Profile
+            Cmd.Rob.RobProf(index).Speed = 50
+            Cmd.Rob.RobProf(index).Speed2 = 0
+            Cmd.Rob.RobProf(index).Accel = 100
+            Cmd.Rob.RobProf(index).Decel = 100
+            Cmd.Rob.RobProf(index).AccelRamp = 0.1
+            Cmd.Rob.RobProf(index).DecelRamp = 0.1
+            Cmd.Rob.RobProf(index).inRange = 10
+            Cmd.Rob.RobProf(index).Straight = False
+            ret = 0 ' Success, now defined!
+        Else
+            ret = 0                     ' Success
+        End If
+        Return ret
+
+    End Function
+
+#End Region
+
+#Region "Cmd_Version"
+' Cmd_Version - Return the software version number
+'
+'   No parameters
+
+    Public Sub Cmd_Version(ByVal Cmd As Command, ByRef Reply As String)
+        Dim ii As Integer
+        If bTelnetMode Then
+            Reply = Globals.Version
+            For ii = 0 To Command.NumPlugins-1
+                Reply &= Chr(GPL_CR) & Chr(GPL_LF) & Command.PluginVersion(ii)
+            Next ii
+        Else
+            Reply = "0 " & Globals.Version
+            For ii = 0 To Command.NumPlugins-1
+                Reply &= ", " & Command.PluginVersion(ii)
+            Next ii
+        End If
+    End Sub
+
+#End Region
+
+#Region "Cmd_Mode"
+' Cmd_Mode - Get or Set the operation mode
+'
+' Parameter 1: Optional. If omitted, returns the current mode.
+'                        If specified, sets the mode:
+'                           0 for normal mode,
+'                           <> 0 for Telnet mode.
+
+    Public Sub Cmd_Mode(ByVal Cmd As Command, ByRef Reply As String)
+        If Cmd.Nparm = 0 Then
+            If bTelnetMode Then
+                Reply = "0 1 Telnet_Mode"
+            Else
+                Reply = "0 0"
+            End If
+        ElseIf Cmd.Nparm > 0 Then
+            Cmd.StringToDouble(0)
+            If Cmd.cData(1) Then
+                bTelnetMode = True
+                Reply = "Ok"
+            Else
+                bTelnetMode = False
+                Reply = "0"
+            End If
+        End If
+    End Sub
+#End Region
+
+#Region "Cmd_Nop"
+' Cmd_Nop -- KDo nothing except return success.
+'
+'  ABSTRACT:  Does nothing except return success.  Tests if the command
+'       server is active and there are no pending errors.
+'
+'  No parameters
+
+    Public Sub Cmd_Nop(ByVal Cmd As Command, ByRef Reply As String)
+        Return 'Do nothing
+    End Sub
+#End Region
+
+#Region "Cmd_SysState"
+' Cmd_SysState -- Return the  status of controller (e-stop, power, execution)
+'
+'  ABSTRACT:  Returns the value of DataID 234.  See the GPL documentation
+'             for details on these values.
+'
+'  No parameters
+
+    Public Sub Cmd_SysState(ByVal Cmd As Command, ByRef Reply As String)
+        Dim state As Integer
+
+        state = Controller.PDbNum(234)
+        Reply = CStr(state)
+
+        If bTelnetMode Then
+            If (state < SysStateLabel.Length) _
+               AndAlso (Not SysStateLabel(state) Is Nothing) Then
+                Reply &= " " & SysStateLabel(state)
+            End If
+        Else
+            Reply = "0 " & Reply
+        End If
+
+    End Sub
+#End Region
+
+#Region "Cmd_Pd"
+' Cmd_Pd -- Parameter Display
+'
+'  ABSTRACT:  Return a parameter database value.
+'
+'  Parameter 1: The paramemter ID code.
+'  Parameters 2-4:  Optional.  Correspond to the additional parameters
+'                   of the GPL "pd" console command.  Assumed to be
+'                   zero if omitted.
+
+    Public Sub Cmd_Pd(ByVal Cmd As Command, ByRef Reply As String)
+
+        Cmd.StringToDouble(4)
+
+        If Cmd.Nparm > 0 Then
+            If Cmd.Nparm = 1 Then
+                Reply = Controller.PDB(Cmd.cData(1), Cmd.Rob.RobNum, 0, 0)
+            Else
+                Reply = Controller.PDB(Cmd.cData(1), _
+                      Cmd.cData(2), Cmd.cData(3), Cmd.cData(4))
+            End If
+            If Not bTelnetMode Then
+                reply = "0 " & reply
+            End If
+
+        Else
+            reply = EcNoParm
+        End If
+    End Sub
+#End Region
+
+#Region "Cmd_Pc"
+' Cmd_Pc -- Parameter Change
+'
+'  ABSTRACT:  Change a parameter database value.
+'
+'       Accepts 2 or 5 parameters.
+'
+'       If 2 parameters are specified:
+'
+'               Parameter 1: The paramemter ID code.
+'               Parameter 2: The new parameter value
+'                            String values must be inside quotes.
+'
+'       If 5 parameters are specified:
+'
+'               Parameter 1: The paramemter ID code.
+'               Parameters 2-4:  Correspond to the additional parameters
+'                                of the GPL "pc" console command.
+'               Parameter 5: The new parameter value
+'                            String values must be inside quotes.
+
+    Public Sub Cmd_Pc(ByVal Cmd As Command, ByRef Reply As String)
+        Dim ss As String
+        Dim sValue As String = Nothing
+        Dim ii As Integer
+        Dim ex As Exception
+        Dim sarg() As String
+        Dim nparm As Integer
+
+        ' Handle string arguments by checking for quote
+
+        ii = Cmd.InMsg.IndexOf("""")
+        If ii >=0 Then
+            ' Get The string value from the end of the input line
+            sValue = Cmd.InMsg.SubString(ii+1)
+            ss = Cmd.InMsg.SubString(0, ii).TrimEnd
+            ii = sValue.Length-1
+            If (ii < 0) OrElse (sValue.SubString(ii) <> """") Then
+                ex = New Exception
+                ex.ErrorCode = -704     'Missing quote mark
+                Throw ex
+            End If
+            sValue = sValue.SubString(0, ii)
+
+            sarg = ss.Split(" ")        ' Parse the arguments before the quote
+            nparm = sarg.Length-1
+
+            If nparm = 1 Then
+                Controller.PDb(CInt(sarg(1)), Cmd.Rob.RobNum, 0, 1) = sValue
+            ElseIf nparm = 4 Then
+                Controller.PDb(CInt(sarg(1)), CInt(sarg(2)), CInt(sarg(3)), _
+                          CInt(sarg(4))) = sValue
+            ElseIf nparm = 0 Then
+                Reply = EcNoParm
+            Else
+                Reply = EcPmm
+            End If
+
+        Else
+
+        ' Handle numeric arguments
+
+            Cmd.StringToDouble(0)
+
+            If Cmd.Nparm = 2 Then
+                Controller.PDbNum(Cmd.cData(1), Cmd.Rob.RobNum, 0, 1) _
+                          = Cmd.cData(2)
+            ElseIf Cmd.Nparm = 5 Then
+                Controller.PDbNum(Cmd.cData(1), Cmd.cData(2), Cmd.cData(3), _
+                          Cmd.cData(4)) = Cmd.cData(5)
+            ElseIf Cmd.NParm = 0 Then
+                Reply = EcNoParm
+            Else
+                Reply = EcPmm
+            End If
+
+        End If
+
+    End Sub
+#End Region
+
+#Region "Cmd_Hp"
+' Cmd_Hp -- High Power control
+'
+'  ABSTRACT:  Enable or disable high power
+'
+'             If no parameters, return the state of power.
+'
+'  Parameter 1: 0 to disable power, 1 to enable power.
+'  Parameter 2: Optional if enabling power.
+'               -1 means wait forever for power to come one.
+'               0 or omitted means do not wait at all.
+'               > 0 means wait for this many seconds.  An error is returned.
+'               If power does not come one within this time.
+
+    Public Sub Cmd_Hp(ByVal Cmd As Command, ByRef Reply As String)
+
+        Cmd.StringToDouble(2)
+
+        If Cmd.Nparm = 0 Then
+            If bTelnetMode Then
+                Reply = "Robot " & CStr(Cmd.Rob.RobNum) _
+                      & " Power = " & CStr((-Controller.PowerEnabled And 1))
+            Else
+                Reply = "0 " & CStr(-Controller.PowerEnabled And 1)
+            End If
+        ElseIf Cmd.cData(1) Then
+            If Cmd.cData(2) = 0 Then
+                Controller.PDbNum(241,0,0,0) = 1    ' Do not wait
+            ElseIf Cmd.cData(2) > 0 Then            ' Wait with timeout
+                Controller.PowerEnabled(Cmd.cData(2)) = True
+                ' Will throw exception if timeout enabling power
+            Else
+                Controller.PowerEnabled(0) = True   ' Wait forever
+            End If
+        Else
+            Controller.PowerEnabled = False         ' Disable arm power
+        End If
+    End Sub
+#End Region
+
+#Region "Cmd_Attach"
+' Cmd_Attach -- Attaches or releases the robot for control
+'
+'  ABSTRACT:  Attaches or releases the robot for control by the client.
+'
+'       Or inquires about the current state of attachment.
+'
+'  Parameter 1: Optional.
+'               If omitted, this command returns the current attachment state.
+'               If specified, 0 to release the robot, <> 0 to attach it.
+
+    Public Sub Cmd_Attach(ByVal Cmd As Command, ByRef Reply As String)
+
+        Cmd.StringToDouble(0)
+
+        If Cmd.Nparm = 0 Then
+            If bTelnetMode Then
+                Reply = "Robot " & CStr(Cmd.Rob.RobNum) _
+                      & " Attach = " & CStr(Robot.Attached)
+            Else
+                Reply = "0 " & CStr(Robot.Attached)
+            End If
+        Else
+            If Cmd.cData(1) Then
+                If Cmd.IsStatus Then
+                    reply = EcCmdSrv
+                Else
+                    Robot.Attached = Cmd.Rob.RobNum ' attach proper robot
+                    ' Will throw exception if attach fails.
+                End If
+            Else
+                Robot.Attached = 0          ' release robot
+            End If
+        End If
+    End Sub
+
+#End Region
+
+#Region "Cmd_Home"
+' Cmd_Home -- Homes the current robot.
+'
+'  ABSTRACT:  Homes the current robot only.  Do not home any other robots.
+'
+'  No parameters
+
+    Public Sub Cmd_Home(ByVal Cmd As Command, ByRef Reply As String)
+        Robot.Home
+    End Sub
+#End Region
+
+#Region "Cmd_HomeAll"
+' Cmd_HomeAll -- Homes all robots.
+'
+'  ABSTRACT:  Homes all robots.
+'
+'  No parameters
+
+    Public Sub Cmd_HomeAll(ByVal Cmd As Command, ByRef Reply As String)
+        Controller.PDbNum(213) = 1      ' Invoke robot homing
+        Thread.Sleep(100)               ' Wait in case of error
+    End Sub
+#End Region
+
+#Region "Cmd_DestC"
+' Cmd_DestC -- Gets the robot Cartesian destination
+'
+'  ABSTRACT:  Gets the robot Cartesian destination + config
+'
+'  Parameter 1: Optional.
+'               If omitted, or zero, and the robot is not moving,
+'               returns the Where value.
+'
+'               If specified, and value is 1, always returns the
+'               Cartesian destination + config
+
+    Public Sub Cmd_DestC(ByVal Cmd As Command, ByRef Reply As String)
+        Dim lcc As Location
+        Dim stmp As String
+        Dim state As Integer
+
+        Cmd.StringToDouble(0)
+
+        If (Cmd.Nparm = 0) OrElse (Cmd.cData(1) = 0) Then
+            state = Robot.TrajState(Cmd.Rob.RobNum)
+            If state <= 1 OrElse state = 10 Then
+                lcc = Robot.Where(Cmd.Rob.RobNum)
+            Else
+                lcc = Robot.Dest(Cmd.Rob.RobNum)
+            End If
+        ElseIf Cmd.cData(1) = 1 Then
+            lcc = Robot.Dest(Cmd.Rob.RobNum)
+        Else
+            Reply = EcPmm               ' Parameter mismatch
+            GoTo _exit
+        End If
+
+        If bTelnetMode Then
+            stmp = "XYZypr config"
+        Else
+            stmp = "0"
+        End If
+        reply = sCartesian(stmp, lcc, 3)
+        reply &= " " & CStr(lcc.Config)
+
+    _exit:
+        Return
+    End Sub
+#End Region
+
+#Region "Cmd_DestJ"
+' Cmd_DestJ -- Gets the robot Angles destination
+'
+'  ABSTRACT:  Gets the robot Angles destination
+'
+'  Parameter 1: Optional.
+'               If omitted, or zero, and the robot is not moving,
+'               returns the WhereJ value.
+'
+'               If specified, and value is 1, always returns the
+'               robot angles destination
+
+    Public Sub Cmd_DestJ(ByVal Cmd As Command, ByRef Reply As String)
+        Dim lcj As Location
+        Dim stmp As String
+        Dim state As Integer
+
+        Cmd.StringToDouble(0)
+
+        If (Cmd.Nparm = 0) OrElse (Cmd.cData(1) = 0) Then
+            state = Robot.TrajState(Cmd.Rob.RobNum)
+            If state <= 1 OrElse state = 10 Then
+                lcj = Robot.WhereAngles(Cmd.Rob.RobNum)
+            Else
+                lcj = Robot.DestAngles(Cmd.Rob.RobNum)
+            End If
+        ElseIf Cmd.cData(1) = 1 Then
+            lcj = Robot.DestAngles(Cmd.Rob.RobNum)
+        Else
+            Reply = EcPmm               ' Parameter mismatch
+            GoTo _exit
+        End If
+
+        If bTelnetMode Then
+            stmp = "Angles"
+        Else
+            stmp = "0"
+        End If
+        reply = sAngles(Cmd.Rob.RobNumAxes, stmp, lcj, 3)
+
+    _exit:
+        Return
+    End Sub
+#End Region
+
+#Region "Cmd_Mspeed"
+' Cmd_Mspeed -- Sets or Gets the master robot speed factor
+'
+'  ABSTRACT:  Set or gets the master system (monitor) speed factor.
+'       This speed scales the speed of all robot motions.
+'
+'  Parameter 1: Optional.
+'               If omitted, this command returns the current system speed.
+'               If specified, contains the new system speed as a percentage.
+
+    Public Sub Cmd_Mspeed(ByVal Cmd As Command, ByRef Reply As String)
+
+        Cmd.StringToDouble(0)
+
+        If Cmd.Nparm = 0 Then
+            If bTelnetMode Then
+                reply = "System speed = " & sFormat(Controller.PDbNum(601), 3)
+            Else
+                reply = "0 " & sFormat(Controller.PDbNum(601),3)
+            End If
+        Else
+            Controller.PDbNum(601) =Cmd.cData(1)
+        End If
+    End Sub
+#End Region
+
+#Region "Cmd_SelectRobot"
+' Cmd_SelectRobot -- Sets or Gets the selected robot number.
+'
+'  ABSTRACT:  Set or gets the number of the robot currently associated
+'       with this thread.
+'
+'       The status thread select any robot or 0.
+'
+'       A robot thread may only select a robot that is not already selected
+'       by a different robot thread.
+'
+'  Parameter 1: Optional.
+'               If omitted, this command returns the current robot number.
+'               If specified, contains the robot number.
+
+    Public Sub Cmd_SelectRobot(ByVal Cmd As Command, ByRef Reply As String)
+        Dim ex As Exception
+        Dim tThread As Thread
+        Dim ii As Thread
+
+        Cmd.StringToDouble(0)
+
+        If Cmd.Nparm = 0 Then
+            If bTelnetMode Then
+                Reply = "Selected Robot = " & CStr(Cmd.Rob.RobNum)
+            Else
+                Reply = "0 " & CStr(Cmd.Rob.RobNum)
+            End If
+        ElseIf Cmd.cData(1) > Controller.PDbNum(111) Then
+            ex = New Exception
+            ex.ErrorCode = -1001        '*Undefined robot*
+            Throw ex
+        ElseIf (Cmd.cData(1) < 0 ) OrElse (Cmd.cData(1) > N_ROB) Then
+            ex = New Exception
+            ex.ErrorCode = -1000        '*Invalid robot number*
+            Throw ex
+        ' Only status thread can select 0
+        ElseIf (Cmd.cData(1) = 0 ) AndAlso (Not Cmd.IsStatus) Then
+            reply = EcCmdSrv            ' *Not allowed by this thread*
+        'Ignore if already selected by this thread
+        ElseIf Cmd.Rob.robNum = Cmd.cData(1) Then
+        ' Must be Status thread or un-selecteded robot
+        ElseIf Cmd.IsStatus OrElse (comThread(Cmd.cData(1)) Is Nothing) Then
+            Cmd.NewRobNum = Cmd.cData(1) ' Request robot number change
+        Else
+            Reply = EcBadRobSel         '*Robot already selected*
+        End If
+    End Sub
+#End Region
+
+#Region "Cmd_Speed"
+' Cmd_Speed -- Sets or Gets the motion profile Speed.
+'
+'  ABSTRACT:  Set or gets the Speed property for the specified
+'       motion profile.
+'
+'  Parameter 1: Specifies the profile index to use.
+'
+'  Parameter 2: Optional.
+'               If omitted, this command returns the profile Speed value.
+'               If specified, contains the new profile Speed value.
+
+    Public Sub Cmd_Speed(ByVal Cmd As Command, ByRef Reply As String)
+        Dim index As Integer
+
+        Cmd.StringToDouble(0)
+
+        If Cmd.Nparm = 0 Then
+            Reply = EcNoParm
+            GoTo _exit
+        End If
+
+        index = Cmd.cData(1)
+        If Check_ProfIdx(Cmd, index, Reply) Then GoTo _exit
+
+        If Cmd.Nparm < 2 Then
+            If bTelnetMode Then
+                reply = "Speed(" & CStr(index) & ") = "
+            Else
+                reply = "0 " & CStr(index)  & " "
+            End If
+            reply &= sFormat(Cmd.Rob.RobProf(index).Speed, 3)
+        Else
+            Cmd.Rob.RobProf(index).Speed = Cmd.cData(2)
+        End If
+
+    _exit:
+        Return
+    End Sub
+#End Region
+
+#Region "Cmd_Speed2"
+' Cmd_Speed2 -- Sets or Gets the motion profile Speed2.
+'
+'  ABSTRACT:  Set or gets the Speed2 property for the specified
+'       motion profile.
+'
+'  Parameter 1: Specifies the profile index to use.
+'
+'  Parameter 2: Optional.
+'               If omitted, this command returns the profile Speed2 value.
+'               If specified, contains the new profile Speed2 value.
+
+    Public Sub Cmd_Speed2(ByVal Cmd As Command, ByRef Reply As String)
+        Dim index As Integer
+
+        Cmd.StringToDouble(0)
+        If Cmd.Nparm = 0 Then
+            Reply = EcNoParm
+            GoTo _exit
+        End If
+
+        index = Cmd.cData(1)
+        If Check_ProfIdx(Cmd, index, Reply) Then GoTo _exit
+
+        If Cmd.Nparm < 2 Then
+            If bTelnetMode Then
+                reply = "Speed2(" & CStr(index) & ") = "
+            Else
+                reply = "0 " & CStr(index)  & " "
+            End If
+            reply &= sFormat(Cmd.Rob.RobProf(index).Speed2, 3)
+        Else
+            Cmd.Rob.RobProf(index).Speed2 = Cmd.cData(2)
+        End If
+
+    _exit:
+        Return
+    End Sub
+#End Region
+
+#Region "Cmd_Accel"
+' Cmd_Accel -- Sets or Gets the motion profile accel.
+'
+'  ABSTRACT:  Set or gets the Accel property for the specified motion
+'       profile.
+'
+'  Parameter 1: Specifies the profile index to use.
+'
+'  Parameter 1: Optional.
+'               If omitted, this command returns the profile accel.
+'               If specified, contains the new profile accel.
+
+    Public Sub Cmd_Accel(ByVal Cmd As Command, ByRef Reply As String)
+        Dim index As Integer
+
+        Cmd.StringToDouble(0)
+        If Cmd.Nparm = 0 Then
+            Reply = EcNoParm
+            GoTo _exit
+        End If
+
+        index = Cmd.cData(1)
+        If Check_ProfIdx(Cmd, index, Reply) Then GoTo _exit
+
+        If Cmd.Nparm < 2 Then
+            If bTelnetMode Then
+                reply = "Accel(" & CStr(index) & ") = "
+            Else
+                reply = "0 " & CStr(index)  & " "
+            End If
+            reply &= sFormat(Cmd.Rob.RobProf(index).Accel, 3)
+        Else
+            Cmd.Rob.RobProf(index).Accel = Cmd.cData(2)
+        End If
+
+    _exit:
+        Return
+    End Sub
+#End Region
+
+#Region "Cmd_Decel"
+' Cmd_Decel -- Sets or Gets the motion profile decel.
+'
+'  ABSTRACT:  Set or gets the Decel property for the specified motion
+'       profile.
+'
+'  Parameter 1: Specifies the profile index to use.
+'
+'  Parameter 2: Optional.
+'               If omitted, this command returns the profile decel.
+'               If specified, contains the new profile decel.
+
+    Public Sub Cmd_Decel(ByVal Cmd As Command, ByRef Reply As String)
+        Dim index As Integer
+
+        Cmd.StringToDouble(0)
+        If Cmd.Nparm = 0 Then
+            Reply = EcNoParm
+            GoTo _exit
+        End If
+
+        index = Cmd.cData(1)
+        If Check_ProfIdx(Cmd, index, Reply) Then GoTo _exit
+
+        If Cmd.Nparm < 2 Then
+            If bTelnetMode Then
+                reply = "Decel(" & CStr(index) & ") = "
+            Else
+                reply = "0 " & CStr(index)  & " "
+            End If
+            reply &= sFormat(Cmd.Rob.RobProf(index).Decel, 3)
+        Else
+            Cmd.Rob.RobProf(index).Decel = Cmd.cData(2)
+        End If
+
+    _exit:
+        Return
+    End Sub
+#End Region
+
+#Region "Cmd_AccRamp"
+' Cmd_AccRamp -- Sets or Gets the motion profile AccelRamp.
+'
+'  ABSTRACT:  Set or gets the AccelRamp property for the specified
+'       motion profile.
+'
+'  Parameter 1: Optional.
+'               If omitted, this command returns the profile AccelRamp.
+'               If specified, contains the new profile AccelRamp.
+
+    Public Sub Cmd_AccRamp(ByVal Cmd As Command, ByRef Reply As String)
+        Dim index As Integer
+
+        Cmd.StringToDouble(0)
+        If Cmd.Nparm = 0 Then
+            Reply = EcNoParm
+            GoTo _exit
+        End If
+
+        index = Cmd.cData(1)
+        If Check_ProfIdx(Cmd, index, Reply) Then GoTo _exit
+
+        If Cmd.Nparm < 2 Then
+            If bTelnetMode Then
+                reply = "AccelRamp(" & CStr(index) & ") = "
+            Else
+                reply = "0 " & CStr(index)  & " "
+            End If
+            reply &= sFormat(Cmd.Rob.RobProf(index).AccelRamp, 3)
+        Else
+            Cmd.Rob.RobProf(index).AccelRamp = Cmd.cData(2)
+        End If
+
+    _exit:
+        Return
+    End Sub
+#End Region
+
+#Region "Cmd_DecRamp"
+' Cmd_DecRamp -- Sets or Gets the motion profile DecelRamp.
+'
+'  ABSTRACT:  Set or gets the DecelRamp property for the specified
+'       selected motion profile.
+'
+'  Parameter 1: Specifies the profile index to use.
+'
+'  Parameter 2: Optional.
+'               If omitted, this command returns the profile DecelRamp.
+'               If specified, contains the new profile DecelRamp.
+
+    Public Sub Cmd_DecRamp(ByVal Cmd As Command, ByRef Reply As String)
+        Dim index As Integer
+
+        Cmd.StringToDouble(0)
+        If Cmd.Nparm = 0 Then
+            Reply = EcNoParm
+            GoTo _exit
+        End If
+
+        index = Cmd.cData(1)
+        If Check_ProfIdx(Cmd, index, Reply) Then GoTo _exit
+
+        If Cmd.Nparm < 2 Then
+            If bTelnetMode Then
+                reply = "DecelRamp(" & CStr(index) & ") = "
+            Else
+                reply = "0 " & CStr(index)  & " "
+            End If
+            reply &= sFormat(Cmd.Rob.RobProf(index).DecelRamp, 3)
+        Else
+            Cmd.Rob.RobProf(index).DecelRamp = Cmd.cData(2)
+        End If
+
+    _exit:
+        Return
+    End Sub
+#End Region
+
+#Region "Cmd_InRange"
+' Cmd_InRange -- Sets or Gets the motion profile InRange.
+'
+'  ABSTRACT:  Set or gets the InRange property for the currently
+'       selected motion profile.
+'
+'  Parameter 1: Optional.
+'               If omitted, this command returns the profile InRange.
+'               If specified, contains the new profile InRange.
+
+    Public Sub Cmd_InRange(ByVal Cmd As Command, ByRef Reply As String)
+        Dim index As Integer
+
+        Cmd.StringToDouble(0)
+
+        If Cmd.Nparm = 0 Then
+            Reply = EcNoParm
+            GoTo _exit
+        End If
+
+        index = Cmd.cData(1)
+        If Check_ProfIdx(Cmd, index, Reply) Then GoTo _exit
+
+        If Cmd.Nparm < 2 Then
+            If bTelnetMode Then
+                reply = "InRange(" & CStr(index) & ") = "
+            Else
+                reply = "0 " & CStr(index)  & " "
+            End If
+            reply &= sFormat(Cmd.Rob.RobProf(index).InRange, 2)
+        Else
+            Cmd.Rob.RobProf(index).InRange = Cmd.cData(2)
+        End If
+
+    _exit:
+        Return
+    End Sub
+#End Region
+
+#Region "Cmd_Straight"
+' Cmd_Straight -- Sets or Gets the motion profile Straight.
+'
+'  ABSTRACT:  Set or gets the Straight property for the specified
+'       motion profile.
+'
+'  Parameter 1: Specifies the profile index to use.
+'
+'  Parameter 2: Optional.
+'               If omitted, this command returns the profile Straight value.
+'               If specified, contains the new profile Straight value.
+
+    Public Sub Cmd_Straight(ByVal Cmd As Command, ByRef Reply As String)
+        Dim index As Integer
+
+        Cmd.StringToDouble(0)
+        If Cmd.Nparm = 0 Then
+            Reply = EcNoParm
+            GoTo _exit
+        End If
+
+        index = Cmd.cData(1)
+        If Check_ProfIdx(Cmd, index, Reply) Then GoTo _exit
+
+        If Cmd.Nparm < 2 Then
+            If bTelnetMode Then
+                reply = "Straight(" & CStr(index) & ") = "
+            Else
+                reply = "0 " & CStr(index)  & " "
+            End If
+            If Cmd.Rob.RobProf(index).Straight Then
+                reply &= "True"
+            Else
+                reply &= "False"
+            End If
+        Else
+            Cmd.Rob.RobProf(index).Straight = Cmd.cData(2)
+        End If
+
+    _exit:
+        Return
+    End Sub
+#End Region
+
+#Region "Cmd_Profile"
+' Cmd_Profile -- Sets or Gets the entry motion Profile.
+'
+'  ABSTRACT:  Set or gets the specified Profile
+'
+'  Parameter 1: Specifies the index of the profile for this robot.
+
+'  Parameter 2-9: Optional.
+'               If omitted, this command returns specified Profile value.
+'               If specified, these parameters contain the new Profile value.
+'                   2: Speed
+'                   3: Speed2
+'                   4: Accel
+'                   5: Decel
+'                   6: AccelRamp
+'                   7: DecelRamp
+'                   8: InRange
+'                   9: Straight
+
+    Public Sub Cmd_Profile(ByVal Cmd As Command, ByRef Reply As String)
+        Dim index As Integer
+
+        Cmd.StringToDouble(0)
+
+        If Cmd.Nparm = 0 Then
+            Reply = EcNoParm
+            GoTo _exit
+        End If
+
+        If Cmd.Nparm = 1 Then
+            index =Cmd.cData(1)
+            If Check_ProfIdx(Cmd, index, Reply) Then GoTo _exit
+
+            If bTelnetMode Then
+                reply = "Profile(" & CStr(index) & ") = "
+            Else
+                reply = "0 " & CStr(index) & " "
+            End If
+
+            reply &= sFormat(Cmd.Rob.RobProf(index).Speed, 3) & " "
+            reply &= sFormat(Cmd.Rob.RobProf(index).Speed2, 3) & " "
+            reply &= sFormat(Cmd.Rob.RobProf(index).Accel, 3) & " "
+            reply &= sFormat(Cmd.Rob.RobProf(index).Decel, 3) & " "
+            reply &= sFormat(Cmd.Rob.RobProf(index).AccelRamp, 3) & " "
+            reply &= sFormat(Cmd.Rob.RobProf(index).DecelRamp, 3) & " "
+            reply &= sFormat(Cmd.Rob.RobProf(index).InRange, 3) & " "
+            reply &= sFormat(Cmd.Rob.RobProf(index).Straight, 3)
+
+        ElseIf Cmd.Nparm = 9 Then
+            index =Cmd.cData(1)
+            Cmd.Rob.RobProf(index).Speed =Cmd.cData(2)
+            Cmd.Rob.RobProf(index).Speed2 =Cmd.cData(3)
+            Cmd.Rob.RobProf(index).Accel =Cmd.cData(4)
+            Cmd.Rob.RobProf(index).Decel =Cmd.cData(5)
+            Cmd.Rob.RobProf(index).AccelRamp =Cmd.cData(6)
+            Cmd.Rob.RobProf(index).DecelRamp =Cmd.cData(7)
+            Cmd.Rob.RobProf(index).inRange =Cmd.cData(8)
+            Cmd.Rob.RobProf(index).Straight =Cmd.cData(9)
+        Else
+            reply = EcPmm
+        End If
+    _exit:
+        Return
+
+    End Sub
+#End Region
+
+#Region "Cmd_Loc"
+' Cmd_Loc -- Gets the motion location Loc or Angles.
+'
+'  ABSTRACT:  Gets the Cartesian position or Angles values for the
+'       specified motion location.
+'
+'  Parameter 1: Returns the currently selected motion location values.
+
+    Public Sub Cmd_Loc(ByVal Cmd As Command, ByRef Reply As String)
+        Dim index As Integer
+        Dim stmp As String
+
+        Cmd.StringToDouble(0)
+
+        If Cmd.Nparm = 0 Then
+            Reply = EcNoParm
+            GoTo _exit
+        ElseIf Cmd.Nparm <> 1 Then
+            reply = EcPmm
+            GoTo _exit
+        End If
+
+        index = Cmd.cData(1)
+        If Check_LocIdx(Cmd, index, True, Reply) Then GoTo _exit
+
+        If Cmd.Rob.RobSta(index).loc.Type = 0 Then
+
+            If bTelnetMode Then
+                stmp = "Loc_XYZ(" & CStr(index) & ")"
+            Else
+                stmp = "0 0 " & CStr(index)
+            End If
+            reply = sCartesian(stmp, Cmd.Rob.RobSta(index).loc.Pos, 3)
+
+        Else
+            If bTelnetMode Then
+                stmp = "Loc_Angles(" & CStr(index) & ")"
+            Else
+                stmp = "0 1 " & CStr(index)
+            End If
+            reply = sAngles(Cmd.Rob.RobNumAxes, stmp, Cmd.Rob.RobSta(index).loc, 3)
+        End If
+    _exit:
+        Return
+    End Sub
+#End Region
+
+#Region "Cmd_LocAngles"
+' Cmd_LocAngles -- Gets or sets the motion location Angles.
+'
+'  ABSTRACT:  Gets or sets the specified the specified location.
+'
+'       For Get, an error is returned if the specified location is
+'       not of type "Angles".
+'
+'       For Set, the specified location is change to type "Angles".
+'
+'  Parameter 1: The location index
+'
+'  Parameter 2-13: Optional.
+'               If omitted, this command returns specified location value.
+'               If specified, these parameters contain the new location
+'                   angles.
+'               If the number of angles > the number of axes, the extra
+'                   values are ignored.
+'               If the number of angles < the number of axes, the missing
+'                   values are assumed to be zero.
+
+    Public Sub Cmd_LocAngles(ByVal Cmd As Command, ByRef Reply As String)
+        Dim index As Integer
+        Dim stmp As String
+        Dim lcj As Location
+        Dim n As Integer
+        Dim ii As Integer
+
+        Cmd.StringToDouble(0)
+
+        If Cmd.Nparm = 0 Then
+            Reply = EcNoParm
+            GoTo _exit
+        End If
+        index = Cmd.cData(1)
+
+        If Check_LocIdx(Cmd, index, False, Reply) Then GoTo _exit
+
+        If Cmd.Nparm < 2 Then
+            If bTelnetMode Then
+                stmp = "Loc_Angles(" & CStr(index) & ")"
+            Else
+                stmp = "0 1 " & CStr(index)
+            End If
+            reply = sAngles(Cmd.Rob.RobNumAxes, stmp, Cmd.Rob.RobSta(index).loc, 3)
+        Else
+            lcj = New Location
+            lcj.Type = 1                ' Assert "angles" type
+
+            n = Math.Min(Cmd.Nparm-1, Cmd.Rob.RobNumAxes)
+            For ii = 1 To n
+                lcj.Angle(ii) =Cmd.cData(ii+1)
+            Next ii
+            Cmd.Rob.RobSta(index).loc = lcj
+        End If
+    _exit:
+        Return
+    End Sub
+#End Region
+
+#Region "Cmd_LocXyz"
+' Cmd_LocXyz -- Gets or sets the motion location Cartesian values
+'
+'  ABSTRACT:  Gets or sets the specified the specified location.
+'
+'       For Get, an error is returned if the specified location is
+'       not of type "Cartesian".
+'
+'       For Set, the specified location is change to type "Cartesian".
+'
+'       Does not change the currently selected motion index.
+'
+'  Parameter 1: The location index
+'
+'  Parameter 2-7: Optional.
+'               If omitted, this command returns specified location value.
+'               If specified, these parameters contain the new location
+'                   Cartesian values.  All values must be specified.
+
+    Public Sub Cmd_LocXyz(ByVal Cmd As Command, ByRef Reply As String)
+        Dim index As Integer
+        Dim stmp As String
+        Dim lcc As Location
+
+        Cmd.StringToDouble(0)
+
+        If Cmd.Nparm = 0 Then
+            Reply = EcNoParm
+            GoTo _exit
+        End If
+        index =Cmd.cData(1)
+
+        If Check_LocIdx(Cmd, index, False, Reply) Then GoTo _exit
+
+        If Cmd.Nparm < 2 Then
+            If bTelnetMode Then
+                stmp = "Loc_XYZ(" & CStr(index) & ")"
+            Else
+                stmp = "0 0 " & CStr(index)
+            End If
+            reply = sCartesian(stmp, Cmd.Rob.RobSta(index).loc, 3)
+        ElseIf Cmd.Nparm = 7 Then
+            lcc = New Location          ' Default is Cartesian type
+            lcc.XYZ(Cmd.cData(2), Cmd.cData(3), Cmd.cData(4),_
+               Cmd.cData(5), Cmd.cData(6), Cmd.cData(7))
+            Cmd.Rob.RobSta(index).loc = lcc
+        Else
+            reply = EcPmm
+        End If
+    _exit:
+        Return
+    End Sub
+#End Region
+
+#Region "Cmd_LocZClearance"
+' Cmd_LocZClearance -- Sets or Gets the motion location ZClearance.
+'
+'  ABSTRACT:  Set or gets the ZClearance property for the specified
+'       motion location.
+'
+'  Parameter 1: The location index
+'
+'  Parameter 2: Optional.
+'               If omitted, this command returns the location ZClearance value.
+'               If specified, contains the new location ZClearance value.
+
+    Public Sub Cmd_LocZClearance(ByVal Cmd As Command, ByRef Reply As String)
+        Dim index As Integer
+
+        Cmd.StringToDouble(0)
+
+        If Cmd.Nparm = 0 Then
+            Reply = EcNoParm
+            GoTo _exit
+        End If
+        index =Cmd.cData(1)
+        If Check_LocIdx(Cmd, index, True, Reply) Then GoTo _exit
+
+        If Cmd.Nparm < 2 Then
+            If bTelnetMode Then
+                reply = "ZClearance(" & CStr(index) & ")= "
+            Else
+                reply = "0 " & CStr(index)   & " "
+            End If
+            reply &= CStr(Cmd.Rob.RobSta(index).loc.zClearance)
+        Else
+            Cmd.Rob.RobSta(index).loc.ZClearance = Cmd.cData(2)
+        End If
+
+    _exit:
+        Return
+    End Sub
+#End Region
+
+#Region "Cmd_LocConfig"
+' Cmd_LocConfig -- Sets or Gets the motion location configuration
+'
+'  ABSTRACT:  Set or gets the configuration property for the specified
+'       motion location.
+'
+'  Parameter 1: The location index
+'
+'  Parameter 1: Optional.
+'               If omitted, this command returns the location config value.
+'               If specified, contains the new location config value.
+
+    Public Sub Cmd_LocConfig(ByVal Cmd As Command, ByRef Reply As String)
+        Dim index As Integer
+
+        Cmd.StringToDouble(0)
+
+        If Cmd.Nparm = 0 Then
+            Reply = EcNoParm
+            GoTo _exit
+        End If
+        index =Cmd.cData(1)
+        If Check_LocIdx(Cmd, index, True, Reply) Then GoTo _exit
+
+        If Cmd.Nparm < 2 Then
+            If bTelnetMode Then
+                reply = "Config(" & CStr(index) & ")= "
+            Else
+                reply = "0 " & CStr(index) & " "
+            End If
+            reply &= CStr(Cmd.Rob.RobSta(index).loc.Config)
+        Else
+            Cmd.Rob.RobSta(index).loc.Config = Cmd.cData(2)
+        End If
+    _exit:
+        Return
+    End Sub
+#End Region
+
+#Region "Cmd_Where"
+' Cmd_Where -- Gets the robot Cartesian and Angles location
+'
+'  ABSTRACT:  Gets the robot Cartesian and Angles location
+'
+'  No parameters
+
+    Public Sub Cmd_Where(ByVal Cmd As Command, ByRef Reply As String)
+        Dim lcc As Location
+        Dim lcj As Location
+        Dim stmp1 As String
+        Dim stmp2 As String
+
+        If bTelnetMode Then
+            stmp1 = "XYZypr"
+            stmp2 = "Angles"
+        Else
+            stmp1 = "0"
+            stmp2 = ""
+        End If
+
+        lcc = Robot.Where(Cmd.Rob.RobNum)
+        reply = sCartesian(stmp1, lcc, 3)
+        If bTelnetMode Then
+            reply &= Chr(13) & Chr(10)
+        Else
+            reply &= " "
+        End If
+        lcj = Robot.WhereAngles(Cmd.Rob.RobNum)
+        reply &= sAngles(Cmd.Rob.RobNumAxes, stmp2, lcj, 3)
+
+    End Sub
+#End Region
+
+#Region "Cmd_WhereC"
+' Cmd_WhereC -- Gets the robot Cartesian location
+'
+'  ABSTRACT:  Gets the robot Cartesian location and config
+'
+'  No parameters
+
+    Public Sub Cmd_WhereC(ByVal Cmd As Command, ByRef Reply As String)
+        Dim lcc As Location
+        Dim stmp As String
+
+        lcc = Robot.Where(Cmd.Rob.RobNum)
+        If bTelnetMode Then
+            stmp = "XYZypr config"
+        Else
+            stmp = "0"
+        End If
+        reply = sCartesian(stmp, lcc, 3)
+        reply &= " " & CStr(lcc.Config)
+
+    End Sub
+#End Region
+
+#Region "Cmd_WhereJ"
+' Cmd_WhereJ -- Gets the robot Angles location
+'
+'  ABSTRACT:  Gets the robot Angles location
+'
+'  No parameters
+
+    Public Sub Cmd_WhereJ(ByVal Cmd As Command, ByRef Reply As String)
+        Dim lcj As Location
+        Dim stmp As String
+
+        lcj = Robot.WhereAngles(Cmd.Rob.RobNum)
+        If bTelnetMode Then
+            stmp = "Angles"
+        Else
+            stmp = "0"
+        End If
+        reply = sAngles(Cmd.Rob.RobNumAxes, stmp, lcj, 3)
+    End Sub
+#End Region
+
+#Region "Cmd_HereJ"
+' Cmd_HereJ -- Sets the specified robot location to the current Angles
+'
+'  ABSTRACT:  Sets the specified robot location to the current Angles values.
+'
+'  Parameter 1: The location index
+'
+    Public Sub Cmd_HereJ(ByVal Cmd As Command, ByRef Reply As String)
+        Dim lcj As Location
+        Dim index As Integer
+
+        Cmd.StringToDouble(0)
+
+        If Cmd.Nparm = 0 Then
+            Reply = EcNoParm
+            GoTo _exit
+        ElseIf Cmd.Nparm <> 1 Then
+            reply = EcPmm
+            GoTo _exit
+        End If
+
+        index =Cmd.cData(1)
+        If Check_LocIdx(Cmd, index, False, Reply) Then GoTo _exit
+
+        lcj = Robot.WhereAngles(Cmd.Rob.RobNum)
+        Cmd.Rob.RobSta(index).loc = lcj
+
+    _exit:
+        Return
+    End Sub
+#End Region
+
+#Region "Cmd_HereC"
+' Cmd_HereC -- Sets the specified robot location to the current Cartesian values
+'
+'  ABSTRACT:  Sets the specified robot location to the current Cartesian values.
+'
+'  Parameter 1: The location index
+
+    Public Sub Cmd_HereC(ByVal Cmd As Command, ByRef Reply As String)
+        Dim lcc As Location
+        Dim index As Integer
+        Dim frm As RefFrame
+        Dim sta As Station
+
+        Cmd.StringToDouble(0)
+
+        If Cmd.Nparm = 0 Then
+            Reply = EcNoParm
+            GoTo _exit
+        ElseIf Cmd.Nparm <> 1 Then
+            reply = EcPmm
+            GoTo _exit
+        End If
+
+        index = Cmd.cData(1)
+        If Check_LocIdx(Cmd, index, True, Reply) Then GoTo _exit
+
+        sta = Cmd.Rob.RobSta(index)
+
+        ' Can only teach location if pallet index is 1,1,1
+
+        If (sta.flags And STA_FL_PAL) <> 0 Then
+            frm = sta.frame
+            If (frm.PalletIndex(1) <> 1) _
+               OrElse (frm.PalletIndex(2) <> 1) _
+               OrElse (frm.PalletIndex(3) <> 1) Then
+                Reply = EcNotOrigin     ' *Not at pallet origin*
+                GoTo _exit
+            End If
+        End If
+
+        lcc = Robot.Where(Cmd.Rob.RobNum)
+        Cmd.Rob.RobSta(index).loc.Pos = lcc
+        Cmd.Rob.RobSta(index).loc.Config = lcc.Config
+
+    _exit:
+        Return
+    End Sub
+#End Region
+
+#Region "Cmd_ZeroTorque"
+' Cmd_ZeroTorque -- Enable/Disable selected robot axes for zero torque mode
+'
+'  ABSTRACT:  Enables or disables zero torque mode for a set of robot axes.
+'       In this mode, the selected axes are set to torque mode with
+'       a constant torque equal to the torque value sampled when this
+'       command was issued.  The effect is to balance the axes against
+'       any gravity loading.
+'
+'  Parameter 1: 0 to disable zero torque mode for the entire robot.
+'               1 to enable zero torque mode for the selected axes.
+'  Parameter 2: Required when enabling zero torque mode.
+'               A bit mask with a bit set for each axes to be placed in
+'               torque mode.
+
+    Public Sub Cmd_ZeroTorque(ByVal Cmd As Command, ByRef Reply As String)
+        Cmd.StringToDouble(0)
+
+        If (Cmd.Nparm = 1) AndAlso (Cmd.cData(1) = 0) Then
+
+            Move.StopSpecialModes
+
+        ElseIf (Cmd.Nparm = 2) AndAlso (Cmd.cData(1) <> 0) Then
+
+            Dim torques(12) As Double
+            Move.StartTorqueCntrl(Cmd.cData(2), 0, torques)
+            Move.SetTorques(torques)
+
+        Else
+            reply = EcPmm               'Parameter Mismatch
+        End If
+    End Sub
+#End Region
+
+#Region "Cmd_ReleaseBrake"
+' Cmd_ReleaseBrake -- Release the brake for a robot axis
+'
+'  ABSTRACT:  Releases the brake for a robot axis.
+'
+'       Releases the brake immediately, without regard to the robot
+'       servo state.  May cause the robot axis to fall if servos
+'       are not active.
+'
+'  Parameter 1: The number of the axis to release.
+
+    Public Sub Cmd_ReleaseBrake(ByVal Cmd As Command, ByRef Reply As String)
+        Cmd.StringToDouble(0)
+        If Cmd.Nparm > 0 Then
+            Controller.PDbNum(14500, Cmd.Rob.RobNum, 0, 0) = Cmd.cData(1) ' Axis
+            Controller.PDbNum(14002, Cmd.Rob.RobNum, 0, 0) = 1  'release brake
+        End If
+    End Sub
+#End Region
+
+#Region "Cmd_SetBrake"
+' Cmd_SetBrake -- Set the brake for a robot axis
+'
+'  ABSTRACT:  Sets the brake for a robot axis.
+'
+'       Sets the brake immediately, without regard to the robot
+'       servo state.  May cause an error if the axis is moving.
+'
+'  Parameter 1: The number of the axis to set.
+
+    Public Sub Cmd_SetBrake(ByVal Cmd As Command, ByRef Reply As String)
+        Cmd.StringToDouble(0)
+        If Cmd.Nparm > 0 Then
+            Controller.PDbNum(14500, Cmd.Rob.RobNum, 0, 0) = Cmd.cData(1) ' Axis
+            Controller.PDbNum(14002, Cmd.Rob.RobNum, 0, 0) = 0  'set brake
+        End If
+    End Sub
+#End Region
+
+#Region "Cmd_Base"
+' Cmd_Base -- Sets or Gets the base transformation
+'
+'  ABSTRACT:  Set or gets the BASE transformation for the current
+'       robot.  Causes a break in any active robot motion.
+'
+'  Parameter 1-4: Optional
+'               If omitted, this command returns the base value.
+'               If specified, parameters 1 through 4 contain the
+'                   X, Y, Z and rotation-about-Z values.
+
+    Public Sub Cmd_Base(ByVal Cmd As Command, ByRef Reply As String)
+
+        Dim lbase As Location
+
+        Cmd.StringToDouble(0)
+
+        If Cmd.Nparm = 0 Then
+            lbase = Robot.Base
+            If bTelnetMode Then
+                reply = "Base = "
+            Else
+                reply = "0 "
+            End If
+            reply &= sFormat(lbase.X,3)
+            reply &= " " & sFormat(lbase.Y,3)
+            reply &= " " & sFormat(lbase.Z,3)
+            reply &= " " & sFormat(lbase.Roll,3)
+        ElseIf Cmd.Nparm = 4 Then
+            Robot.Base = Location.XYZValue( _
+            Cmd.cData(1), Cmd.cData(2), Cmd.cData(3), 0, 0, Cmd.cData(4))
+        Else
+            reply = EcPmm   '*Warning Parameter Mismatch*
+        End If
+    End Sub
+#End Region
+
+#Region "Cmd_Tool"
+' Cmd_Tool -- Sets or Gets the tool transformation
+'
+'  ABSTRACT:  Set or gets the TOOL transformation for the current
+'       robot.  Causes a break in any active robot motion.
+'
+'  Parameter 1-6: Optional
+'               If omitted, this command returns the tool value.
+'               If specified, parameters 1 through 6 contain the
+'                   X, Y, Z, yaw, pitch, roll values
+
+    Public Sub Cmd_Tool(ByVal Cmd As Command, ByRef Reply As String)
+
+        Dim ltool As Location
+        Dim stmp As String
+
+        Cmd.StringToDouble(0)
+
+        If Cmd.Nparm = 0 Then
+            ltool = Robot.Tool
+            If bTelnetMode Then
+                stmp = "Tool"
+            Else
+                stmp = "0"
+            End If
+            reply = sCartesian(stmp, ltool, 3)
+        ElseIf Cmd.Nparm = 6 Then
+            ltool = New Location        ' Default is Cartesian type
+            ltool.XYZ(Cmd.cData(1), Cmd.cData(2), Cmd.cData(3), _
+                Cmd.cData(4), Cmd.cData(5), Cmd.cData(6))
+            Robot.Tool = ltool
+        Else
+            reply = EcPmm   '*Warning Parameter Mismatch*
+        End If
+    End Sub
+#End Region
+
+#Region "Cmd_Move"
+' Cmd_Move -- Moves the robot
+'
+'  ABSTRACT:  Moves the robot to one of the saved locations
+'       using a saved profile.
+'
+'  Parameter 1: The index of the destination location
+'
+'  Parameter 2: The index of the profile to use.
+
+    Public Sub Cmd_Move(ByVal Cmd As Command, ByRef Reply As String)
+        Dim index As Integer
+        Dim pfindex As Integer
+
+        Cmd.StringToDouble(0)
+
+        If Cmd.Nparm = 2 Then
+            index = Cmd.cData(1)
+            pfindex = Cmd.cData(2)
+        Else
+            reply = EcIllMove
+            GoTo _exit
+        End If
+
+        If Check_LocIdx(Cmd, index, True, Reply) Then GoTo _exit
+        If Check_ProfIdx(Cmd, pfindex, Reply) Then GoTo _exit
+
+        Move.Loc(Cmd.Rob.RobSta(index).loc, Cmd.Rob.RobProf(pfindex))
+
+    _exit:
+        Return
+    End Sub
+#End Region
+
+#Region "Cmd_MoveAppro"
+' Cmd_MoveAppro -- Moves the robot to approach a location
+'
+'  ABSTRACT:  Moves the robot to approach one of the saved locations
+'       using a saved profile.
+'
+'  Parameter 1: The index of the destination location
+'
+'  Parameter 2: The index of the profile to use.
+
+    Public Sub Cmd_MoveAppro(ByVal Cmd As Command, ByRef Reply As String)
+        Dim index As Integer
+        Dim pfindex As Integer
+
+        Cmd.StringToDouble(0)
+
+        If Cmd.Nparm = 2 Then
+            index = Cmd.cData(1)
+            pfindex = Cmd.cData(2)
+        Else
+            reply = EcIllMove
+            GoTo _exit
+        End If
+
+        If Check_LocIdx(Cmd, index, True, Reply) Then GoTo _exit
+        If Check_ProfIdx(Cmd, pfindex, Reply) Then GoTo _exit
+
+        Move.Approach(Cmd.Rob.RobSta(index).loc, Cmd.Rob.RobProf(pfindex))
+    _exit:
+        Return
+    End Sub
+#End Region
+
+#Region "Cmd_MoveExtraAxis"
+' Cmd_MoveExtraAxis -- Move an extra axis during the next motion
+'
+'  ABSTRACT:  This command posts a move for the extra axes during
+'       the next move to a Cartesian location.
+'       Does not actually cause the robot to move.
+'
+'       Only some kinematic modules support extra axes.
+'
+'  Parameter 1: The destination position for the 1st extra axis
+'  Parameter 2: Optional. The destination position for the 2nd extra axis.
+'               If omitted, only the 1st axis is moved
+
+    Public Sub Cmd_MoveExtraAxis(ByVal Cmd As Command, ByRef Reply As String)
+        Cmd.StringToDouble(0)
+
+        If Cmd.Nparm = 1 Then
+            Move.Extra(Cmd.cData(1))
+        ElseIf Cmd.Nparm = 2 Then
+            Move.Extra(Cmd.cData(1), Cmd.Cdata(2))
+        Else
+            reply = EcIllMove
+            GoTo _exit
+        End If
+
+    _exit:
+        Return
+    End Sub
+#End Region
+
+#Region "Cmd_MoveOneAxis"
+' Cmd_MoveOneAxis -- Moves a single axis to the specified position.
+'
+'  ABSTRACT:  Moves a single axis of the current robot.
+'
+'       Does not wait for the motion to complete
+'
+'  Parameter 1: The number of the axis to move.
+'
+'  Parameter 2: The destination position for the axis
+'
+'  Parameter 3: The index of the profile to use.
+
+    Public Sub Cmd_MoveOneAxis(ByVal Cmd As Command, ByRef Reply As String)
+        Dim pfindex As Integer
+
+        Cmd.StringToDouble(0)
+
+        If Cmd.Nparm = 3 Then
+            pfindex = Cmd.cData(3)
+        Else
+            reply = EcIllMove
+            GoTo _exit
+        End If
+
+        If Check_ProfIdx(Cmd, pfindex, Reply) Then GoTo _exit
+
+        Move.OneAxis(Cmd.cData(1), Cmd.cData(2), False, Cmd.Rob.RobProf(pfindex))
+    _exit:
+        Return
+    End Sub
+#End Region
+
+#Region "Cmd_WaitForEom"
+' Cmd_WaitForEom -- Waits for the robot to reach the end of motion
+'
+'  ABSTRACT:  Waits until the robot reaches the end of the current
+'       motion or until the robot is stopped by some other means.
+'
+'  No parameters
+
+    Public Sub Cmd_WaitForEom(ByVal Cmd As Command, ByRef Reply As String)
+        If Robot.TrajState <> 10 Then   ' Do not wait if in jog mode
+            Move.WaitForEOM
+            ' DataID 375 not added until GPL 4.2a9
+            If GPL_Version >= 4020109 Then
+            ' If any async error flags are set, wait for 1 tick to let
+            ' any error message propagate
+                If (Controller.PDBnum(375) And &H700000) <> 0 Then
+                    Controller.SleepTick(1)
+                End If
+            End If
+        End If
+    End Sub
+#End Region
+
+#Region "Cmd_MoveJ"
+' Cmd_MoveJ -- Move to a location defined by angles.
+'
+'  ABSTRACT:  Move to the location defined by angles using
+'       the specified profile.
+'
+'       Does not change any location values.
+'
+'  Parameter 1:   The index of the profile to use
+'  Parameters 2+: Up to 12 parameters
+'               These parameters contain the location angles.
+'               The number of parameters must equal or greater than
+'               the number of axes.
+
+    Public Sub Cmd_MoveJ(ByVal Cmd As Command, ByRef Reply As String)
+        Dim lcj As Location
+        Dim ii As Integer
+        Dim pfindex As Integer
+
+        Cmd.StringToDouble(0)
+
+        If Cmd.Nparm = 0 Then
+            Reply = EcNoParm
+            GoTo _exit
+        End If
+
+        pfindex = Cmd.cData(1)
+        If Check_ProfIdx(Cmd, pfindex, Reply) Then GoTo _exit
+
+        lcj = New Location
+        lcj.Type = 1                    ' Assert "angles" type
+
+        If Cmd.Nparm > Cmd.Rob.RobNumAxes Then
+            For ii = 2 To Cmd.Nparm
+                lcj.Angle(ii-1) = Cmd.cData(ii)
+            Next ii
+            Move.Loc(lcj, Cmd.Rob.RobProf(pfindex))
+        Else
+            reply = EcInvJa
+        End If
+
+    _exit:
+        Return
+    End Sub
+#End Region
+
+#Region "Cmd_MoveC"
+' Cmd_MoveC -- Move to a Cartesian location.
+'
+'  ABSTRACT:  Move to the specified Cartesian location using the
+'       specified profile index.
+'
+'  Parameter 1:   The index of the profile to use
+'  Parameter 2-7
+'               These parameters contain the new location Cartesian
+'               coordinates:  X, Y, Z, y, p, r
+'               All 6 parameters must be present
+'
+'  Parameter 8  Optional configuration.  Assume 0 if omitted.
+
+    Public Sub Cmd_MoveC(ByVal Cmd As Command, ByRef Reply As String)
+        Dim lcc As Location
+        Dim pfindex As Integer
+
+        Cmd.StringToDouble(8)
+
+        If Cmd.Nparm = 0 Then
+            Reply = EcNoParm
+            GoTo _exit
+        End If
+
+        pfindex = Cmd.cData(1)
+        If Check_ProfIdx(Cmd, pfindex, Reply) Then GoTo _exit
+
+        lcc = New Location              ' Default is Cartesian
+
+        If (Cmd.Nparm = 7) OrElse (Cmd.Nparm = 8) Then
+            lcc.XYZ(Cmd.cData(2), Cmd.cData(3), Cmd.cData(4), _
+               Cmd.cData(5), Cmd.cData(6), Cmd.cData(7))
+            lcc.Config = Cmd.cData(8)
+            Move.Loc(lcc, Cmd.Rob.RobProf(pfindex))
+        Else
+            reply = EcInvCc
+        End If
+
+    _exit:
+        Return
+    End Sub
+#End Region
+
+#Region "Cmd_Payload"
+' Cmd_Payload -- Sets or displays the payload for the current robot
+'
+'  ABSTRACT:  Sets or displays the payload for the current robot
+'
+'       Does not go into effect until the next robot motion
+'
+'  Parameter 1: Optional.
+'               If omitted, this command returns the current payload value.
+'               If specified, the payload percent value to be set.
+
+    Public Sub Cmd_Payload(ByVal Cmd As Command, ByRef Reply As String)
+
+        Cmd.StringToDouble(0)
+
+        If Cmd.Nparm = 0 Then
+            If bTelnetMode Then
+                Reply = "Robot " & CStr(Cmd.Rob.RobNum) _
+                      & " Payload = " & CStr(Robot.Payload)
+            Else
+                Reply = "0 " & CStr(Robot.Payload)
+            End If
+        ElseIf Robot.TrajState(Cmd.Rob.RobNum, 0) = 10 Then
+            Reply = EcInvPARobotInvSta  ' Post Error
+        Else
+            Robot.Payload =  Cmd.cData(1) ' Throws exception if payload fails
+        End If
+    End Sub
+
+#End Region
+
+#Region "Cmd_State"
+' Cmd_State -- Gets the robot motion state.
+'
+'  ABSTRACT:  Gets the robot motion state.
+'
+'  No parameters
+
+    Public Sub Cmd_State(ByVal Cmd As Command, ByRef Reply As String)
+        Dim state As Integer
+
+        state = Robot.TrajState(Cmd.Rob.RobNum)
+
+        If bTelnetMode Then
+            reply = "Move state = " & CStr(state)
+            If (state < StateLabel.Length) _
+               AndAlso (Not StateLabel(state) Is Nothing) Then
+                Reply &= " " & StateLabel(state)
+            End If
+        Else
+            reply = "0 " & CStr(state)
+        End If
+    End Sub
+#End Region
+
+#Region "Cmd_Halt"
+' Cmd_Halt -- Stops the robot motion immediately
+'
+'  ABSTRACT:  Stops the robot motion immediately but leaves power on
+'
+'  No parameters
+
+    Public Sub Cmd_Halt(ByVal Cmd As Command, ByRef Reply As String)
+        Robot.RapidDecel(Cmd.Rob.RobNum)
+    End Sub
+#End Region
+
+#Region "Cmd_Sig"
+' Cmd_Sig -- Sets or Gets a digital signal
+'
+'  ABSTRACT:  Set a digital signal or gets the current value.
+'
+'  Parameter 1: The number of the signal to get or set.  If set, the
+'               signal must be a digital output.
+'  Parameter 2: Optional
+'               If omitted, this command returns the digital signal value.
+'               If specified, contains the new digital signal value.
+
+    Public Sub Cmd_Sig(ByVal Cmd As Command, ByRef Reply As String)
+
+        Cmd.StringToDouble(0)
+
+        If Cmd.Nparm = 1 Then
+            If bTelnetMode Then
+                reply = "Signal " & CStr(Cmd.cData(1)) _
+                      & " state = " & CStr(Signal.DIO(Cmd.cData(1)))
+            Else
+                reply = "0 " & CStr(Cmd.cData(1)) _
+                      & " " & CStr(Signal.DIO(Cmd.cData(1)))
+            End If
+        ElseIf Cmd.Nparm = 2 Then
+            If Cmd.cData(1) > 10000 AndAlso Cmd.cData(1) <= 20000 Then
+                reply = EcIO
+            Else
+                Signal.DIO(Cmd.cData(1)) = Cmd.cData(2)
+            End If
+        End If
+    End Sub
+#End Region
+
+#Region "Cmd_Reset"
+' Cmd_Reset -- Resets a robot thread
+'
+'  ABSTRACT:  Resets a robot thread by stopping and starting it.
+'
+'  Parameter 1: The number of the thread to reset, from 1 to n.
+
+    Public Sub Cmd_Reset(ByVal Cmd As Command, ByRef Reply As String)
+
+        Cmd.StringToDouble(0)
+
+        If (Cmd.Rob.RobNum = 0) _
+           AndAlso (Cmd.Nparm > 0) _
+           AndAlso (Cmd.cData(1) > 0) _
+           AndAlso (Cmd.cData(1) < rbThread.Length) Then
+            Dim t As Integer
+            t = Cmd.cData(1)
+
+            Console.WriteLine("Stopping robot threads " & CStr(t))
+            rbThread(t).Abort
+
+            If Not comThread(t) Is Nothing Then
+                comThread(t).Abort
+                Thread.Sleep(1000)
+            End If
+
+            Console.WriteLine("Starting robot Threads " & CStr(t))
+            If Not comThread(t) Is Nothing Then
+                comThread(t).Start
+            End If
+        Else
+            reply = EcCmdSrv
+        End If
+    End Sub
+#End Region
+
+#Region "Cmd_Vprocess"
+' Cmd_Vprocess -- Issues a Precise Vision process command
+'
+'  ABSTRACT:  Issues a vision process command.
+'
+'  Parameter 1: The vision process name
+
+    Public Sub Cmd_Vprocess(ByVal Cmd As Command, ByRef Reply As String)
+        Dim ex As Exception
+
+        glbVision.Process(Cmd.sData(1))
+
+        If bTelnetMode Then
+            ex = New Exception
+            ex.ErrorCode = glbVision.ErrorCode
+            If ex.ErrorCode < 0 Then
+                reply = CStr(ex.ErrorCode) & " " & ex.Message
+            Else
+                reply = "Vision result count = " & CStr(glbVision.ResultCount)
+            End If
+        Else
+            reply = CStr(glbVision.ErrorCode) & " " & CStr(glbVision.ResultCount)
+        End If
+    End Sub
+#End Region
+
+#Region "Cmd_VresultLoc"
+' Cmd_VresultLoc -- Gets a vision result location
+'
+'  ABSTRACT:  Gets a vision result location
+'
+'  Parameter 1: Optional
+'               If not specified, return the default result.
+'               If specified, the name of the vision result to return.
+'  Parameter 2: Optional.
+'               If specified, the array index of the named vision result.
+
+    Public Sub Cmd_VresultLoc(ByVal Cmd As Command, ByRef Reply As String)
+        Dim ex As Exception
+
+        If Cmd.Nparm = 0 Then
+            glbVisResult = glbVision.Result()
+        ElseIf Cmd.Nparm = 2 Then
+            glbVisResult = glbVision.Result(Cmd.sData(1), CInt(Cmd.sData(2)))
+        Else
+            reply = EcPmm               'Warning Parameter Mismatch
+            GoTo _exit
+        End If
+
+        If bTelnetMode Then
+            ex = New Exception
+            ex.ErrorCode = glbVisResult.ErrorCode
+            If ex.ErrorCode < 0 Then
+                reply = CStr(ex.ErrorCode) & " " & ex.Message
+                GoTo _exit
+            End If
+            reply = "Vision result = "
+        Else
+            reply = CStr(glbVisResult.ErrorCode) & " "
+            If glbVisResult.ErrorCode < 0 Then
+                GoTo _exit
+            End If
+        End If
+
+        reply &= sCartesian("", glbVisResult.Loc, 3)
+
+    _exit:
+        Return
+    End Sub
+#End Region
+
+#Region "Cmd_VresultInfo"
+' Cmd_VresultInfo -- Gets a vision result info array
+'
+'  ABSTRACT:  Gets a vision result info array
+'
+'  Parameter 1: Optional
+'               If not specified, return the default result.
+'               If specified, the name of the vision result to return.
+'  Parameter 2: Optional.
+'               If specified, the array index of the named vision result.
+'  Parameter 3: Optional.
+'               If not specified, all info values are returned.
+'               If specified, the index of the info array item returned.
+
+    Public Sub Cmd_VresultInfo(ByVal Cmd As Command, ByRef Reply As String)
+        Dim ex As Exception
+        Dim ii As Integer
+
+        If Cmd.Nparm = 0 Then
+            glbVisResult = glbVision.Result()
+        ElseIf Cmd.Nparm > 1 Then
+            glbVisResult = glbVision.Result(Cmd.sData(1), CInt(Cmd.sData(2)))
+        Else
+            reply = EcPmm               'Warning Parameter Mismatch
+            GoTo _exit
+        End If
+
+        If bTelnetMode Then
+            ex = New Exception
+            ex.ErrorCode = glbVisResult.ErrorCode
+            If ex.ErrorCode < 0 Then
+                reply = CStr(ex.ErrorCode) & " " & ex.Message
+                GoTo _exit
+            End If
+            reply = "Vision info = "
+        Else
+            reply = CStr(glbVisResult.ErrorCode) & " "
+            If glbVisResult.ErrorCode < 0 Then
+                GoTo _exit
+            End If
+        End If
+
+        If Cmd.Nparm > 2 Then
+            ii = CInt(Cmd.sData(3))
+            reply &= " " & CStr(glbVisResult.Info(ii))
+        Else
+            For ii = 0 To glbVisResult.InfoCount-1
+                reply &= " " & CStr(glbVisResult.Info(ii))
+            Next ii
+        End If
+
+    _exit:
+        Return
+    End Sub
+#End Region
+
+#Region "Cmd_VresultInspect"
+' Cmd_VresultInspect -- Gets a vision result inspect value
+'
+'  ABSTRACT:  Gets a vision result inspect value
+'
+'  Parameter 1: Optional
+'               If not specified, return the default result.
+'               If specified, the name of the vision result to return.
+'  Parameter 2: Optional.
+'               If specified, the array index of the named vision result.
+
+    Public Sub Cmd_VresultInspect(ByVal Cmd As Command, ByRef Reply As String)
+        Dim ex As Exception
+
+        If Cmd.Nparm = 0 Then
+            glbVisResult = glbVision.Result()
+        ElseIf Cmd.Nparm = 2 Then
+            glbVisResult = glbVision.Result(Cmd.sData(1), CInt(Cmd.sData(2)))
+        Else
+            reply = EcPmm               'Warning Parameter Mismatch
+            GoTo _exit
+        End If
+
+        If bTelnetMode Then
+            ex = New Exception
+            ex.ErrorCode = glbVisResult.ErrorCode
+            If ex.ErrorCode < 0 Then
+                reply = CStr(ex.ErrorCode) & " " & ex.Message
+                GoTo _exit
+            End If
+            reply = "Vision inspect = "
+        Else
+            reply = CStr(glbVisResult.ErrorCode) & " "
+            If glbVisResult.ErrorCode < 0 Then
+                GoTo _exit
+            End If
+        End If
+
+        reply &= CStr(glbVisResult.InspectActual) _
+              & " " & CStr(glbVisResult.InspectPassed)
+
+    _exit:
+        Return
+    End Sub
+#End Region
+
+#Region "Cmd_Exit"
+' Cmd_Exit -- Exit from this Telnet session
+'
+'  ABSTRACT:  Issue a special reply that causes the caller to close the
+'       Telnet session.  Has no effect on serial connections.
+'
+'  No parameters
+
+    Public Sub Cmd_Exit(ByVal Cmd As Command, ByRef Reply As String)
+        If CommType = 0 Then
+            reply = "exit"              ' Set special reply for TCP
+        End If
+    End Sub
+#End Region
+
+End Module
