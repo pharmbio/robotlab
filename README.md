@@ -28,6 +28,26 @@ Microscope imager program and control of the the PreciseFlex (PF) robotarm.
 
 </table>
 
+It also includes two utility packages:
+
+<table>
+
+<tr>
+<th>viable</th>
+<td>
+Library for writing web frontend code in python.
+</td>
+</tr>
+
+<tr>
+<th>pbutils</th>
+<td>
+Shared utilities such as bridging dataclasses and sqlite3.
+</td>
+</tr>
+
+</table>
+
 External dependencies:
 
 <table>

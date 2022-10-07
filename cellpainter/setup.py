@@ -1,9 +1,9 @@
 from setuptools import setup
 
 requirements = '''
+    pbutils
+    viable
     z3-solver
-    flask
-    sorcery
     labrobots
 '''
 
@@ -17,7 +17,6 @@ name='cellpainter'
 
 packages=f'''
     {name}
-    {name}.utils
 '''
 
 setup(
@@ -25,8 +24,7 @@ setup(
     packages=packages.split(),
     version='0.1',
     description='Cell painting using the robot arm',
-    url='https://github.com/pharmbio/robot-cellpainter',
-    author='Dan Rosén',
+    url='https://github.com/pharmbio/robotlab',
     author_email='dan.rosen@farmbio.uu.se',
     python_requires='>=3.10',
     license='MIT',

@@ -1,19 +1,13 @@
 from setuptools import setup
 
 requirements = '''
-    pbutils
-    viable
     apsw>=3.39.3
 '''
 
-name='imager'
-
-console_scripts = f'''
-    pf-moves={name}.moves_gui:main
-    pf-flash={name}.flash:main
-    imager={name}.cli:main
-    imager-gui={name}.scheduler_gui:main
+console_scripts = '''
 '''
+
+name='pbutils'
 
 packages=f'''
     {name}
@@ -23,7 +17,7 @@ setup(
     name=name,
     packages=packages.split(),
     version='0.1',
-    description='IMX imaging using the PreciseFlex robot arm and LiCONiC fridge',
+    description='Shared utilities',
     url='https://github.com/pharmbio/robotlab',
     author='Dan Rosén',
     author_email='dan.rosen@farmbio.uu.se',

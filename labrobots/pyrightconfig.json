@@ -1,10 +1,16 @@
 {
-    "pythonVersion": "3.7",
+    "pythonVersion": "3.8",
+    "pythonPlatform": "Linux",
     "typeCheckingMode": "strict",
-    "reportWildcardImportFromLibrary": "warning",
-    "reportMissingTypeStubs": "warning",
+    "useLibraryCodeForTypes": true,
+    "reportWildcardImportFromLibrary": "none",
+    "reportMissingTypeStubs": "none",
     "reportUnusedImport": "warning",
-    "reportUnusedClass": "warning",
-    "reportUnusedFunction": "warning",
-    "reportUnusedVariable": "warning"
+    "reportUnusedVariable": "warning",
+    "reportUnusedClass": "none",
+    "reportUnusedFunction": "none",
+    "reportUnusedExpression": "none",
+    "reportPrivateUsage": "warning",
+    "reportConstantRedefinition": "none",
+    "reportUnknownLambdaType": "warning"
 }

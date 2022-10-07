@@ -1,18 +1,13 @@
 from setuptools import setup
 
 requirements = '''
-    pbutils
-    viable
-    apsw>=3.39.3
+    flask>=2.0.2
+    itsdangerous>=2.0
 '''
 
-name='imager'
+name='viable'
 
 console_scripts = f'''
-    pf-moves={name}.moves_gui:main
-    pf-flash={name}.flash:main
-    imager={name}.cli:main
-    imager-gui={name}.scheduler_gui:main
 '''
 
 packages=f'''
@@ -23,10 +18,10 @@ setup(
     name=name,
     packages=packages.split(),
     version='0.1',
-    description='IMX imaging using the PreciseFlex robot arm and LiCONiC fridge',
+    description='A viable alternative to frontend programming for python',
     url='https://github.com/pharmbio/robotlab',
     author='Dan Rosén',
-    author_email='dan.rosen@farmbio.uu.se',
+    author_email='danr42@gmail.com',
     python_requires='>=3.10',
     license='MIT',
     install_requires=requirements.split(),

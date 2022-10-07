@@ -8,7 +8,10 @@ if test "$#" = 0; then
     \n"
     exit 1
 fi
+set -euo pipefail
 set -x
+"$@" pbutils
+"$@" viable
 "$@" labrobots
 "$@" imager
 "$@" cellpainter
