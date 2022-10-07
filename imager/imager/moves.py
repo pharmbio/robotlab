@@ -10,20 +10,20 @@ import abc
 import json
 import re
 import textwrap
-from . import utils
+import pbutils
 
 HotelHeights = [h+1 for h in range(12)]
 HotelLocs = [f'H{h}' for h in HotelHeights]
 
 class Move(abc.ABC):
     def to_dict(self) -> dict[str, Any]:
-        res = utils.to_json(self)
+        res = pbutils.to_json(self)
         assert isinstance(res, dict)
         return res
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> Move:
-        return utils.from_json(d)
+        return pbutils.from_json(d)
 
     @abc.abstractmethod
     def to_script(self) -> str:
@@ -135,10 +135,10 @@ class MoveList(list[Move]):
 
     @staticmethod
     def from_jsonl_file(filename: str | Path) -> MoveList:
-        return MoveList(utils.serializer.read_jsonl(filename))
+        return MoveList(pbutils.serializer.read_jsonl(filename))
 
     def write_jsonl(self, filename: str | Path) -> None:
-        utils.serializer.write_jsonl(self, filename)
+        pbutils.serializer.write_jsonl(self, filename)
 
     def adjust_tagged(self, tag: str, *, dname: str, dz: float) -> MoveList:
         '''
@@ -221,7 +221,7 @@ class MoveList(list[Move]):
     def describe(self) -> str:
         return '\n'.join([
             m.__class__.__name__ + ' ' +
-            (m.try_name() or utils.catch(lambda: str(getattr(m, 'pos')), ''))
+            (m.try_name() or pbutils.catch(lambda: str(getattr(m, 'pos')), ''))
             for m in self
         ])
 
@@ -240,7 +240,7 @@ def read_movelists() -> dict[str, MoveList]:
 
     return expanded
 
-utils.serializer.register(globals())
+pbutils.serializer.register(globals())
 
 movelists: dict[str, MoveList]
 movelists = read_movelists()

@@ -11,8 +11,8 @@ import json
 import re
 import time
 
-from . import utils
-from .utils.mixins import DBMixin, DB, Meta
+import pbutils
+from pbutils.mixins import DBMixin, DB, Meta
 from .robotarm import Robotarm
 
 @dataclass(frozen=True)
@@ -34,7 +34,7 @@ class Curl(DBMixin):
         },
     )
 
-utils.serializer.register(globals())
+pbutils.serializer.register(globals())
 
 def curl(url: str, data: None | dict[str, str] = None) -> dict[str, Any]:
     with DB.open('curl.db') as db:
@@ -48,7 +48,7 @@ def curl(url: str, data: None | dict[str, str] = None) -> dict[str, Any]:
 
         assert isinstance(res, dict)
         if not res.get('success'):
-            utils.pr(res)
+            pbutils.pr(res)
         return res
 
 def post(url: str, data: dict[str, str]) -> dict[str, Any]:

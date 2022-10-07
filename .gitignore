@@ -1,0 +1,5 @@
+imager*.db
+viable.db
+egg-info
+cache
+.sw*

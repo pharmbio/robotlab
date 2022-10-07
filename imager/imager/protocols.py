@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 from .moves import HotelLocs
 
-from .utils.mixins import ReplaceMixin
+from pbutils.mixins import ReplaceMixin
 
 from .commands import (
     Command,
@@ -25,7 +25,7 @@ from .commands import (
     Noop,
 )
 
-from . import utils
+import pbutils
 
 list_of_protocols: list[Callable[..., list[Command]]] = []
 def add_to_cli(p: Callable[..., list[Command]]) -> Callable[..., list[Command]]:
@@ -274,7 +274,7 @@ def image_from_fridge(todos: list[FromFridgeTodo], pop_delay_secs: float | int, 
 
     def seq(descs: list[Desc | None]):
         filtered: list[Desc] = [desc for desc in descs if desc]
-        for now, next in utils.iterate_with_next(filtered):
+        for now, next in pbutils.iterate_with_next(filtered):
             if next:
                 adjacent[now] |= {next}
 
@@ -433,6 +433,6 @@ class ProtocolData:
     doc: str
 
 protocols_dict = {
-    p.__name__: ProtocolData(p.__name__, p, utils.doc_header(p))
+    p.__name__: ProtocolData(p.__name__, p, pbutils.doc_header(p))
     for p in list_of_protocols
 }

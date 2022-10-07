@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Literal, Any, cast, ClassVar, TypeAlias, Union, Iterator
 
-from . import utils
+import pbutils
 from .moves import movelists
 
 @dataclass(frozen=True)
@@ -130,4 +130,4 @@ Command: TypeAlias = Union[
     WaitForCheckpoint,
 ]
 
-utils.serializer.register(globals())
+pbutils.serializer.register(globals())

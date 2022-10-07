@@ -12,18 +12,18 @@ from .moves import Move, MoveList
 from . import moves
 from .robotarm import Robotarm
 
-from . import utils
+import pbutils
 
-from .utils.viable import serve, button, pre, call, js
-from .utils.viable import Tag, div, input
-from .utils import viable as V
+from viable import serve, button, pre, call, js
+from viable import Tag, div, input
+import viable as V
 
 import time
 
 serve.suppress_flask_logging()
 polled_info: dict[str, Any] = {}
 
-@utils.spawn
+@pbutils.spawn
 def poll() -> None:
     arm = Robotarm.init(port=10000, quiet=True)
     while True:
@@ -121,21 +121,21 @@ def update(program_name: str, i: int):
     if isinstance(m, (moves.MoveC, moves.MoveC_Rel)):
         v = asdict(m)
         xyz = [polled_info[k] for k in 'xyz']
-        v['xyz'] = [utils.round_nnz(v, 3) for v in xyz]
-        v['yaw'] = utils.round_nnz(polled_info['yaw'], 3)
+        v['xyz'] = [pbutils.round_nnz(v, 3) for v in xyz]
+        v['yaw'] = pbutils.round_nnz(polled_info['yaw'], 3)
         ml = MoveList(ml)
         ml[i] = moves.MoveC(**v)
         ml.write_jsonl(filename)
     elif isinstance(m, (moves.MoveGripper)):
         v = asdict(m)
-        v['pos'] = utils.round_nnz(polled_info['q5'], 3)
+        v['pos'] = pbutils.round_nnz(polled_info['q5'], 3)
         ml = MoveList(ml)
         ml[i] = moves.MoveGripper(**v)
         ml.write_jsonl(filename)
     elif isinstance(m, (moves.MoveJ)):
         v = asdict(m)
         joints = [polled_info[k] for k in 'q1 q2 q3 q4'.split()]
-        v['joints'] = [utils.round_nnz(v, 3) for v in joints]
+        v['joints'] = [pbutils.round_nnz(v, 3) for v in joints]
         ml = MoveList(ml)
         ml[i] = moves.MoveJ(**v)
         ml.write_jsonl(filename)
@@ -229,7 +229,7 @@ def index() -> Iterator[Tag | dict[str, str]]:
     yield header
 
     info: dict[str, float] = {
-        k: utils.round_nnz(float(v), 2)
+        k: pbutils.round_nnz(float(v), 2)
         for k, v in polled_info.items()
         if isinstance(v, float | int | bool)
     }
@@ -319,7 +319,7 @@ def index() -> Iterator[Tag | dict[str, str]]:
         except:
             xyz = None
         if isinstance(m, moves.MoveC) and xyz is not None:
-            dx, dy, dz = dxyz = utils.zip_sub(m.xyz, xyz, ndigits=6)
+            dx, dy, dz = dxyz = pbutils.zip_sub(m.xyz, xyz, ndigits=6)
             dist = math.sqrt(sum(c*c for c in dxyz))
             buttons = [
                 ('x', f'{dx: 6.1f}', moves.MoveC_Rel(xyz=[dx, 0, 0], yaw=0)),

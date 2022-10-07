@@ -1,12 +1,12 @@
 from __future__ import annotations
 from dataclasses import dataclass
-from .utils.args import arg, option
+from pbutils.args import arg, option
 
 from . import execute
 from .env import Env
 
 from .protocols import protocols_dict
-from . import utils
+import pbutils
 
 @dataclass(frozen=True)
 class Args:
@@ -40,7 +40,7 @@ def main():
             parser.print_help()
     else:
         cmds = p.make(**args.__dict__)
-        utils.pr(cmds)
+        pbutils.pr(cmds)
         with Env.make(sim=sim) as env:
             execute.enqueue(env, cmds)
             execute.execute(env, False)

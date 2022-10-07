@@ -11,8 +11,8 @@ from .commands import Command
 
 from .env import Env
 
-from .utils.mixins import ReplaceMixin, DBMixin, DB, Meta
-from . import utils
+from pbutils.mixins import ReplaceMixin, DBMixin, DB, Meta
+import pbutils
 
 @dataclass(frozen=True)
 class FridgeOccupant(ReplaceMixin):
@@ -60,7 +60,7 @@ class QueueItem(DBMixin):
         },
     )
 
-utils.serializer.register(globals())
+pbutils.serializer.register(globals())
 
 FRIDGE_LOCS = [
     f'{slot+1}x{level+1}'
@@ -134,7 +134,7 @@ def execute(env: Env, keep_going: bool):
 def execute_one(cmd: Command, env: Env) -> None | Literal['wait']:
     FridgeSlots = env.db.get(FridgeSlot)
     Checkpoints = env.db.get(Checkpoint)
-    utils.pr(cmd)
+    pbutils.pr(cmd)
     match cmd:
         case cmds.RobotarmCmd():
             with env.get_robotarm() as arm:
