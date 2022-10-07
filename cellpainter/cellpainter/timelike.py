@@ -8,7 +8,7 @@ import threading
 from queue import Queue
 from threading import Lock
 
-from .utils import pp_secs
+from pbutils import pp_secs
 
 A = TypeVar('A')
 

@@ -16,8 +16,8 @@ from queue import Queue
 from threading import RLock
 
 from .robotarm import Robotarm
-from . import utils
-from .utils import pp_secs
+import pbutils
+from pbutils import pp_secs
 
 from .timelike import Timelike, WallTime, SimulatedTime
 from .moves import World, Effect
@@ -227,7 +227,7 @@ class Runtime:
     def stop_arm(self):
         sync = Queue[None]()
 
-        @utils.spawn
+        @pbutils.spawn
         def _():
             arm = self.get_robotarm(quiet=False, include_gripper=False)
             arm.stop()
@@ -271,14 +271,14 @@ class Runtime:
             )
             if entry.running:
                 if self.config.running_log_filename:
-                    utils.serializer.write_jsonl([entry], self.config.running_log_filename, mode='a')
+                    pbutils.serializer.write_jsonl([entry], self.config.running_log_filename, mode='a')
                 return entry
             # the logging logic is quite convoluted so let's safeguard against software errors in it
             try:
                 line = self.log_entry_to_line(entry)
             except BaseException:
                 traceback.print_exc()
-                utils.pr(entry)
+                pbutils.pr(entry)
                 line = None
             if line:
                 print(line)
@@ -286,7 +286,7 @@ class Runtime:
                 print(entry.err.traceback, file=sys.stderr)
             log_filename = self.config.log_filename
             if log_filename:
-                utils.serializer.write_jsonl([entry], log_filename, mode='a')
+                pbutils.serializer.write_jsonl([entry], log_filename, mode='a')
             self.log_entries.append(entry)
             return entry
 
@@ -297,7 +297,7 @@ class Runtime:
             except Exception as error:
                 import traceback as tb
                 fatal = self.config.name == 'dry-run'
-                message = utils.show({
+                message = pbutils.show({
                     'message': 'Can not apply effect at this world',
                     'effect': effect,
                     'world': self.world,
@@ -327,7 +327,7 @@ class Runtime:
                 return
             t = self.pp_time_offset(entry.t)
             if entry.cmd:
-                desc = ', '.join(f'{k}={v}' for k, v in utils.nub(entry.cmd).items() if k != 'machine')
+                desc = ', '.join(f'{k}={v}' for k, v in pbutils.nub(entry.cmd).items() if k != 'machine')
             else:
                 desc = ''
             if entry.msg:
@@ -343,13 +343,13 @@ class Runtime:
                 machine += ' done'
             machine = machine.lower()
             if machine == 'duration':
-                desc = f"`{getattr(entry.cmd, 'name', '?')}` = {utils.pp_secs(entry.duration or 0)}"
+                desc = f"`{getattr(entry.cmd, 'name', '?')}` = {pbutils.pp_secs(entry.duration or 0)}"
             desc = re.sub('^automation_', '', desc)
             desc = re.sub(r'\.LHC', '', desc)
             desc = re.sub(r'\w*path=', '', desc)
             desc = re.sub(r'\w*name=', '', desc)
             if not desc:
-                desc = str(utils.nub(entry.metadata))
+                desc = str(pbutils.nub(entry.metadata))
 
             if entry.err and entry.err.message:
                 desc = entry.err.message
@@ -396,11 +396,11 @@ class Runtime:
             with self.lock:
                 e0 = self.log(entry)
                 self.running_entries.append(e0)
-                G = utils.group_by(self.running_entries, key=lambda e: e.metadata.thread_resource)
+                G = pbutils.group_by(self.running_entries, key=lambda e: e.metadata.thread_resource)
                 if self.config.name == 'dry-run':
                     for thread_resource, v in G.items():
                         if thread_resource is not None:
-                            assert len(v) <= 1, f'list for {thread_resource} should not have more than one element: {utils.pr(v)}'
+                            assert len(v) <= 1, f'list for {thread_resource} should not have more than one element: {pbutils.pr(v)}'
                 self.log_running()
             yield
             with self.lock:
@@ -449,7 +449,7 @@ class Runtime:
 
     def checkpoint(self, name: str, entry: LogEntry):
         with self.lock:
-            assert name not in self.checkpoint_times, f'{name!r} already checkpointed in {utils.show(self.checkpoint_times, use_color=False)}'
+            assert name not in self.checkpoint_times, f'{name!r} already checkpointed in {pbutils.show(self.checkpoint_times, use_color=False)}'
             self.checkpoint_times[name] = self.log(entry).t
             for q in self.checkpoint_waits[name]:
                 self.queue_put_nowait(q, None)

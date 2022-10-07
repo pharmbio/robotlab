@@ -14,7 +14,7 @@ from .runtime import RuntimeConfig
 from . import moves
 from . import robotarm
 from . import runtime
-from . import utils
+import pbutils
 
 from .utils.viable import head, serve, esc, css_esc, trim, button, pre, js
 from .utils.viable import Tag, div, span, label, img, raw, input
@@ -39,7 +39,7 @@ polled_info: dict[str, list[float]] = {}
 from datetime import datetime, timedelta
 server_start = datetime.now()
 
-@utils.spawn
+@pbutils.spawn
 def poll() -> None:
     if config.robotarm_env.mode == 'noop':
         return None
@@ -153,9 +153,9 @@ def keydown(program_name: str, args: dict[str, Any]):
         tr: dict[str, str] = cast(Any, dict)(['[{', ']}', '+=', '-_', ',<', '.>'])
         return tr.get(k) or k.upper()
     keymap |= {norm(k): v for k, v in keymap.items()}
-    utils.pr(k)
+    pbutils.pr(k)
     if m := keymap.get(k):
-        utils.pr(m)
+        pbutils.pr(m)
         arm_do( # type: ignore
             moves.RawCode("EnsureRelPos()"),
             m,
@@ -171,8 +171,8 @@ def update(program_name: str, i: int):
     m = ml[i]
     if isinstance(m, (moves.MoveLin, moves.MoveRel)):
         v = asdict(m)
-        v['xyz'] = [utils.round_nnz(v, 1) for v in polled_info['xyz']]
-        v['rpy'] = [utils.round_nnz(v, 1) for v in polled_info['rpy']]
+        v['xyz'] = [pbutils.round_nnz(v, 1) for v in polled_info['xyz']]
+        v['rpy'] = [pbutils.round_nnz(v, 1) for v in polled_info['rpy']]
         ml = MoveList(ml)
         ml[i] = moves.MoveLin(**v)
         ml.write_jsonl(filename)
@@ -184,7 +184,7 @@ def update(program_name: str, i: int):
         ml.write_jsonl(filename)
     elif isinstance(m, (moves.MoveJoint)):
         v = asdict(m)
-        v['joints'] = [utils.round_nnz(v, 2) for v in polled_info['joints']]
+        v['joints'] = [pbutils.round_nnz(v, 2) for v in polled_info['joints']]
         ml = MoveList(ml)
         ml[i] = moves.MoveJoint(**v)
         ml.write_jsonl(filename)
@@ -283,7 +283,7 @@ def index() -> Iterator[Tag | dict[str, str]]:
     yield header
 
     info = {
-        k: [utils.round_nnz(v, 2) for v in vs]
+        k: [pbutils.round_nnz(v, 2) for v in vs]
         for k, vs in polled_info.items()
     }
 
@@ -372,8 +372,8 @@ def index() -> Iterator[Tag | dict[str, str]]:
             continue
 
         if isinstance(m, moves.MoveLin) and (xyz := info.get("xyz")) and (rpy := info.get("rpy")):
-            dx, dy, dz = dxyz = utils.zip_sub(m.xyz, xyz, ndigits=6)
-            dR, dP, dY = drpy = utils.zip_sub(m.rpy, rpy, ndigits=6)
+            dx, dy, dz = dxyz = pbutils.zip_sub(m.xyz, xyz, ndigits=6)
+            dR, dP, dY = drpy = pbutils.zip_sub(m.rpy, rpy, ndigits=6)
             dist = math.sqrt(sum(c*c for c in dxyz))
             buttons = [
                 ('x', f'{dx: 6.1f}', moves.MoveRel(xyz=[dx, 0, 0], rpy=[0, 0, 0])),

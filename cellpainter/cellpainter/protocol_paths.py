@@ -4,7 +4,7 @@ from typing import TypedDict
 import labrobots
 from labrobots.dir_list import PathInfo
 
-from . import utils
+import pbutils
 
 def nonempty(*xs: str) -> list[str]:
     return [x for x in sorted(set(xs)) if x]
@@ -81,13 +81,13 @@ template_protocol_paths = ProtocolPaths(
     ],
 )
 
-utils.serializer.register(globals())
+pbutils.serializer.register(globals())
 
 class Response(TypedDict):
     value: list[PathInfo]
 
 def get_protocol_paths() -> dict[str, ProtocolPaths]:
-    return utils.serializer.read_json('protocol_paths.json')
+    return pbutils.serializer.read_json('protocol_paths.json')
 
 def paths_v5():
     return get_protocol_paths()['automation_v5.0']
@@ -97,7 +97,7 @@ def update_protocol_dir(protocol_dir: str):
     protocol_paths = make_protocol_paths(protocol_dir, paths)
     all_protocol_paths = get_protocol_paths()
     all_protocol_paths[protocol_dir] = protocol_paths
-    utils.serializer.write_json(all_protocol_paths, 'protocol_paths.json', indent=2)
+    pbutils.serializer.write_json(all_protocol_paths, 'protocol_paths.json', indent=2)
 
 def make_protocol_paths(protocol_dir: str, infos: list[PathInfo]):
     protocol_dir = protocol_dir.rstrip('/')

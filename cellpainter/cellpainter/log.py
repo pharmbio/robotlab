@@ -5,7 +5,7 @@ from typing import *
 import math
 from datetime import datetime, timedelta
 
-from . import utils
+import pbutils
 from .commands import Metadata, Command, Checkpoint, BiotekCmd, Duration, Info, IncuCmd, RobotarmCmd
 
 @dataclass(frozen=True)
@@ -101,13 +101,13 @@ class Error:
 class Log(list[LogEntry]):
     @staticmethod
     def read_jsonl(filename: str):
-        out = Log(utils.serializer.read_jsonl(filename))
+        out = Log(pbutils.serializer.read_jsonl(filename))
         if out:
             assert isinstance(out[0], LogEntry)
         return out
 
     def write_jsonl(self, filename: str):
-        return utils.serializer.write_jsonl(self, filename)
+        return pbutils.serializer.write_jsonl(self, filename)
 
     def finished(self) -> set[str]:
         return {
@@ -140,7 +140,7 @@ class Log(list[LogEntry]):
         }
 
     def group_durations(self: Log):
-        groups = utils.group_by(self.durations().items(), key=lambda s: s[0].rstrip(' 0123456789'))
+        groups = pbutils.group_by(self.durations().items(), key=lambda s: s[0].rstrip(' 0123456789'))
         out: dict[str, list[str]] = {}
         def key(kv: tuple[str, Any]):
             s, _ = kv
@@ -153,7 +153,7 @@ class Log(list[LogEntry]):
             if k.startswith('plate'):
                 _plate, i, *what = k.split(' ')
                 k = f'plate {int(i):>2} {" ".join(what)}'
-            out[k] = [utils.pp_secs(v) for _, v in vs]
+            out[k] = [pbutils.pp_secs(v) for _, v in vs]
         return out
 
     def group_durations_for_display(self):
@@ -201,7 +201,7 @@ class Log(list[LogEntry]):
             out.pop(first_section_name)
         out = {
             k: v if not next_kv else Log(v + [LogEntry(t=next_kv[1].min_t() - 0.05)])
-            for (k, v), next_kv in utils.iterate_with_next(list(out.items()))
+            for (k, v), next_kv in pbutils.iterate_with_next(list(out.items()))
         }
         return out
 
@@ -260,4 +260,4 @@ class Log(list[LogEntry]):
         return Log([e for e in self if e.t <= secs])
 
 
-utils.serializer.register(globals())
+pbutils.serializer.register(globals())

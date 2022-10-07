@@ -7,9 +7,9 @@ from collections import defaultdict
 import abc
 
 from .moves import movelists, Effect
-from .utils import Mutable
+from pbutils import Mutable
 from .symbolic import Symbolic
-from . import utils
+import pbutils
 
 @dataclass(frozen=True)
 class Metadata:
@@ -47,7 +47,7 @@ class Metadata:
     def merge(self, *others: Metadata) -> Metadata:
         repl: dict[str, Any] = {}
         for other in others:
-            repl.update(utils.nub(other))
+            repl.update(pbutils.nub(other))
         out = replace(self, **repl)
         return out
 
@@ -442,5 +442,5 @@ def IncuFork(
 ):
     return Fork(IncuCmd(action, incu_loc), assume=assume)
 
-utils.serializer.register(globals())
+pbutils.serializer.register(globals())
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 from dataclasses import *
 from typing import *
 
-from . import utils
+import pbutils
 
 import re
 
@@ -66,4 +66,4 @@ class Symbolic:
         assert not self.var_names
         return self.offset
 
-utils.serializer.register(globals())
+pbutils.serializer.register(globals())

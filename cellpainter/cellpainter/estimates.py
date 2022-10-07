@@ -2,7 +2,7 @@ from __future__ import annotations
 from dataclasses import *
 from typing import *
 
-from . import utils
+import pbutils
 from .log import Log
 
 from collections import defaultdict
@@ -30,14 +30,14 @@ def avg(xs: Iterable[float]) -> float:
     return sum(xs) / len(xs)
 
 def estimates_from(path: str) -> dict[EstCmd, float]:
-    entries: list[EstEntry] = cast(Any, utils.serializer.read_json(path))
+    entries: list[EstEntry] = cast(Any, pbutils.serializer.read_json(path))
     return {
         e['cmd']: round(avg(e['times'].values()), 3)
         for e in entries
     }
 
 def add_estimates_from(path: str, log_or_log_path: str | Log):
-    entries: list[EstEntry] = cast(Any, utils.serializer.read_json(path))
+    entries: list[EstEntry] = cast(Any, pbutils.serializer.read_json(path))
     ests: dict[EstCmd, dict[str, float]] = defaultdict(dict)
     for e in entries:
         cmd = normalize(e['cmd'])
@@ -58,7 +58,7 @@ def add_estimates_from(path: str, log_or_log_path: str | Log):
         }
         for cmd, times in sorted(ests.items(), key=str)
     ]
-    utils.serializer.write_json(m, path, indent=2)
+    pbutils.serializer.write_json(m, path, indent=2)
 
 estimates = estimates_from('estimates.json')
 guesses: dict[EstCmd, float] = {}

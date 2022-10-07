@@ -32,7 +32,7 @@ from . import commands
 from .commands import IncuCmd, BiotekCmd
 from . import moves
 from . import runtime
-from . import utils
+import pbutils
 from .log import LogEntry, Metadata, RuntimeMetadata, Error, countdown
 from .moves import RawCode, Move
 from .protocol import Locations
@@ -98,7 +98,7 @@ def as_stderr(log_path: str):
 def start(args: Args, simulate: bool):
     config_name='dry-run' if simulate else config.name
     program_name='cell-paint' if args.cell_paint else args.small_protocol
-    log_filename = 'logs/' + utils.now_str_for_filename() + f'-{program_name}-{config_name}-from-gui.jsonl'
+    log_filename = 'logs/' + pbutils.now_str_for_filename() + f'-{program_name}-{config_name}-from-gui.jsonl'
     args = replace(
         args,
         config_name=config_name,
@@ -111,7 +111,7 @@ def start(args: Args, simulate: bool):
         'sh', '-c',
         'cellpainter --json-arg "$1" 2>"$2"',
         '--',
-        json.dumps(utils.nub(args)),
+        json.dumps(pbutils.nub(args)),
         as_stderr(log_filename),
     ]
     Popen(cmd, start_new_session=True, stdout=DEVNULL, stderr=DEVNULL, stdin=DEVNULL)
@@ -122,7 +122,7 @@ def start(args: Args, simulate: bool):
 
 @serve.expose
 def resume(log_filename_in: str, skip: list[str], drop: list[str]):
-    log_filename_new = 'logs/' + utils.now_str_for_filename() + '-resume-from-gui.jsonl'
+    log_filename_new = 'logs/' + pbutils.now_str_for_filename() + '-resume-from-gui.jsonl'
     args = Args(
         config_name=config.name,
         resume=log_filename_in,
@@ -136,7 +136,7 @@ def resume(log_filename_in: str, skip: list[str], drop: list[str]):
         'sh', '-c',
         'cellpainter --json-arg "$1" 2>"$2"',
         '--',
-        json.dumps(utils.nub(args)),
+        json.dumps(pbutils.nub(args)),
         as_stderr(log_filename_new),
     ]
     Popen(cmd, start_new_session=True, stdout=DEVNULL, stderr=sys.stderr, stdin=DEVNULL)
@@ -206,7 +206,7 @@ def get_argv(pid: int) -> list[str]:
 
 def get_json_arg_from_argv(pid: int) -> dict[str, Any]:
     argv = get_argv(pid)
-    for this, next in utils.iterate_with_next(argv):
+    for this, next in pbutils.iterate_with_next(argv):
         if this == '--json-arg' and next:
             return json.loads(next)
     return {}
@@ -360,7 +360,7 @@ class AnalyzeResult:
     def running(self):
         d: dict[str, LogEntry | None] = {}
         resources = 'main disp wash incu'.split()
-        G = utils.group_by(self.running_entries, key=lambda e: e.metadata.thread_resource)
+        G = pbutils.group_by(self.running_entries, key=lambda e: e.metadata.thread_resource)
         G['main'] = G[None]
         for resource in resources:
             es = G.get(resource, [])
@@ -421,7 +421,7 @@ class AnalyzeResult:
         lengths = [
             next_start_t - this_start_t for
             this_start_t, next_start_t in
-            utils.iterate_with_next(start_times)
+            pbutils.iterate_with_next(start_times)
             if next_start_t is not None
         ]
         end_time = max((entries.max_t() for _, entries in sections.items()), default=0)
@@ -791,7 +791,7 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
         if protocol.value == 'cell-paint':
             form_fields = [plates, incu, start_from_pfa, protocol_dir]
             batch_sizes = plates.value
-            N = utils.catch(lambda: max(utils.read_commasep(batch_sizes, int)), 0)
+            N = pbutils.catch(lambda: max(pbutils.read_commasep(batch_sizes, int)), 0)
             interleave = N >= 7
             two_final_washes = N >= 8
             lockstep = N >= 10
@@ -822,8 +822,8 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
                 form_fields += [protocol_dir]
             args = Args(
                 small_protocol=small_data.name,
-                num_plates=utils.catch(lambda: int(plates.value), 0),
-                params=utils.catch(lambda: shlex.split(params.value), []),
+                num_plates=pbutils.catch(lambda: int(plates.value), 0),
+                params=pbutils.catch(lambda: shlex.split(params.value), []),
                 protocol_dir=protocol_dir.value,
             )
         else:
@@ -905,7 +905,7 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
                 pid = int(pid)
                 args = get_json_arg_from_argv(pid)
                 if isinstance(v := args.get("log_filename"), str):
-                    utils.pr(args)
+                    pbutils.pr(args)
                     running += [v]
             except:
                 pass
@@ -1202,8 +1202,8 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
                 grid_area='stop',
             )
         elif ar.has_error() and not ar.process_is_alive:
-            skipped = utils.read_commasep(skip.value)
-            dropped = utils.read_commasep(drop.value)
+            skipped = pbutils.read_commasep(skip.value)
+            dropped = pbutils.read_commasep(drop.value)
 
             vis.data_skipped += json.dumps(skipped)
             vis.onclick += m.update_untyped({
@@ -1269,7 +1269,8 @@ def form(m: Store, *vs: Int | Str | Bool):
 def main():
     serve.run(
         port=5000,
-        host='10.10.0.55'
+        # host='10.10.0.55'
+        host='localhost'
     )
 
 if __name__ == '__main__':

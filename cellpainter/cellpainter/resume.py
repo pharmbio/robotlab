@@ -1,7 +1,7 @@
 from __future__ import annotations
 from dataclasses import *
 
-from . import utils
+import pbutils
 import shutil
 import os
 from .commands import (
@@ -28,7 +28,7 @@ def execute_resume(config: RuntimeConfig, log_filename_in: str, resume_time_now:
 
     log_filename = config.log_filename
     if not log_filename:
-        log_filename = 'logs/resume-' + utils.now_str_for_filename() + '.jsonl'
+        log_filename = 'logs/resume-' + pbutils.now_str_for_filename() + '.jsonl'
         os.makedirs('logs/', exist_ok=True)
     abspath = os.path.abspath(log_filename)
     os.makedirs(os.path.dirname(abspath), exist_ok=True)
@@ -46,7 +46,7 @@ def resume_program(entries: Log, skip: list[str]=[], drop: list[str]=[]):
     program: Command | None = None
     runtime_metadata = entries.runtime_metadata()
     assert runtime_metadata
-    program = utils.serializer.read_json(runtime_metadata.program_filename)
+    program = pbutils.serializer.read_json(runtime_metadata.program_filename)
     assert program and isinstance(program, Command)
 
     next_id = program.next_id()
@@ -57,7 +57,7 @@ def resume_program(entries: Log, skip: list[str]=[], drop: list[str]=[]):
 
     running_log = Log.read_jsonl(runtime_metadata.running_log_filename)
     running = running_log.running()
-    utils.pr(running_log)
+    pbutils.pr(running_log)
     assert running
     resumed_world = {
         location: thing
@@ -65,7 +65,7 @@ def resume_program(entries: Log, skip: list[str]=[], drop: list[str]=[]):
         if thing not in drop
         if thing not in [f'lid {plate_id}' for plate_id in drop]
     }
-    utils.pr(dict(
+    pbutils.pr(dict(
         running=running,
         resumed_world=resumed_world,
     ))
@@ -130,7 +130,7 @@ def resume_program(entries: Log, skip: list[str]=[], drop: list[str]=[]):
     print(f'{len(checkpoint_times) = }')
     print(f'{len(remove_ids) = }')
 
-    # utils.pr(program)
+    # pbutils.pr(program)
     print('inital node count =', len(list(program.universe())))
 
     program = program.transform(FixupForkMetadataBeforeFilter)
@@ -141,7 +141,7 @@ def resume_program(entries: Log, skip: list[str]=[], drop: list[str]=[]):
 
     print(f'{remove_ids=}')
     print(f'{next_id=}')
-    utils.pr(program.collect()[:20])
-    # utils.pr(program)
+    pbutils.pr(program.collect()[:20])
+    # pbutils.pr(program)
     return program
 

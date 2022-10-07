@@ -9,17 +9,17 @@ from pathlib import Path
 import abc
 import re
 import textwrap
-from . import utils
+import pbutils
 
 class Move(abc.ABC):
     def to_dict(self) -> dict[str, Any]:
-        res = utils.to_json(self)
+        res = pbutils.to_json(self)
         assert isinstance(res, dict)
         return res
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> Move:
-        return utils.from_json(d)
+        return pbutils.from_json(d)
 
     @abc.abstractmethod
     def to_script(self) -> str:
@@ -149,10 +149,10 @@ class MoveList(list[Move]):
 
     @staticmethod
     def read_jsonl(filename: str | Path) -> MoveList:
-        return MoveList(utils.serializer.read_jsonl(filename))
+        return MoveList(pbutils.serializer.read_jsonl(filename))
 
     def write_jsonl(self, filename: str | Path) -> None:
-        utils.serializer.write_jsonl(self, filename)
+        pbutils.serializer.write_jsonl(self, filename)
 
     def adjust_tagged(self, tag: str, *, dname: str, dz: float) -> MoveList:
         '''
@@ -233,7 +233,7 @@ class MoveList(list[Move]):
     def describe(self) -> str:
         return '\n'.join([
             m.__class__.__name__ + ' ' +
-            (m.try_name() or utils.catch(lambda: str(getattr(m, 'pos')), ''))
+            (m.try_name() or pbutils.catch(lambda: str(getattr(m, 'pos')), ''))
             for m in self
         ])
 
@@ -476,7 +476,7 @@ class PutLidOn(Effect):
         assert world[self.source] == 'lid ' + world[self.target]
         return {self.source: None}
 
-utils.serializer.register(globals())
+pbutils.serializer.register(globals())
 
 tagged_movelists : dict[str, TaggedMoveList]
 tagged_movelists = read_movelists()

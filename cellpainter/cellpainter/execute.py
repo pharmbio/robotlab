@@ -34,7 +34,7 @@ from .commands import (
 from .runtime import RuntimeConfig, Runtime, dry_run
 from . import commands
 from . import constraints
-from . import utils
+import pbutils
 from .symbolic import Symbolic
 from .moves import movelists, MoveList
 from . import bioteks
@@ -128,7 +128,7 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
 @contextlib.contextmanager
 def make_runtime(config: RuntimeConfig, metadata: dict[str, str]) -> Iterator[Runtime]:
     metadata = {
-        'start_time': utils.now_str_for_filename(),
+        'start_time': pbutils.now_str_for_filename(),
         **metadata,
         'config_name': config.name,
     }
@@ -162,11 +162,11 @@ def check_correspondence(program: Command, est_entries: Log, expected_ends: dict
         if i and (e.is_end() or isinstance(e.cmd, Checkpoint)):
             seen.add(i)
             if abs(e.t - expected_ends[i]) > 0.3:
-                utils.pr(('mismatch!', i, e, expected_ends[i]))
+                pbutils.pr(('mismatch!', i, e, expected_ends[i]))
                 mismatches += 1
             else:
                 matches += 1
-            # utils.pr((f'{matches=}', i, e, ends[i]))
+            # pbutils.pr((f'{matches=}', i, e, ends[i]))
     by_id: dict[str, Command] = {
         i: c
         for c in program.universe()
@@ -194,12 +194,12 @@ def execute_program(config: RuntimeConfig, program: Command, metadata: dict[str,
         program = program.assign_ids()
 
     if not resume_config:
-        with utils.timeit('constraints'):
+        with pbutils.timeit('constraints'):
             program, expected_ends = constraints.optimize(program)
     else:
         expected_ends = {}
 
-    with utils.timeit('estimates'):
+    with pbutils.timeit('estimates'):
         with make_runtime(dry_run.replace(log_to_file=False, resume_config=config.resume_config), {}) as runtime_est:
             execute(program, runtime_est, Metadata())
         est_entries = runtime_est.get_log()
@@ -208,13 +208,13 @@ def execute_program(config: RuntimeConfig, program: Command, metadata: dict[str,
         return est_entries
 
     if not resume_config:
-        with utils.timeit('check correspondence'):
+        with pbutils.timeit('check correspondence'):
             check_correspondence(program, est_entries, expected_ends)
 
     cache = Path('cache/')
     cache.mkdir(parents=True, exist_ok=True)
 
-    now_str = utils.now_str_for_filename()
+    now_str = pbutils.now_str_for_filename()
 
     estimates_filename     = cache / (now_str + '_estimates.jsonl')
     program_filename       = cache / (now_str + '_program.json')
@@ -238,14 +238,14 @@ def execute_program(config: RuntimeConfig, program: Command, metadata: dict[str,
 
         program = program.remove_scheduling_idles()
 
-        utils.serializer.write_jsonl(est_entries, estimates_filename)
-        utils.serializer.write_json(program, program_filename, indent=2)
+        pbutils.serializer.write_jsonl(est_entries, estimates_filename)
+        pbutils.serializer.write_json(program, program_filename, indent=2)
         running_log_filename.touch()
 
         runtime_metadata = RuntimeMetadata(
             pid                  = os.getpid(),
             host                 = platform.node(),
-            git_HEAD             = utils.git_HEAD() or '',
+            git_HEAD             = pbutils.git_HEAD() or '',
             log_filename         = config.log_filename or '',
             estimates_filename   = str(estimates_filename) ,
             program_filename     = str(program_filename),

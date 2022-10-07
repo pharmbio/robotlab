@@ -16,7 +16,7 @@ from . import commands
 from . import make_uml
 from . import protocol
 from . import resume
-from . import utils
+import pbutils
 from . import estimates
 from . import moves
 
@@ -25,13 +25,13 @@ from .log import Log
 from .moves import movelists
 from .runtime import RuntimeConfig, configs, config_lookup
 from .small_protocols import small_protocols_dict, SmallProtocolArgs
-from .utils import show
+from pbutils import show
 from . import protocol_paths
 
-from .utils.args import arg, option
+from pbutils.args import arg, option
 
 def ATTENTION(s: str):
-    color = utils.Color()
+    color = pbutils.Color()
     print(color.red('*' * 80))
     print()
     print(textwrap.indent(textwrap.dedent(s.strip('\n')), '    ').rstrip('\n'))
@@ -159,8 +159,8 @@ def main_with_args(args: Args, parser: argparse.ArgumentParser | None=None):
             config,
             args.resume,
             resume_time_now=args.resume_time_now or None,
-            skip=utils.read_commasep(args.resume_skip),
-            drop=utils.read_commasep(args.resume_drop),
+            skip=pbutils.read_commasep(args.resume_skip),
+            drop=pbutils.read_commasep(args.resume_drop),
         )
 
     elif p := args_to_program(args):
@@ -196,7 +196,7 @@ def main_with_args(args: Args, parser: argparse.ArgumentParser | None=None):
 
     if estimates.guesses:
         print('Guessed these times:')
-        utils.pr(estimates.guesses)
+        pbutils.pr(estimates.guesses)
 
 @dataclass(frozen=True)
 class Program:
@@ -209,7 +209,7 @@ def args_to_program(args: Args) -> Program | None:
     protocol_config = protocol.make_protocol_config(paths, args)
 
     if args.cell_paint:
-        batch_sizes = utils.read_commasep(args.cell_paint, int)
+        batch_sizes = pbutils.read_commasep(args.cell_paint, int)
         program = protocol.cell_paint_program(
             batch_sizes=batch_sizes,
             protocol_config=protocol_config,

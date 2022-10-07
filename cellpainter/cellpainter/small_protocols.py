@@ -27,7 +27,7 @@ from . import commands
 
 from .moves import InitialWorld
 
-from . import utils
+import pbutils
 from .log import Metadata
 
 from .protocol import (
@@ -289,7 +289,7 @@ def run_biotek(args: SmallProtocolArgs):
         *[(p, 'disp') for p in disp],
     ]
     # print('Available:', end=' ')
-    # utils.pr([p for p, _ in protocols])
+    # pbutils.pr([p for p, _ in protocols])
     cmds: list[Command] = []
     for x in args.params:
         for p, machine in protocols:
@@ -553,6 +553,6 @@ class SmallProtocolData:
     doc: str
 
 small_protocols_dict = {
-    p.__name__: SmallProtocolData(p.__name__, p, protocol_args(p), utils.doc_header(p))
+    p.__name__: SmallProtocolData(p.__name__, p, protocol_args(p), pbutils.doc_header(p))
     for p in small_protocols
 }

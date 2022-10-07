@@ -12,7 +12,7 @@ from . import commands
 
 from collections import *
 
-from . import utils
+import pbutils
 
 colors = dict(
     background = '#fff',
@@ -126,7 +126,7 @@ def start(cmdline0: str, cmdline_to_log: Callable[[str], Log]):
 
         from . import estimates
         if estimates.guesses:
-            utils.pr(estimates.guesses)
+            pbutils.pr(estimates.guesses)
 
         yield pre('\n'.join(entries.group_durations_for_display()))
 
@@ -142,7 +142,7 @@ def start(cmdline0: str, cmdline_to_log: Callable[[str], Log]):
             cmd = e.cmd
             m = e.metadata
             slot = m.slot
-            plate = utils.catch(lambda: int(m.plate_id or '0'), 0)
+            plate = pbutils.catch(lambda: int(m.plate_id or '0'), 0)
             machine = e.machine() or ''
             sources: dict[Any, str] = {
                 commands.Idle: 'idle',
@@ -198,12 +198,12 @@ def start(cmdline0: str, cmdline_to_log: Callable[[str], Log]):
             width *= 2
             my_width *= 2
             my_offset *= 2
-            for_show = utils.nub(e) | dict(
-                t=utils.pp_secs(t),
-                t0=utils.pp_secs(t0),
+            for_show = pbutils.nub(e) | dict(
+                t=pbutils.pp_secs(t),
+                t0=pbutils.pp_secs(t0),
                 machine=machine,
                 source=source,
-                duration=utils.pp_secs(e.duration or 0.0),
+                duration=pbutils.pp_secs(e.duration or 0.0),
                 slot=slot,
             )
             area += div(
@@ -254,7 +254,7 @@ def start(cmdline0: str, cmdline_to_log: Callable[[str], Log]):
                     top: {zoom * t0:.1f}px;
                     height: {max(zoom * (t - t0) - 1, 2):.1f}px;
                 '''),
-                data_info=utils.show(for_show, use_color=False),
+                data_info=pbutils.show(for_show, use_color=False),
                 data_short_info=str(e.cmd),
             )
 

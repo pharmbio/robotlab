@@ -34,7 +34,7 @@ from .estimates import estimate
 from . import commands
 from . import moves
 
-from . import utils
+import pbutils
 
 @dataclass(frozen=True)
 class Plate:
@@ -149,8 +149,8 @@ def define_plates(batch_sizes: list[int]) -> list[list[Plate]]:
             index += 1
         plates += [batch]
 
-    for i, p in enumerate(utils.flatten(plates)):
-        for j, q in enumerate(utils.flatten(plates)):
+    for i, p in enumerate(pbutils.flatten(plates)):
+        for j, q in enumerate(pbutils.flatten(plates)):
             if i != j:
                 assert p.id != q.id, (p, q)
                 assert p.incu_loc != q.incu_loc, (p, q)
@@ -316,7 +316,7 @@ class ProtocolConfig:
             v = getattr(self, k)
             if isinstance(v, list) and k != 'wash_prime':
                 d[k] = v
-        for ka, kb in utils.iterate_with_next(list(d.items())):
+        for ka, kb in pbutils.iterate_with_next(list(d.items())):
             if kb:
                 _, a = ka
                 _, b = kb
@@ -330,7 +330,7 @@ def make_protocol_config(paths: ProtocolPaths, args: ProtocolArgsInterface = Pro
     incu_csv = args.incu
     six_cycles = args.two_final_washes
     N = 6 if six_cycles else 5
-    # print(incu_csv, utils.read_commasep(incu_csv), file=sys.stderr)
+    # print(incu_csv, pbutils.read_commasep(incu_csv), file=sys.stderr)
 
     incu = [
         Symbolic.wrap(
@@ -340,7 +340,7 @@ def make_protocol_config(paths: ProtocolPaths, args: ProtocolArgsInterface = Pro
             if re.match(r'\d', s)
             else s
         )
-        for s in utils.read_commasep(incu_csv)
+        for s in pbutils.read_commasep(incu_csv)
     ]
     incu = incu + [incu[-1]] * N
     incu = incu[:N-1] + [Symbolic.wrap(0)]
@@ -675,7 +675,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
 
     def seq(descs: list[Desc | None]):
         filtered: list[Desc] = [ desc for desc in descs if desc ]
-        for now, next in utils.iterate_with_next(filtered):
+        for now, next in pbutils.iterate_with_next(filtered):
             if next:
                 adjacent[now] |= {next}
 
@@ -686,7 +686,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
             return p.id, step, substep
 
     if p.lockstep:
-        for i, (step, next_step) in enumerate(utils.iterate_with_next(p.step_names)):
+        for i, (step, next_step) in enumerate(pbutils.iterate_with_next(p.step_names)):
             if next_step:
                 ilv = Interleavings[p.interleavings[i]]
                 next_ilv = Interleavings[p.interleavings[i+1]]
@@ -705,7 +705,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                         if substep in subparts
                     ])
     else:
-        for step, next_step in utils.iterate_with_next(p.step_names):
+        for step, next_step in pbutils.iterate_with_next(p.step_names):
             if next_step:
                 seq([
                     desc(last_plate, step, 'B21 -> incu'),
@@ -739,7 +739,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
     linear = list(graphlib.TopologicalSorter(deps).static_order())
 
     if 0:
-        utils.pr([
+        pbutils.pr([
             ', '.join((desc[1], desc[0], desc[2]))
             for desc in linear
         ])
@@ -785,7 +785,7 @@ def cell_paint_program(batch_sizes: list[int], protocol_config: ProtocolConfig, 
             protocol_config=protocol_config,
         )
         cmds += [batch_cmds]
-    world0 = initial_world(utils.flatten(plates), protocol_config)
+    world0 = initial_world(pbutils.flatten(plates), protocol_config)
     program = Sequence(
         Checkpoint('run'),
         test_comm_program(with_incu=not protocol_config.start_from_pfa),
