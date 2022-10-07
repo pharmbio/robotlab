@@ -1,25 +1,29 @@
 from __future__ import annotations
-from dataclasses import *
-import typing as t
+from dataclasses import dataclass, field
 from contextlib import contextmanager
+import typing as t
 import executing
 import inspect
 import ast
-import sys
+import re
 
 @dataclass(frozen=False)
 class Check:
-    _reached_main: bool = False
+    _tests: list[t.Callable[[], None]] = field(default_factory=list)
 
     def test(self, f: t.Callable[[], None]):
-        from_main = f.__module__ == '__main__'
-        if from_main or '--check-tests' in sys.argv:
-            if f.__module__ == '__main__':
-                print(f.__name__ + ':')
-            else:
-                print(f.__module__ + '.' + f.__name__ + ':')
-            self._reached_main = True
+        if f.__module__ == '__main__':
+            print(f.__name__ + ':')
             f()
+        else:
+            self._tests += [f]
+
+    def run_tests(self, matching: str='.*'):
+        for f in self._tests:
+            name = f.__module__ + '.' + f.__name__
+            if re.search(matching, name):
+                print(name + ':')
+                f()
 
     @staticmethod
     def red(s: str) -> str:

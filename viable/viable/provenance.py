@@ -448,3 +448,4 @@ def test_List():
         store.assign_names(locals())
         check(xs.selected_indicies() == [1, 2])
         check(xs.value == ['b', 'c'])
+
