@@ -3,6 +3,7 @@ from setuptools import setup
 requirements = '''
     flask>=2.0.2
     itsdangerous>=2.0
+    executing
 '''
 
 name='viable'

@@ -16,7 +16,7 @@ from . import JS, serve, input
 from . import tags as V
 from .core import is_true
 from .db_con import get_viable_db
-from .. import check
+from .check import check
 
 def get_store() -> Store:
     if not g.get('viable_stores'):

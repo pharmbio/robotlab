@@ -12,6 +12,8 @@ from .core import (
     js,      # type: ignore
 )
 
+from .check import check
+
 def queue_refresh(after_ms: float=100):
     js = minify(f'''
         clearTimeout(window._qrt)

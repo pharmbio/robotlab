@@ -5,6 +5,8 @@ from typing import Any, Callable
 import marshal
 import sys
 
+from .check import check
+
 @dataclass(frozen=True, slots=True)
 class Box:
     value: Any
@@ -83,8 +85,6 @@ class __Test:
 class __TestCallable:
     def __call__(self, i: int):
         return i + 1
-
-from .. import check
 
 @check.test
 def tests():
