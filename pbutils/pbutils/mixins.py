@@ -328,7 +328,7 @@ def to_sql(v: Var | Syntax | Any) -> str:
         case None:
             return 'NULL'
         case _:
-            return call_str('json', sqlquote(serializer.dumps(v)))
+            return call_str('json', sqlquote(serializer.dumps(v, with_nub=False)))
 
 import contextlib
 

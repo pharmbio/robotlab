@@ -14,8 +14,6 @@ def nub(x: Any) -> dict[str, Any]:
     out: dict[str, Any] = {}
     for f in fields(x):
         a = getattr(x, f.name)
-        out[f.name] = a
-        continue
         if (
             isinstance(a, dict | set | list)
             and not a
