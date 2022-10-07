@@ -56,7 +56,7 @@ Another python sqlite3 wrapper, needed for precise control of sqlite3 version. W
 <tr>
 <td>pyserial</td>
 <td>
-COM-port communication for communication with IMX and barcode scanner.
+COM-port communication with IMX and barcode scanner.
 </td>
 </tr>
 
