@@ -1,0 +1,7 @@
+*
+**/*
+!*.py
+!*.jsonl
+!*.txt
+!movelists/*
+!cellpainter/*.py

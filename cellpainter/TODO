@@ -1,0 +1,131 @@
+[ ] gripper
+    [ ] raise gripper if close more than expected
+[ ] main gui
+    [ ] batch sep argument ?
+    [ ] add a "is gripper initialized? is remote on?" if robotarm GripperCheck takes too long
+    [x] runtime: separate runtime.running into its own log file
+    [x] make sure small protocols can be viewed in the gui
+    [x] add to gui protocol to load incubator and a few others of the small protocols
+    [x] write "success!" when finished
+    [x] visualization overflows for 10 plate protocol
+    [x] after resuming it still thinks it has an error
+[ ] bioteks
+    [x] add setup.py
+    [x] repo rename cli -> repl
+    [ ] check that protocols exists before running: add to biotek cliwrapper to report checksum/hash and last modified date of protocol files
+    [ ] check that all LHC protocol files exist before starting, also associate their timings with their last modification date (and perhaps hash?)
+    [ ] Validate all protocols before starting cell paint
+        [x] validate all protocols small protocol gives no feedback in the main gui
+    [ ] overview before starting, make a little summary of LHC files before starting
+[ ] commands
+    [ ] Command.WaitForCheckpoint: ensure checkpoint name exists
+    [ ] improve command names:
+        [ ] Duration -> TimeSince
+        [ ] exactly ... at_least ... at_most ...
+[ ] small_protocols
+    [ ] make a load up to 18 plates protocol
+[ ] render archive log
+    [ ] use biotek pdfs: use updated print_all
+    [ ] what to generate? excel? pdf? webpage?
+[ ] movelists
+    [ ] put/get names not transparent enough ... ? lid_put lid_get
+    [ ] moves: both lin&joint for all coords ?
+[ ] resume
+    [ ] check that it is close to B neu when starting, but don't move there using MoveJoint !!! can check the inverse kinematics of the current position close to B neu
+    [ ] remove all neutral MoveJoint, instead check that the robot is roughly correct (??)
+
+[x] incubator: Use get_status instead of get_climate
+[x] incubator: Make a reset and activate small protocol
+
+questions from the presentation:
+[ ] slack notifications
+[ ] temperature etc (of room, of incubator) periodically put into the log (?)
+    anders seems to have had such a system at some point with an arduino, ask!
+
+january:
+[x] add the pause/slowdown button
+
+bioteks:
+    [x] make it easier to work with the windows computer? right now you have to change user...
+
+[x] repo
+    [x] move viable and provenance to utils directory
+    [x] move arg builder (and Args?) out from cli
+    [x] rename main -> main_gui, gui -> moves_gui
+
+misc:
+[x] resume: remove removed plate from the world
+
+[x] prio 3. [moves] Raise disp put to be a bit above B21
+[x] prio 2. Add test comm before starting cell paint
+[x] prio 3. improve logging output. countdown on timers
+[x] prio 1. what running information should be printed during run?
+[x] prio 1. cover the dispenser with some proper cardboard
+[x] prio 3. list all moves that have no est
+[x] prio 1. gui: speed setting buttons
+[x] prio 1. gui: update to newest viable
+[x] prio 1. gui: level RPY
+
+[x] prio 3. timings, how to make them perfect? solution: use z3
+
+[x] moves: Rename all occurrences to h21, r21, out21 to B21, C21, A21 and so on
+[x] moves: Convert moves to jsonl
+
+[x] prio 3. robots: test communication with all robots before starting a protocol
+[x] prio 3. timings: extract the important parts of the protocol
+[x] prio 3. cli: more information while running: current state (what cycle and plate etc)
+[x] prio 3. system: improve logging. now using jsonl and measuring non-blocking events properly!
+[x] prio 3. protocol: manual delay from command line. right now only auto
+[x] prio 3. protocol: make a stress test circuit (put them back in incu again)
+[x] prio 3. protocol: prime dispenser pumps
+[x] prio 3. protocol: add batching (make it possible to handle 12 plates)
+[x] prio 3. protocol: add purge after each mito disp and prime before each mito disp
+[x] prio 3. robustness: make sure cobot programs exit cleanly (use the log again)
+[x] prio 4. moves: dispenser get move slipped a little !! does the gripper get sufficient power?
+[x] prio 3. moves: glue them together properly for protocol
+[x] prio 3. moves: use no force on lids
+[x] prio 3. gripper: there is a rq_close but it just calls rq_set_pos
+[x] prio 3. protocol: make plates go to output hotel
+[x] prio 3. protocol/moves: Start washer just after dropoff
+[x] prio 3. post mortem: config names are too confusing. try to reduce them
+[x] prio 3. lab setup: tell the rest of the group that the incubator position is not fixed !! (of course)
+
+[x] prio 3. moves: fix w->d transfer pick vertical offset
+[x] prio 2. moves: wash put move has this really annoying start
+[x] prio 2. moves: still some moves with 0.8° roll such as C21. make them level
+
+[x] prio 3. safety, gui: reset LinRel every time last move wasn't LinRel. Right now you can go into freedrive, move the robot arm, then do LinRel moves which moves the robot directly relative to a position _before_ the freedrive. This is dangerous!!
+[x] prio 1. gui: grip test: remove grip test button, only have one copy
+[x] prio 1. gui: remove to_rel to_abs
+[x] prio 1. repo: remove scriptparser, scriptgenerator, copyscripts and scipy dependency
+[x] prio 1. repo: rename robocom.sh -> run.sh
+[x] prio 1. repo: move LHC_Caller, labrobots-restserver-* to the same repo. This is now robotlab-labrobots
+[x] prio 1. network: move robotlab NUCs and cobot to local 10.10.0.* network.
+    [x] IPs are changed
+    [x] update readme
+    [x] update the code with the IPs
+    [x] remove source secrets scripts
+    [x] check consistency of run.sh
+[x] prio 1. system, incu: make a blocking wrapper around incubator so that it can be timed properly
+[x] prio 1. system: write runtime errors to log file
+[x] prio 1. system: incorporate real robotarm timings into dry run
+
+[x] prio 2. system: the test circuit program does things in quite a confusing order... would be better if it did things more like the CP protocol
+[x] prio 2. system ui: how to start ? anders wants a config file but just start with python cli.py --cell-paint 6,6 --live
+[x] prio 2. post mortem: why did the six-plates-from-r-to-incu put the plates back the wrong way around?
+            someone must have put them the wrong way around in the hotel
+
+[-] prio 2. (wontfix, not possible) washer wrapper: doesn't throw an error properly when out of liquid (but you can notice something is wrong because duration is only 22s, not >100s)
+
+[-] Incubator get does not seem to take different amount of time because of height
+
+- Dealing with runtime failures (machines acting up, gripper failures: plates slipping, lids not correctly on or off)
+    - [x] Make a list of all interactions that can error
+    - Jonne is compiled a list for the washer and dispenser
+    - Sacrifice the least amount of plates
+          Remove the failing plate from experiment and manually tell robot
+          to proceed but ignore this plate in the rest of the schedule
+    - Alert errors somewhere (slack?)
+
+- [ ] Use Rikard's camera to view video after failure
+- [x] Anders: Synchronize all server clocks

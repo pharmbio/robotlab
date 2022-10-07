@@ -1,0 +1,28 @@
+{"type":"Section","sections":["put"]}
+{"type":"MoveJoint","joints":[94.56,-111.27,93.21,18.03,94.57,-0.1],"name":"B neu"}
+{"type":"MoveLin","xyz":[197.8,-598.8,817.4],"rpy":[0,-4,90.1],"name":"B21 neu"}
+{"type":"MoveLin","xyz":[197.8,-598.8,800.1],"rpy":[0,-4,90.1],"name":"B21 pick"}
+{"type":"GripperMove","pos":255}
+{"type":"MoveLin","xyz":[197.8,-598.8,817.4],"rpy":[0,-4,90.1],"name":"B21 neu"}
+{"type":"MoveLin","xyz":[197.8,-421.3,817.4],"rpy":[0,-4,90.1],"name":"B neu"}
+{"type":"MoveLin","xyz":[392.2,-421.3,817.4],"rpy":[0,-4,90.4],"tag":"21/21","name":"A21 entrance"}
+{"type":"MoveLin","xyz":[392.2,-598.7,817.4],"rpy":[0,-4,90.4],"tag":"21/21","name":"A21 neu"}
+{"type":"MoveLin","xyz":[392.2,-598.8,801.1],"rpy":[0,-4,90.4],"tag":"21/21","name":"A21 drop"}
+{"type":"GripperMove","pos":88}
+{"type":"MoveLin","xyz":[392.2,-598.7,817.4],"rpy":[0,-4,90.4],"tag":"21/21","name":"A21 neu"}
+{"type":"MoveLin","xyz":[392.2,-421.3,817.4],"rpy":[0,-4,90.4],"tag":"21/21","name":"A21 entrance"}
+{"type":"MoveLin","xyz":[198.7,-421.7,809.1],"rpy":[0,0,90],"name":"B neu"}
+{"type":"Section","sections":["get"]}
+{"type":"MoveJoint","joints":[94.56,-111.27,93.21,18.03,94.57,-0.1],"name":"B neu"}
+{"type":"MoveLin","xyz":[392.3,-421.3,817.4],"rpy":[0,-4,90.4],"tag":"21/21","name":"A21 entrance"}
+{"type":"MoveLin","xyz":[392.2,-598.7,817.4],"rpy":[0,-4,90.4],"tag":"21/21","name":"A21 neu"}
+{"type":"MoveLin","xyz":[392.2,-598.7,800],"rpy":[0,-4,90.4],"tag":"21/21","name":"A21 pick"}
+{"type":"GripperMove","pos":255}
+{"type":"MoveLin","xyz":[392.2,-598.7,817.4],"rpy":[0,-4,90.4],"tag":"21/21","name":"A21 neu"}
+{"type":"MoveLin","xyz":[392.3,-421.3,817.4],"rpy":[0,-4,90.4],"tag":"21/21","name":"A21 entrance"}
+{"type":"MoveLin","xyz":[198.3,-421.3,817.4],"rpy":[0,-4,90.1],"name":"B neu"}
+{"type":"MoveLin","xyz":[198.3,-598.3,817.4],"rpy":[0,-4,90.1],"name":"B21 neu"}
+{"type":"MoveLin","xyz":[198.3,-598.3,800.1],"rpy":[0,-4,90.1],"name":"B21 drop"}
+{"type":"GripperMove","pos":88}
+{"type":"MoveLin","xyz":[198.3,-598.3,817.4],"rpy":[0,-4,90.1],"name":"B21 neu"}
+{"type":"MoveLin","xyz":[198.7,-421.7,809.1],"rpy":[0,0,90],"name":"B neu"}

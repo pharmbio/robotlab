@@ -1,0 +1,27 @@
+
+# Example ~/.ssh/config file for the robot lab
+
+Host devserver
+    HostName <FILL IN IP>
+    Port <FILL IN PORT>
+
+Host robotlab-ubuntu
+    HostName 10.10.0.55
+    User dan
+    ProxyCommand ssh -W %h:%p devserver
+
+Host robotlab-windows
+    HostName 10.10.0.56
+    User pharmbio
+    ProxyCommand ssh -W %h:%p devserver
+
+Host robotlab-ur
+    HostName 10.10.0.112
+    User root
+    ProxyCommand ssh -W %h:%p devserver
+
+Host robotlab-rpi
+    HostName 10.10.0.200
+    User pi
+    ProxyCommand ssh -W %h:%p devserver
+
