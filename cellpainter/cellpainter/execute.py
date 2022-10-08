@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Iterator
+from typing import *
 
 import contextlib
 import os
@@ -27,7 +27,7 @@ from .commands import (
     Info,
     Meta,
     RobotarmCmd,
-    Seq,
+    Seq_,
     WaitForCheckpoint,
     WaitForResource,
 )
@@ -50,7 +50,7 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
         case Meta():
             execute(cmd.command, runtime, metadata.merge(cmd.metadata))
 
-        case Seq():
+        case Seq_():
             for c in cmd.commands:
                 execute(c, runtime, metadata)
 

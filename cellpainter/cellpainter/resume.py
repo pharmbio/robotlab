@@ -8,7 +8,7 @@ from .commands import (
     Checkpoint,
     WaitForCheckpoint,
     Command,
-    Sequence,
+    Seq,
     Meta,
     RobotarmCmd,
     Metadata,
@@ -115,15 +115,15 @@ def resume_program(entries: Log, skip: list[str]=[], drop: list[str]=[]):
         match cmd:
             case Checkpoint():
                 if cmd.name in checkpoint_times:
-                    return Sequence()
+                    return Seq()
                 else:
                     return cmd
             case Meta() if cmd.metadata.id in remove_ids:
-                return Sequence()
+                return Seq()
             case Meta() if cmd.metadata.simple_id in skip:
-                return Sequence()
+                return Seq()
             case WaitForCheckpoint() if not cmd.plus_secs and cmd.name in checkpoint_times:
-                return Sequence()
+                return Seq()
             case _:
                 return cmd
 
@@ -135,7 +135,7 @@ def resume_program(entries: Log, skip: list[str]=[], drop: list[str]=[]):
 
     program = program.transform(FixupForkMetadataBeforeFilter)
     program = program.transform(Filter)
-    program = Sequence(resumed_world_cmd, *robotarm_prep_cmds, program)
+    program = Seq(resumed_world_cmd, *robotarm_prep_cmds, program)
     program = program.remove_noops()
     print('final node count =', len(list(program.universe())))
 

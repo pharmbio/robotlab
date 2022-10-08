@@ -1,6 +1,5 @@
 from __future__ import annotations
-from typing import Iterator, Any, cast, Callable
-from typing import Literal
+from typing import *
 
 from viable import serve, div, pre, Node, js, call
 from viable.provenance import store, Var, List
@@ -190,7 +189,7 @@ def modify_hts_file(hts_file_rel: str, base_name: str):
     })
     return res['value']['full']
 
-from typing import Literal
+from typing import *
 
 def modify_queue(item: QueueItem, action: Literal['restart', 'remove']):
     with Env.make(sim=not live) as env:

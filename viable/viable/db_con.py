@@ -1,6 +1,6 @@
 from __future__ import annotations
 from flask.wrappers import Response
-from typing import Any
+from typing import *
 from flask import after_this_request, request
 
 import os

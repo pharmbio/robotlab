@@ -1,7 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from types import FunctionType, CellType, MethodType, CodeType
-from typing import Any, Callable
+from typing import *
 import marshal
 import sys
 

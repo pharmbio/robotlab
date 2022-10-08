@@ -1,4 +1,4 @@
-from typing import Any
+from typing import *
 from types import ModuleType
 from dataclasses import is_dataclass
 import inspect

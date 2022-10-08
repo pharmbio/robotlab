@@ -1,5 +1,5 @@
 from dataclasses import dataclass, asdict
-from typing import TypedDict
+from typing import *
 
 import labrobots
 from labrobots.dir_list import PathInfo

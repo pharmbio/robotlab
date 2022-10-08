@@ -1,12 +1,12 @@
 from __future__ import annotations
-from typing import TypeVar, Callable, Literal, Generic, Any
+from typing import *
 from dataclasses import dataclass, field, replace
 
 from collections import defaultdict
 from contextlib import contextmanager
 from flask import after_this_request, jsonify, request, g
 from flask.wrappers import Response
-from typing import ClassVar, Type
+from typing import *
 from werkzeug.local import LocalProxy
 import abc
 import functools

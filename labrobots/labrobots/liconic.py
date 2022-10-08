@@ -1,7 +1,7 @@
 from __future__ import annotations
 import socket
 from dataclasses import dataclass
-from typing import Union, Tuple, Dict
+from typing import *
 
 from .machine import Machine
 

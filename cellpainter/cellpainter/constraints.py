@@ -5,7 +5,7 @@ from dataclasses import *
 from .symbolic import Symbolic
 from .commands import (
     Command,
-    Seq,
+    Seq_,
     Fork,
     Meta,
     Checkpoint,
@@ -147,7 +147,7 @@ def optimal_env(cmd: Command) -> OptimalResult:
                 if cmd.opt_weight:
                     maximize_terms.append((cmd.opt_weight, duration))
                 return begin
-            case Seq():
+            case Seq_():
                 end = begin
                 for c in cmd.commands:
                     end = run(c, end, is_main=is_main)

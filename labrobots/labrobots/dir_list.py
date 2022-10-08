@@ -2,7 +2,7 @@
 from pathlib import Path
 from datetime import datetime
 # from hashlib import sha256
-import typing as t
+from typing import *
 import typing_extensions as tx
 from .machine import Machine
 from dataclasses import dataclass
@@ -37,8 +37,8 @@ class DirList(Machine):
     def root(self) -> Path:
         return Path(self.root_dir)
 
-    def list(self) -> t.List[PathInfo]:
-        value: t.List[PathInfo] = []
+    def list(self) -> List[PathInfo]:
+        value: List[PathInfo] = []
         for lhc in self.root.glob(f'**/*.{self.ext}'):
             path = str(lhc.relative_to(self.root)).replace('\\', '/')
             mtime = lhc.stat().st_mtime

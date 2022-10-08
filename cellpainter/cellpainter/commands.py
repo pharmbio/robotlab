@@ -62,7 +62,7 @@ class Command(abc.ABC):
 
     def collect(self: Command) -> list[tuple[Command, Metadata]]:
         match self:
-            case Seq():
+            case Seq_():
                 return [
                     tup
                     for cmd in self.commands
@@ -83,7 +83,7 @@ class Command(abc.ABC):
                     return not self.seconds.resolve()
                 except KeyError:
                     return False
-            case Seq():
+            case Seq_():
                 return all(cmd.is_noop() for cmd in self.commands)
             case Fork() | Meta():
                 return self.command.is_noop()
@@ -96,7 +96,7 @@ class Command(abc.ABC):
         (Mitchell & Runciman, 2007) https://dl.acm.org/doi/10.1145/1291201.1291208
         '''
         match self:
-            case Seq():
+            case Seq_():
                 return f(self.replace(commands=[cmd.transform(f) for cmd in self.commands]))
             case Fork() | Meta():
                 return f(self.replace(command=self.command.transform(f)))
@@ -110,7 +110,7 @@ class Command(abc.ABC):
         '''
         yield self
         match self:
-            case Seq():
+            case Seq_():
                 for cmd in self.commands:
                     yield from cmd.universe()
             case Fork() | Meta():
@@ -128,7 +128,7 @@ class Command(abc.ABC):
                     if this:
                         return WaitForCheckpoint(name=this_name, assume=cmd.assume, report_behind_time=False)
                     else:
-                        return Sequence()
+                        return Seq()
                 case Fork(resource=resource):
                     assume = 'nothing'
                     match cmd.assume:
@@ -149,7 +149,7 @@ class Command(abc.ABC):
                         this = counts[resource]
                         this_name = f'{resource} #{counts[resource]}'
                     return cmd.replace(
-                        command=Sequence(
+                        command=Seq(
                             prev_wait,
                             cmd.command,
                             Checkpoint(this_name),
@@ -172,7 +172,7 @@ class Command(abc.ABC):
         def F(cmd: Command) -> Command:
             nonlocal count
             match cmd:
-                case Seq() | Fork() | Meta():
+                case Seq_() | Fork() | Meta():
                     return cmd
                 case _:
                     count += 1
@@ -195,20 +195,20 @@ class Command(abc.ABC):
         def F(cmd: Command) -> Command:
             match cmd:
                 case Idle(only_for_scheduling=True):
-                    return Sequence()
+                    return Seq()
                 case _:
-                    return Sequence(cmd)
+                    return Seq(cmd)
         return self.transform(F)
 
     def remove_noops(self: Command) -> Command:
         def F(cmd: Command) -> Command:
             match cmd:
                 case _ if cmd.is_noop():
-                    return Sequence()
-                case Seq():
-                    return Sequence(*(c for c in cmd.commands if not c.is_noop()))
+                    return Seq()
+                case Seq_():
+                    return Seq(*(c for c in cmd.commands if not c.is_noop()))
                 case _:
-                    return Sequence(cmd)
+                    return Seq(cmd)
         return self.transform(F)
 
     def resolve(self: Command, env: dict[str, float]) -> Command:
@@ -244,24 +244,24 @@ class Meta(Command):
         return command.add(self.metadata)
 
 @dataclass(frozen=True)
-class Seq(Command):
+class Seq_(Command):
     commands: list[Command]
 
     def replace(self, commands: list[Command]):
         return replace(self, commands=commands)
 
 
-def Sequence(*commands: Command) -> Command:
+def Seq(*commands: Command) -> Command:
     flat: list[Command] = []
     for cmd in commands:
         match cmd:
-            case Seq():
+            case Seq_():
                 flat += cmd.commands
             case _:
                 flat += [cmd]
     if len(flat) == 1:
         return flat[0]
-    return Seq(flat)
+    return Seq_(flat)
 
 @dataclass(frozen=True)
 class Info(Command):
@@ -348,7 +348,7 @@ class Fork(Command):
 
     def delay(self, other: float | int | str | Symbolic) -> Fork:
         return self.replace(
-            command = Sequence(
+            command = Seq(
                 Idle(Symbolic.wrap(other)),
                 self.command,
             )
@@ -407,7 +407,7 @@ def BiotekValidateThenRun(
     machine: Literal['wash', 'disp'],
     protocol_path: str,
 ) -> Command:
-    return Sequence(
+    return Seq(
         BiotekCmd(machine, protocol_path, 'Validate'),
         BiotekCmd(machine, protocol_path, 'RunValidated'),
     )

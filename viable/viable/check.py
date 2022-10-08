@@ -1,7 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
 from contextlib import contextmanager
-import typing as t
+from typing import *
 import executing
 import inspect
 import ast
@@ -9,9 +9,9 @@ import re
 
 @dataclass(frozen=False)
 class Check:
-    _tests: list[t.Callable[[], None]] = field(default_factory=list)
+    _tests: list[Callable[[], None]] = field(default_factory=list)
 
-    def test(self, f: t.Callable[[], None]):
+    def test(self, f: Callable[[], None]):
         if f.__module__ == '__main__':
             print(f.__name__ + ':')
             f()

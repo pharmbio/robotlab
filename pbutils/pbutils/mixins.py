@@ -2,15 +2,13 @@ from __future__ import annotations
 from contextlib import contextmanager
 from dataclasses import dataclass, replace, field, fields
 from dataclasses import is_dataclass
-from typing import Any, Type, TypeVar, ParamSpec, Generic, cast, Callable, ClassVar
-from typing import Literal
 import apsw
 import textwrap
 
 from datetime import datetime
 from . import serializer
 
-from typing import TYPE_CHECKING
+from typing import *
 if TYPE_CHECKING:
     from typing_extensions import Concatenate
     from typing_extensions import Self
@@ -222,7 +220,7 @@ def sqlquote(s: str) -> str:
     c = "'"
     return c + s.replace(c, c+c) + c
 
-import typing as t
+from typing import *
 import typing_extensions as tx
 from datetime import datetime
 

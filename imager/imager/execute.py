@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import ClassVar
+from typing import *
 import time
 import traceback as tb
 
@@ -75,7 +75,7 @@ def ensure_fridge(db: DB):
             if not FridgeSlots.where(FridgeSlot.loc == loc):
                 FridgeSlot(loc).save(db)
 
-from typing import Literal
+from typing import *
 
 def enqueue(env: Env, cmds: list[Command], where: Literal['first', 'last'] = 'last'):
     with env.db.transaction:

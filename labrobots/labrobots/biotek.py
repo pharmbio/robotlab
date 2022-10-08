@@ -2,7 +2,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from queue import Queue
 from subprocess import Popen, PIPE, STDOUT
-from typing import Any, List, Tuple, TypedDict
+from typing import *
 
 import threading
 import time

@@ -3,8 +3,8 @@ from __future__ import annotations
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, ClassVar, Iterator
-from typing import Protocol, Callable
+from typing import *
+from typing import *
 from urllib.parse import urlencode
 from urllib.request import urlopen
 import json

@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Any, Iterable
+from typing import *
 import typing
 from dataclasses import *
 
@@ -16,7 +16,7 @@ from .commands import (
     Checkpoint,
     Duration,
     Idle,
-    Sequence,
+    Seq,
     WashCmd,
     DispCmd,
     IncuCmd,
@@ -96,7 +96,7 @@ def sleek_program(program: Command) -> Command:
         p1 = m1.plate_id
         p2 = m2.plate_id
         return p1 == p2
-    return Sequence(
+    return Seq(
         *[
             cmd.add(metadata)
             for cmd, metadata
@@ -123,7 +123,7 @@ def add_world_metadata(program: Command, world0: World) -> Command:
                 return cmd.add(Metadata(effect=e))
             case _:
                 return cmd
-    return Sequence(
+    return Seq(
         Info('initial world').add(Metadata(effect=InitialWorld(world0))),
         program.transform(F)
     )
@@ -427,7 +427,7 @@ def test_comm_program(with_incu: bool=True) -> Command:
     '''
     Test communication with robotarm, washer, dispenser and incubator.
     '''
-    return Sequence(
+    return Seq(
         DispFork(cmd='TestCommunications', protocol_path=None),
         IncuFork(action='get_status', incu_loc=None) if with_incu else Idle(),
         RobotarmCmd('gripper check'),
@@ -459,7 +459,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
         for prime in p.wash_prime
     ]
     prep_cmds: list[Command] = [
-        Fork(Sequence(*wash_prime)),
+        Fork(Seq(*wash_prime)),
     ]
 
     first_plate = batch[0]
@@ -566,7 +566,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                         ],
                         after_drop = [
                             Fork(
-                                Sequence(
+                                Seq(
                                     IncuCmd('put', plate.incu_loc),
                                     Checkpoint(f'{plate_desc} 37C'),
                                 ),
@@ -587,10 +587,10 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
 
             if p.disp[i] or disp_prime:
                 pre_disp_is_long = disp_prime or p.disp_prep[i]
-                disp_prep = Sequence(
+                disp_prep = Seq(
                     Checkpoint(f'{plate_desc} pre disp {ix} start wait'),
                     Fork(
-                        Sequence(
+                        Seq(
                             WaitForCheckpoint(f'{plate_desc} pre disp {ix} start wait') + f'{plate_desc} pre disp {ix} delay',
                             BiotekValidateThenRun('disp', disp_prime).add(Metadata(plate_id='')) if disp_prime else Idle(),
                             BiotekValidateThenRun('disp', p.disp_prep[i]).add(Metadata(predispense=True)) if p.disp_prep[i] else Idle(),
@@ -613,7 +613,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                 RobotarmCmd('wash put transfer'),
                 disp_prep if pre_disp_is_long else Idle(),
                 Fork(
-                    Sequence(
+                    Seq(
                         *wash_delay,
                         Duration(f'{plate_desc} incubation {ix-1}', exactly=p.incu[i-1]) if i > 0 else Idle(),
                         WashCmd(p.wash[i], cmd='RunValidated') if p.wash[i] else Idle(),
@@ -635,7 +635,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                 pre_disp_wait,
                 Duration(f'{plate_desc} transfer {ix}', exactly=estimate(RobotarmCmd('wash_to_disp transfer'))) if p.disp[i] else Idle(),
                 Fork(
-                    Sequence(
+                    Seq(
                         DispCmd(p.disp[i], cmd='RunValidated') if p.disp[i] else Idle(),
                         Checkpoint(f'{plate_desc} disp {ix} done'),
                         Checkpoint(f'{plate_desc} incubation {ix}'),
@@ -769,11 +769,11 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
         for command in chunks[desc]
     ]
 
-    return Sequence(
+    return Seq(
         Section(p.step_names[0]),
-        Sequence(*prep_cmds).add(Metadata(step='prep')),
+        Seq(*prep_cmds).add(Metadata(step='prep')),
         *plate_cmds,
-        Sequence(*post_cmds)
+        Seq(*post_cmds)
     ).add(Metadata(batch_index=batch_index + 1))
 
 def cell_paint_program(batch_sizes: list[int], protocol_config: ProtocolConfig, sleek: bool = True) -> Command:
@@ -786,7 +786,7 @@ def cell_paint_program(batch_sizes: list[int], protocol_config: ProtocolConfig, 
         )
         cmds += [batch_cmds]
     world0 = initial_world(pbutils.flatten(plates), protocol_config)
-    program = Sequence(
+    program = Seq(
         Checkpoint('run'),
         test_comm_program(with_incu=not protocol_config.start_from_pfa),
         *cmds,

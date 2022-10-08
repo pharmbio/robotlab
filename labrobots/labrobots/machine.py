@@ -6,30 +6,30 @@ from dataclasses import dataclass, field, replace
 from subprocess import run, check_output
 from threading import Thread, Lock
 from typing_extensions import Self
-from typing import Callable, Any, TypeVar
-from typing import Union, Tuple, Dict, Callable, Any
+from typing import *
+from typing import *
 from urllib.request import urlopen, Request
 import inspect
 import json
 import traceback as tb
-import typing as t
+from typing import *
 import textwrap
 
 from flask import Flask, jsonify, request
 
-R = t.TypeVar('R')
+R = TypeVar('R')
 
-def try_json_loads(s: str) -> t.Any:
+def try_json_loads(s: str) -> Any:
     try:
         return json.loads(s)
     except json.JSONDecodeError:
         return s
 
-def json_request_args() -> dict[str, t.Any]:
+def json_request_args() -> dict[str, Any]:
     return {k: try_json_loads(v) for k, v in request.args.items()}
 
 @dataclass(frozen=True)
-class Proxy(t.Generic[R]):
+class Proxy(Generic[R]):
     wrapped: Callable[..., R]
     call: Callable[..., Any]
     attr_path: list[str] = field(default_factory=list)
@@ -202,8 +202,8 @@ class Git(Machine):
 
 @dataclass
 class Machines:
-    ip: t.ClassVar[str]
-    node_name: t.ClassVar[str]
+    ip: ClassVar[str]
+    node_name: ClassVar[str]
     echo: Echo = Echo()
     git: Git = Git()
 

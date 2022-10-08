@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Any, cast, Callable
+from typing import *
 from dataclasses import dataclass
 
 from .moves import HotelLocs

@@ -1,7 +1,7 @@
 from __future__ import annotations
 from functools import lru_cache
 import sys
-from typing import Callable
+from typing import *
 
 @lru_cache
 def minify_string() -> Callable[[str, str], str]:
