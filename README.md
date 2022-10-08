@@ -89,7 +89,7 @@ The BioTek control code require a C# program that needs to be separately built.
 On the ubuntu NUC that will run all schedulers, install python >= 3.10 and then:
 
 ```
-./foreach.sh pip install --editable
+./foreach.sh pip install --editable .
 ```
 
 On each windows machine that runs labrobots, install python >= 3.8 and:
