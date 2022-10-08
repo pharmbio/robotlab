@@ -7,7 +7,6 @@ from collections import defaultdict
 import abc
 
 from .moves import movelists, Effect
-from pbutils import Mutable
 from .symbolic import Symbolic
 import pbutils
 
@@ -168,7 +167,7 @@ class Command(abc.ABC):
                 next = max(next, int(i) + 1)
         return next
 
-    def assign_ids(self: Command, counter: Mutable[int] | None = None) -> Command:
+    def assign_ids(self: Command) -> Command:
         count = 0
         def F(cmd: Command) -> Command:
             nonlocal count
