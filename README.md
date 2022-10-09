@@ -22,7 +22,7 @@ Cell painter program and control of the Universal Robot (UR) robotarm.
 <tr>
 <th>imager</th>
 <td>
-Microscope imager program and control of the the PreciseFlex (PF) robotarm.
+Microscope imager program and control of the PreciseFlex (PF) robotarm.
 </td>
 </tr>
 
