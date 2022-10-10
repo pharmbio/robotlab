@@ -9,6 +9,7 @@ import secrets
 import sys
 import json
 import traceback
+import functools
 from inspect import signature
 from queue import Queue, Empty
 from threading import RLock
@@ -25,6 +26,7 @@ from .minifier import minify
 def is_true(x: str | bool | int):
     return str(x).lower() in 'true y yes 1'.split()
 
+@functools.cache
 def get_viable_js():
     from .viable_js import viable_js
     res = viable_js
@@ -32,8 +34,6 @@ def get_viable_js():
         res += 'poll()'
     res = minify(res)
     return res
-
-viable_js = get_viable_js()
 
 def serializer_factory() -> Serializer:
     secret_from_env = os.environ.get('VIABLE_SECRET')
@@ -156,7 +156,7 @@ class Serve:
 
         @app.route('/viable.js') # type: ignore
         def viable_js_route():
-            return viable_js, {'Content-Type': 'application/javascript'}
+            return get_viable_js(), {'Content-Type': 'application/javascript'}
 
         @app.post('/ping') # type: ignore
         def ping():

@@ -1,0 +1,38 @@
+on:
+  push:
+  pull_request:
+  schedule:
+    # Run it at 5:30 UTC the 22nd of every month
+    - cron: '30 5 22 * *'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        pip_install:
+          - "pip install"
+          - "pip install --editable"
+    name: main ${{ matrix.pip_install }}
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: '3.10'
+      - run: pip install pyright
+      - run: ./foreach.sh ${{ matrix.pip_install }} .
+      - run: ./gui-tests.sh
+      - run: cd cellpainter; set -o pipefail; cellpainter --cell-paint 6,6,6 | tail
+      - run: cd cellpainter; set -o pipefail; cellpainter --cell-paint 7,7 --interleave | tail
+      - run: cd cellpainter; set -o pipefail; cellpainter --cell-paint 8,8 --interleave --incu 1260,1230 | tail
+      - run: cd cellpainter; set -o pipefail; cellpainter --cell-paint 8,8 --interleave --two-final-washes | tail
+      - run: cd cellpainter; set -o pipefail; cellpainter --cell-paint 9,9 --interleave --two-final-washes | tail
+      - run: cd cellpainter; set -o pipefail; cellpainter --cell-paint 10 --interleave --two-final-washes --lockstep --incu 1235,1230,1230,1235,1260 | tail
+      - run: cd cellpainter; set -o pipefail; for i in 120 240 360 1600 1800 3600; do cellpainter --cell-paint 2 --test-resume $i --test-resume-delay 1800 | tail; done
+      - run: cd cellpainter; set -o pipefail; for i in 120 240 360 1600 1800 3600; do cellpainter --cell-paint 2 --test-resume $i --test-resume-delay 1800 --resume-drop 2 | tail; done
+      - run: cd cellpainter; set -o pipefail; cellpainter --cell-paint 3 --protocol-dir short | tail
+      - run: cd cellpainter; set -o pipefail; cellpainter --cell-paint 3 --protocol-dir short --start-from-pfa | tail
+      - run: cd cellpainter; set -o pipefail; cellpainter --time-bioteks | tail
+      - run: cd cellpainter; set -o pipefail; cellpainter --incu-load --num-plates 11 | tail
+      - run: cd cellpainter; set -o pipefail; cellpainter --wash-plates-clean --num-plates 11 | tail
+      - run: cd cellpainter; set -o pipefail; cellpainter --list-imports | tee /dev/stderr | xargs pyright

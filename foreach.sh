@@ -8,7 +8,7 @@ if test "$#" = 0; then
     \n"
     exit 1
 fi
-set -euo pipefail
+set -eu
 packages='
     viable
     pbutils
@@ -21,7 +21,7 @@ for pkg in $packages; do
     (
         cd "$pkg"
         set -x
-        set -euo pipefail
+        set -eu
         "$@"
     )
 done
