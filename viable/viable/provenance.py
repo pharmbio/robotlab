@@ -37,6 +37,7 @@ def None_map(x: A | None, f: Callable[[A], B]) -> B | None:
 class Var(Generic[A], abc.ABC):
     default: A
     name: str = ''
+    desc: None | str = None
 
     @abc.abstractmethod
     def from_str(self, s: str | Any) -> A:
@@ -49,6 +50,10 @@ class Var(Generic[A], abc.ABC):
     @property
     def full_name(self) -> str:
         return store[self].full_name
+
+    @property
+    def given_name(self) -> str:
+        return store[self].name
 
     @property
     def provenance(self) -> str:
@@ -125,6 +130,7 @@ class Int(Var[int]):
             oninput=store.update(self, JS('this.value')).goto(),
             min=None_map(self.min, str),
             max=None_map(self.max, str),
+            title=self.desc,
         )
 
     def range(self):
@@ -148,6 +154,7 @@ class Bool(Var[bool]):
             checked=self.value,
             oninput=store.update(self, JS('this.checked')).goto(),
             type='checkbox',
+            title=self.desc,
         )
 
 @dataclass(frozen=True)
@@ -178,7 +185,10 @@ class Str(Var[str]):
                 oninput=store.update(self, JS('this.selectedOptions[0].dataset.key')).goto(iff=iff),
             )
         else:
-            return input(**self.bind(iff))
+            return input(
+                **self.bind(iff),
+                title=self.desc,
+            )
 
     def textarea(self):
         b = self.bind()

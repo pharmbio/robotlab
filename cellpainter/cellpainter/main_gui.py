@@ -1,11 +1,10 @@
 from __future__ import annotations
 from typing import *
 
-from .utils.viable import js
-from .utils.viable import serve, trim, button, pre
-from .utils.viable import Tag, div, span, label
-from .utils import viable as V
-from .utils.provenance import Var, Int, Str, Store, DB, Bool
+from viable import store, js, call, serve
+from viable import Tag, div, span, label, button, pre
+import viable as V
+from viable.provenance import Int, Str, Bool
 
 from collections import *
 from dataclasses import dataclass, replace
@@ -49,7 +48,6 @@ else:
 
 print(f'Running with {config.name=}')
 
-@serve.expose
 def sigint(pid: int):
     os.kill(pid, signal.SIGINT)
 
@@ -58,14 +56,12 @@ def robotarm_do(ms: list[Move]):
     arm.execute_moves(ms, name='gui', allow_partial_completion=True)
     arm.close()
 
-@serve.expose
 def robotarm_freedrive():
     '''
     Sets the robotarm in freedrive
     '''
     robotarm_do([RawCode("freedrive_mode() sleep(3600)")])
 
-@serve.expose
 def robotarm_set_speed(pct: int):
     '''
     Sets the robotarm speed, in percentages
@@ -75,14 +71,12 @@ def robotarm_set_speed(pct: int):
     arm.set_speed(pct)
     arm.close()
 
-@serve.expose
 def robotarm_to_neutral():
     '''
     Slowly moves in joint space to the neutral position by B21
     '''
     robotarm_do(moves.movelists['to neu'])
 
-@serve.expose
 def robotarm_open_gripper():
     '''
     Opens the robotarm gripper
@@ -94,7 +88,6 @@ def as_stderr(log_path: str):
     p = p.with_suffix('.stderr')
     return p
 
-@serve.expose
 def start(args: Args, simulate: bool):
     config_name='dry-run' if simulate else config.name
     program_name='cell-paint' if args.cell_paint else args.small_protocol
@@ -120,7 +113,6 @@ def start(args: Args, simulate: bool):
         'refresh': True,
     }
 
-@serve.expose
 def resume(log_filename_in: str, skip: list[str], drop: list[str]):
     log_filename_new = 'logs/' + pbutils.now_str_for_filename() + '-resume-from-gui.jsonl'
     args = Args(
@@ -590,13 +582,13 @@ class AnalyzeResult:
                 row.plate_id,
                 is_estimate=row.is_estimate,
                 can_hover=can_hover,
-                style=trim(f'''
+                style=f'''
                     left:{(row.column*2.3 + slot) * width:.0f}px;
                     top:{  y0 * 100:.3f}%;
                     height:{h * 100:.3f}%;
                     --row-color:{color};
                     --info:{repr(info)};
-                ''', sep=''),
+                ''',
                 css_=f'''
                     width: {width * my_width - 2}px;
                 ''',
@@ -767,7 +759,7 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
         }
     ''' + inverted_inputs_css
 
-    m = Store(default_provenance='cookie')
+    m = store.cookie
     if not path:
         options = {
             'cell-paint': 'cell-paint',
@@ -777,13 +769,15 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
             }
         }
 
-        protocol = m.var(Str('cell-paint', options=tuple(options.keys())))
+        protocol = m.str(default='cell-paint', options=tuple(options.keys()))
 
-        protocol_dir = m.var(Str('automation_v5.0', name='protocol dir', desc='Directory on the windows computer to read biotek LHC files from'))
-        plates = m.var(Str(desc='The number of plates per batch, separated by comma. Example: 6,6'))
-        start_from_pfa = m.var(Bool(name='start from pfa', desc='Skip mito and start with PFA (including pre-PFA wash). Plates start on their output positions (A hotel).'))
-        incu = m.var(Str(name='incubation times', value='20:00', desc='The incubation times in seconds or minutes:seconds, separated by comma. If too few values are specified, the last value is repeated. Example: 21:00,20:00'))
-        params = m.var(Str(name='params', desc=f'Additional parameters to protocol "{protocol.value}"'))
+        protocol_dir = m.str(default='automation_v5.0', name='protocol dir', desc='Directory on the windows computer to read biotek LHC files from')
+        plates = m.str(desc='The number of plates per batch, separated by comma. Example: 6,6')
+        start_from_pfa = m.bool(name='start from pfa', desc='Skip mito and start with PFA (including pre-PFA wash). Plates start on their output positions (A hotel).')
+        incu = m.str(name='incubation times', default='20:00', desc='The incubation times in seconds or minutes:seconds, separated by comma. If too few values are specified, the last value is repeated. Example: 21:00,20:00')
+        params = m.str(name='params', desc=f'Additional parameters to protocol "{protocol.value}"')
+
+        m.assign_names(locals())
 
         small_data = options.get(protocol.value)
 
@@ -838,7 +832,7 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
             doc_header = ''
 
         yield div(
-            *form(m, protocol),
+            *form(protocol),
             div(
                 doc_header,
                 title=doc_full,
@@ -849,10 +843,10 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
                     place-self: start;
                 ''',
             ),
-            *form(m, *form_fields),
+            *form( *form_fields),
             button(
                 'simulate',
-                onclick=start.call(args=args, simulate=True),
+                onclick=call(start, args=args, simulate=True),
                 grid_row='-1',
             ) if args else '',
             button(
@@ -865,7 +859,7 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
                         else ''
                     )
                     +
-                    start.call(args=args, simulate=False),
+                    call(start, args=args, simulate=False),
                 grid_row='-1',
             ) if args else '',
             height='100%',
@@ -970,9 +964,9 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
         if log and ar and ar.completed and 'dry' in config.name:
             t_min = int(log.min_t()) + 1
             t_max = int(log.max_t()) + 1
-            t_end = m.var(Int(t_max, type='range', min=t_min, max=t_max))
+            t_end = m.int(t_max, min=t_min, max=t_max)
             t_end_form = div(
-                div(*form(m, t_end),
+                div(t_end.range(),
                     str(timedelta(seconds=t_end.value)),
                     css=inverted_inputs_css,
                     css_='& input { width: 700px; }'),
@@ -1133,8 +1127,8 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
                 opacity='0.85',
             )
 
-        skip = m.var(Str(desc='Single washes and dispenses to skip, separated by comma'))
-        drop = m.var(Str(desc='Plates to drop from the rest of the run, separated by comma'))
+        skip = m.str(desc='Single washes and dispenses to skip, separated by comma')
+        drop = m.str(desc='Plates to drop from the rest of the run, separated by comma')
 
         if ar.completed and not ar.has_error():
             info += div(
@@ -1146,12 +1140,12 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
                 border_radius='2px',
             )
         elif ar.process_is_alive:
-            yield m.defaults().goto_script()
+            yield store.defaults.goto_script()
             yield div(
                 div(
                     'robotarm speed: ',
                     *[
-                        button(name, title=f'{pct}%', onclick=robotarm_set_speed.call(pct))
+                        button(name, title=f'{pct}%', onclick=call(robotarm_set_speed, pct))
                         for name, pct in {
                             'normal': 100,
                             'slow': 40,
@@ -1183,7 +1177,7 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
                 ),
                 button(
                     'stop',
-                    onclick='confirm("Stop?")&&' + sigint.call(ar.runtime_metadata.pid),
+                    onclick='confirm("Stop?")&&' + call(sigint, ar.runtime_metadata.pid),
                     css='''
                         & {
                             font-size: 32px;
@@ -1206,21 +1200,19 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
             dropped = pbutils.read_commasep(drop.value)
 
             vis.data_skipped += json.dumps(skipped)
-            vis.onclick += m.update_untyped({
-                skip: js('''
-                    (() => {
-                        let skipped = JSON.parse(this.dataset.skipped)
-                        let id = event.target.dataset.simpleId
-                        if (!id) {
-                            return skipped.join(',')
-                        } else if (skipped.includes(id)) {
-                            return skipped.filter(i => i != id).join(',')
-                        } else {
-                            return [...skipped, id].join(',')
-                        }
-                    })()
-                ''')
-            }).goto()
+            vis.onclick += m.update(skip, js('''
+                (() => {
+                    let skipped = JSON.parse(this.dataset.skipped)
+                    let id = event.target.dataset.simpleId
+                    if (!id) {
+                        return skipped.join(',')
+                    } else if (skipped.includes(id)) {
+                        return skipped.filter(i => i != id).join(',')
+                    } else {
+                        return [...skipped, id].join(',')
+                    }
+                })()
+            ''')).goto()
 
             selectors: list[str] = []
             selectors += [f'[data-simple-id={v!r}][is-estimate]' for v in skipped]
@@ -1239,14 +1231,14 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
             ''')
 
             yield div(
-                button('open gripper', onclick=robotarm_open_gripper.call()),
-                button('set robot in freedrive', onclick=robotarm_freedrive.call()),
-                button('move robot to neutral', onclick='confirm("Move robot to neutral?")&&' + robotarm_to_neutral.call()),
-                *form(m, skip, drop),
+                button('open gripper', onclick=call(robotarm_open_gripper, )),
+                button('set robot in freedrive', onclick=call(robotarm_freedrive, )),
+                button('move robot to neutral', onclick='confirm("Move robot to neutral?")&&' + call(robotarm_to_neutral, )),
+                *form(skip, drop),
                 button('resume' ,
                     onclick=
                         f'confirm("Resume?" + {json.dumps(resume_text)})&&' +
-                        resume.call(ar.runtime_metadata.log_filename, skip=skipped, drop=dropped),
+                        call(resume, ar.runtime_metadata.log_filename, skip=skipped, drop=dropped),
                     title=resume_text),
                 grid_area='stop',
                 css=form_css,
@@ -1258,19 +1250,22 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
     if path and not (ar and ar.completed):
         yield V.queue_refresh(100)
 
-def form(m: Store, *vs: Int | Str | Bool):
+def form(*vs: Int | Str | Bool):
     for v in vs:
         yield label(
-            span(f"{v.name or ''}:"),
-            v.input(m).extend(id_=v.name, spellcheck="false", autocomplete="off"),
+            span(f"{v.given_name or ''}:"),
+            v.input().extend(id_=v.name, spellcheck="false", autocomplete="off"),
             title=v.desc,
         )
 
 def main():
+    if config.name == 'dry-run':
+        host = 'localhost'
+    else:
+        host = '10.10.0.55'
     serve.run(
         port=5000,
-        # host='10.10.0.55'
-        host='localhost'
+        host=host,
     )
 
 if __name__ == '__main__':

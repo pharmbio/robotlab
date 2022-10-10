@@ -18,22 +18,25 @@ from viable import serve, button, pre, call, js
 from viable import Tag, div, input
 import viable as V
 
-import time
+import sys
 
 serve.suppress_flask_logging()
 polled_info: dict[str, Any] = {}
 
-@pbutils.spawn
-def poll() -> None:
-    arm = Robotarm.init(port=10000, quiet=True)
-    while True:
-        info_str = arm.execute('wherejson')
-        info = json.loads(info_str)
-        polled_info.update(info)
+dry_run = '--dry-run' in sys.argv
 
-arm = Robotarm.init()
-arm.execute('mode 0')
-arm.execute('attach 1')
+if not dry_run:
+    @pbutils.spawn
+    def poll() -> None:
+        arm = Robotarm.init(port=10000, quiet=True)
+        while True:
+            info_str = arm.execute('wherejson')
+            info = json.loads(info_str)
+            polled_info.update(info)
+
+    arm = Robotarm.init()
+    arm.execute('mode 0')
+    arm.execute('attach 1')
 
 def arm_init():
     arm.execute('hp 1')
@@ -481,7 +484,7 @@ def index() -> Iterator[Tag | dict[str, str]]:
         btns += button(
             f'yaw -> {deg}°',
             tabindex='-1',
-            onclick=call(arm_do, moves.MoveC_Rel([0,0,0], -polled_info['yaw'] + deg))
+            onclick=call(arm_do, moves.MoveC_Rel([0,0,0], -polled_info.get('yaw', 0.0) + deg))
         )
         foot += btns
 

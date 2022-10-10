@@ -4,6 +4,8 @@ import typing_extensions as tx
 
 import abc
 
+AttrValue: TypeAlias = None | bool | str | int
+
 def esc(txt: str, __table: dict[int, str] = str.maketrans({
     "<": "&lt;",
     ">": "&gt;",
@@ -106,15 +108,15 @@ css_props['bg'] = ['background']
 
 class Tag(Node):
     _attributes_ = {'children', 'attrs', 'inline_css', 'inline_sheet'}
-    def __init__(self, *children: Node | str | dict[str, str | bool | None], **attrs: str | bool | None):
+    def __init__(self, *children: Node | str | dict[str, AttrValue], **attrs: AttrValue):
         self.children: list[Node] = []
-        self.attrs: dict[str, str | bool | None] = {}
+        self.attrs: dict[str, AttrValue] = {}
         self.inline_css: list[str] = []
         self.inline_sheet: list[str] = []
         self.append(*children)
         self.extend(attrs)
 
-    def append(self, *children: Node | str | dict[str, str | bool | None], **kws: str | bool | None) -> tx.Self:
+    def append(self, *children: Node | str | dict[str, AttrValue], **kws: AttrValue) -> tx.Self:
         self.children += [
             text(child) if isinstance(child, str) else child
             for child in children
@@ -126,7 +128,7 @@ class Tag(Node):
         self.extend(kws)
         return self
 
-    def extend(self, attrs: dict[str, str | bool | None] = {}, **kws: str | bool | None) -> tx.Self:
+    def extend(self, attrs: dict[str, AttrValue] = {}, **kws: AttrValue) -> tx.Self:
         for k, v in {**attrs, **kws}.items():
             k = k.strip('_')
             if k == 'css':
@@ -138,7 +140,6 @@ class Tag(Node):
                 self.inline_sheet += [v]
                 continue
             if props := css_props.get(k):
-                v = cast(Any, v)
                 if isinstance(v, int):
                     if v == 0:
                         v = '0'
@@ -165,8 +166,10 @@ class Tag(Node):
                     sep = ' '
                 else:
                     raise ValueError(f'only event handlers, styles and classes can be combined, not {k}')
+                if isinstance(v, int):
+                    v = str(v)
                 if not isinstance(v, str):
-                    raise ValueError(f'attribute {k}={v} not str' )
+                    raise ValueError(f'attribute {k}={v} not str or int')
                 self.attrs[k] = str(self.attrs[k]).rstrip(sep) + sep + v.lstrip(sep)
             else:
                 self.attrs[k] = v
@@ -251,7 +254,7 @@ class Tag(Node):
 
 class tag(Tag):
     _attributes_ = {*Tag._attributes_, 'name'}
-    def __init__(self, name: str, *children: Node | str, **attrs: str | int | bool | None | float):
+    def __init__(self, name: str, *children: Node | str, **attrs: AttrValue):
         super(tag, self).__init__(*children, **attrs)
         self.name = name
 

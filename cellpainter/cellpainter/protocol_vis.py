@@ -1,11 +1,8 @@
 from __future__ import annotations
 from typing import *
 
-from .utils.viable import app
-from .utils.viable import head, serve, esc, css_esc, trim, button, pre
-from .utils.viable import Tag, div, span, label, img, raw, Input, input
-from .utils import viable as V
-from .utils.provenance import Store, Str, Int
+from viable import serve, js, store
+from viable import Tag, pre, div, span, label
 
 from .log import Log
 from . import commands
@@ -109,12 +106,12 @@ def start(cmdline0: str, cmdline_to_log: Callable[[str], Log]):
                 }
             '''
         }
-        store = Store(default_provenance='query')
-        cmdline = store.var(Str(cmdline0))
-        zoom_int = store.var(Int(100, type='range', min=1, max=1000))
+        cmdline = store.query.str(cmdline0)
+        zoom_int = store.query.int(100, min=1, max=1000)
+        store.assign_names(locals())
         zoom = zoom_int.value / 100.0
-        yield label(span('cmdline: '), cmdline.input(store, iff='0').extend(onkeydown=cmdline.update_handler(store, iff='event.key == "Enter"')))
-        yield label(span('zoom: '), zoom_int.input(store), span(str(zoom_int.value)))
+        yield label(span('cmdline: '), cmdline.input(iff='0').extend(onkeydown='event.key == "Enter" && ' + store.update(cmdline, js('this.value')).goto()))
+        yield label(span('zoom: '), zoom_int.range(), span(str(zoom_int.value)))
 
         try:
             entries = cmdline_to_log(cmdline.value)
@@ -248,12 +245,12 @@ def start(cmdline0: str, cmdline_to_log: Callable[[str], Log]):
                     --bg-color: {color};
                     --fg-color: {fg_color};
                 ''',
-                style=trim(f'''
+                style=f'''
                     left: {slot * width + my_offset:.1f}px;
                     width: {my_width - 2:.1f}px;
                     top: {zoom * t0:.1f}px;
                     height: {max(zoom * (t - t0) - 1, 2):.1f}px;
-                '''),
+                ''',
                 data_info=pbutils.show(for_show, use_color=False),
                 data_short_info=str(e.cmd),
             )

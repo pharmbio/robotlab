@@ -16,9 +16,10 @@ from . import robotarm
 from . import runtime
 import pbutils
 
-from .utils.viable import head, serve, esc, css_esc, trim, button, pre, js
-from .utils.viable import Tag, div, span, label, img, raw, input
-from .utils import viable as V
+from viable import head, serve, esc, css_esc, button, pre
+from viable import call, js
+from viable import Tag, div, span, label, img, raw, input
+import viable as V
 
 serve.suppress_flask_logging()
 
@@ -86,19 +87,16 @@ def poll() -> None:
                     tb.print_exc()
                 break
 
-@serve.expose
 def arm_do(*ms: Move):
     arm = runtime.get_robotarm(config)
     arm.execute_moves(list(ms), name='gui', allow_partial_completion=True)
     arm.close()
 
-@serve.expose
 def arm_set_speed(value: int) -> None:
     arm = runtime.get_robotarm(config, quiet=False)
     arm.set_speed(value)
     arm.close()
 
-@serve.expose
 def edit_at(program_name: str, i: int, changes: dict[str, Any]):
     filename = get_programs()[program_name]
     ml = MoveList.read_jsonl(filename)
@@ -114,7 +112,6 @@ def edit_at(program_name: str, i: int, changes: dict[str, Any]):
     ml.write_jsonl(filename)
     return {'refresh': True}
 
-@serve.expose
 def keydown(program_name: str, args: dict[str, Any]):
     mm: float = 1.0
     deg: float = 1.0
@@ -161,7 +158,6 @@ def keydown(program_name: str, args: dict[str, Any]):
             m,
         )
 
-@serve.expose
 def update(program_name: str, i: int):
     if i is None:
         return
@@ -198,7 +194,7 @@ def get_programs() -> dict[str, Path]:
 @serve.route('/')
 def index() -> Iterator[Tag | dict[str, str]]:
     programs = get_programs()
-    program_name = request.args.get('program', next(iter(programs.keys())))
+    program_name = request.args.get('program', list(programs.keys())[0])
     section: tuple[str, ...] = tuple(request.args.get('section', "").split())
     ml = MoveList.read_jsonl(programs[program_name])
 
@@ -208,7 +204,7 @@ def index() -> Iterator[Tag | dict[str, str]]:
         onkeydown='''
             if (event.key == 'Escape') {
                 console.log('escape pressed, stopping robot...', event)
-                ''' + arm_do.call() + r'''
+                ''' + call(arm_do) + r'''
                 event.preventDefault()
             } else if (event.target.tagName == 'INPUT') {
                 console.log('by input', event)
@@ -225,7 +221,7 @@ def index() -> Iterator[Tag | dict[str, str]]:
                     altKey: event.altKey,
                     shiftKey: event.shiftKey,
                 }
-                ''' + keydown.call(program_name, js('arg')) + '''
+                ''' + call(keydown, program_name, js('arg')) + '''
             }
         ''',
         sheet ='''
@@ -401,7 +397,7 @@ def index() -> Iterator[Tag | dict[str, str]]:
                                     inset  0px -1px #0006;
                             }
                         ''',
-                        onclick=arm_do.call(moves.RawCode("EnsureRelPos()"), v),
+                        onclick=call(arm_do, moves.RawCode("EnsureRelPos()"), v),
                     )
             else:
                 row += div(f'{dist: 5.0f}',
@@ -431,7 +427,7 @@ def index() -> Iterator[Tag | dict[str, str]]:
             tabindex='-1',
             style=f'grid-column: go',
             css='margin: 0 10px;',
-            onclick=arm_do.call(m),
+            onclick=call(arm_do, m),
         )
 
         from_here = [m for _, m in visible_moves[row_index:] if not isinstance(m, moves.Section)]
@@ -440,7 +436,7 @@ def index() -> Iterator[Tag | dict[str, str]]:
             tabindex='-1',
             style=f'grid-column: run',
             css='margin: 0 10px;',
-            onclick=arm_do.call(*from_here),
+            onclick=call(arm_do, *from_here),
             title=', '.join(m.try_name() or m.__class__.__name__ for m in from_here)
         )
 
@@ -449,7 +445,7 @@ def index() -> Iterator[Tag | dict[str, str]]:
             tabindex='-1',
             style=f'grid-column: update',
             css='margin: 0 10px;',
-            onclick=update.call(program_name, i),
+            onclick=call(update, program_name, i),
         )
 
         row += input(
@@ -475,7 +471,7 @@ def index() -> Iterator[Tag | dict[str, str]]:
             ''',
             disabled=not hasattr(m, 'name'),
             value=getattr(m, 'name', ''),
-            oninput=edit_at.call(program_name, i, js("{name:event.target.value}")),
+            oninput=call(edit_at, program_name, i, js("{name:event.target.value}")),
         )
         if not isinstance(m, moves.Section):
             row += V.code(m.to_script(),
@@ -497,12 +493,12 @@ def index() -> Iterator[Tag | dict[str, str]]:
                 margin-left: 10px;
             }
         """).append(
-            button('run program',   tabindex='-1', onclick=arm_do.call(*visible_program)                              , css='width: 160px'),
-            button('freedrive',     tabindex='-1', onclick=arm_do.call(moves.RawCode("freedrive_mode() sleep(3600)"))),
-            button('stop robot',    tabindex='-1', onclick=arm_do.call()                                              , css='flex-grow: 1; color: red; font-size: 48px'),
-            button('gripper open',  tabindex='-1', onclick=arm_do.call(moves.RawCode("GripperMove(88)"))),
-            button('gripper close', tabindex='-1', onclick=arm_do.call(moves.RawCode("GripperMove(255)"))),
-            button('grip test',     tabindex='-1', onclick=arm_do.call(moves.RawCode("GripperTest()"))),
+            button('run program',   tabindex='-1', onclick=call(arm_do, *visible_program)                              , css='width: 160px'),
+            button('freedrive',     tabindex='-1', onclick=call(arm_do, moves.RawCode("freedrive_mode() sleep(3600)"))),
+            button('stop robot',    tabindex='-1', onclick=call(arm_do, )                                              , css='flex-grow: 1; color: red; font-size: 48px'),
+            button('gripper open',  tabindex='-1', onclick=call(arm_do, moves.RawCode("GripperMove(88)"))),
+            button('gripper close', tabindex='-1', onclick=call(arm_do, moves.RawCode("GripperMove(255)"))),
+            button('grip test',     tabindex='-1', onclick=call(arm_do, moves.RawCode("GripperTest()"))),
     )
 
     foot = div(css='''
@@ -529,11 +525,11 @@ def index() -> Iterator[Tag | dict[str, str]]:
                 text-align: left;
             }
         """)
-        btns += button('roll -> 0° (level roll)',                  tabindex='-1', onclick=arm_do.call(EnsureRelPos, moves.MoveRel([0, 0, 0], [-r,  0,       0     ])))
-        btns += button('pitch -> 0° (face horizontally)',          tabindex='-1', onclick=arm_do.call(EnsureRelPos, moves.MoveRel([0, 0, 0], [ 0, -p,       0     ])))
-        btns += button('pitch -> -90° (face the floor)',           tabindex='-1', onclick=arm_do.call(EnsureRelPos, moves.MoveRel([0, 0, 0], [ 0, -p - 90,  0     ])))
-        btns += button('yaw -> 0° (towards washer and dispenser)', tabindex='-1', onclick=arm_do.call(EnsureRelPos, moves.MoveRel([0, 0, 0], [ 0,  0,      -y     ])))
-        btns += button('yaw -> 90° (towards hotels and incu)',     tabindex='-1', onclick=arm_do.call(EnsureRelPos, moves.MoveRel([0, 0, 0], [ 0,  0,      -y + 90])))
+        btns += button('roll -> 0° (level roll)',                  tabindex='-1', onclick=call(arm_do, EnsureRelPos, moves.MoveRel([0, 0, 0], [-r,  0,       0     ])))
+        btns += button('pitch -> 0° (face horizontally)',          tabindex='-1', onclick=call(arm_do, EnsureRelPos, moves.MoveRel([0, 0, 0], [ 0, -p,       0     ])))
+        btns += button('pitch -> -90° (face the floor)',           tabindex='-1', onclick=call(arm_do, EnsureRelPos, moves.MoveRel([0, 0, 0], [ 0, -p - 90,  0     ])))
+        btns += button('yaw -> 0° (towards washer and dispenser)', tabindex='-1', onclick=call(arm_do, EnsureRelPos, moves.MoveRel([0, 0, 0], [ 0,  0,      -y     ])))
+        btns += button('yaw -> 90° (towards hotels and incu)',     tabindex='-1', onclick=call(arm_do, EnsureRelPos, moves.MoveRel([0, 0, 0], [ 0,  0,      -y + 90])))
         foot += btns
 
     foot += pre(
@@ -559,13 +555,16 @@ def index() -> Iterator[Tag | dict[str, str]]:
         }
     """)
     for speed in [20, 40, 60, 80, 100]:
-        speed_btns += button(f'set speed to {speed}', tabindex='-1', onclick=arm_set_speed.call(speed))
+        speed_btns += button(f'set speed to {speed}', tabindex='-1', onclick=call(arm_set_speed, speed))
     foot += speed_btns
 
 def main():
+    host = '10.10.0.55'
+    if config.name == 'dry-run':
+        host = 'localhost'
     serve.run(
         port=5000,
-        host='10.10.0.55'
+        host=host,
     )
 
 if __name__ == '__main__':
