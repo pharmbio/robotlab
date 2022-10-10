@@ -17,7 +17,6 @@ name='cellpainter'
 
 packages=f'''
     {name}
-    {name}.utils
 '''
 
 setup(
