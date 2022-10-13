@@ -25,6 +25,8 @@ polled_info: dict[str, Any] = {}
 
 dry_run = '--dry-run' in sys.argv
 
+print(f'{dry_run=}')
+
 if not dry_run:
     @pbutils.spawn
     def poll() -> None:
