@@ -172,10 +172,10 @@ class Machine:
 
 @dataclass
 class Echo(Machine):
-    def error(self, *args: str, **kws: str):
+    def error(self, *args: str, **kws: Any):
         raise ValueError(f'error {args!r} {kws!r}')
 
-    def echo(self, *args: str, **kws: str) -> str:
+    def echo(self, *args: str, **kws: Any) -> str:
         '''
         Returns the arguments.
 
@@ -228,7 +228,7 @@ class Machines:
     def items(self) -> list[tuple[str, Machine]]:
         return list(self.__dict__.items())
 
-    def serve(self, port: int, host: str):
+    def serve(self, host: str | None = None, port: int = 5050):
         print('machines:')
         for k, v in self.items():
             print('    ' + k + ':', v)
@@ -251,4 +251,6 @@ class Machines:
                 d[url + '/' + name] = str(m)
             return jsonify(d)
 
+        if host is None:
+            host = self.ip
         app.run(host=host, port=port, threaded=True, processes=1)

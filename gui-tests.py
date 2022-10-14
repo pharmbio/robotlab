@@ -14,11 +14,6 @@ import sys
 import time
 
 def main():
-    test('labrobots --test', 'http://localhost:5050/echo/echo?apa=1.2&bepa=true&cepa=[3,4]',
-                             "echo () {'apa': 1.2, 'bepa': True, 'cepa': [3, 4]}")
-    test('labrobots --test', 'http://localhost:5050/echo/error?depa=oops',
-                             "ValueError: error () {'depa': 'oops'}")
-
     with chdir('cellpainter'):
         test('cellpainter-gui --dry-run',              'http://localhost:5000',                        'incubation times:')
         test('cellpainter-moves --dry-run',            'http://localhost:5000',                        'wash_to_disp')
@@ -28,6 +23,11 @@ def main():
     with chdir('imager'):
         test('pf-moves --dry-run', 'http://localhost:5000',             'fridge-to-H12')
         test('imager-gui',         'http://localhost:5051?page=system', 'test-comm:')
+
+    test('labrobots --test', 'http://localhost:5050/echo/echo?apa=1.2&bepa=true&cepa=[3,4]',
+                             "echo () {'apa': 1.2, 'bepa': True, 'cepa': [3, 4]}")
+    test('labrobots --test', 'http://localhost:5050/echo/error?depa=oops',
+                             "ValueError: error () {'depa': 'oops'}")
 
     print('success!')
 
