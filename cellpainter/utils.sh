@@ -241,9 +241,48 @@ function simulator-entr-gui {
 }
 
 note '
+    Talk to the LabHand 8-bot gripper on TCP port 54321. Use the rs485 urcap.
+'
+function labhand-test {
+    send '
+        def main():
+            sock = "1"
+            textmsg("log opening")
+            socket_open("127.0.0.1", 54321, sock)
+            textmsg("log opened")
+            socket_send_line("g_pos",   sock) textmsg("log ", socket_read_line(sock))
+            socket_send_line("m_l_op",  sock) textmsg("log ", socket_read_line(sock))
+            socket_send_line("g_pos",   sock) textmsg("log ", socket_read_line(sock))
+            socket_send_line("g_pos",   sock) textmsg("log ", socket_read_line(sock))
+            socket_send_line("g_pos",   sock) textmsg("log ", socket_read_line(sock))
+            socket_send_line("g_pos",   sock) textmsg("log ", socket_read_line(sock))
+            socket_send_line("g_pos",   sock) textmsg("log ", socket_read_line(sock))
+            socket_send_line("g_pos",   sock) textmsg("log ", socket_read_line(sock))
+            socket_send_line("g_pos",   sock) textmsg("log ", socket_read_line(sock))
+            socket_send_line("g_pos",   sock) textmsg("log ", socket_read_line(sock))
+            socket_send_line("g_pos",   sock) textmsg("log ", socket_read_line(sock))
+            socket_send_line("m_close", sock) textmsg("log ", socket_read_line(sock))
+            socket_send_line("g_pos",   sock) textmsg("log ", socket_read_line(sock))
+            socket_send_line("g_pos",   sock) textmsg("log ", socket_read_line(sock))
+            socket_send_line("g_pos",   sock) textmsg("log ", socket_read_line(sock))
+            socket_send_line("g_pos",   sock) textmsg("log ", socket_read_line(sock))
+            socket_send_line("g_pos",   sock) textmsg("log ", socket_read_line(sock))
+            socket_send_line("g_pos",   sock) textmsg("log ", socket_read_line(sock))
+            socket_send_line("g_pos",   sock) textmsg("log ", socket_read_line(sock))
+            socket_send_line("g_pos",   sock) textmsg("log ", socket_read_line(sock))
+            socket_send_line("g_pos",   sock) textmsg("log ", socket_read_line(sock))
+            socket_send_line("g_pos",   sock) textmsg("log ", socket_read_line(sock))
+            socket_send_line("g_pos",   sock) textmsg("log ", socket_read_line(sock))
+            socket_send_line("g_pos",   sock) textmsg("log ", socket_read_line(sock))
+            socket_close(sock)
+        end
+    '
+}
+
+note '
     8-bot reference run
 '
-function to-gripper {
+function analog-to-gripper {
     o11='"log (1 1) home / close"'
     o10='"log (1 0) open portrait"'
     o01='"log (0 1) open landscape"'
@@ -352,42 +391,42 @@ function to-gripper {
 note '
     gripper status
 '
-function gripper-status {
+function analog-gripper-status {
     to-gripper 'status()'
 }
 
 note '
     gripper open wide (landscape)
 '
-function gripper-open-wide {
+function analog-gripper-open-wide {
     to-gripper 'open_landscape()'
 }
 
 note '
     gripper open (portrait)
 '
-function gripper-open {
+function analog-gripper-open {
     to-gripper 'open_portrait()'
 }
 
 note '
     gripper close
 '
-function gripper-close {
+function analog-gripper-close {
     to-gripper 'close()'
 }
 
 note '
     gripper landscape
 '
-function gripper-power-off {
+function analog-gripper-power-off {
     to-gripper 'power_off()'
 }
 
 note '
     gripper home (reference run)
 '
-function gripper-home {
+function analog-gripper-home {
     to-gripper 'home()'
 }
 

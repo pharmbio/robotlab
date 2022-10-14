@@ -33,7 +33,7 @@ for c in runtime.configs:
 else:
     raise ValueError('Start with one of ' + ', '.join('--' + c.name for c in runtime.configs))
 
-print(f'Running with {config.name=}')
+print(f'Running with {config.name=}', config)
 
 polled_info: dict[str, list[float]] = {}
 
@@ -560,7 +560,7 @@ def index() -> Iterator[Tag | dict[str, str]]:
 
 def main():
     host = '10.10.0.55'
-    if config.name == 'dry-run':
+    if config.name in ('dry-run', 'forward'):
         host = 'localhost'
     serve.run(
         port=5000,

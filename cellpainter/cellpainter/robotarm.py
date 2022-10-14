@@ -195,7 +195,8 @@ class Robotarm:
             data = self.sock.recv(4096)
             for m in re.findall(rb'[\x20-\x7e]*(?:log|program|assert|\w+exception|error|\w+_\w+:)[\x20-\x7e]*', data, re.IGNORECASE):
                 m = m.decode()
-                self.quiet or print(f'{m = }')
+                # self.quiet or print(f'{m = }')
+                print(f'{m = }')
                 if 'panic' in m:
                     self.sock.sendall('textmsg("panic stop")\n'.encode())
                     raise RuntimeError(m)
