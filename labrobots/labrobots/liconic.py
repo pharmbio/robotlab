@@ -1,6 +1,6 @@
 from __future__ import annotations
 import socket
-from dataclasses import dataclass
+from dataclasses import *
 from typing import *
 
 from .machine import Machine

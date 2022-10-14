@@ -15,7 +15,7 @@ from .commands import Command
 from . import execute
 from . import commands as cmds
 
-from dataclasses import dataclass
+from dataclasses import *
 from datetime import datetime, timedelta
 from functools import lru_cache
 from pprint import pp

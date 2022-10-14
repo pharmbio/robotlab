@@ -1,5 +1,5 @@
 from __future__ import annotations
-from dataclasses import dataclass
+from dataclasses import *
 from types import FunctionType, CellType, MethodType, CodeType
 from typing import *
 import marshal

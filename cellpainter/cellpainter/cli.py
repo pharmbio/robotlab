@@ -10,7 +10,7 @@ import shlex
 import re
 
 from datetime import timedelta
-from dataclasses import dataclass, replace
+from dataclasses import *
 
 from . import commands
 from . import make_uml

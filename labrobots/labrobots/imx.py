@@ -2,7 +2,7 @@ from typing import *
 import os
 from serial import Serial # type: ignore
 from .machine import Machine
-from dataclasses import dataclass
+from dataclasses import *
 
 # from ExternalControlProtocolRevC.pdf
 ErrorCodes = {

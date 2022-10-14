@@ -1,4 +1,4 @@
-from dataclasses import dataclass, asdict
+from dataclasses import *
 from typing import *
 
 import labrobots

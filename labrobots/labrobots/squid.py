@@ -1,5 +1,5 @@
 from .machine import Machine
-from dataclasses import dataclass
+from dataclasses import *
 
 @dataclass
 class Squid(Machine):

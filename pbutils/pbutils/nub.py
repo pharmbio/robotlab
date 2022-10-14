@@ -1,5 +1,5 @@
 from __future__ import annotations
-from dataclasses import is_dataclass, fields, MISSING
+from dataclasses import *
 from typing import *
 
 def asdict_shallow(x: Any) -> dict[str, Any]:

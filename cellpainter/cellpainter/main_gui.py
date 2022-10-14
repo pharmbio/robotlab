@@ -7,7 +7,7 @@ import viable as V
 from viable.provenance import Int, Str, Bool
 
 from collections import *
-from dataclasses import dataclass, replace
+from dataclasses import *
 from datetime import datetime, timedelta
 from functools import lru_cache
 

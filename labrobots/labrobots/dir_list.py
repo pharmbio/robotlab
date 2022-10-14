@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import *
 import typing_extensions as tx
 from .machine import Machine
-from dataclasses import dataclass
+from dataclasses import *
 
 class PathInfo(tx.TypedDict):
     '''

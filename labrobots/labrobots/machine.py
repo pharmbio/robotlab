@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
-from dataclasses import dataclass, field, Field, fields
-from dataclasses import dataclass, field, replace
+from dataclasses import *
 from subprocess import run, check_output
 from threading import Thread, Lock
 from typing_extensions import Self

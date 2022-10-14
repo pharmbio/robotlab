@@ -1,6 +1,6 @@
 from typing import *
 from types import ModuleType
-from dataclasses import is_dataclass
+from dataclasses import *
 import inspect
 import abc
 import os

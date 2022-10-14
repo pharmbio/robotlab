@@ -1,5 +1,5 @@
 from typing import *
-from dataclasses import dataclass, field
+from dataclasses import *
 
 import os
 import traceback

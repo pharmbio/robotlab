@@ -1,6 +1,6 @@
 from __future__ import annotations
 from typing import *
-from dataclasses import dataclass
+from dataclasses import *
 
 from .moves import HotelLocs
 

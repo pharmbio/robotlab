@@ -1,5 +1,5 @@
 from __future__ import annotations
-from dataclasses import dataclass
+from dataclasses import *
 from pbutils.args import arg, option
 
 from . import execute

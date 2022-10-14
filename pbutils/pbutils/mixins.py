@@ -1,7 +1,6 @@
 from __future__ import annotations
 from contextlib import contextmanager
-from dataclasses import dataclass, replace, field, fields
-from dataclasses import is_dataclass
+from dataclasses import *
 import apsw
 import textwrap
 

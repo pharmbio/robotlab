@@ -4,7 +4,7 @@ import typing
 
 import argparse
 
-from dataclasses import dataclass, field, fields, Field
+from dataclasses import *
 
 def doc_header(f: Any):
     if isinstance(f, str):

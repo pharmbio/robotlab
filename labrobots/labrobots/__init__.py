@@ -6,7 +6,7 @@ from .dir_list import DirList
 from .biotek import Biotek
 from .squid import Squid
 
-from dataclasses import dataclass
+from dataclasses import *
 
 LHC_CALLER_CLI_PATH = "C:\\Program Files (x86)\\BioTek\\Liquid Handling Control 2.22\\LHC_CallerCLI.exe"
 LHC_PROTOCOLS_ROOT = "C:\\ProgramData\\BioTek\\Liquid Handling Control 2.22\\Protocols\\"

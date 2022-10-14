@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import *
 from datetime import datetime
 from typing import *
 import time
