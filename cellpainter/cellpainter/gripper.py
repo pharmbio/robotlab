@@ -39,20 +39,22 @@ gripper_code = str('''
   def GripperMove(pos, soft=False):
     # compability with previous gripper where 255 means close.
     # other numbers we send to portrait
-    if pos == 255:
+    close = pos == 255
+    if close:
       GripperSend("~m_close", "Parameter successfully set")
     else:
       GripperSend("~m_p_op", "Parameter successfully set")
     end
 
     # wait for stabilization
-    p0 = GripperPos()
     while 1:
-      p1 = GripperPos()
-      if p0 != -1 and p0 == p1:
+      p = GripperPos()
+      if close and p <= 90:
         break
       end
-      p0 = p1
+      if not close and p >= 97:
+        break
+      end
     end
   end
 
