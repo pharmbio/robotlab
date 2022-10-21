@@ -23,7 +23,7 @@ from .freeze_function import FrozenFunction
 from .tags import *
 from .minifier import minify
 
-def is_true(x: str | bool | int):
+def is_true(x: str | bool | int | None):
     return str(x).lower() in 'true y yes 1'.split()
 
 @functools.cache
@@ -306,10 +306,10 @@ class Serve:
             print('Not using flask_compress:', str(e), file=sys.stderr)
 
         if is_true(os.environ.get('VIABLE_RUN', 'true')):
-            print('Running app...')
             HOST = os.environ.get('VIABLE_HOST', host)
             PORT = os.environ.get('VIABLE_PORT', port)
             PORT = int(PORT) if PORT else None
+            print(f'Running app on http://{HOST}:{PORT}')
             app.run(host=HOST, port=PORT, threaded=True)
 
     def suppress_flask_logging(self):

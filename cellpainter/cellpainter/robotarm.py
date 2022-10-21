@@ -11,7 +11,9 @@ from . import gripper
 
 prelude = '''
     # Set TCP so that RPY makes sense
-    set_tcp(p[0, 0, 0, -1.2092, 1.2092, 1.2092])
+    # set_tcp(p[0, 0, 0, -1.2092, 1.2092, 1.2092])
+    # set_tcp(p[0, 0, 0, 0, 0, 0])
+    set_tcp(p[0, 0, 0, 1.2092, 1.2092, -1.2092])
 
     set_gravity([0.0, 0.0, 9.82])
     set_payload(0.1)
@@ -116,9 +118,9 @@ def gripper_code(with_gripper: bool=False) -> str:
             EnsureRelPos()
             start_pos = read_output_integer_register(0)
             d = 14.0
-            GripperMove(255, soft=True)       MoveRel(0, 0,  d,       0, 0, 0)
-            Shake()                           MoveRel(0, 0, -d + 0.5, 0, 0, 0)
-            GripperMove(start_pos, soft=True) MoveRel(0, 0,     -0.5, 0, 0, 0)
+            GripperMove(255, soft=True)       MoveRel(0, 0,  d,        0, 0, 0)
+            Shake()                           MoveRel(0, 0, -d + 0.25, 0, 0, 0)
+            GripperMove(start_pos, soft=True) MoveRel(0, 0,     -0.25, 0, 0, 0)
         end
 
         def GripperCheck():

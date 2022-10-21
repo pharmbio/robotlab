@@ -1,28 +1,28 @@
-{"type":"Section","sections":["put"]}
-{"type":"MoveJoint","joints":[94.6,-111.3,93.2,18,94.6,-0.1],"name":"B neu"}
-{"type":"MoveLin","xyz":[197.8,-598.8,824.4],"rpy":[0,-4,90.1],"name":"B21 neu"}
-{"type":"MoveLin","xyz":[197.8,-598.8,800.1],"rpy":[0,-4,90.1],"name":"B21 pick"}
-{"type":"GripperMove","pos":255}
-{"type":"MoveLin","xyz":[197.8,-598.8,824.3],"rpy":[0,-4,90.1],"name":"B21 neu"}
-{"type":"MoveLin","xyz":[197.9,-397.8,824.4],"rpy":[0,-4,90.1],"name":"B neu"}
-{"type":"MoveLin","xyz":[607.3,-397.8,262.8],"rpy":[0,-4,90.1],"name":"incu neu"}
-{"type":"MoveLin","xyz":[607.2,-719,262.8],"rpy":[-0.8,-4,90.1],"name":"incu drop neu"}
-{"type":"MoveLin","xyz":[607.2,-719.1,233.5],"rpy":[-0.7,-4,90.1],"name":"incu drop"}
-{"type":"GripperMove","pos":88}
-{"type":"MoveLin","xyz":[607.3,-719,262.8],"rpy":[-0.7,-4,90.1],"name":"incu drop neu"}
-{"type":"MoveLin","xyz":[607.3,-397.8,262.8],"rpy":[0,-4,90.1],"name":"incu neu"}
-{"type":"MoveLin","xyz":[198.9,-421.3,809.5],"rpy":[0,0.1,90],"name":"B neu"}
-{"type":"Section","sections":["get"]}
-{"type":"MoveJoint","joints":[94.6,-111.3,93.2,18,94.6,-0.1],"name":"B neu"}
-{"type":"MoveLin","xyz":[607.8,-397.8,262.8],"rpy":[0,-4,90.1],"name":"incu neu"}
-{"type":"MoveLin","xyz":[607.8,-719.1,262.8],"rpy":[-0.6,-4,90.1],"name":"incu pick neu"}
-{"type":"MoveLin","xyz":[607.8,-719.1,233.8],"rpy":[-0.6,-4,90.1],"name":"incu pick"}
-{"type":"GripperMove","pos":255}
-{"type":"MoveLin","xyz":[607.8,-719.1,262.8],"rpy":[-0.6,-4,90.1],"name":"incu pick neu"}
-{"type":"MoveLin","xyz":[607.8,-397.8,262.8],"rpy":[0,-4,90.1],"name":"incu neu"}
-{"type":"MoveLin","xyz":[197.8,-397.8,824.4],"rpy":[0,-4,90.1],"name":"B neu"}
-{"type":"MoveLin","xyz":[197.7,-598.8,824.4],"rpy":[0,-4,90.1],"name":"B21 neu"}
-{"type":"MoveLin","xyz":[197.8,-598.8,801.8],"rpy":[0,-4,90.1],"name":"B21 drop"}
-{"type":"GripperMove","pos":88}
-{"type":"MoveLin","xyz":[197.8,-598.8,824.4],"rpy":[0,-4,90.1],"name":"B21 neu"}
-{"type":"MoveLin","xyz":[198.9,-421.3,809.5],"rpy":[0,0.1,90],"name":"B neu"}
+{"type": "Section", "sections": ["put"]}
+{"type": "MoveJoint", "joints": [94.6, -111.3, 93.2, 18, 94.6, -0.1], "name": "B neu"}
+{"type": "MoveLin", "xyz": [197.8, -598.8, 824.4], "rpy": [0, -4, 90.1], "name": "B21 neu"}
+{"type": "MoveLin", "xyz": [197.8, -598.8, 800.1], "rpy": [0, -4, 90.1], "name": "B21 pick"}
+{"type": "GripperMove", "pos": 255}
+{"type": "MoveLin", "xyz": [197.8, -598.8, 824.3], "rpy": [0, -4, 90.1], "name": "B21 neu"}
+{"type": "MoveLin", "xyz": [197.9, -397.8, 824.4], "rpy": [0, -4, 90.1], "name": "B neu"}
+{"type": "MoveLin", "xyz": [607.3, -397.8, 262.8], "rpy": [0, -4, 90.1], "name": "incu neu"}
+{"type": "MoveLin", "xyz": [607.2, -719, 262.8], "rpy": [-0.8, -4, 90.1], "name": "incu drop neu"}
+{"type": "MoveLin", "xyz": [607.2, -719.1, 233.5], "rpy": [-0.7, -4, 90.1], "name": "incu drop"}
+{"type": "GripperMove", "pos": 88}
+{"type": "MoveLin", "xyz": [607.3, -719, 262.8], "rpy": [-0.7, -4, 90.1], "name": "incu drop neu"}
+{"type": "MoveLin", "xyz": [607.3, -397.8, 262.8], "rpy": [0, -4, 90.1], "name": "incu neu"}
+{"type": "MoveLin", "xyz": [198.9, -421.3, 809.5], "rpy": [0, 0.1, 90], "name": "B neu"}
+{"type": "Section", "sections": ["get"]}
+{"type": "MoveJoint", "joints": [93.1, -108.9, 90.1, 18.7, 91.6, 180.7], "name": "B neu"}
+{"type": "MoveLin", "xyz": [611.1, -448.4, 262.8], "rpy": [0.0, 0.0, 90.1], "name": "incu neu"}
+{"type": "MoveLin", "xyz": [611.2, -724, 262.8], "rpy": [0.0, 0.0, 90.1], "name": "incu pick neu"}
+{"type": "MoveLin", "xyz": [611.2, -724, 244.6], "rpy": [0.0, 0.0, 90.1], "name": "incu pick"}
+{"type": "GripperMove", "pos": 255}
+{"type": "MoveLin", "xyz": [611.2, -724, 262.8], "rpy": [0.0, 0.0, 90.1], "name": "incu pick neu"}
+{"type": "MoveLin", "xyz": [611.2, -448.4, 262.8], "rpy": [0.0, 0.0, 90.1], "name": "incu neu"}
+{"type": "MoveLin", "xyz": [198.9, -448.5, 824.2], "rpy": [0.0, 0.0, 90.5], "name": "B neu"}
+{"type": "MoveLin", "xyz": [198.9, -604.3, 824.2], "rpy": [0.0, 0.0, 90.5], "name": "B21 neu"}
+{"type": "MoveLin", "xyz": [198.9, -604.3, 812.3], "rpy": [0.0, 0.0, 90.5], "name": "B21 drop"}
+{"type": "GripperMove", "pos": 88}
+{"type": "MoveLin", "xyz": [198.9, -604.3, 824.2], "rpy": [0.0, 0.0, 90.5], "name": "B21 neu"}
+{"type": "MoveLin", "xyz": [198.9, -448.5, 824.3], "rpy": [0.0, 0.0, 90.5], "name": "B neu"}

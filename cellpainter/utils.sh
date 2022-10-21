@@ -50,6 +50,7 @@ note '
     which the robot controller executes.
 '
 function send {
+    set -x
     python -c 'import textwrap, sys; print(textwrap.dedent(sys.argv[1]))' "$1" |
         timeout "$timeout" nc $ROBOT_IP $ROBOT_PORT |
         grep --text --only-matching --ignore-case --perl-regexp \
@@ -229,7 +230,7 @@ note '
 function forward-robot-then-entr-gui {
     forward-robot-to-localhost &
     sleep 1
-    ls *py | entr -c -r python gui.py "$@" --forward
+    ls *py | entr -c -r cellpainter-moves "$@" --forward
 }
 
 note '
@@ -237,7 +238,7 @@ note '
 '
 function simulator-entr-gui {
     sleep 1
-    ls *py | entr -c -r python gui.py "$@" --simulator
+    ls *py | entr -c -r cellpainter-moves "$@" --simulator
 }
 
 note '
@@ -251,33 +252,55 @@ function labhand-test {
             socket_open("127.0.0.1", 54321, sock)
             textmsg("log opened")
             socket_send_line("g_pos",   sock) textmsg("log ", socket_read_line(sock))
-            socket_send_line("m_l_op",  sock) textmsg("log ", socket_read_line(sock))
+            socket_send_line("g_pos",   sock) textmsg("log ", socket_read_line(sock))
+            socket_send_line("s_p_op 97",  sock) textmsg("log ", socket_read_line(sock))
+            sleep(0.2)
+            socket_send_line("m_p_op",  sock) textmsg("log ", socket_read_line(sock))
             socket_send_line("g_pos",   sock) textmsg("log ", socket_read_line(sock))
             socket_send_line("g_pos",   sock) textmsg("log ", socket_read_line(sock))
-            socket_send_line("g_pos",   sock) textmsg("log ", socket_read_line(sock))
-            socket_send_line("g_pos",   sock) textmsg("log ", socket_read_line(sock))
-            socket_send_line("g_pos",   sock) textmsg("log ", socket_read_line(sock))
-            socket_send_line("g_pos",   sock) textmsg("log ", socket_read_line(sock))
-            socket_send_line("g_pos",   sock) textmsg("log ", socket_read_line(sock))
-            socket_send_line("g_pos",   sock) textmsg("log ", socket_read_line(sock))
-            socket_send_line("g_pos",   sock) textmsg("log ", socket_read_line(sock))
-            socket_send_line("m_close", sock) textmsg("log ", socket_read_line(sock))
-            socket_send_line("g_pos",   sock) textmsg("log ", socket_read_line(sock))
-            socket_send_line("g_pos",   sock) textmsg("log ", socket_read_line(sock))
-            socket_send_line("g_pos",   sock) textmsg("log ", socket_read_line(sock))
-            socket_send_line("g_pos",   sock) textmsg("log ", socket_read_line(sock))
-            socket_send_line("g_pos",   sock) textmsg("log ", socket_read_line(sock))
-            socket_send_line("g_pos",   sock) textmsg("log ", socket_read_line(sock))
-            socket_send_line("g_pos",   sock) textmsg("log ", socket_read_line(sock))
-            socket_send_line("g_pos",   sock) textmsg("log ", socket_read_line(sock))
-            socket_send_line("g_pos",   sock) textmsg("log ", socket_read_line(sock))
-            socket_send_line("g_pos",   sock) textmsg("log ", socket_read_line(sock))
+            # socket_send_line("g_pos",   sock) textmsg("log ", socket_read_line(sock))
+            # socket_send_line("g_pos",   sock) textmsg("log ", socket_read_line(sock))
+            # socket_send_line("g_pos",   sock) textmsg("log ", socket_read_line(sock))
+            # socket_send_line("g_pos",   sock) textmsg("log ", socket_read_line(sock))
+            # socket_send_line("g_pos",   sock) textmsg("log ", socket_read_line(sock))
+            # socket_send_line("g_pos",   sock) textmsg("log ", socket_read_line(sock))
+            # socket_send_line("g_pos",   sock) textmsg("log ", socket_read_line(sock))
+            # socket_send_line("m_close", sock) textmsg("log ", socket_read_line(sock))
+            # socket_send_line("g_pos",   sock) textmsg("log ", socket_read_line(sock))
+            # socket_send_line("g_pos",   sock) textmsg("log ", socket_read_line(sock))
+            # socket_send_line("g_pos",   sock) textmsg("log ", socket_read_line(sock))
+            # socket_send_line("g_pos",   sock) textmsg("log ", socket_read_line(sock))
+            # socket_send_line("g_pos",   sock) textmsg("log ", socket_read_line(sock))
+            # socket_send_line("g_pos",   sock) textmsg("log ", socket_read_line(sock))
+            # socket_send_line("g_pos",   sock) textmsg("log ", socket_read_line(sock))
+            # socket_send_line("g_pos",   sock) textmsg("log ", socket_read_line(sock))
+            # socket_send_line("g_pos",   sock) textmsg("log ", socket_read_line(sock))
+            # socket_send_line("g_pos",   sock) textmsg("log ", socket_read_line(sock))
+            # socket_send_line("g_pos",   sock) textmsg("log ", socket_read_line(sock))
+            # socket_send_line("g_pos",   sock) textmsg("log ", socket_read_line(sock))
+            socket_close(sock)
+        end
+    '
+}
+
+note '
+    Home the LabHand 8-bot gripper on TCP port 54321. Use the rs485 urcap.
+'
+function labhand-home {
+    send '
+        def main():
+            sock = "1"
+            textmsg("log opening")
+            socket_open("127.0.0.1", 54321, sock)
+            textmsg("log opened")
+            socket_send_line("home",    sock) textmsg("log ", socket_read_line(sock))
             socket_send_line("g_pos",   sock) textmsg("log ", socket_read_line(sock))
             socket_send_line("g_pos",   sock) textmsg("log ", socket_read_line(sock))
             socket_close(sock)
         end
     '
 }
+
 
 note '
     8-bot reference run
