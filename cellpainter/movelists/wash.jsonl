@@ -7,28 +7,25 @@
 {"type": "MoveLin", "xyz": [198.7, -421.7, 824.2], "rpy": [0.0, 0.0, 90], "name": "B neu"}
 {"type": "MoveLin", "xyz": [-298, -400.9, 674.8], "rpy": [-0.2, 1, -2.3], "name": "B safe"}
 {"type": "MoveLin", "xyz": [-299, 197.5, 455.3], "rpy": [0.0, 0.0, -0.8], "name": "wash above"}
-{"type": "MoveLin", "xyz": [-299, 197.5, 205.3], "rpy": [0.0, 0.0, -0.8], "name": "wash neu", "slow": true}
+{"type": "MoveLin", "xyz": [-299, 197.5, 205.3], "rpy": [0.0, 0.0, -0.8], "name": "wash neu"}
 {"type": "MoveLin", "xyz": [-299, 197.5, 159.3], "rpy": [0.0, 0.0, -0.8], "name": "wash drop", "slow": true}
 {"type": "GripperMove", "pos": 89}
-{"type": "MoveLin", "xyz": [-299, 197.5, 205.3], "rpy": [0.0, 0.0, -0.8], "name": "wash neu", "slow": true}
-{"type": "MoveLin", "xyz": [-299, 197.5, 455.3], "rpy": [0.0, 0.0, -0.8], "name": "wash above", "slow": true}
+{"type": "MoveLin", "xyz": [-299, 197.5, 205.3], "rpy": [0.0, 0.0, -0.8], "name": "wash neu"}
+{"type": "MoveLin", "xyz": [-299, 197.5, 455.3], "rpy": [0.0, 0.0, -0.8], "name": "wash above"}
 {"type": "MoveLin", "xyz": [-298, -400.9, 674.8], "rpy": [-0.2, 1, -2.3], "name": "B safe"}
 {"type": "MoveLin", "xyz": [198.9, -421.6, 824.4], "rpy": [0.0, 0.0, 90], "name": "B neu"}
 {"type": "Section", "sections": ["get"]}
-{"type": "MoveJoint", "joints": [94.6, -111.3, 93.2, 18, 94.6, -0.1], "name": "B neu"}
-{"type": "MoveJoint", "joints": [69.7, -114.5, 95.1, 19.4, 104.6, -0.1], "name": "B safe"}
-{"type": "MoveJoint", "joints": [-96.4, -126, 147.5, -23.1, -5.2, 1.6], "name": "wash above"}
-{"type": "MoveLin", "xyz": [-269.6, 195.8, 347.7], "rpy": [0, 0, -1.2], "name": "wash above", "slow": true}
-{"type": "MoveLin", "xyz": [-269.5, 196, 148.4], "rpy": [0, 0, -1.2], "name": "wash neu", "slow": true}
-{"type": "MoveLin", "xyz": [-269.5, 196, 131.9], "rpy": [0, 0, -1.2], "name": "wash pick", "slow": true}
+{"type": "MoveJoint", "joints": [94.6, -110.8, 91.3, 19.5, 94.6, 179.9], "name": "B neu"}
+{"type": "MoveLin", "xyz": [-298, -400.9, 674.8], "rpy": [-0.2, 1, -2.3], "name": "B safe"}
+{"type": "MoveLin", "xyz": [-299, 197.5, 455.3], "rpy": [0.0, 0.0, -0.8], "name": "wash above"}
+{"type": "MoveLin", "xyz": [-299, 197.5, 205.3], "rpy": [0.0, 0.0, -0.8], "name": "wash neu"}
+{"type": "MoveLin", "xyz": [-299, 197.5, 159.3], "rpy": [0.0, 0.0, -0.8], "name": "wash pick", "slow": true}
 {"type": "GripperMove", "pos": 255}
-{"type": "MoveLin", "xyz": [-269.6, 196, 348], "rpy": [0, 0, -1.2], "name": "wash above", "slow": true}
-{"type": "MoveJoint", "joints": [-96.4, -126, 147.5, -23.1, -5.2, 1.6], "name": "wash above"}
-{"type": "MoveJoint", "joints": [69.7, -114.5, 95.1, 19.4, 104.6, -0.1], "name": "B safe"}
-{"type": "MoveLin", "xyz": [-2, -422.2, 808.2], "rpy": [0, 0, 55.1], "name": "B safe"}
-{"type": "MoveLin", "xyz": [198.7, -421.7, 878.6], "rpy": [0, 0, 90], "name": "B neu"}
-{"type": "MoveLin", "xyz": [198.7, -574.6, 878.6], "rpy": [0, 0, 90], "name": "B21 neu"}
-{"type": "MoveLin", "xyz": [198.7, -574.6, 790.1], "rpy": [0, 0, 90], "name": "B21 drop"}
+{"type": "MoveLin", "xyz": [-299, 197.5, 455.3], "rpy": [0.0, 0.0, -0.8], "name": "wash above"}
+{"type": "MoveLin", "xyz": [-298, -400.9, 674.8], "rpy": [-0.2, 1, -2.3], "name": "B safe"}
+{"type": "MoveLin", "xyz": [198.7, -421.7, 824.2], "rpy": [0.0, 0.0, 90], "name": "B neu"}
+{"type": "MoveLin", "xyz": [198.9, -604.3, 824.2], "rpy": [0.0, 0.0, 90.5], "name": "B21 neu"}
+{"type": "MoveLin", "xyz": [198.9, -604.3, 816.6], "rpy": [0.0, 0.0, 90.5], "name": "B21 drop"}
 {"type": "GripperMove", "pos": 89}
-{"type": "MoveLin", "xyz": [198.7, -574.6, 809.2], "rpy": [0, 0, 90], "name": "B21 neu"}
-{"type": "MoveLin", "xyz": [198.7, -421.7, 809.1], "rpy": [0, 0, 90], "name": "B neu"}
+{"type": "MoveLin", "xyz": [198.9, -604.3, 824.2], "rpy": [0.0, 0.0, 90.5], "name": "B21 neu"}
+{"type": "MoveLin", "xyz": [198.9, -421.6, 824.4], "rpy": [0.0, 0.0, 90], "name": "B neu"}
