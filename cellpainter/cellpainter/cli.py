@@ -59,6 +59,8 @@ class Args:
     protocol_dir:              str  = arg(default='automation_v5.0', help='Directory to read biotek .LHC files from on the windows server (relative to the protocol root).')
     force_update_protocol_dir: bool = arg(help='Update the protcol dir based on the windows server even if config is not --live.')
 
+    timing_matrix:             bool = arg(help='Print a timing matrix.')
+
     small_protocol:            str  = arg(
         enum=[
             option(name, name, help=p.doc)
@@ -118,6 +120,37 @@ def main_with_args(args: Args, parser: argparse.ArgumentParser | None=None):
     )
 
     print('config =', show(config))
+
+    if args.timing_matrix:
+        out: list[list[Any]] = []
+        for incu in ['1200', '1260']:
+            for N in [x + 1 for x in range(10)]:
+                for two_final_washes in [False, True]:
+                    for interleave in [False, True]:
+                        args2 = replace(args, interleave=interleave, two_final_washes=two_final_washes, incu=incu, cell_paint=str(N))
+                        p = args_to_program(args2)
+                        if p:
+                            try:
+                                res = execute_program(
+                                    config_lookup('dry-run').replace(log_to_file=False),
+                                    p.program, {}, for_visualizer=True
+                                )
+                                T = pbutils.pp_secs(res.max_t())
+                            except:
+                                T = float('NaN')
+                            print(f'{N=}, {interleave=}, {two_final_washes=}, {incu=}, {T=}')
+                            out += [[
+                                N,
+                                'interleave' if interleave else 'linear',
+                                '2*3X' if two_final_washes else '5X',
+                                incu,
+                                T
+                            ]]
+        print()
+        print(*'N interleave final incu T'.split(), sep='\t')
+        for line in out:
+            print(*line, sep='\t')
+        quit()
 
     if args.force_update_protocol_dir or config.name == 'live':
         protocol_paths.update_protocol_dir(args.protocol_dir)
