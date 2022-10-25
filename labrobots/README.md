@@ -32,7 +32,9 @@ For simplicity, we run everything on the same windows machine.
 
 ## Installation
 
-Install git to clone the repo. Clone with the access token from https://github.com/settings/tokens?type=beta
+Install git to clone the repo.
+Clone with the access token from https://github.com/settings/tokens?type=beta
+A copy is put in our password managing system.
 
 ```
 git clone https://github_pat_<TOKEN>/pharmbio/robotlab.git
