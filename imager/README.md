@@ -22,7 +22,7 @@ ip           | computer
 
 ## IMX notes
 
-These are in the labrobots repo: https://github.com/pharmbio/robotlab-labrobots).
+These are in the [labrobots directory](labrobots/README.md).
 
 ## PreciseFlex notes
 

@@ -6,13 +6,6 @@ It consists of three packages:
 <table>
 
 <tr>
-<th>labrobots</th>
-<td>
-Remote control of non-robotarm robots: liquid handling machines from BioTek, incubator and fridge from Liconic, microscope and barcode scanner.
-</td>
-</tr>
-
-<tr>
 <th>cellpainter</th>
 <td>
 Cell painter program and control of the Universal Robot (UR) robotarm.
@@ -23,6 +16,13 @@ Cell painter program and control of the Universal Robot (UR) robotarm.
 <th>imager</th>
 <td>
 Microscope imager program and control of the PreciseFlex (PF) robotarm.
+</td>
+</tr>
+
+<tr>
+<th>labrobots</th>
+<td>
+Remote control of non-robotarm robots: liquid handling machines from BioTek, incubator and fridge from Liconic, microscope and barcode scanner.
 </td>
 </tr>
 
@@ -86,7 +86,7 @@ The BioTek control code require a C# program that needs to be separately built.
 
 ## Installation
 
-On the ubuntu NUC that will run all schedulers, install python >= 3.10 and then:
+On the ubuntu NUC that will run the guis and schedulers, install python >= 3.10 and then:
 
 ```
 ./foreach.sh pip install --editable .
@@ -97,4 +97,15 @@ On each windows machine that runs labrobots, install python >= 3.8 and:
 ```
 pip install --editable labrobots
 ```
+
+Further instructions are in under [`labrobots/`](labrobots/README.md)
+
+## Test
+
+Github actions is set up, check [`.github/workflows/test.yml`](.github/workflows/test.yml).
+One way to run this locally is to use [`act`](https://github.com/nektos/act).
+
+## Network setup
+
+The node names and IP-addresses are specified in [`labrobots/labrobots/__init__.py`](labrobots/labrobots/__init__.py).
 

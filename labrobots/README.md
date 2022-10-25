@@ -1,10 +1,10 @@
-# robotlab-labrobots
+# labrobots
 
 Web server to our LiCONiC incubator, LiCONiC fridge, and BioTek washer,
 BioTek dispenser, ImageXpress microscope, and Honeywell barcode scanner.
 
-This is used by the robot cellpainter, https://github.com/pharmbio/robot-cellpainter,
-which is part of the AROS system, Open Automated Robotic System for Biological Laboratories,
+This is used by the robot cellpainter and the robot imager.
+This is part of the AROS system, Open Automated Robotic System for Biological Laboratories,
 https://github.com/pharmbio/aros.
 
 <table>
@@ -32,14 +32,23 @@ For simplicity, we run everything on the same windows machine.
 
 ## Installation
 
-Install Python >= 3.10 on Windows.
+Install git to clone the repo. Clone with the access token from https://github.com/settings/tokens?type=beta
+
+```
+git clone https://github_pat_<TOKEN>/pharmbio/robotlab.git
+```
+
+Install Python >= 3.8 on Windows.
 Don't use the App-Store python, use the one from https://python.org.
-Add executables installed by pip to your path.
-Then clone this repo and run:
+Make sure executables installed by pip are added to your path.
+
+Now install using pip:
 
 ```
 pip install --editable .
 ```
+
+No need to use the foreach script, this repo has no internal dependencies.
 
 ## Configure the Windows Firewall
 
@@ -48,15 +57,55 @@ either all ports or 5050.
 
 <img src=images/firewall.png>
 
+## Test running
+
+Run:
+
+```
+labrobots --test
+```
+
+or on windows:
+
+```
+labrobots.exe --test
+```
+
+The output should look like this:
+
+```
+$ labrobots --test
+node_name: example
+machines:
+    echo: Echo()
+    git: Git()
+    dir_list: DirList(root_dir='.', ext='py', enable_hts_mod=True)
+ * Serving Flask app 'labrobots.machine' (lazy loading)
+ * Environment: production
+   WARNING: This is a development server. Do not use it in a production deployment.
+   Use a production WSGI server instead.
+ * Debug mode: off
+ * Running on http://127.0.0.1:5050/ (Press CTRL+C to quit)
+```
+
+You can now curl it:
+
+```
+$ curl localhost:5050/echo/echo/banana/split?servings=3
+{
+  "value": "echo ('banana', 'split') {'servings': 3}"
+}
+```
+
 ## Running
 
 Run:
 
 ```
-labrobots-server.exe
+labrobots.exe
 ```
 
-The output should look like:
+The output should look like this (on the WINDOWS-GBG computer):
 
 ```
 C:\pharmbio\robotlab-labrobots>labrobots-server.exe
@@ -76,51 +125,54 @@ C:\pharmbio\robotlab-labrobots>labrobots-server.exe
 You can now curl it:
 
 ```
-dan@NUC-robotlab:~$ curl 10.10.0.56:5050/example/flup
+dan@NUC-robotlab:~$ curl 10.10.0.97:5050
 {
-  "lines": [
-    "message flup",
-    "success"
-  ],
-  "success": true
+  "http://10.10.0.97:5050/echo": "Echo()",
+  "http://10.10.0.97:5050/git": "Git()",
+  "http://10.10.0.97:5050/fridge": "STX()",
+  "http://10.10.0.97:5050/barcode": "BarcodeReader(last_seen={'barcode': '', 'date': ''})",
+  "http://10.10.0.97:5050/imx": "IMX()"
 }
-dan@NUC-robotlab:~$ curl 10.10.0.56:5050/wash/TestCommunications
+dan@NUC-robotlab:~$ curl 10.10.0.97:5050/imx
 {
-  "lines": [
-    "status 1",
-    "message 1 - eReady - the run completed successfully: stop polling for status",
-    "success"
+  "http://10.10.0.97:5050/imx/send": [
+    "send(self, cmd: str, *args: str)"
   ],
-  "success": true
+  "http://10.10.0.97:5050/imx/online": [
+    "online(self)"
+  ],
+  "http://10.10.0.97:5050/imx/status": [
+    "status(self)"
+  ],
+  "http://10.10.0.97:5050/imx/goto": [
+    "goto(self, pos: str)"
+  ],
+  "http://10.10.0.97:5050/imx/run": [
+    "run(self, plate_id: str, hts_file: str)"
+  ]
 }
-dan@NUC-robotlab:~$ curl 10.10.0.56:5050/disp/TestCommunications
+dan@NUC-robotlab:~$ curl 10.10.0.97:5050/imx/online
 {
-  "lines": [
-    "status 1",
-    "message 1 - eReady - the run completed successfully: stop polling for status",
-    "success"
-  ],
-  "success": true
+  "value": "20864,OK,"
 }
 ```
 
 ## Directory listing endpoint
 
-There is a directory listing endpoint, `dir_list`, which returns the information
-about LHC files that are grandchildren of the protocols root. The information
-is path, last modified date and sha256 hexdigest:
+There is a directory listing endpoint, `dir_list`.
+The first use of this was to to return information about BioTek LHC files that are grandchildren of the protocols root.
+Later it was also used to list ImageXpress HTS files.
+The result has looked like this:
 
 ```
 dan@NUC-robotlab:~$ curl -s 10.10.0.56:5050/dir_list | grep 'automation_v4.0..2' -B1 -A3
     {
       "path": "automation_v4.0/2.0_D_SB_PRIME_Mito.LHC",
       "modified": "2022-01-18 14:01:34",
-      "sha256": "bbf0db9aa30de9ec7b9a8d9e102a3eca7051b7605e108feb01c315bcee734de0"
     },
     {
       "path": "automation_v4.0/2.1_D_SB_30ul_Mito.LHC",
       "modified": "2022-01-18 14:06:01",
-      "sha256": "1959451ea7477e170311281ac0981c4eff8d628897dff16cf31d1e8c1b361ca1"
     },
 ```
 
@@ -132,17 +184,14 @@ dan@NUC-robotlab:~$ curl -s 10.10.0.56:5050/dir_list | grep '"value"' -A15
     {
       "path": "automation/0_W_D_PRIME.LHC",
       "modified": "2021-05-31 14:02:48",
-      "sha256": "84fbff41b146d44488d9afe95145f20343d716dd81a6b17c843dedc18f199d55"
     },
     {
       "path": "automation/1_D_P1_30ul_mito.LHC",
       "modified": "2021-05-06 10:35:57",
-      "sha256": "40c7098eb73e6590d017baafbabf12dfe37e6b0711b59eb2125a60cd36f8bdfd"
     },
     {
       "path": "automation/1_D_P1_PRIME.LHC",
       "modified": "2021-05-31 13:59:10",
-      "sha256": "6ebc011245938a2723ad343c71140481e46d5bb098a7afa714abf5d8b4c2e20b"
     },
 ```
 
