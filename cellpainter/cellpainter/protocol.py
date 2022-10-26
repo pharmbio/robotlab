@@ -498,6 +498,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
             plate_with_corrected_lid_pos = replace(plate, lid_loc=lid_loc)
             ix = i + 1
             plate_desc = f'plate {plate.id}'
+            first_plate_desc = f'plate {batch[0].id}'
 
             incu_delay: list[Command]
             wash_delay: list[Command]
@@ -510,7 +511,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                 ]
             else:
                 incu_delay = [
-                    WaitForCheckpoint(f'{plate_desc} incubation {ix-1}') + f'{plate_desc} incu delay {ix}'
+                    WaitForCheckpoint(f'{first_plate_desc} incubation {ix-1}') + f'{plate_desc} incu delay {ix}'
                 ]
                 wash_delay = [
                     Early(2),
@@ -588,10 +589,9 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
             if p.disp[i] or disp_prime:
                 pre_disp_is_long = disp_prime or p.disp_prep[i]
                 disp_prep = Seq(
-                    Checkpoint(f'{plate_desc} pre disp {ix} start wait'),
                     Fork(
                         Seq(
-                            WaitForCheckpoint(f'{plate_desc} pre disp {ix} start wait') + f'{plate_desc} pre disp {ix} delay',
+                            WaitForCheckpoint(f'{plate_desc} incubation {ix-1}' if step_index > 0 else f'batch {batch_index}') + f'{plate_desc} pre disp {ix} delay',
                             BiotekValidateThenRun('disp', disp_prime).add(Metadata(plate_id='')) if disp_prime else Idle(),
                             BiotekValidateThenRun('disp', p.disp_prep[i]).add(Metadata(predispense=True)) if p.disp_prep[i] else Idle(),
                             DispCmd(p.disp[i], cmd='Validate') if p.disp[i] else Idle(),
