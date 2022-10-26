@@ -759,6 +759,16 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
         }
     ''' + inverted_inputs_css
 
+
+    if path == 'latest':
+        logs = [
+            (log, log.stat().st_mtime)
+            for log in Path('logs').glob('*.jsonl')
+        ]
+        logfile, _ = max(logs, key=lambda ab: ab[1], default=(None, None))
+        if logfile:
+            path = str(logfile)
+
     m = store.cookie
     if not path:
         options = {
