@@ -34,6 +34,7 @@ class Metadata:
     log_sleep: bool = False
 
     est:        float | None = None
+    sim_delay:  float | None = None
     sleep_secs: float | None = None
 
     gui_force_show: bool = False

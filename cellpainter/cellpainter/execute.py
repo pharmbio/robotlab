@@ -27,6 +27,7 @@ from .commands import (
     Info,
     Meta,
     RobotarmCmd,
+    Seq,
     Seq_,
     WaitForCheckpoint,
     WaitForResource,
@@ -97,7 +98,12 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
         case RobotarmCmd():
             with runtime.timeit(entry):
                 if runtime.config.robotarm_env.mode == 'noop':
-                    runtime.sleep(estimate(cmd), entry.add(Metadata(dry_run_sleep=True)))
+                    if metadata.sim_delay:
+                        print(metadata.sim_delay)
+                    runtime.sleep(
+                        estimate(cmd) + (metadata.sim_delay or 0),
+                        entry.add(Metadata(dry_run_sleep=True))
+                    )
                 else:
                     movelist = MoveList(movelists[cmd.program_name])
                     arm = runtime.get_robotarm(include_gripper=movelist.has_gripper())
@@ -187,7 +193,7 @@ def check_correspondence(program: Command, est_entries: Log, expected_ends: dict
     if mismatches or not matches:
         print(f'{matches=} {mismatches=} {len(expected_ends)=}')
 
-def execute_program(config: RuntimeConfig, program: Command, metadata: dict[str, str], for_visualizer: bool = False) -> Log:
+def execute_program(config: RuntimeConfig, program: Command, metadata: dict[str, str], for_visualizer: bool = False, sim_delays: dict[str, float] = {}) -> Log:
     program = program.remove_noops()
     resume_config = config.resume_config
     if not resume_config:
@@ -198,6 +204,13 @@ def execute_program(config: RuntimeConfig, program: Command, metadata: dict[str,
             program, expected_ends = constraints.optimize(program)
     else:
         expected_ends = {}
+
+    def AddSimDelays(cmd: commands.Command) -> commands.Command:
+        if isinstance(cmd, commands.Meta):
+            if sim_delay := sim_delays.get(cmd.metadata.id):
+                return cmd.add(commands.Metadata(sim_delay=sim_delay))
+        return cmd
+    program = program.transform(AddSimDelays)
 
     with pbutils.timeit('estimates'):
         with make_runtime(dry_run.replace(log_to_file=False, resume_config=config.resume_config), {}) as runtime_est:

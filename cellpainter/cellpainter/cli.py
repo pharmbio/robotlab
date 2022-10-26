@@ -80,6 +80,8 @@ class Args:
 
     visualize:                 bool = arg(help='Run detailed protocol visualizer')
     init_cmd_for_visualize:    str  = arg(help='Starting cmdline for visualizer')
+    log_file_for_visualize:    str  = arg(help='Display a log file in visualizer')
+    sim_delays:                str  = arg(help='Add simulated delays, example: 8:300 for a slowdown to 300s on command with id 8. Separate multiple values with comma.')
 
     list_imports:              bool = arg(help='Print the imported python modules for type checking.')
 
@@ -123,7 +125,7 @@ def main_with_args(args: Args, parser: argparse.ArgumentParser | None=None):
 
     if args.timing_matrix:
         out: list[list[Any]] = []
-        for incu in ['1200', '1260']:
+        for incu in ['1200', 'X']:
             for N in [x + 1 for x in range(10)]:
                 for two_final_washes in [False, True]:
                     for interleave in [False, True]:
@@ -164,9 +166,13 @@ def main_with_args(args: Args, parser: argparse.ArgumentParser | None=None):
             cmdline0 = shlex.join(argv)
         def cmdline_to_log(cmdline: str):
             args, _ = arg.parse_args(Args, args=[cmdname, *shlex.split(cmdline)], exit_on_error=False)
-            p = args_to_program(args)
-            assert p, 'no program from these arguments!'
-            return execute_program(config, p.program, {}, for_visualizer=True)
+            pbutils.pr(args)
+            if args.log_file_for_visualize:
+                return Log.read_jsonl(args.log_file_for_visualize)
+            else:
+                p = args_to_program(args)
+                assert p, 'no program from these arguments!'
+                return execute_program(config, p.program, {}, for_visualizer=True, sim_delays=p.sim_delays)
         pv.start(cmdline0, cmdline_to_log)
 
     elif args.test_resume:
@@ -199,7 +205,7 @@ def main_with_args(args: Args, parser: argparse.ArgumentParser | None=None):
     elif p := args_to_program(args):
         if config.name != 'dry-run' and p.doc and not args.yes:
             ATTENTION(p.doc)
-        log = execute_program(config, p.program, p.metadata)
+        log = execute_program(config, p.program, p.metadata, sim_delays=p.sim_delays)
         if re.match('time.bioteks', p.metadata.get('program', '')) and config.name == 'live':
             estimates.add_estimates_from('estimates.json', log)
 
@@ -236,8 +242,19 @@ class Program:
     program: commands.Command
     metadata: dict[str, Any]
     doc: str = ''
+    sim_delays: dict[str, float] = field(default_factory=dict)
 
 def args_to_program(args: Args) -> Program | None:
+
+    sim_delays: dict[str, float] = {}
+    for kv in args.sim_delays.split(','):
+        if kv:
+            id, delay = kv.split(':')
+            sim_delays[id] = float(delay)
+
+    if sim_delays:
+        print('delays =', show(sim_delays))
+
     paths =  protocol_paths.get_protocol_paths()[args.protocol_dir]
     protocol_config = protocol.make_protocol_config(paths, args)
 
@@ -250,7 +267,7 @@ def args_to_program(args: Args) -> Program | None:
         return Program(program, {
             'program': 'cell_paint',
             'batch_sizes': ','.join(str(bs) for bs in batch_sizes),
-        })
+        }, sim_delays=sim_delays)
 
     elif args.small_protocol:
         name = args.small_protocol.replace('-', '_')
@@ -262,7 +279,7 @@ def args_to_program(args: Args) -> Program | None:
                 protocol_dir = args.protocol_dir,
             )
             program = p.make(small_args)
-            return Program(program, {'program': p.name}, doc=p.doc)
+            return Program(program, {'program': p.name}, doc=p.doc, sim_delays=sim_delays)
         else:
             raise ValueError(f'Unknown protocol: {name} (available: {", ".join(small_protocols_dict.keys())})')
 

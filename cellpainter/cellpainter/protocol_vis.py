@@ -87,8 +87,19 @@ def start(cmdline0: str, cmdline_to_log: Callable[[str], Log]):
 
         yield {
             'sheet': '''
+                *, *::before, *::after {
+                    box-sizing: border-box;
+                    margin: 0;
+                }
+                html, body {
+                    height: auto;
+                    min-height: 100%;
+                }
                 body, html {
                     font-family: monospace;
+                }
+                body > * {
+                    padding: 16px;
                 }
             '''
         }
@@ -97,7 +108,7 @@ def start(cmdline0: str, cmdline_to_log: Callable[[str], Log]):
                 label {
                     display: grid;
                     padding: 2px;
-                    grid-template-columns: 150px 300px 50px ;
+                    grid-template-columns: 150px 1fr 150px ;
                     align-items: center;
                     grid-gap: 4px;
                 }
@@ -110,8 +121,15 @@ def start(cmdline0: str, cmdline_to_log: Callable[[str], Log]):
         zoom_int = store.query.int(100, min=1, max=1000)
         store.assign_names(locals())
         zoom = zoom_int.value / 100.0
-        yield label(span('cmdline: '), cmdline.input(iff='0').extend(onkeydown='event.key == "Enter" && ' + store.update(cmdline, js('this.value')).goto()))
-        yield label(span('zoom: '), zoom_int.range(), span(str(zoom_int.value)))
+        yield div(
+            label(span('cmdline: '), cmdline.input(iff='0').extend(onkeydown='event.key == "Enter" && ' + store.update(cmdline, js('this.value')).goto())),
+            label(span('zoom: '), zoom_int.range(), span(str(zoom_int.value))),
+            position='sticky',
+            top=0,
+            background='#fff',
+            border_bottom='1px #0008 solid',
+            z_index='1' + '0' * 9,
+        )
 
         try:
             entries = cmdline_to_log(cmdline.value)
@@ -133,7 +151,7 @@ def start(cmdline0: str, cmdline_to_log: Callable[[str], Log]):
         ''', css='''
             position: relative;
         ''')
-        for e in entries:
+        for e in reversed(entries):
             t0 = e.t0
             t = e.t
             cmd = e.cmd
@@ -195,6 +213,10 @@ def start(cmdline0: str, cmdline_to_log: Callable[[str], Log]):
             width *= 2
             my_width *= 2
             my_offset *= 2
+            if (est := e.metadata.est) and (dur := e.duration):
+                pct = round(100 * dur / est, 1)
+            else:
+                pct = 100.0
             for_show = pbutils.nub(e) | dict(
                 t=pbutils.pp_secs(t),
                 t0=pbutils.pp_secs(t0),
@@ -202,6 +224,9 @@ def start(cmdline0: str, cmdline_to_log: Callable[[str], Log]):
                 source=source,
                 duration=pbutils.pp_secs(e.duration or 0.0),
                 slot=slot,
+                est=e.metadata.est,
+                id=e.metadata.id,
+                pct=pct,
             )
             area += div(
                 str(plate) if t - t0 > 9.0 and my_width > 4 and plate else '',
@@ -231,10 +256,12 @@ def start(cmdline0: str, cmdline_to_log: Callable[[str], Log]):
                     &:hover::after {
                         position: fixed;
                         right: 0;
-                        top: 0;
+                        bottom: 0;
+                        min-width: 40em;
+                        min-height: 40em;
                         content: attr(data-info);
                     }
-                    &:hover::before {
+                    &:hoer::before {
                         position: absolute;
                         left: calc(100% + 1px);
                         top: -1px;
@@ -249,10 +276,12 @@ def start(cmdline0: str, cmdline_to_log: Callable[[str], Log]):
                     left: {slot * width + my_offset:.1f}px;
                     width: {my_width - 2:.1f}px;
                     top: {zoom * t0:.1f}px;
-                    height: {max(zoom * (t - t0) - 1, 2):.1f}px;
+                    height: {max(zoom * (t - t0), 1):.1f}px;
+                    min-height: 5px;
                 ''',
+                css___='outline: 2px #f00a dashed; border-radius: 0;' if pct > 120 else '',
                 data_info=pbutils.show(for_show, use_color=False),
-                data_short_info=str(e.cmd),
+                data_short_info=pbutils.show(e.cmd, use_color=False),
             )
 
         yield area
