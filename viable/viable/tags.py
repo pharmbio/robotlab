@@ -53,6 +53,7 @@ css_props = {
         animation-direction animation-duration animation-fill-mode
         animation-iteration-count animation-name animation-play-state
         animation-timing-function backface-visibility background
+        backdrop-filter
         background-attachment background-blend-mode background-clip
         background-color background-image background-origin
         background-position background-repeat background-size border
