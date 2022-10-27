@@ -124,7 +124,7 @@ def add_world_metadata(program: Command, world0: World) -> Command:
             case _:
                 return cmd
     return Seq(
-        Info('initial world').add(Metadata(effect=InitialWorld(world0))),
+        Info('initial world').add(Metadata(effect=InitialWorld(world0), stage='start')),
         program.transform(F)
     )
 
@@ -763,6 +763,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
             substep=substep,
             plate_id=plate_id,
             slot=slots[substep],
+            stage=f'{step}, plate {plate_id}'
         ))
         for desc in linear
         for plate_id, step, substep in [desc]
@@ -771,12 +772,12 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
 
     return Seq(
         Section(p.step_names[0]),
-        Seq(*prep_cmds).add(Metadata(step='prep')),
+        Seq(*prep_cmds).add(Metadata(step='prep', stage=f'prep, batch {batch_index+1}')),
         *plate_cmds,
         Seq(*post_cmds)
     ).add(Metadata(batch_index=batch_index + 1))
 
-def cell_paint_program(batch_sizes: list[int], protocol_config: ProtocolConfig, sleek: bool = True) -> Command:
+def cell_paint_program(batch_sizes: list[int], protocol_config: ProtocolConfig, sleek: bool = True, remove_until_stage: str | None = None) -> Command:
     cmds: list[Command] = []
     plates = define_plates(batch_sizes)
     for batch in plates:
@@ -786,14 +787,17 @@ def cell_paint_program(batch_sizes: list[int], protocol_config: ProtocolConfig, 
         )
         cmds += [batch_cmds]
     world0 = initial_world(pbutils.flatten(plates), protocol_config)
-    program = Seq(
-        Checkpoint('run'),
-        test_comm_program(with_incu=not protocol_config.start_from_pfa),
-        *cmds,
-        Duration('run')
-    )
+    program = Seq(*cmds)
     if sleek:
         program = sleek_program(program)
     program = add_world_metadata(program, world0)
+    if remove_until_stage:
+        program = program.remove_stages(until_stage=remove_until_stage)
+    program = Seq(
+        Checkpoint('run'),
+        test_comm_program(with_incu=not protocol_config.start_from_pfa),
+        program,
+        Duration('run')
+    )
     return program
 

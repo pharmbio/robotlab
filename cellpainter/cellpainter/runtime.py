@@ -291,6 +291,7 @@ class Runtime:
             return entry
 
     def apply_effect(self, effect: Effect, entry: LogEntry | None = None):
+        # return
         with self.lock:
             try:
                 next = effect.apply(self.world)

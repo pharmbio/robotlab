@@ -227,6 +227,7 @@ def start(cmdline0: str, cmdline_to_log: Callable[[str], Log]):
                 est=e.metadata.est,
                 id=e.metadata.id,
                 pct=pct,
+                stage=e.metadata.stage,
             )
             area += div(
                 str(plate) if t - t0 > 9.0 and my_width > 4 and plate else '',

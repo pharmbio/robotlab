@@ -70,6 +70,8 @@ class Args:
     num_plates:                int  = arg(help='For some protocols only: number of plates')
     params:                    list[str] = arg(help='For some protocols only: more parameters')
 
+    remove_until_stage:        str  = arg(help='Remove commands before this stage')
+
     resume:                    str  = arg(help='Resume program given a log file')
     resume_skip:               str  = arg(help='Comma-separated list of simple_id:s to skip (washes and dispenses)')
     resume_drop:               str  = arg(help='Comma-separated list of plate_id:s to drop')
@@ -263,6 +265,7 @@ def args_to_program(args: Args) -> Program | None:
         program = protocol.cell_paint_program(
             batch_sizes=batch_sizes,
             protocol_config=protocol_config,
+            remove_until_stage=args.remove_until_stage or None,
         )
         return Program(program, {
             'program': 'cell_paint',
