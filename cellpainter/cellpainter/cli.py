@@ -18,7 +18,6 @@ import pbutils
 from . import commands
 from . import make_uml
 from . import protocol
-from . import resume
 from . import estimates
 from . import moves
 
@@ -72,14 +71,6 @@ class Args:
     params:                    list[str] = arg(help='For some protocols only: more parameters')
 
     remove_until_stage:        str  = arg(help='Remove commands before this stage')
-
-    resume:                    str  = arg(help='Resume program given a log file')
-    resume_skip:               str  = arg(help='Comma-separated list of simple_id:s to skip (washes and dispenses)')
-    resume_drop:               str  = arg(help='Comma-separated list of plate_id:s to drop')
-    resume_time_now:           str  = arg(help='Use this time as current time instead of datetime.now()')
-
-    test_resume:               str  = arg(help='Test resume by running twice, second time by resuming from just before the argument id')
-    test_resume_delay:         int  = arg(help='Test resume simulated delay')
 
     visualize:                 bool = arg(help='Run detailed protocol visualizer')
     init_cmd_for_visualize:    str  = arg(help='Starting cmdline for visualizer')
@@ -177,33 +168,6 @@ def main_with_args(args: Args, parser: argparse.ArgumentParser | None=None):
                 assert p, 'no program from these arguments!'
                 return execute_program(config, p.program, {}, for_visualizer=True, sim_delays=p.sim_delays)
         pv.start(cmdline0, cmdline_to_log)
-
-    elif args.test_resume:
-        log_file1 = 'logs/test_resume.jsonl'
-        log_file2 = 'logs/test_resume_partial.jsonl'
-        args1 = replace(args, test_resume='', log_filename=log_file1)
-        main_with_args(args1, parser)
-        log = Log.read_jsonl(log_file1)
-        runtime_metadata = log.runtime_metadata()
-        assert runtime_metadata
-        run_file = runtime_metadata.running_log_filename
-        run = Log.read_jsonl(run_file)
-        log = log.drop_after(float(args.test_resume))
-        run = run.drop_after(float(args.test_resume))
-        log.write_jsonl(log_file2)
-        run.write_jsonl(run_file)
-        resume_time_now = log.zero_time() + timedelta(seconds=log[-1].t) + timedelta(seconds=args.test_resume_delay)
-        args2 = replace(args, test_resume='', resume=log_file2, resume_time_now=str(resume_time_now))
-        main_with_args(args2, parser)
-
-    elif args.resume:
-        resume.execute_resume(
-            config,
-            args.resume,
-            resume_time_now=args.resume_time_now or None,
-            skip=pbutils.read_commasep(args.resume_skip),
-            drop=pbutils.read_commasep(args.resume_drop),
-        )
 
     elif p := args_to_program(args):
         if config.name != 'dry-run' and p.doc and not args.yes:

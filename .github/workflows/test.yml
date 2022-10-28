@@ -24,13 +24,20 @@ jobs:
       - run: python gui-tests.py
       - run: cd labrobots; python test.py
       - run: cd cellpainter; set -o pipefail; cellpainter --cell-paint 6,6,6 | tail
+      - run: cd cellpainter; set -o pipefail; cellpainter --cell-paint 1,1,1 --remove-until-stage 'Mito, plate 1' | tail
+      - run: cd cellpainter; set -o pipefail; cellpainter --cell-paint 1,1,1 --remove-until-stage 'PFA, plate 1' | tail
+      - run: cd cellpainter; set -o pipefail; cellpainter --cell-paint 1,1,1 --remove-until-stage 'Triton, plate 1' | tail
+      - run: cd cellpainter; set -o pipefail; cellpainter --cell-paint 1,1,1 --remove-until-stage 'Mito, plate 2' | tail
+      - run: cd cellpainter; set -o pipefail; cellpainter --cell-paint 1,1,1 --remove-until-stage 'PFA, plate 2' | tail
+      - run: cd cellpainter; set -o pipefail; cellpainter --cell-paint 1,1,1 --remove-until-stage 'Triton, plate 2' | tail
       - run: cd cellpainter; set -o pipefail; cellpainter --cell-paint 7,7 --interleave | tail
       - run: cd cellpainter; set -o pipefail; cellpainter --cell-paint 8,8 --interleave --incu 1260,1230 | tail
       - run: cd cellpainter; set -o pipefail; cellpainter --cell-paint 8,8 --interleave --two-final-washes | tail
+      - run: cd cellpainter; set -o pipefail; cellpainter --cell-paint 8,8 --interleave --two-final-washes --remove-until-stage 'Mito, plate 3' | tail
+      - run: cd cellpainter; set -o pipefail; cellpainter --cell-paint 8,8 --interleave --two-final-washes --remove-until-stage 'PFA, plate 4' | tail
+      - run: cd cellpainter; set -o pipefail; cellpainter --cell-paint 8,8 --interleave --two-final-washes --remove-until-stage 'Triton, plate 5' | tail
       - run: cd cellpainter; set -o pipefail; cellpainter --cell-paint 9,9 --interleave --two-final-washes | tail
       - run: cd cellpainter; set -o pipefail; cellpainter --cell-paint 10 --interleave --two-final-washes --lockstep --incu 1235,1230,1230,1235,1260 | tail
-      - run: cd cellpainter; set -o pipefail; for i in 120 240 360 1600 1800 3600; do cellpainter --cell-paint 2 --test-resume $i --test-resume-delay 1800 | tail; done
-      - run: cd cellpainter; set -o pipefail; for i in 120 240 360 1600 1800 3600; do cellpainter --cell-paint 2 --test-resume $i --test-resume-delay 1800 --resume-drop 2 | tail; done
       - run: cd cellpainter; set -o pipefail; cellpainter --cell-paint 3 --protocol-dir short | tail
       - run: cd cellpainter; set -o pipefail; cellpainter --cell-paint 3 --protocol-dir short --start-from-pfa | tail
       - run: cd cellpainter; set -o pipefail; cellpainter --time-bioteks | tail

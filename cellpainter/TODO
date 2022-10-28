@@ -30,9 +30,6 @@
 [ ] movelists
     [ ] put/get names not transparent enough ... ? lid_put lid_get
     [ ] moves: both lin&joint for all coords ?
-[ ] resume
-    [ ] check that it is close to B neu when starting, but don't move there using MoveJoint !!! can check the inverse kinematics of the current position close to B neu
-    [ ] remove all neutral MoveJoint, instead check that the robot is roughly correct (??)
 
 [x] incubator: Use get_status instead of get_climate
 [x] incubator: Make a reset and activate small protocol
@@ -52,9 +49,6 @@ bioteks:
     [x] move viable and provenance to utils directory
     [x] move arg builder (and Args?) out from cli
     [x] rename main -> main_gui, gui -> moves_gui
-
-misc:
-[x] resume: remove removed plate from the world
 
 [x] prio 3. [moves] Raise disp put to be a bit above B21
 [x] prio 2. Add test comm before starting cell paint

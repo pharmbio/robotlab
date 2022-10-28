@@ -113,30 +113,6 @@ def start(args: Args, simulate: bool):
         'refresh': True,
     }
 
-def resume(log_filename_in: str, skip: list[str], drop: list[str]):
-    log_filename_new = 'logs/' + pbutils.now_str_for_filename() + '-resume-from-gui.jsonl'
-    args = Args(
-        config_name=config.name,
-        resume=log_filename_in,
-        log_filename=log_filename_new,
-        resume_skip=','.join(skip),
-        resume_drop=','.join(drop),
-        yes=True,
-    )
-    Path('cache').mkdir(exist_ok=True)
-    cmd = [
-        'sh', '-c',
-        'cellpainter --json-arg "$1" 2>"$2"',
-        '--',
-        json.dumps(pbutils.nub(args)),
-        as_stderr(log_filename_new),
-    ]
-    Popen(cmd, start_new_session=True, stdout=DEVNULL, stderr=sys.stderr, stdin=DEVNULL)
-    return {
-        'goto': log_filename_new,
-        'refresh': True,
-    }
-
 serve.suppress_flask_logging()
 @lru_cache
 def read_log_jsonl(filepath: str) -> Log:
@@ -429,7 +405,6 @@ class AnalyzeResult:
             source: str
             column: int
             plate_id: str = ''
-            simple_id: str = ''
             id: str = ''
             msg: str = ''
             entry: LogEntry | None = None
@@ -479,7 +454,6 @@ class AnalyzeResult:
                 plate_id    = e.metadata.plate_id or '',
                 column      = i,
                 id          = e.metadata.id,
-                simple_id   = e.metadata.simple_id,
                 msg         = self.entry_desc_for_hover(e),
                 entry       = e,
             )
@@ -562,7 +536,7 @@ class AnalyzeResult:
             y1 = (row.t - column_start) / (max_length or 1.0)
             h = y1 - y0
 
-            info = f'{row.msg} ({row.simple_id})'
+            info = f'{row.msg}'
             title: dict[str, Any] | div = {}
             if row.title and row.title != 'begin':
                 title = div(
@@ -592,7 +566,6 @@ class AnalyzeResult:
                 css_=f'''
                     width: {width * my_width - 2}px;
                 ''',
-                data_simple_id=str(row.simple_id) or None,
                 data_plate_id=str(row.plate_id),
             )
 
@@ -1137,9 +1110,6 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
                 opacity='0.85',
             )
 
-        skip = m.str(desc='Single washes and dispenses to skip, separated by comma')
-        drop = m.str(desc='Plates to drop from the rest of the run, separated by comma')
-
         if ar.completed and not ar.has_error():
             info += div(
                 'Finished successfully!',
@@ -1206,50 +1176,10 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
                 grid_area='stop',
             )
         elif ar.has_error() and not ar.process_is_alive:
-            skipped = pbutils.read_commasep(skip.value)
-            dropped = pbutils.read_commasep(drop.value)
-
-            vis.data_skipped += json.dumps(skipped)
-            vis.onclick += m.update(skip, js('''
-                (() => {
-                    let skipped = JSON.parse(this.dataset.skipped)
-                    let id = event.target.dataset.simpleId
-                    if (!id) {
-                        return skipped.join(',')
-                    } else if (skipped.includes(id)) {
-                        return skipped.filter(i => i != id).join(',')
-                    } else {
-                        return [...skipped, id].join(',')
-                    }
-                })()
-            ''')).goto()
-
-            selectors: list[str] = []
-            selectors += [f'[data-simple-id={v!r}][is-estimate]' for v in skipped]
-            selectors += [f'[data-plate-id={v!r}][is-estimate]' for v in dropped]
-
-            if selectors:
-                vis.css += (
-                    ', '.join(f'& {selector}' for selector in selectors) + '''{
-                        outline: 3px var(--red) solid;
-                    }'''
-                )
-
-            resume_text = textwrap.dedent('''
-                Robotarm needs to be moved back to the neutral position by B21 hotel.
-                All plate positions should be as indicated by the plate table.
-            ''')
-
             yield div(
                 button('open gripper', onclick=call(robotarm_open_gripper, )),
                 button('set robot in freedrive', onclick=call(robotarm_freedrive, )),
                 button('move robot to neutral', onclick='confirm("Move robot to neutral?")&&' + call(robotarm_to_neutral, )),
-                *form(skip, drop),
-                button('resume' ,
-                    onclick=
-                        f'confirm("Resume?" + {json.dumps(resume_text)})&&' +
-                        call(resume, ar.runtime_metadata.log_filename, skip=skipped, drop=dropped),
-                    title=resume_text),
                 grid_area='stop',
                 css=form_css,
                 css_='& button { grid-column: 1 / span 2 }',

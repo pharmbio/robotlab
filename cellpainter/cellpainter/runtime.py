@@ -73,41 +73,21 @@ class RuntimeConfig:
     log_filename: str | None = None
     running_log_filename: str | None = None
     log_to_file: bool = True
-    resume_config: ResumeConfig | None = None
 
     def make_runtime(self) -> Runtime:
-        resume_config = self.resume_config
-        if resume_config:
-            return Runtime(
-                config=self,
-                timelike=self.make_timelike(),
-                start_time=resume_config.start_time,
-                checkpoint_times=resume_config.checkpoint_times.copy(),
-            )
-        else:
-            return Runtime(
-                config=self,
-                timelike=self.make_timelike(),
-            )
+        return Runtime(
+            config=self,
+            timelike=self.make_timelike(),
+        )
 
     def make_timelike(self) -> Timelike:
-        resume_config = self.resume_config
-        if resume_config:
-            if self.timelike_factory is WallTime:
-                return WallTime(start_time=time.monotonic() - resume_config.secs_ago)
-            elif self.timelike_factory is SimulatedTime:
-                return SimulatedTime(skipped_time=resume_config.secs_ago)
-            else:
-                raise ValueError(f'Unknown timelike factory {self.timelike_factory} on config object')
-        else:
-            return self.timelike_factory()
+        return self.timelike_factory()
 
     def replace(self,
         robotarm_speed:       Keep | int                 = keep,
         log_filename:         Keep | str | None          = keep,
         running_log_filename: Keep | str | None          = keep,
         log_to_file:          Keep | bool                = keep,
-        resume_config:        Keep | ResumeConfig | None = keep,
     ):
         next = self
         updates = dict(
@@ -115,7 +95,6 @@ class RuntimeConfig:
             log_filename=log_filename,
             running_log_filename=running_log_filename,
             log_to_file=log_to_file,
-            resume_config=resume_config,
         )
         for k, v in updates.items():
             if v is keep:

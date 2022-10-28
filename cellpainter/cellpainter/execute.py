@@ -146,9 +146,8 @@ def make_runtime(config: RuntimeConfig, metadata: dict[str, str]) -> Iterator[Ru
         abspath = os.path.abspath(log_filename)
         os.makedirs(os.path.dirname(abspath), exist_ok=True)
         print(f'{log_filename=}')
-        if not config.resume_config:
-            with open(log_filename, 'w') as fp:
-                fp.write('') # clear file
+        with open(log_filename, 'w') as fp:
+            fp.write('') # clear file
     else:
         log_filename = None
 
@@ -195,15 +194,10 @@ def check_correspondence(program: Command, est_entries: Log, expected_ends: dict
 
 def execute_program(config: RuntimeConfig, program: Command, metadata: dict[str, str], for_visualizer: bool = False, sim_delays: dict[str, float] = {}) -> Log:
     program = program.remove_noops()
-    resume_config = config.resume_config
-    if not resume_config:
-        program = program.assign_ids()
+    program = program.assign_ids()
 
-    if not resume_config:
-        with pbutils.timeit('constraints'):
-            program, expected_ends = constraints.optimize(program)
-    else:
-        expected_ends = {}
+    with pbutils.timeit('constraints'):
+        program, expected_ends = constraints.optimize(program)
 
     def AddSimDelays(cmd: commands.Command) -> commands.Command:
         if isinstance(cmd, commands.Meta):
@@ -213,16 +207,15 @@ def execute_program(config: RuntimeConfig, program: Command, metadata: dict[str,
     program = program.transform(AddSimDelays)
 
     with pbutils.timeit('estimates'):
-        with make_runtime(dry_run.replace(log_to_file=False, resume_config=config.resume_config), {}) as runtime_est:
+        with make_runtime(dry_run.replace(log_to_file=False), {}) as runtime_est:
             execute(program, runtime_est, Metadata())
         est_entries = runtime_est.get_log()
 
     if for_visualizer:
         return est_entries
 
-    if not resume_config:
-        with pbutils.timeit('check correspondence'):
-            check_correspondence(program, est_entries, expected_ends)
+    with pbutils.timeit('check correspondence'):
+        check_correspondence(program, est_entries, expected_ends)
 
     cache = Path('cache/')
     cache.mkdir(parents=True, exist_ok=True)
