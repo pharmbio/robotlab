@@ -27,6 +27,7 @@ from .commands import (
     RobotarmCmd,
     WaitForCheckpoint,
     WaitForResource,
+    Meta,
 )
 from .moves import movelists, effects, InitialWorld, World, MovePlate
 from .symbolic import Symbolic
@@ -471,10 +472,10 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
         section = f'{section} {batch_index}'
         return Info(section).add(Metadata(section=section, plate_id=''))
 
-    if not first_batch:
-        prep_cmds += [
-            WaitForCheckpoint(f'batch {batch_index-1}') + Symbolic.var('batch sep'),
-        ]
+    # if not first_batch:
+    #     prep_cmds += [
+    #         WaitForCheckpoint(f'batch {batch_index-1}') + Symbolic.var('batch sep'),
+    #     ]
 
     prep_cmds += [
         Checkpoint(f'batch {batch_index}'),
@@ -777,6 +778,51 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
         Seq(*post_cmds)
     ).add(Metadata(batch_index=batch_index + 1))
 
+from . import constraints
+
+def remove_stages(program: Command, until_stage: str) -> Command:
+    with pbutils.timeit('constraints'):
+        opt_res = constraints.optimal_env(program.make_resource_checkpoints())
+    program = program.resolve(opt_res.env)
+
+    stages = program.stages()
+    until_index = stages.index(until_stage)
+    effects: list[moves.Effect] = []
+    def FilterStage(cmd: Command):
+        if isinstance(cmd, Meta) and (stage := cmd.metadata.stage):
+            if stages.index(stage) < until_index:
+                for c in cmd.universe():
+                    if isinstance(c, Meta) and (effect := c.metadata.effect):
+                        effects.append(effect)
+                return Seq()
+        return cmd
+    program = program.transform(FilterStage)
+    program = program.remove_noops()
+
+    e0, *erest = effects
+    assert isinstance(e0, moves.InitialWorld)
+    world0 = e0.world0
+    for e in erest:
+        world0 = e.apply(world0)
+
+    reference_t0 = 'reference t0'
+    checkpoints = program.checkpoints()
+    i = 0
+    def FixDanglingCheckpoints(cmd: Command):
+        nonlocal i
+        if isinstance(cmd, WaitForCheckpoint | Duration) and cmd.name not in checkpoints:
+            i += 1
+            return WaitForCheckpoint(reference_t0, assume='nothing') + f'wiggle {i}'
+        else:
+            return cmd
+
+    program = Seq(
+        Info('initial world').add(Metadata(effect=moves.InitialWorld(world0), stage='start')),
+        Checkpoint(reference_t0),
+        program.transform(FixDanglingCheckpoints),
+    )
+    return program
+
 def cell_paint_program(batch_sizes: list[int], protocol_config: ProtocolConfig, sleek: bool = True, remove_until_stage: str | None = None) -> Command:
     cmds: list[Command] = []
     plates = define_plates(batch_sizes)
@@ -792,12 +838,12 @@ def cell_paint_program(batch_sizes: list[int], protocol_config: ProtocolConfig, 
         program = sleek_program(program)
     program = add_world_metadata(program, world0)
     if remove_until_stage:
-        program = program.remove_stages(until_stage=remove_until_stage)
+        program = remove_stages(program, until_stage=remove_until_stage)
     program = Seq(
         Checkpoint('run'),
         test_comm_program(with_incu=not protocol_config.start_from_pfa),
         program,
-        Duration('run')
+        Duration('run', opt_weight=-0.1)
     )
     return program
 

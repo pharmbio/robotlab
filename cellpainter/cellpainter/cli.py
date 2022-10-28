@@ -12,11 +12,13 @@ import re
 from datetime import timedelta
 from dataclasses import *
 
+from pbutils import show
+import pbutils
+
 from . import commands
 from . import make_uml
 from . import protocol
 from . import resume
-import pbutils
 from . import estimates
 from . import moves
 
@@ -25,7 +27,6 @@ from .log import Log
 from .moves import movelists
 from .runtime import RuntimeConfig, configs, config_lookup
 from .small_protocols import small_protocols_dict, SmallProtocolArgs
-from pbutils import show
 from . import protocol_paths
 
 from pbutils.args import arg, option

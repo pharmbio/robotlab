@@ -38,12 +38,13 @@ def import_z3():
 
 import_z3()
 
-from z3 import Sum, If, Optimize, Real, Int, Or # type: ignore
+from z3 import Sum, If, Optimize, Solver, Real, Int, And, Or # type: ignore
 
 from collections import defaultdict
 
 from . import estimates
 from .estimates import estimate
+import pbutils
 
 def optimize(cmd: Command) -> tuple[Command, dict[str, float]]:
     cmd = cmd.make_resource_checkpoints()
@@ -64,41 +65,73 @@ class OptimalResult:
     env: dict[str, float]
     expected_ends: dict[str, float]
 
-def optimal_env(cmd: Command) -> OptimalResult:
+def optimal_env(cmd: Command, unsat_core: bool=False) -> OptimalResult:
+    if unsat_core:
+        pbutils.pr(cmd)
+
     variables = cmd.free_vars()
     ids = Ids()
 
-    Resolution = 2
+    Resolution = 4
+    Factor = 10 ** Resolution
+    use_ints = False
 
     def to_expr(x: Symbolic | float | int | str) -> Any:
         x = Symbolic.wrap(x)
-        s: Any = Sum(*[Real(v) for v in x.var_names]) # type: ignore
+        if use_ints:
+            s: Any = Sum(*[Int(v) for v in x.var_names]) # type: ignore
+        else:
+            s: Any = Sum(*[Real(v) for v in x.var_names]) # type: ignore
         if x.offset:
-            offset = round(float(x.offset), Resolution)
+            if use_ints:
+                offset = round(float(x.offset) * Factor)
+            else:
+                offset = round(float(x.offset), Resolution)
             return Sum(offset, s) # type: ignore
         else:
             return s
 
-    s: Any = Optimize()
+    if unsat_core:
+        s: Any = Solver()
+    else:
+        s: Any = Optimize()
 
     def Max(a: Symbolic | float | int, b: Symbolic | float | int):
         m = Symbolic.var(ids.assign('max'))
         max_a_b, a, b = map(to_expr, (m, a, b))
-        s.add(max_a_b >= a)
-        s.add(max_a_b >= b)
-        s.add(Or(max_a_b == a, max_a_b == b))
+        if unsat_core:
+            print(f'{max_a_b} == max({a}, {b})')
+            s.assert_and_track(
+                And(
+                    max_a_b >= a,
+                    max_a_b >= b,
+                    Or(max_a_b == a, max_a_b == b),
+                ),
+                f'{max_a_b} == max({a}, {b})'
+            )
+        else:
+            s.add(max_a_b >= a)
+            s.add(max_a_b >= b)
+            s.add(Or(max_a_b == a, max_a_b == b))
         return m
 
     def constrain(lhs: Symbolic | float | int | str, op: Literal['>', '>=', '=='], rhs: Symbolic | float | int | str):
         match op:
             case '>':
-                s.add(to_expr(lhs) > to_expr(rhs))
+                clause = (to_expr(lhs) > to_expr(rhs))
             case '>=':
-                s.add(to_expr(lhs) >= to_expr(rhs))
+                clause = (to_expr(lhs) >= to_expr(rhs))
             case '==':
-                s.add(to_expr(lhs) == to_expr(rhs))
+                clause = (to_expr(lhs) == to_expr(rhs))
             case _:
                 raise ValueError(f'{op=} not a valid operator')
+        if unsat_core:
+            print(f'{lhs} {op} {rhs}')
+            if clause == True:
+                return
+            s.assert_and_track(clause, f'{lhs} {op} {rhs}')
+        else:
+            s.add(clause)
 
     maximize_terms: list[tuple[float, Symbolic]] = []
     ends: dict[str, Symbolic] = {}
@@ -174,6 +207,16 @@ def optimal_env(cmd: Command) -> OptimalResult:
         coeff * to_expr(v) for coeff, v in maximize_terms
     ])
 
+    if unsat_core:
+        check = str(s.check())
+        print(check)
+        if check == 'unsat':
+            print('unsat core is:')
+            print(s.unsat_core())
+            raise ValueError(f'Impossible to schedule! (Number of missing time estimates: {len(estimates.guesses)}: {", ".join(str(g) for g in estimates.guesses.keys())}')
+        else:
+            raise ValueError('Optimization says unsat, but unsat core version says sat')
+
     if isinstance(maximize, (int, float)):
         pass
     else:
@@ -181,7 +224,10 @@ def optimal_env(cmd: Command) -> OptimalResult:
 
     # print(s)
     check = str(s.check())
-    assert check == 'sat', f'Impossible to schedule! (Number of missing time estimates: {len(estimates.guesses)}: {", ".join(str(g) for g in estimates.guesses.keys())}'
+    if check == 'unsat':
+        print('Impossible to schedule, obtaining unsat core')
+        optimal_env(cmd, unsat_core=True)
+        raise ValueError(f'Impossible to schedule! (Number of missing time estimates: {len(estimates.guesses)}: {", ".join(str(g) for g in estimates.guesses.keys())}')
 
     M = s.model()
 
@@ -189,10 +235,16 @@ def optimal_env(cmd: Command) -> OptimalResult:
         s = Symbolic.wrap(a)
         e = to_expr(s)
         if isinstance(e, (float, int)):
-            return float(e)
+            if use_ints:
+                return float(e) / Factor
+            else:
+                return float(e)
         else:
-            # as_decimal result looks like '12.345?'
-            return float(M.eval(e).as_decimal(Resolution).strip('?'))
+            if use_ints:
+                return float(M.eval(e).as_long()) / Factor
+            else:
+                # as_decimal result looks like '12.345?'
+                return float(M.eval(e).as_decimal(Resolution).strip('?'))
 
     env = {
         a: model_value(a)

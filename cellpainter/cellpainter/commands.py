@@ -132,51 +132,12 @@ class Command(abc.ABC):
             )
         )
 
-    def remove_stages(self: Command, until_stage: str) -> Command:
-        program = self
-        stages = program.stages()
-        until_index = stages.index(until_stage)
-        # pbutils.pr(stages)
-        effects: list[moves.Effect] = []
-        def FilterStage(cmd: Command):
-            if isinstance(cmd, Meta) and (stage := cmd.metadata.stage):
-                if stages.index(stage) < until_index:
-                    for c in cmd.universe():
-                        if isinstance(c, Meta) and (effect := c.metadata.effect):
-                            effects.append(effect)
-                    return Seq()
-            return cmd
-        program = program.transform(FilterStage)
-
-        e0, *erest = effects
-        assert isinstance(e0, moves.InitialWorld)
-        world0 = e0.world0
-        for e in erest:
-            world0 = e.apply(world0)
-
-        program = Seq(
-            Info('initial world').add(Metadata(effect=moves.InitialWorld(world0), stage='start')),
-            program.add_reference_checkpoints()
-        )
-        return program
-
-    def add_reference_checkpoints(self: Command, name: str='reference t0') -> Command:
-        checkpoints = {
+    def checkpoints(self: Command) -> set[str]:
+        return {
             cmd.name
             for cmd in self.universe()
             if isinstance(cmd, Checkpoint)
         }
-
-        i = 0
-        def Zap(cmd: Command):
-            nonlocal i
-            if isinstance(cmd, WaitForCheckpoint | Duration) and cmd.name not in checkpoints:
-                i += 1
-                return WaitForCheckpoint(name) + f'wiggle {i}'
-            else:
-                return cmd
-
-        return Seq(Checkpoint(name), self.transform(Zap))
 
     def make_resource_checkpoints(self: Command) -> Command:
         '''
@@ -184,11 +145,14 @@ class Command(abc.ABC):
         plus makes the required Checkpoints.
         '''
         counts: dict[str, int] = defaultdict(int)
+        taken = self.checkpoints()
         def F(cmd: Command) -> Command:
             match cmd:
                 case WaitForResource(resource=resource):
                     this = counts[resource]
                     this_name = f'{resource} #{counts[resource]}'
+                    if this_name in taken:
+                        raise ValueError('Cannot run make_resource_checkpoints twice')
                     if this:
                         return WaitForCheckpoint(name=this_name, assume=cmd.assume, report_behind_time=False)
                     else:
@@ -212,6 +176,8 @@ class Command(abc.ABC):
                         counts[resource] += 1
                         this = counts[resource]
                         this_name = f'{resource} #{counts[resource]}'
+                    if this_name in taken:
+                        raise ValueError('Cannot run make_resource_checkpoints twice')
                     return cmd.replace(
                         command=Seq(
                             prev_wait,
@@ -506,5 +472,3 @@ def IncuFork(
     return Fork(IncuCmd(action, incu_loc), assume=assume)
 
 pbutils.serializer.register(globals())
-
-
