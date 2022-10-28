@@ -41,22 +41,6 @@ class RobotarmEnvs:
     dry       = RobotarmEnv('noop', '', 0)
 
 @dataclass(frozen=True)
-class ResumeConfig:
-    start_time: datetime
-    checkpoint_times: dict[str, float]
-    secs_ago: float = 0.0
-
-    @staticmethod
-    def init(log: Log, now: datetime | None | str=None):
-        if isinstance(now, str):
-            now = datetime.fromisoformat(now)
-        if now is None:
-            now = datetime.now()
-        start_time = log.zero_time()
-        secs_ago = (now - start_time).total_seconds()
-        return ResumeConfig(start_time, log.checkpoints(), secs_ago)
-
-@dataclass(frozen=True)
 class Keep:
     pass
 
