@@ -83,7 +83,7 @@ class Serializer:
     def write_jsonl(self, xs: Iterable[Any], path: str | Path, mode: Literal['w', 'a']='w'):
         with open(path, mode) as f:
             for x in xs:
-                json.dump(self.to_json(x), f)
+                json.dump(self.to_json(x), f, separators=(',', ':'))
                 f.write('\n')
 
     def write_json(self, x: Any, path: str | Path, indent: int | None = None):
