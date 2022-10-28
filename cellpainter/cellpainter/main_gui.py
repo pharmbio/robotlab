@@ -1,6 +1,8 @@
 from __future__ import annotations
 from typing import *
 
+from flask import jsonify
+
 from viable import store, js, call, serve
 from viable import Tag, div, span, label, button, pre
 import viable as V
@@ -47,6 +49,8 @@ else:
     raise ValueError('Start with one of ' + ', '.join('--' + c.name for c in runtime.configs))
 
 print(f'Running with {config.name=}')
+
+serve.suppress_flask_logging()
 
 def sigint(pid: int):
     os.kill(pid, signal.SIGINT)
@@ -108,12 +112,11 @@ def start(args: Args, simulate: bool):
         as_stderr(log_filename),
     ]
     Popen(cmd, start_new_session=True, stdout=DEVNULL, stderr=DEVNULL, stdin=DEVNULL)
-    return {
+    return jsonify({
         'goto': log_filename,
         'refresh': True,
-    }
+    })
 
-serve.suppress_flask_logging()
 @lru_cache
 def read_log_jsonl(filepath: str) -> Log:
     res = Log.read_jsonl(filepath)
