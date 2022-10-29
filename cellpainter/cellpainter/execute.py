@@ -207,8 +207,9 @@ def execute_program(config: RuntimeConfig, program: Command, metadata: dict[str,
     program = program.transform(AddSimDelays)
 
     with pbutils.timeit('estimates'):
-        with make_runtime(dry_run.replace(log_to_file=False), {}) as runtime_est:
+        with make_runtime(dry_run.replace(log_to_file=False, log_filename=None), {}) as runtime_est:
             execute(program, runtime_est, Metadata())
+    with pbutils.timeit('get_log'):
         est_entries = runtime_est.get_log()
 
     if for_visualizer:
@@ -244,9 +245,13 @@ def execute_program(config: RuntimeConfig, program: Command, metadata: dict[str,
 
         program = program.remove_scheduling_idles()
 
-        pbutils.serializer.write_jsonl(est_entries, estimates_filename)
-        pbutils.serializer.write_json(program, program_filename, indent=2)
-        running_log_filename.touch()
+        with pbutils.timeit('write estimates'):
+            # pbutils.serializer.write_jsonl(est_entries, estimates_filename)
+            runtime_est.log_db.con.execute('vacuum into ?', (str(estimates_filename),))
+        with pbutils.timeit('write program'):
+            pbutils.serializer.write_json(program, program_filename, indent=2)
+        if running_log_filename:
+            running_log_filename.touch()
 
         runtime_metadata = RuntimeMetadata(
             pid                  = os.getpid(),
@@ -259,7 +264,8 @@ def execute_program(config: RuntimeConfig, program: Command, metadata: dict[str,
         )
 
         runtime.log(LogEntry(runtime_metadata=runtime_metadata))
-        execute(program, runtime, Metadata())
+        with pbutils.timeit('execute'):
+            execute(program, runtime, Metadata())
         runtime.log(LogEntry(metadata=Metadata(completed=True)))
 
         for line in runtime.get_log().group_durations_for_display():

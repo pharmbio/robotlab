@@ -468,14 +468,14 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
     batch_index = first_plate.batch_index
     first_batch = batch_index == 0
 
-    def Section(section: str) -> Command:
-        section = f'{section} {batch_index}'
-        return Info(section).add(Metadata(section=section, plate_id=''))
+    # def Section(section: str) -> Command:
+    #     section = f'{section} {batch_index}'
+    #     return Info(section).add(Metadata(section=section, plate_id=''))
 
-    # if not first_batch:
-    #     prep_cmds += [
-    #         WaitForCheckpoint(f'batch {batch_index-1}') + Symbolic.var('batch sep'),
-    #     ]
+    if not first_batch:
+        prep_cmds += [
+            WaitForCheckpoint(f'batch {batch_index-1}') + Symbolic.var('batch sep'),
+        ]
 
     prep_cmds += [
         Checkpoint(f'batch {batch_index}'),
@@ -652,16 +652,16 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                 RobotarmCmd('disp get return'),
             ]
 
-            section_info_by_incu: Command = Idle()
-            section_info_by_wash: Command = Idle()
-            if plate is first_plate and step_index != 0:
-                if p.lockstep:
-                    section_info_by_wash = Section(step)
-                else:
-                    section_info_by_incu = Section(step)
+            # section_info_by_incu: Command = Idle()
+            # section_info_by_wash: Command = Idle()
+            # if plate is first_plate and step_index != 0:
+            #     if p.lockstep:
+            #         section_info_by_wash = Section(step)
+            #     else:
+            #         section_info_by_incu = Section(step)
 
-            chunks[plate.id, step, 'incu -> B21' ] = [*incu_delay, section_info_by_incu, *incu_get]
-            chunks[plate.id, step,  'B21 -> wash'] = [section_info_by_wash, *wash]
+            chunks[plate.id, step, 'incu -> B21' ] = [*incu_delay, *incu_get]
+            chunks[plate.id, step,  'B21 -> wash'] = [*wash]
             chunks[plate.id, step, 'wash -> disp'] = disp
             chunks[plate.id, step, 'disp -> B21' ] = [*disp_to_B21, *lid_on]
 
@@ -764,7 +764,9 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
             substep=substep,
             plate_id=plate_id,
             slot=slots[substep],
-            stage=f'{step}, plate {plate_id}'
+            stage=f'{step}, plate {plate_id}',
+        )).add_to_physical_commands(Metadata(
+            section=f'{step} {batch_index}',
         ))
         for desc in linear
         for plate_id, step, substep in [desc]
@@ -772,7 +774,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
     ]
 
     return Seq(
-        Section(p.step_names[0]),
+        # Section(p.step_names[0]),
         Seq(*prep_cmds).add(Metadata(step='prep', stage=f'prep, batch {batch_index+1}')),
         *plate_cmds,
         Seq(*post_cmds)
@@ -780,7 +782,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
 
 from . import constraints
 
-def remove_stages(program: Command, until_stage: str) -> Command:
+def remove_stages(program: Command, until_stage: str, world0: World) -> tuple[Command, World]:
     with pbutils.timeit('constraints'):
         opt_res = constraints.optimal_env(program.make_resource_checkpoints())
     program = program.resolve(opt_res.env)
@@ -799,11 +801,8 @@ def remove_stages(program: Command, until_stage: str) -> Command:
     program = program.transform(FilterStage)
     program = program.remove_noops()
 
-    e0, *erest = effects
-    assert isinstance(e0, moves.InitialWorld)
-    world0 = e0.world0
-    for e in erest:
-        world0 = e.apply(world0)
+    for effect in effects:
+        world0 = effect.apply(world0)
 
     reference_t0 = 'reference t0'
     checkpoints = program.checkpoints()
@@ -817,11 +816,11 @@ def remove_stages(program: Command, until_stage: str) -> Command:
             return cmd
 
     program = Seq(
-        Info('initial world').add(Metadata(effect=moves.InitialWorld(world0), stage='start')),
+        # Info('initial world').add(Metadata(effect=moves.InitialWorld(world0), stage='start')),
         Checkpoint(reference_t0),
         program.transform(FixDanglingCheckpoints),
     )
-    return program
+    return program, world0
 
 def cell_paint_program(batch_sizes: list[int], protocol_config: ProtocolConfig, sleek: bool = True, remove_until_stage: str | None = None) -> Command:
     cmds: list[Command] = []
@@ -836,14 +835,14 @@ def cell_paint_program(batch_sizes: list[int], protocol_config: ProtocolConfig, 
     program = Seq(*cmds)
     if sleek:
         program = sleek_program(program)
-    program = add_world_metadata(program, world0)
     if remove_until_stage:
-        program = remove_stages(program, until_stage=remove_until_stage)
+        program, world0 = remove_stages(program, until_stage=remove_until_stage, world0=world0)
     program = Seq(
         Checkpoint('run'),
         test_comm_program(with_incu=not protocol_config.start_from_pfa),
         program,
         Duration('run', opt_weight=-0.1)
     )
+    program = add_world_metadata(program, world0)
     return program
 

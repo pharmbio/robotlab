@@ -18,6 +18,7 @@ from threading import RLock
 from .robotarm import Robotarm
 import pbutils
 from pbutils import pp_secs
+from pbutils.mixins import DB
 
 from .timelike import Timelike, WallTime, SimulatedTime
 from .moves import World, Effect
@@ -62,6 +63,8 @@ class RuntimeConfig:
         return Runtime(
             config=self,
             timelike=self.make_timelike(),
+            log_db=DB.connect(self.log_filename if self.log_filename else ':memory:'),
+            running_db=DB.connect(self.running_log_filename) if self.running_log_filename else None,
         )
 
     def make_timelike(self) -> Timelike:
@@ -138,11 +141,14 @@ class Runtime:
     config: RuntimeConfig
     timelike: Timelike
 
+    log_db: DB | None
+    running_db: DB | None
+
     incu: STX    | None = None
     wash: Biotek | None = None
     disp: Biotek | None = None
 
-    log_entries: list[LogEntry] = field(default_factory=list)
+    # log_entries: list[LogEntry] = field(default_factory=list)
     lock: RLock = field(default_factory=RLock)
 
     start_time: datetime = field(default_factory=datetime.now)
@@ -154,6 +160,12 @@ class Runtime:
 
     def __post_init__(self):
         self.register_thread('main')
+
+        if self.log_db:
+            self.log_db.con.execute('pragma synchronous=OFF;')
+
+        if self.running_db:
+            self.running_db.con.execute('pragma synchronous=OFF;')
 
         if self.config.name != 'dry-run':
             def handle_signal(signum: int, _frame: Any):
@@ -178,7 +190,10 @@ class Runtime:
         self.set_robotarm_speed(self.config.robotarm_speed)
 
     def get_log(self) -> Log:
-        return Log(self.log_entries)
+        assert self.log_db
+        return Log(self.log_db.get(LogEntry).list())
+        # raise ValueError
+        # return Log(self.log_entries)
 
     def kill(self):
         self.stop_arm()
@@ -233,24 +248,28 @@ class Runtime:
                 t0=t0,
             )
             if entry.running:
-                if self.config.running_log_filename:
-                    pbutils.serializer.write_jsonl([entry], self.config.running_log_filename, mode='a')
+                if self.running_db:
+                    entry.running.save(self.running_db)
+                    # pbutils.serializer.write_jsonl([entry], self.config.running_log_filename, mode='a')
                 return entry
             # the logging logic is quite convoluted so let's safeguard against software errors in it
-            try:
-                line = self.log_entry_to_line(entry)
-            except BaseException:
-                traceback.print_exc()
-                pbutils.pr(entry)
-                line = None
-            if line:
-                print(line)
+            if 0:
+                try:
+                    line = self.log_entry_to_line(entry)
+                except BaseException:
+                    traceback.print_exc()
+                    pbutils.pr(entry)
+                    line = None
+                if line:
+                    print(line)
             if entry.err and entry.err.traceback:
                 print(entry.err.traceback, file=sys.stderr)
-            log_filename = self.config.log_filename
-            if log_filename:
-                pbutils.serializer.write_jsonl([entry], log_filename, mode='a')
-            self.log_entries.append(entry)
+            if self.log_db:
+                entry = entry.save(self.log_db)
+            # log_filename = self.config.log_filename
+            # if log_filename:
+            #     pbutils.serializer.write_jsonl([entry], log_filename, mode='a')
+            # self.log_entries.append(entry)
             return entry
 
     def apply_effect(self, effect: Effect, entry: LogEntry | None = None):
@@ -368,7 +387,7 @@ class Runtime:
                 self.log_running()
             yield
             with self.lock:
-                self.log(entry, t0=e0.t)
+                self.log(e0, t0=e0.t)
                 self.running_entries.remove(e0)
                 self.log_running()
 

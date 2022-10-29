@@ -8,13 +8,17 @@ from datetime import datetime, timedelta
 import pbutils
 from .commands import Metadata, Command, Checkpoint, BiotekCmd, Duration, Info, IncuCmd, RobotarmCmd
 
+from pbutils.mixins import DB, DBMixin
+import pbutils.mixins
+
 @dataclass(frozen=True)
-class Running:
+class Running(DBMixin):
     '''
     Anything that does not grow without bound
     '''
     entries: list[LogEntry] = field(default_factory=list)
     world: dict[str, str] = field(default_factory=dict)
+    id: int = -1
 
     @staticmethod
     def empty() -> Running:
@@ -31,7 +35,7 @@ class RuntimeMetadata:
     running_log_filename: str
 
 @dataclass(frozen=True)
-class LogEntry:
+class LogEntry(DBMixin):
     log_time: str           = ''
     t: float                = -1.0
     t0: float | None        = None
@@ -41,6 +45,17 @@ class LogEntry:
     msg: str | None         = None
     running: Running | None = None
     runtime_metadata: RuntimeMetadata | None = None
+    id: int = -1
+
+    __meta__: ClassVar = pbutils.mixins.Meta(
+        views={
+            k.name: f'value ->> "value.metadata.{k.name}"'
+            for k in fields(Metadata)
+            if k.name != 'id'
+        } | {
+            'metadata': '',
+        }
+    )
 
     def init(
         self,
@@ -122,13 +137,6 @@ class Log(list[LogEntry]):
             i
             for x in self
             if (i := x.metadata.id)
-        }
-
-    def checkpoints(self) -> dict[str, float]:
-        return {
-            x.cmd.name: x.t
-            for x in self
-            if isinstance(x.cmd, Checkpoint)
         }
 
     def durations(self) -> dict[str, float]:

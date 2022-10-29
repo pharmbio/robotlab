@@ -3,7 +3,6 @@ from typing import *
 from dataclasses import *
 
 from collections import defaultdict
-from contextlib import contextmanager
 from flask import after_this_request, jsonify, request, g
 from flask.wrappers import Response
 from typing import *
@@ -131,6 +130,7 @@ class Int(Var[int]):
             min=None_map(self.min, str),
             max=None_map(self.max, str),
             title=self.desc,
+            type=type,
         )
 
     def range(self):
@@ -235,7 +235,7 @@ def update_cookies(kvs: dict[str, str]) -> Any:
         def later(response: Response) -> Response:
             response.set_cookie('v', json.dumps(next))
             return response
-        return {'refresh': True}
+        return jsonify(refresh=True)
 
 @dataclass(frozen=True)
 class Provenance:

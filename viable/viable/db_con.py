@@ -84,6 +84,7 @@ class DB:
 
     def get(self, key: str, d: Any, shared: bool) -> Any:
         with self.lock:
+            # if shared need begin exclusive transaction here
             user = self.user(shared=shared)
             for v, in self.con.execute(
                 'select value from data where user = ? and key = ?',

@@ -5,12 +5,14 @@ from collections import defaultdict
 from contextlib import contextmanager
 
 import time
+import sys
 
 def timeit(desc: str='') -> ContextManager[None]:
     # The inferred type for the decorated function is wrong hence this wrapper to get the correct type
 
     @contextmanager
     def worker():
+        print(f'{desc}...', end='', file=sys.stderr, flush=True)
         e = None
         t0 = time.monotonic()
         try:
@@ -18,6 +20,7 @@ def timeit(desc: str='') -> ContextManager[None]:
         except Exception as exn:
             e = exn
         T = time.monotonic() - t0
+        print(f' ({T:.3f}s)', file=sys.stderr, flush=True)
         if e:
             print(f'{T:.3f}', desc, repr(e))
             raise e

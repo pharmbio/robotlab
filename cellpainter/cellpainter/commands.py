@@ -63,6 +63,14 @@ class Command(abc.ABC):
         else:
             return Meta(command=self, metadata=m)
 
+    def add_to_physical_commands(self, m: Metadata):
+        def Add(cmd: Command):
+            if isinstance(cmd, BiotekCmd | RobotarmCmd | IncuCmd):
+                return cmd.add(m)
+            else:
+                return cmd
+        return self.transform(Add)
+
     def collect(self: Command) -> list[tuple[Command, Metadata]]:
         match self:
             case Seq_():

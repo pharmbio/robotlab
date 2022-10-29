@@ -393,6 +393,7 @@ class DB:
             xs = [
                 f'({expr}) as {sqlquote(name)}'
                 for name, expr in views.items()
+                if expr
             ]
             self.con.execute(textwrap.dedent(f'''
                 create view {TableView} as select
