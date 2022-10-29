@@ -209,7 +209,7 @@ class AnalyzeResult:
 
     @staticmethod
     def init(m: Log, drop_after: float | None = None) -> AnalyzeResult | None:
-
+      with pbutils.timeit('ar'):
         completed = m.is_completed()
 
         runtime_metadata = m.runtime_metadata()
@@ -378,7 +378,7 @@ class AnalyzeResult:
                 })
         return table
 
-    def make_vis(self) -> Tag:
+    def make_vis(self, t_end: Int | None = None) -> Tag:
         t_now = self.t_now
         sections = {
             k: entries
@@ -570,6 +570,8 @@ class AnalyzeResult:
                     width: {width * my_width - 2}px;
                 ''',
                 data_plate_id=str(row.plate_id),
+                onclick=None if t_end is None else store.update(t_end, int(row.t + 1)).goto(),
+                css__='cursor: pointer' if t_end is not None else '',
             )
 
         return area
@@ -829,7 +831,7 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
                     place-self: start;
                 ''',
             ),
-            *form( *form_fields),
+            *form(*form_fields),
             button(
                 'simulate',
                 onclick=call(start, args=args, simulate=True),
@@ -939,26 +941,52 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
         )
 
     t_end_form: div | None = None
+    t_end: Int | None = None
+    simulation_completed: bool = False
     if path:
-        log = jsonl_to_log(path)
+        with pbutils.timeit('jsonl_to_log'):
+          log = jsonl_to_log(path)
         try:
             stderr = as_stderr(path).read_text()
         except:
             stderr = ''
-        if log is not None:
-            ar = AnalyzeResult.init(log)
-        if log and ar and ar.completed and 'dry' in config.name:
+        if log and log.is_completed() and 'dry' in config.name:
+            simulation_completed = True
             t_min = int(log.min_t()) + 1
             t_max = int(log.max_t()) + 1
             t_end = m.int(t_max, min=t_min, max=t_max)
+            spinner = div(
+                div('|'),
+                css='''
+                    & {
+                      position: relative;
+                    }
+                    & div {
+                      animation: -&-1 1.0s infinite;
+                      position: relative;
+                    }
+                    @keyframes -&-1 { 12% { transform: rotate(0deg);  } 100% { transform: rotate(360deg); } }
+                    & {
+                        display: inline-block;
+                        opacity: 0;
+                        transition: opacity 50ms 0ms;
+                    }
+                    [loading="1"] & {
+                        opacity: 1;
+                        transition: opacity 50ms 400ms;
+                    }
+                ''')
+
             t_end_form = div(
-                div(t_end.range(),
+                div(spinner, t_end.range(),
                     str(timedelta(seconds=t_end.value)),
                     css=inverted_inputs_css,
                     css_='& input { width: 700px; }'),
                 margin='0 auto',
             )
             ar = AnalyzeResult.init(log, drop_after=float(t_end.value))
+        elif log is not None:
+            ar = AnalyzeResult.init(log)
     if log is None:
         if stderr:
             box = div(
@@ -995,7 +1023,7 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
         )
         info += sections(ar)
         if 1:
-            vis = ar.make_vis()
+            vis = ar.make_vis(t_end)
         if 1:
             world = ar.world
             world = {k: v if 'lid' in v else 'plate ' + v for k, v in world.items()}
@@ -1038,11 +1066,8 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
                 css='display: grid; place-items: center'
             ).append(div(
                 make_table(incu_table).extend(id='incu', class_='even' if ar.num_plates % 2 == 0 else None),
-                # incu_df.fillna('').to_html(index=1, border=0, table_id='incu', classes='even' if ar.num_plates % 2 == 0 else [])
                 make_table(ABC_table).extend(id='ABC'),
-                # ABC_df.fillna('').to_html(index=1, border=0, table_id='ABC')
                 make_table(rest_table).extend(id='rest'),
-                # rest_df.T.fillna('\u200b').to_html(index=0, border=0, table_id='rest')
                 css='''
                     & {
                         display: grid;
@@ -1115,6 +1140,7 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
 
         if ar.completed and not ar.has_error():
             info += div(
+                'Simulation finished.' if simulation_completed else
                 'Finished successfully!',
                 border='2px var(--green) solid',
                 color='#eee',
