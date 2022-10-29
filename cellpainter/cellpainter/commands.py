@@ -26,7 +26,6 @@ class Metadata:
 
     stage: str = ''
 
-    simple_id: str = ''
     thread_name: str | None = None
     thread_resource: str | None = None
     predispense: bool = False
@@ -208,18 +207,7 @@ class Command(abc.ABC):
                     count += 1
                     id = str(count)
                     return cmd.add(Metadata(id=id))
-        by_type: dict[str, int] = defaultdict(int)
-        def G(cmd: Command) -> Command:
-            nonlocal by_type
-            match cmd:
-                case BiotekCmd() if cmd.action == 'Run' or cmd.action == 'RunValidated':
-                    m = cmd.machine[0]
-                    by_type[m] += 1
-                    simple_id = m + str(by_type[m])
-                    return cmd.add(Metadata(simple_id=simple_id))
-                case _:
-                    return cmd
-        return self.transform(F).transform(G)
+        return self.transform(F)
 
     def remove_scheduling_idles(self: Command) -> Command:
         def F(cmd: Command) -> Command:
