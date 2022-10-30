@@ -1,6 +1,7 @@
 from __future__ import annotations
 from dataclasses import *
 from typing import *
+from functools import cache
 
 def asdict_shallow(x: Any) -> dict[str, Any]:
     assert is_dataclass(x)
@@ -8,6 +9,15 @@ def asdict_shallow(x: Any) -> dict[str, Any]:
         f.name: getattr(x, f.name)
         for f in fields(x)
     }
+
+@cache
+def empty_default_factory(f: Field[Any]):
+    if f.default is not MISSING:
+        return not bool(f.default)
+    elif f.default_factory is not MISSING:
+        return not f.default_factory()
+    else:
+        return True
 
 def nub(x: Any) -> dict[str, Any]:
     assert is_dataclass(x)
@@ -17,8 +27,7 @@ def nub(x: Any) -> dict[str, Any]:
         if (
             isinstance(a, dict | set | list)
             and not a
-            and f.default_factory is not MISSING
-            and not f.default_factory()
+            and empty_default_factory(f)
         ):
             continue
         if a != f.default:

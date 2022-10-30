@@ -261,13 +261,13 @@ class AnalyzeResult:
         ])
         running_entries = running_entries.drop_validate()
 
-        estimates = estimates.where(lambda e: e.is_end_or_inf())
+        estimates = estimates.where(lambda e: e.is_end_or_info())
         estimates = estimates.where(lambda e: e.metadata.id not in live_ids)
         estimates = estimates.add(Metadata(is_estimate=True))
 
         vis = Log(m + running_entries + estimates)
         vis = vis.drop_test_comm()
-        vis = vis.where(lambda e: e.is_end_or_inf())
+        vis = vis.where(lambda e: e.is_end_or_info())
         end = LogEntry(t=vis.max_t(), metadata=Metadata(section='end'))
         vis = Log(vis + [end])
         sections = vis.group_by_section()

@@ -10,50 +10,46 @@ from .commands import Metadata, Command, Checkpoint, BiotekCmd, Duration, Info, 
 
 from pbutils.mixins import DB, DBMixin
 import pbutils.mixins
+import os
+import platform
 
-@dataclass(frozen=True)
-class Running(DBMixin):
-    '''
-    Anything that does not grow without bound
-    '''
-    entries: list[LogEntry] = field(default_factory=list)
-    world: dict[str, str] = field(default_factory=dict)
-    id: int = -1
-
-    @staticmethod
-    def empty() -> Running:
-        return Running(entries=[], world={})
-
-@dataclass(frozen=True)
-class RuntimeMetadata:
-    pid: int
-    git_HEAD: str
-    host: str
-    log_filename: str
+@dataclass(frozen=False)
+class RuntimeMetadata(DBMixin):
+    start_time:         datetime
+    num_plates:         int
+    log_filename:       str | None
     estimates_filename: str
-    program_filename: str
-    running_log_filename: str
+    program_filename:   str
+    pid: int      = field(default_factory=lambda: os.getpid())
+    host: str     = field(default_factory=lambda: platform.node())
+    git_HEAD: str = field(default_factory=lambda: pbutils.git_HEAD() or '')
+    completed: datetime | None = None
+    id: int = -1
 
 @dataclass(frozen=True)
 class LogEntry(DBMixin):
-    log_time: str           = ''
-    t: float                = -1.0
-    t0: float | None        = None
-    metadata: Metadata      = field(default_factory=lambda: Metadata())
-    cmd: Command | None     = None
-    err: Error | None       = None
-    msg: str | None         = None
-    running: Running | None = None
-    runtime_metadata: RuntimeMetadata | None = None
-    id: int = -1
+    log_time: str       = ''
+    t: float            = -1.0
+    t0: float | None    = None
+    metadata: Metadata  = field(default_factory=lambda: Metadata())
+    cmd: Command | None = None
+    err: Error | None   = None
+    msg: str | None     = None
+    is_running: bool    = False
+    id: int             = -1
 
     __meta__: ClassVar = pbutils.mixins.Meta(
         views={
-            k.name: f'value ->> "value.metadata.{k.name}"'
+            k.name: f'value ->> "metadata.{k.name}"'
             for k in fields(Metadata)
             if k.name != 'id'
         } | {
             'metadata': '',
+        },
+        indexes={
+            'cmd_type': 'value ->> "cmd.type"',
+            't0': 'value ->> "t0"',
+            't': 'value ->> "t"',
         }
     )
 
@@ -88,7 +84,7 @@ class LogEntry(DBMixin):
     def is_end(self):
         return isinstance(self.t0, float)
 
-    def is_end_or_inf(self):
+    def is_end_or_info(self):
         return self.is_end() or isinstance(self.cmd, Info)
 
     def machine(self):
@@ -113,38 +109,40 @@ class Error:
     message: str
     traceback: str | None = None
 
-class Log(list[LogEntry]):
-    @staticmethod
-    def read_jsonl(filename: str):
-        out = Log(pbutils.serializer.read_jsonl(filename))
-        if out:
-            assert isinstance(out[0], LogEntry)
-        return out
+@dataclass(frozen=True)
+class Log:
+    db: DB
 
-    def write_jsonl(self, filename: str):
-        return pbutils.serializer.write_jsonl(self, filename)
+    @staticmethod
+    def open(filename: str):
+        return Log(DB.connect(filename))
 
     def finished(self) -> set[str]:
         return {
-            i
-            for x in self
-            if x.is_end_or_inf()
-            if (i := x.metadata.id)
+            e.metadata.id
+            for e in
+            self.db.get(LogEntry).where_some(
+                LogEntry.t0 != None,
+                LogEntry.cmd.type == 'Info', # type: ignore
+            )
         }
 
     def ids(self) -> set[str]:
         return {
-            i
-            for x in self
-            if (i := x.metadata.id)
+            e.metadata.id
+            for e in
+            self.db.get(LogEntry)
         }
 
     def durations(self) -> dict[str, float]:
         return {
-            x.cmd.name: d
-            for x in self
-            if isinstance(x.cmd, Duration)
-            if (d := x.duration) is not None
+            e.cmd.name: d
+            for e in self.db.get(LogEntry).where(
+                LogEntry.t0 != None,
+                LogEntry.cmd.type == 'Duration', # type: ignore
+            )
+            if isinstance(e.cmd, Duration)
+            if (d := e.duration)
         }
 
     def group_durations(self: Log):
@@ -168,74 +166,46 @@ class Log(list[LogEntry]):
         for k, vs in self.group_durations().items():
             yield k + ' [' + ', '.join(vs) + ']'
 
-    def errors(self, current_runtime_only: bool=True) -> list[tuple[Error, LogEntry]]:
-        start = 0
-        if current_runtime_only:
-            for i, x in list(enumerate(self))[::-1]:
-                if x.runtime_metadata:
-                    start = i
-                    break
+    def errors(self) -> list[tuple[Error, LogEntry]]:
         return [
-            (err, x)
-            for x in self[start:]
-            if (err := x.err)
+            (err, e)
+            for e in self.db.get(LogEntry).where(
+                LogEntry.err != None,
+            )
+            if (err := e.err)
         ]
 
     def section_starts(self) -> dict[str, float]:
-        return {
-            section: x.t
-            for x in self
-            if (section := x.metadata.section)
-        }
+        g = self.db.get(LogEntry).where(LogEntry.metadata.section != '').group(LogEntry.metadata.section)
+        return g.min(LogEntry.t).dict()
 
     def min_t(self):
-        return min((x.t for x in self), default=0.0)
+        return self.db.get(LogEntry).min(LogEntry.t, default=0.0)
 
     def max_t(self):
-        return max((x.t for x in self), default=0.0)
+        return self.db.get(LogEntry).max(LogEntry.t, default=0.0)
 
     def length(self):
         return self.max_t() - self.min_t()
 
-    def group_by_section(self, first_section_name: str='begin') -> dict[str, Log]:
-        xs = Log()
-        out = {first_section_name: xs}
-        for x in sorted(self, key=lambda e: (e.t0 or e.t) if isinstance(e.cmd, BiotekCmd | IncuCmd | RobotarmCmd) else e.t):
-            if section := x.metadata.section:
-                xs = Log()
-                out[section] = xs
-            xs.append(x)
-        if not out[first_section_name]:
-            out.pop(first_section_name)
-        out = {
-            k: v if not next_kv else Log(v + [LogEntry(t=next_kv[1].min_t() - 0.05)])
-            for (k, v), next_kv in pbutils.iterate_with_next(list(out.items()))
-        }
-        return out
-
-    def running(self) -> Running | None:
-        for x in self[::-1]:
-            if m := x.running:
-                return m
-
-    def runtime_metadata(self) -> RuntimeMetadata | None:
-        for x in self[::-1]:
-            if m := x.runtime_metadata:
-                return m
+    def group_by_section(self, first_section_name: str='begin') -> dict[str, list[LogEntry]]:
+        g = self.db.get(LogEntry).where_some(
+            LogEntry.cmd.type == 'BiotekCmd',     # type: ignore
+            LogEntry.cmd.type == 'IncuCmd',       # type: ignore
+            LogEntry.cmd.type == 'RobotarmCmd',   # type: ignore
+        ).where(
+            LogEntry.metadata.section != ''
+        ).group(LogEntry.metadata.section)
+        return g.dict()
 
     def zero_time(self) -> datetime:
-        for x in self[::-1]:
-            return datetime.fromisoformat(x.log_time) - timedelta(seconds=x.t)
-        raise ValueError('Empty log')
+        return self.db.get(RuntimeMetadata).one().start_time
 
     def is_completed(self) -> bool:
-        return any(
-            x.metadata.completed
-            for x in self
-        )
+        return self.db.get(RuntimeMetadata).one().completed is not None
 
     def num_plates(self) -> int:
-        return max((int(p) for x in self if (p := x.metadata.plate_id)), default=0)
+        return self.db.get(RuntimeMetadata).one().num_plates
 
     def drop_validate(self) -> Log:
         res = self

@@ -23,9 +23,7 @@ from pbutils.mixins import DB
 from .timelike import Timelike, WallTime, SimulatedTime
 from .moves import World, Effect
 
-from .log import LogEntry, Metadata, Error, Running, Log
-
-import time
+from .log import LogEntry, Metadata, Error, Log
 
 from labrobots import WindowsNUC, Biotek, STX
 
@@ -56,7 +54,6 @@ class RuntimeConfig:
 
     robotarm_speed: int = 100
     log_filename: str | None = None
-    running_log_filename: str | None = None
     log_to_file: bool = True
 
     def make_runtime(self) -> Runtime:
@@ -64,7 +61,6 @@ class RuntimeConfig:
             config=self,
             timelike=self.make_timelike(),
             log_db=DB.connect(self.log_filename if self.log_filename else ':memory:'),
-            running_db=DB.connect(self.running_log_filename) if self.running_log_filename else None,
         )
 
     def make_timelike(self) -> Timelike:
@@ -73,14 +69,12 @@ class RuntimeConfig:
     def replace(self,
         robotarm_speed:       Keep | int                 = keep,
         log_filename:         Keep | str | None          = keep,
-        running_log_filename: Keep | str | None          = keep,
         log_to_file:          Keep | bool                = keep,
     ):
         next = self
         updates = dict(
             robotarm_speed=robotarm_speed,
             log_filename=log_filename,
-            running_log_filename=running_log_filename,
             log_to_file=log_to_file,
         )
         for k, v in updates.items():
@@ -141,14 +135,12 @@ class Runtime:
     config: RuntimeConfig
     timelike: Timelike
 
-    log_db: DB | None
-    running_db: DB | None
+    log_db: DB = field(default_factory=lambda: DB.connect(':memory:'))
 
     incu: STX    | None = None
     wash: Biotek | None = None
     disp: Biotek | None = None
 
-    # log_entries: list[LogEntry] = field(default_factory=list)
     lock: RLock = field(default_factory=RLock)
 
     start_time: datetime = field(default_factory=datetime.now)
@@ -158,14 +150,13 @@ class Runtime:
         lambda: defaultdict[str, list[Queue[None]]](list)
     )
 
+    world: World = field(default_factory=World)
+
     def __post_init__(self):
         self.register_thread('main')
 
         if self.log_db:
             self.log_db.con.execute('pragma synchronous=OFF;')
-
-        if self.running_db:
-            self.running_db.con.execute('pragma synchronous=OFF;')
 
         if self.config.name != 'dry-run':
             def handle_signal(signum: int, _frame: Any):
@@ -190,8 +181,8 @@ class Runtime:
         self.set_robotarm_speed(self.config.robotarm_speed)
 
     def get_log(self) -> Log:
-        assert self.log_db
-        return Log(self.log_db.get(LogEntry).list())
+        with pbutils.timeit('get_log'):
+            return Log(self.log_db.get(LogEntry).list())
         # raise ValueError
         # return Log(self.log_entries)
 
@@ -247,11 +238,6 @@ class Runtime:
                 t=t,
                 t0=t0,
             )
-            if entry.running:
-                if self.running_db:
-                    entry.running.save(self.running_db)
-                    # pbutils.serializer.write_jsonl([entry], self.config.running_log_filename, mode='a')
-                return entry
             # the logging logic is quite convoluted so let's safeguard against software errors in it
             if 0:
                 try:
@@ -264,8 +250,7 @@ class Runtime:
                     print(line)
             if entry.err and entry.err.traceback:
                 print(entry.err.traceback, file=sys.stderr)
-            if self.log_db:
-                entry = entry.save(self.log_db)
+            entry = entry.save(self.log_db)
             # log_filename = self.config.log_filename
             # if log_filename:
             #     pbutils.serializer.write_jsonl([entry], log_filename, mode='a')
@@ -281,7 +266,7 @@ class Runtime:
                 import traceback as tb
                 fatal = self.config.name == 'dry-run'
                 message = pbutils.show({
-                    'message': 'Can not apply effect at this world',
+                    'message': 'Cannot apply effect at this world',
                     'effect': effect,
                     'world': self.world,
                     'error': error,
@@ -293,17 +278,16 @@ class Runtime:
                 if fatal:
                     raise ValueError(message)
             else:
-                if next != self.world:
+                if next.data != self.world.data:
+                    next = next.replace(t=round(self.timelike.monotonic(), 3))
+                    next = next.save(self.log_db)
                     self.world = next
-                    self.log_running()
 
     def log_entry_to_line(self, entry: LogEntry) -> str | None:
         with self.lock:
             m = entry.metadata
             if entry.err:
                 pass
-            elif entry.cmd is None and entry.running:
-                return
             elif not self.config.log_filename:
                 return
             elif m.dry_run_sleep:
@@ -338,13 +322,7 @@ class Runtime:
                 desc = entry.err.message
                 print(entry.err.message)
 
-            w = ','.join(f'{k}:{v}' for k, v in self.world.items())
-            r = ', '.join(
-                f'{e.metadata.thread_resource or "main"}:{c.__class__.__name__}'
-                for e in self.running_entries
-                if (c := e.cmd)
-                if not e.metadata.dry_run_sleep
-            )
+            w = ','.join(f'{k}:{v}' for k, v in self.world.data.items())
             parts = [
                 t,
                 f'{m.id or ""       : >4}',
@@ -353,23 +331,8 @@ class Runtime:
                 f'{m.plate_id or "" : >2}',
                 f'{m.step           : <9}',
                 f'{w                : <30}',
-                f'{r                     }',
             ]
             return ' | '.join(parts)
-
-    running_entries: list[LogEntry] = field(default_factory=list)
-    world: World = field(default_factory=dict)
-
-    def running(self) -> Running:
-        with self.lock:
-            return Running(
-                entries=self.running_entries,
-                world=self.world,
-            )
-
-    def log_running(self):
-        with self.lock:
-            self.log(LogEntry(running=self.running()))
 
     def timeit(self, entry: LogEntry) -> ContextManager[None]:
         # The inferred type for the decorated function is wrong hence this wrapper to get the correct type
@@ -377,19 +340,10 @@ class Runtime:
         @contextmanager
         def worker():
             with self.lock:
-                e0 = self.log(entry)
-                self.running_entries.append(e0)
-                G = pbutils.group_by(self.running_entries, key=lambda e: e.metadata.thread_resource)
-                if self.config.name == 'dry-run':
-                    for thread_resource, v in G.items():
-                        if thread_resource is not None:
-                            assert len(v) <= 1, f'list for {thread_resource} should not have more than one element: {pbutils.pr(v)}'
-                self.log_running()
+                e0 = self.log(entry.replace(is_running=True))
             yield
             with self.lock:
-                self.log(e0, t0=e0.t)
-                self.running_entries.remove(e0)
-                self.log_running()
+                self.log(e0.replace(is_running=False), t0=e0.t)
 
         return worker()
 

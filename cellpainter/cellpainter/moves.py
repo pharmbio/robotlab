@@ -10,6 +10,7 @@ import abc
 import re
 import textwrap
 import pbutils
+from pbutils.mixins import DBMixin
 
 class Move(abc.ABC):
     def to_dict(self) -> dict[str, Any]:
@@ -424,19 +425,26 @@ def read_movelists() -> dict[str, TaggedMoveList]:
 
     return {v.name: v for v in out}
 
-World: TypeAlias = dict[str, str]
+@dataclass(frozen=True)
+class World(DBMixin):
+    data: dict[str, str] = field(default_factory=dict)
+    t: float = 0
+    id: int = -1
+
+    def __getitem__(self, key: str) -> str:
+        return self.data[key]
 
 class Effect(abc.ABC):
     def apply(self, world: World) -> World:
-        next = {**world}
+        next = {**world.data}
         for k, v in self.effect(world).items():
             if v is None:
-                assert k in world
+                assert k in world.data
                 next.pop(k)
             else:
-                assert k not in world
+                assert k not in world.data
                 next[k] = v
-        return next
+        return World(next)
 
     @abc.abstractmethod
     def effect(self, world: World) -> dict[str, str | None]:
@@ -451,8 +459,8 @@ class NoEffect(Effect):
 class InitialWorld(Effect):
     world0: World
     def effect(self, world: World) -> dict[str, str | None]:
-        assert not world
-        return {**self.world0}
+        assert not world.data
+        return {**self.world0.data}
 
 @dataclass(frozen=True)
 class MovePlate(Effect):

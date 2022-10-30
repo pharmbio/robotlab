@@ -25,7 +25,7 @@ from .commands import (
 )
 from . import commands
 
-from .moves import InitialWorld
+from .moves import InitialWorld, World
 
 import pbutils
 from .log import Metadata
@@ -119,7 +119,7 @@ def incu_load(args: SmallProtocolArgs):
         RobotarmCmd('incu_A21 put-return'),
         WaitForResource('incu'),
     ])
-    program = add_world_metadata(program, world0)
+    program = add_world_metadata(program, World(world0))
     return program
 
 @small_protocols.append
@@ -158,7 +158,7 @@ def test_circuit(_: SmallProtocolArgs):
     )
     program = sleek_program(program)
     program = Seq(
-        Info('initial world').add(Metadata(effect=InitialWorld({'incu': plate.id}))),
+        Info('initial world').add(Metadata(effect=InitialWorld(World({'incu': plate.id})))),
         program,
     )
     return program
@@ -243,7 +243,7 @@ def wash_plates_clean(args: SmallProtocolArgs):
         cmds += [*RobotarmCmds(plate.lid_get)]
         cmds += [*RobotarmCmds(plate.out_put)]
 
-    world0 = {plate.out_loc: plate.id for plate in plates}
+    world0 = World({plate.out_loc: plate.id for plate in plates})
     program = Seq(*cmds)
     program = sleek_program(program)
     program = add_world_metadata(program, world0)

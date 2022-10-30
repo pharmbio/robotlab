@@ -379,6 +379,13 @@ class DB:
                 );
                 create index if not exists {Table}_id on {Table} (id);
             '''))
+        if is_dataclass(t):
+            meta = getattr(t, '__meta__', None)
+            if isinstance(meta, Meta):
+                for index_name, index_expr in meta.indexes.items():
+                    self.con.execute(textwrap.dedent(f'''
+                        create index if not exists {Table}_{index_name} on {Table} ({index_expr});
+                    '''))
         if is_dataclass(t) and not self.has_table(TableView, 'view'):
             meta = getattr(t, '__meta__', None)
             views: dict[str, str] = {
@@ -505,6 +512,7 @@ class Meta:
     log: bool = False
     log_table: None | str = None
     views: dict[str, str] = field(default_factory=dict)
+    indexes: dict[str, str] = field(default_factory=dict)
 
 def test():
     '''

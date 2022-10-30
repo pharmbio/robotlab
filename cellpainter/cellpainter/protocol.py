@@ -107,9 +107,9 @@ def sleek_program(program: Command) -> Command:
 
 def initial_world(plates: list[Plate], p: ProtocolConfig) -> World:
     if p.start_from_pfa:
-        return {p.out_loc: p.id for p in plates}
+        return World({p.out_loc: p.id for p in plates})
     else:
-        return {p.incu_loc: p.id for p in plates}
+        return World({p.incu_loc: p.id for p in plates})
 
 def add_world_metadata(program: Command, world0: World) -> Command:
     def F(cmd: Command) -> Command:

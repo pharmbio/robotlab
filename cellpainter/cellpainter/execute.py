@@ -1,9 +1,9 @@
 from __future__ import annotations
 from typing import *
+from dataclasses import *
 
 import contextlib
 import os
-import platform
 
 from pathlib import Path
 
@@ -42,6 +42,9 @@ from . import bioteks
 from . import incubator
 from .estimates import estimate, EstCmd
 from . import estimates
+from datetime import datetime
+
+from pbutils.mixins import DB, DBMixin
 
 def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
     if isinstance(cmd, EstCmd) and metadata.est is None:
@@ -142,7 +145,7 @@ def make_runtime(config: RuntimeConfig, metadata: dict[str, str]) -> Iterator[Ru
         log_filename = config.log_filename
         if not log_filename:
             log_filename = ' '.join(['event log', *metadata.values()])
-            log_filename = 'logs/' + log_filename.replace(' ', '_') + '.jsonl'
+            log_filename = 'logs/' + log_filename.replace(' ', '_') + '.db'
         abspath = os.path.abspath(log_filename)
         os.makedirs(os.path.dirname(abspath), exist_ok=True)
         print(f'{log_filename=}')
@@ -158,11 +161,14 @@ def make_runtime(config: RuntimeConfig, metadata: dict[str, str]) -> Iterator[Ru
     with runtime.excepthook():
         yield runtime
 
-def check_correspondence(program: Command, est_entries: Log, expected_ends: dict[str, float]):
+def check_correspondence(program: Command, est_db: DB, expected_ends: dict[str, float]):
     matches = 0
     mismatches = 0
     seen: set[str] = set()
-    for e in est_entries:
+    for e in est_db.get(LogEntry).where_some(
+        LogEntry.t0 != None,
+        LogEntry.cmd.type == 'Checkpoint' # type: ignore
+    ):
         i = e.metadata.id
         if i and (e.is_end() or isinstance(e.cmd, Checkpoint)):
             seen.add(i)
@@ -192,6 +198,10 @@ def check_correspondence(program: Command, est_entries: Log, expected_ends: dict
     if mismatches or not matches:
         print(f'{matches=} {mismatches=} {len(expected_ends)=}')
 
+@dataclass(frozen=True)
+class Program(DBMixin):
+    program: Command
+
 def execute_program(config: RuntimeConfig, program: Command, metadata: dict[str, str], for_visualizer: bool = False, sim_delays: dict[str, float] = {}) -> Log:
     program = program.remove_noops()
     program = program.assign_ids()
@@ -209,25 +219,20 @@ def execute_program(config: RuntimeConfig, program: Command, metadata: dict[str,
     with pbutils.timeit('estimates'):
         with make_runtime(dry_run.replace(log_to_file=False, log_filename=None), {}) as runtime_est:
             execute(program, runtime_est, Metadata())
-    with pbutils.timeit('get_log'):
-        est_entries = runtime_est.get_log()
 
     if for_visualizer:
-        return est_entries
+        return runtime_est.get_log()
 
     with pbutils.timeit('check correspondence'):
-        check_correspondence(program, est_entries, expected_ends)
+        check_correspondence(program, runtime_est.log_db, expected_ends)
 
     cache = Path('cache/')
     cache.mkdir(parents=True, exist_ok=True)
 
     now_str = pbutils.now_str_for_filename()
 
-    estimates_filename     = cache / (now_str + '_estimates.jsonl')
-    program_filename       = cache / (now_str + '_program.json')
-    running_log_filename   = cache / (now_str + '_running.jsonl')
-
-    config = config.replace(running_log_filename=str(running_log_filename))
+    estimates_filename = cache / (now_str + '_estimates.db')
+    program_filename   = cache / (now_str + '_program.json')
 
     if metadata.get('program') == 'cell_paint':
         missing: list[str] = []
@@ -246,27 +251,37 @@ def execute_program(config: RuntimeConfig, program: Command, metadata: dict[str,
         program = program.remove_scheduling_idles()
 
         with pbutils.timeit('write estimates'):
-            # pbutils.serializer.write_jsonl(est_entries, estimates_filename)
             runtime_est.log_db.con.execute('vacuum into ?', (str(estimates_filename),))
+        import pickle
         with pbutils.timeit('write program'):
-            pbutils.serializer.write_json(program, program_filename, indent=2)
-        if running_log_filename:
-            running_log_filename.touch()
+            # pbutils.serializer.write_json(program, program_filename, indent=2)
+            with open(program_filename, 'wb') as fp:
+                pickle.dump(program, fp)
 
-        runtime_metadata = RuntimeMetadata(
-            pid                  = os.getpid(),
-            host                 = platform.node(),
-            git_HEAD             = pbutils.git_HEAD() or '',
-            log_filename         = config.log_filename or '',
-            estimates_filename   = str(estimates_filename) ,
-            program_filename     = str(program_filename),
-            running_log_filename = str(running_log_filename),
+        num_plates = max(
+            (
+                int(p)
+                for x in program.universe()
+                if isinstance(x, Meta)
+                if (p := x.metadata.plate_id)
+            ),
+            default=0
         )
 
-        runtime.log(LogEntry(runtime_metadata=runtime_metadata))
+        runtime_metadata = RuntimeMetadata(
+            start_time         = runtime.start_time,
+            num_plates         = num_plates,
+            log_filename       = config.log_filename,
+            estimates_filename = str(estimates_filename),
+            program_filename   = str(program_filename),
+        )
+        runtime_metadata = runtime_metadata.save(runtime.log_db)
+
         with pbutils.timeit('execute'):
             execute(program, runtime, Metadata())
-        runtime.log(LogEntry(metadata=Metadata(completed=True)))
+
+        runtime_metadata.completed = datetime.now()
+        runtime_metadata = runtime_metadata.save(runtime.log_db)
 
         for line in runtime.get_log().group_durations_for_display():
             print(line)
