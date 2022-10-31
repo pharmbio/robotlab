@@ -87,7 +87,7 @@ class Select(Generic[R], PrivateReplaceMixin):
         if default is not None:
             focus = Syntax.ifnull(focus, default)
         focus = Syntax.json_quote(focus)
-        return replace(self, _focus=focus).show().one()
+        return replace(self, _focus=focus).one()
 
     def count(self) -> int: return self._agg('count', Syntax('*', []))
     def max(self, v: A, default: A | None = None) -> A: return self._agg('max', v, default=default)

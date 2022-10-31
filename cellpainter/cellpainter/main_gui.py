@@ -34,7 +34,7 @@ from .commands import IncuCmd, BiotekCmd
 from . import moves
 from . import runtime
 import pbutils
-from .log import LogEntry, Metadata, RuntimeMetadata, Error, countdown
+from .log import CommandState, Message, VisRow, Metadata, RuntimeMetadata, Error, countdown
 from .moves import RawCode, Move
 from .protocol import Locations
 from .small_protocols import small_protocols_dict, SmallProtocolData
@@ -117,26 +117,11 @@ def start(args: Args, simulate: bool):
         'refresh': True,
     })
 
-@lru_cache
-def read_log_jsonl(filepath: str) -> Log:
-    res = Log.read_jsonl(filepath)
-    res = res.drop_validate()
-    return res
-
-@lru_cache(maxsize=1)
-def _jsonl_to_log(path: str, mtime_ns: int) -> Log | None:
+def path_to_log(path: str) -> Log | None:
     try:
-        return Log.read_jsonl(path).drop_validate()
+        return Log.open(path)
     except:
         return None
-
-def jsonl_to_log(path: str) -> Log | None:
-    p = Path(path)
-    try:
-        stat = p.stat()
-    except FileNotFoundError:
-        return None
-    return _jsonl_to_log(path, stat.st_mtime_ns)
 
 def pp_secs(secs: int | float, zero: str='0'):
     dt = timedelta(seconds=math.ceil(secs))
@@ -193,14 +178,16 @@ def process_is_alive(pid: int, log_filename: str) -> bool:
 class AnalyzeResult:
     zero_time: datetime
     t_now: float
-    runtime_metadata: RuntimeMetadata
+    runtime_metadata: RuntimeMetadata | None
     completed: bool
-    sections: dict[str, Log]
-    running_entries: list[LogEntry]
-    errors: list[tuple[Error, LogEntry]]
+    running_state: list[CommandState]
+    errors: list[Message]
     world: dict[str, str]
     num_plates: int
     process_is_alive: bool
+    sections: dict[str, float]
+    time_end: float
+    vis: list[VisRow]
 
     def has_error(self):
         if self.completed:
@@ -211,81 +198,53 @@ class AnalyzeResult:
     def init(m: Log, drop_after: float | None = None) -> AnalyzeResult | None:
       with pbutils.timeit('ar'):
         completed = m.is_completed()
-
         runtime_metadata = m.runtime_metadata()
-        if not runtime_metadata:
-            return None
         zero_time = m.zero_time()
         t_now = (datetime.now() - zero_time).total_seconds()
 
-        if t_now < m.max_t():
-            t_now = m.max_t()
+        if t_now < m.time_end():
+            t_now = m.time_end()
 
         if completed:
-            t_now = m.max_t() + 1
+            t_now = m.time_end() + 1
 
-        alive = process_is_alive(runtime_metadata.pid, runtime_metadata.log_filename)
+        if runtime_metadata:
+            alive = process_is_alive(runtime_metadata.pid, runtime_metadata.log_filename)
+        else:
+            alive = False
 
         if not alive:
-            t_now = m.max_t() + 1
+            t_now = m.time_end() + 1
 
         errors = m.errors()
         if errors:
-            t_now = Log(e for _, e in errors).max_t() + 1
-
-        running_log = Log.read_jsonl(runtime_metadata.running_log_filename)
+            t_now = max([e.t for e in errors], default = m.time_end()) + 1
 
         if drop_after is not None:
+            completed = False
             t_now = drop_after
-            m = m.drop_after(drop_after)
-            running_log = running_log.drop_after(drop_after)
 
-        running = running_log.running()
-        if not running:
-            running = Running.empty()
-
-        estimates = read_log_jsonl(runtime_metadata.estimates_filename)
-        num_plates = max(m.num_plates(), estimates.num_plates())
-
-        finished_ids = m.finished()
-        running_ids = Log(running.entries).ids()
-        live_ids = finished_ids | running_ids
-
-        running_entries = Log([
-            e.init(
-                log_time=e.log_time,
-                t0=e.t,
-                t=e.t + (e.metadata.est or e.metadata.sleep_secs or 0.0)
-            ).add(Metadata(is_estimate=True))
-            for e in running.entries
-        ])
-        running_entries = running_entries.drop_validate()
-
-        estimates = estimates.where(lambda e: e.is_end_or_info())
-        estimates = estimates.where(lambda e: e.metadata.id not in live_ids)
-        estimates = estimates.add(Metadata(is_estimate=True))
-
-        vis = Log(m + running_entries + estimates)
-        vis = vis.drop_test_comm()
-        vis = vis.where(lambda e: e.is_end_or_info())
-        end = LogEntry(t=vis.max_t(), metadata=Metadata(section='end'))
-        vis = Log(vis + [end])
-        sections = vis.group_by_section()
+        running_state = m.running(t=drop_after)
+        num_plates = m.num_plates()
+        world = m.world(t=drop_after)
+        sections = m.section_starts_with_endpoints()
 
         return AnalyzeResult(
             zero_time=zero_time,
             t_now=t_now,
             runtime_metadata=runtime_metadata,
             completed=completed,
-            running_entries=running_entries,
-            sections=sections,
+            running_state=running_state,
             errors=errors,
-            world=running.world,
+            world=world,
             num_plates=num_plates,
             process_is_alive=alive,
+            sections=sections,
+            time_end=m.time_end(),
+            vis=m.vis(),
         )
 
-    def entry_desc_for_hover(self, e: LogEntry):
+    def entry_desc_for_hover(self, e: CommandState):
         cmd = e.cmd
         match cmd:
             case BiotekCmd():
@@ -304,7 +263,7 @@ class AnalyzeResult:
             case _:
                 return str(cmd)
 
-    def entry_desc_for_table(self, e: LogEntry):
+    def entry_desc_for_table(self, e: CommandState):
         cmd = e.cmd
         match cmd:
             case commands.RobotarmCmd():
@@ -329,9 +288,9 @@ class AnalyzeResult:
                 return str(e)
 
     def running(self):
-        d: dict[str, LogEntry | None] = {}
+        d: dict[str, CommandState | None] = {}
         resources = 'main disp wash incu'.split()
-        G = pbutils.group_by(self.running_entries, key=lambda e: e.metadata.thread_resource)
+        G = pbutils.group_by(self.running_state, key=lambda e: e.metadata.thread_resource)
         G['main'] = G[None]
         for resource in resources:
             es = G.get(resource, [])
@@ -366,115 +325,31 @@ class AnalyzeResult:
 
     def pretty_sections(self):
         table: list[dict[str, str | float | int]] = []
-        for name, entries in self.sections.items():
-            if entries:
-                table.append({
-                    'batch':     entries[0].metadata.batch_index or '',
-                    'section':   name.strip(' 0123456789'),
-                    'countdown': self.pp_countdown(entries.min_t(), zero=''),
-                    't0':        self.pp_time_at(entries.min_t()),
-                    # 'length':    pp_secs(math.ceil(entries.length()), zero=''),
-                    'total':     pp_secs(math.ceil(entries.max_t()), zero='') if name == 'end' else '',
-                })
+        for name, t in self.sections.items():
+            section, _, last = name.rpartition(' ')
+            if last.isdigit():
+                batch = str(int(last) + 1)
+            else:
+                section = name
+                batch = ''
+            table.append({
+                'batch':     batch,
+                'section':   section,
+                'countdown': self.pp_countdown(t, zero=''),
+                't0':        self.pp_time_at(t),
+                # 'length':    pp_secs(math.ceil(entries.length()), zero=''),
+                'total':     pp_secs(math.ceil(self.time_end), zero='') if name == 'end' else '',
+            })
         return table
 
     def make_vis(self, t_end: Int | None = None) -> Tag:
-        t_now = self.t_now
-        sections = {
-            k: entries
-            for k, entries in self.sections.items()
-            if (_interesting := entries.where(lambda e: isinstance(e.cmd, BiotekCmd | IncuCmd)))
-        }
-
-        start_times = [s[0].t for _, s in sections.items()]
-        if start_times:
-            start_times[0] = 0
-        lengths = [
-            next_start_t - this_start_t for
-            this_start_t, next_start_t in
-            pbutils.iterate_with_next(start_times)
-            if next_start_t is not None
-        ]
-        end_time = max((entries.max_t() for _, entries in sections.items()), default=0)
-        if start_times:
-            lengths += [end_time - start_times[-1]]
-        max_length = max([*lengths, 60*6], default=0)
-
-        @dataclass
-        class Row:
-            t0: float
-            t: float
-            is_estimate: bool
-            source: str
-            column: int
-            plate_id: str = ''
-            id: str = ''
-            msg: str = ''
-            entry: LogEntry | None = None
-            title: str = ''
-
-        import itertools as it
-
-        bg_rows: list[Row] = []
-        for i, ((name, section), this_start, next_start) in enumerate(it.zip_longest(sections.items(), start_times, start_times[1:])):
-            if next_start:
-                this_end = next_start
-            else:
-                this_end = section.max_t()
-            bg_rows += [Row(
-                t0          = this_start,
-                t           = this_end,
-                is_estimate = False,
-                source      = 'bg',
-                column      = i,
-                title       = name,
-            )]
-
-        now_row: list[Row] = []
-        for i, ((_name, section), this_start) in reversed(list(enumerate(zip(sections.items(), start_times)))):
-            if t_now >= this_start:
-                now_row += [Row(
-                    t0          = t_now,
-                    t           = t_now,
-                    is_estimate = False,
-                    source      = 'now',
-                    column      = i
-                )]
-                break
-
-        include_incu = not any(
-            isinstance(e.cmd, BiotekCmd)
-            for _, entries in sections.items()
-            for e in entries
-        )
-
-        rows: list[Row] = [
-            Row(
-                t0          = e.t0 or e.t,
-                t           = e.t,
-                is_estimate = e.metadata.is_estimate,
-                source      = e.machine() or '?',
-                plate_id    = e.metadata.plate_id or '',
-                column      = i,
-                id          = e.metadata.id,
-                msg         = self.entry_desc_for_hover(e),
-                entry       = e,
-            )
-            for i, (_, entries) in enumerate(sections.items())
-            for e in entries
-            if isinstance(e.cmd, BiotekCmd)
-            or (include_incu and isinstance(e.cmd, IncuCmd))
-        ]
-
-        rows = bg_rows + rows + now_row
-
         width = 23
 
         area = div()
         area.css += f'''
             position: relative;
             user-select: none;
-            width: {round(width*(len(sections)+1)*2.3, 1)}px;
+            width: {round(width*(len(self.sections)+1)*2.3, 1)}px;
             transform: translateY(1em);
             height: calc(100% - 1em);
         '''
@@ -517,12 +392,26 @@ class AnalyzeResult:
             }
         '''
 
-        for row in rows:
+        max_length = max([
+            row.t - row.t0
+            for row in self.vis
+        ], default=1.0)
+
+        for row in self.vis:
             slot = 0
-            if row.source == 'disp':
+            metadata = row.state and row.state.metadata
+            if row.state:
+                source = row.state.resource or ''
+            elif row.bg:
+                source = 'bg'
+            elif row.now:
+                source = 'now'
+            else:
+                source = ''
+            if source == 'disp':
                 slot = 1
             my_width = 1
-            if row.source in ('now', 'bg'):
+            if source in ('now', 'bg'):
                 my_width = 2
 
             color = {
@@ -531,19 +420,29 @@ class AnalyzeResult:
                 'incu': 'var(--green)',
                 'now': '#fff',
                 'bg': 'var(--bg-bright)',
-            }[row.source]
-            can_hover = row.source not in ('now', 'bg')
+            }[source]
+            can_hover = source not in ('now', 'bg')
 
-            column_start = start_times[row.column]
-            y0 = (row.t0 - column_start) / (max_length or 1.0)
-            y1 = (row.t - column_start) / (max_length or 1.0)
+            y0 = (row.t0 - row.section_t0) / (max_length or 1.0)
+            y1 = (row.t - row.section_t0) / (max_length or 1.0)
             h = y1 - y0
 
-            info = f'{row.msg}'
+            if row.state and isinstance(row.state.cmd, BiotekCmd):
+                info = row.state.cmd.protocol_path or row.state.cmd.action
+            elif row.state and isinstance(row.state.cmd, IncuCmd):
+                loc = row.state.cmd.incu_loc
+                action = row.state.cmd.action
+                if loc:
+                    info = f'{action} {loc}'
+                else:
+                    info = action
+            else:
+                info = ''
             title: dict[str, Any] | div = {}
-            if row.title and row.title != 'begin':
+            row_title = row.section if row.bg else ''
+            if row_title and row_title != 'begin':
                 title = div(
-                    row.title.strip(' 0123456789'),
+                    row_title.strip(' 0123456789'),
                     css='''
                         color: var(--fg);
                         position: absolute;
@@ -554,13 +453,15 @@ class AnalyzeResult:
                         background: unset;
                     '''
                 )
+            plate_id = metadata and metadata.plate_id or ''
             area += div(
                 title,
-                row.plate_id,
-                is_estimate=row.is_estimate,
+                plate_id,
+                is_estimate=row.state.state != 'completed' if row.state else False,
                 can_hover=can_hover,
+                # data_row=repr(row),
                 style=f'''
-                    left:{(row.column*2.3 + slot) * width:.0f}px;
+                    left:{(row.section_column*2.3 + slot) * width:.0f}px;
                     top:{  y0 * 100:.3f}%;
                     height:{h * 100:.3f}%;
                     --row-color:{color};
@@ -569,7 +470,7 @@ class AnalyzeResult:
                 css_=f'''
                     width: {width * my_width - 2}px;
                 ''',
-                data_plate_id=str(row.plate_id),
+                data_plate_id=plate_id,
                 onclick=None if t_end is None else store.update(t_end, int(row.t + 1)).goto(),
                 css__='cursor: pointer' if t_end is not None else '',
             )
@@ -944,16 +845,16 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
     t_end: Int | None = None
     simulation_completed: bool = False
     if path:
-        with pbutils.timeit('jsonl_to_log'):
-          log = jsonl_to_log(path)
+        with pbutils.timeit('path_to_log'):
+          log = path_to_log(path)
         try:
             stderr = as_stderr(path).read_text()
         except:
             stderr = ''
         if log and log.is_completed() and 'dry' in config.name:
             simulation_completed = True
-            t_min = int(log.min_t()) + 1
-            t_max = int(log.max_t()) + 1
+            t_min = 0
+            t_max = int(log.time_end()) + 1
             t_end = m.int(t_max, min=t_min, max=t_max)
             spinner = div(
                 div('|'),
@@ -1108,14 +1009,15 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
                     }
                 '''
             )
-            for err, entry in ar.errors:
+            for err in ar.errors:
                 try:
                     tb = err.traceback
                 except:
                     tb = None
                 if not isinstance(tb, str):
                     tb = None
-                box += pre(f'[{entry.strftime("%H:%M:%S")}] {err.message} {"(...)" if tb else ""}', title=tb)
+                # box += pre(f'[{entry.strftime("%H:%M:%S")}] {err.message} {"(...)" if tb else ""}', title=tb)
+                box += pre(f'{err.msg} {"(...)" if tb else ""}', title=tb)
             if not ar.process_is_alive:
                 box += pre('Controller process has terminated.')
             info += box
@@ -1126,7 +1028,7 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
                 yield t_end_form.extend(
                     grid_area='info-foot',
                 )
-        elif ar.process_is_alive:
+        elif ar.process_is_alive and ar.runtime_metadata:
             text = f'pid: {ar.runtime_metadata.pid} on {platform.node()} with config {config.name}'
         else:
             text = f'pid: - on {platform.node()} with config {config.name}'

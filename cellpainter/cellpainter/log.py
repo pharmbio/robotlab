@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 
 import pbutils
 from .commands import Metadata, Command, Checkpoint, BiotekCmd, Duration, Info, IncuCmd, RobotarmCmd
+from .moves import World
 
 from pbutils.mixins import DB, DBMixin
 import pbutils.mixins
@@ -17,8 +18,8 @@ import platform
 class RuntimeMetadata(DBMixin):
     start_time:       datetime
     num_plates:       int
-    log_filename:     str | None
     program_filename: str
+    log_filename:     str = ':memory:'
     pid: int      = field(default_factory=lambda: os.getpid())
     host: str     = field(default_factory=lambda: platform.node())
     git_HEAD: str = field(default_factory=lambda: pbutils.git_HEAD() or '')
@@ -63,6 +64,23 @@ class CommandState(DBMixin):
     state: Literal['completed', 'running', 'planned']
     id: int # should be int(Metadata.id)
 
+    # generated for the UI from cmd and metadata:
+    gui_boring: bool = False
+    resource: Literal['robotarm', 'incu', 'disp', 'wash'] | None = None
+
+    def __post_init__(self):
+        self.resource = self.cmd.required_resource()
+        if isinstance(self.cmd, BiotekCmd):
+            if self.cmd.action == 'Validate':
+                self.gui_boring = True
+            if self.cmd.action == 'TestCommunications':
+                self.gui_boring = True
+        if isinstance(self.cmd, IncuCmd):
+            if self.cmd.action == 'get_status':
+                self.gui_boring = True
+        if self.metadata.gui_force_show:
+            self.gui_boring = False
+
     __meta__: ClassVar = pbutils.mixins.Meta(
         views={
             k.name: f'value ->> "metadata.{k.name}"'
@@ -106,6 +124,18 @@ class Error:
     message: str
     traceback: str | None = None
 
+@dataclass
+class VisRow:
+    t0: float
+    t: float
+    section: str
+    section_column: int = -1
+    section_t0: float = 0
+    state: CommandState | None = None
+    now: bool = False
+    bg: bool = False
+
+
 @dataclass(frozen=True)
 class Log:
     db: DB
@@ -114,22 +144,111 @@ class Log:
     def open(filename: str):
         return Log(DB.connect(filename))
 
-    def finished(self) -> set[str]:
+    def gui_query(self):
+        q = self.db.get(CommandState)
+        q = q.where(CommandState.resource != None)
+        q = q.where(CommandState.gui_boring != True)
+        q = q.where(CommandState.metadata.section != '')
+        return q
+
+    def world(self, t: float | None = None) -> dict[str, str]:
+        q = self.db.get(World).order(World.t, 'desc')
+        if t is not None:
+            q = q.where(World.t <= t)
+        for w in q:
+            return w.data
+        else:
+            return {}
+
+    def running(self, t: float | None = None) -> list[CommandState]:
+        if t is None:
+            return self.db.get(CommandState).where(CommandState.state == 'running').list()
+        else:
+            return self.db.get(CommandState).where(
+                CommandState.t0 <= t,
+                t <= CommandState.t,
+            ).list()
+
+    def section_starts(self):
+        q = self.gui_query()
+        g = q.group(CommandState.metadata.section)
         return {
-            e.metadata.id
-            for e in
-            self.db.get(LogEntry).where_some(
-                LogEntry.t0 != None,
-                LogEntry.cmd.type == 'Info', # type: ignore
-            )
+            k: v
+            for k, v in sorted(g.min(CommandState.t0).items(), key=lambda kv: kv[1])
         }
 
-    def ids(self) -> set[str]:
+    def time_end(self):
+        return self.gui_query().max(CommandState.t) or 0.0
+
+    def section_starts_with_endpoints(self) -> dict[str, float]:
         return {
-            e.metadata.id
-            for e in
-            self.db.get(LogEntry)
+            'begin': 0.0,
+            **self.section_starts(),
+            'end': self.time_end()
         }
+
+    def vis(self, t: float | None = None) -> list[VisRow]:
+        section_starts = self.section_starts()
+        if not section_starts:
+            return []
+        first_section, *_ = section_starts.keys()
+        section_starts[first_section] = 0.0
+        section_columns = {section: i for i, section in enumerate(section_starts.keys())}
+
+        def time_to_section(t: float):
+            for section, t0 in section_starts.items():
+                if t >= t0:
+                    return section
+            return 'before time'
+
+        rows: list[VisRow] = []
+        for (section_name, section_t0), next in pbutils.iterate_with_next(section_starts.items()):
+            if next:
+                _, section_t = next
+            else:
+                section_t = self.time_end()
+            bg_row = VisRow(
+                t0 = section_t0,
+                t = section_t,
+                section = section_name,
+                bg = True,
+            )
+            rows += [bg_row]
+
+        if t is not None:
+            now_row = VisRow(
+                t0 = t,
+                t = t,
+                section = time_to_section(t),
+            )
+            rows += [now_row]
+
+        q = self.gui_query()
+        states = q.where_some(CommandState.resource == 'disp', CommandState.resource == 'wash')
+        if not states.count():
+            # show incu if no bioteks (for incu load)
+            states = q.where_some(CommandState.resource == 'incu')
+        for state in states:
+            if t is not None:
+                if state.t0 > t:
+                    state.state = 'planned'
+                elif state.t < t:
+                    state.state = 'completed'
+                else:
+                    state.state = 'running'
+            row = VisRow(
+                t0 = state.t0,
+                t = state.t,
+                state = state,
+                section = state.metadata.section,
+            )
+            rows += [row]
+
+        for row in rows:
+            row.section_column = section_columns[row.section]
+            row.section_t0 = section_starts[row.section]
+
+        return rows
 
     def durations(self) -> dict[str, float]:
         return {
@@ -160,76 +279,27 @@ class Log:
         for k, vs in self.group_durations().items():
             yield k + ' [' + ', '.join(vs) + ']'
 
-    def errors(self) -> list[tuple[Error, LogEntry]]:
-        return [
-            (err, e)
-            for e in self.db.get(LogEntry).where(
-                LogEntry.err != None,
-            )
-            if (err := e.err)
-        ]
+    def errors(self) -> list[Message]:
+        return self.db.get(Message).where(Message.is_error == True).list()
 
-    def section_starts(self) -> dict[str, float]:
-        g = self.db.get(LogEntry).where(LogEntry.metadata.section != '').group(LogEntry.metadata.section)
-        return g.min(LogEntry.t).dict()
-
-    def min_t(self):
-        return self.db.get(LogEntry).min(LogEntry.t, default=0.0)
-
-    def max_t(self):
-        return self.db.get(LogEntry).max(LogEntry.t, default=0.0)
-
-    def length(self):
-        return self.max_t() - self.min_t()
-
-    def group_by_section(self, first_section_name: str='begin') -> dict[str, list[LogEntry]]:
-        g = self.db.get(LogEntry).where_some(
-            LogEntry.cmd.type == 'BiotekCmd',     # type: ignore
-            LogEntry.cmd.type == 'IncuCmd',       # type: ignore
-            LogEntry.cmd.type == 'RobotarmCmd',   # type: ignore
-        ).where(
-            LogEntry.metadata.section != ''
-        ).group(LogEntry.metadata.section)
-        return g.dict()
+    def runtime_metadata(self) -> RuntimeMetadata | None:
+        for m in self.db.get(RuntimeMetadata):
+            return m
+        return None
 
     def zero_time(self) -> datetime:
-        return self.db.get(RuntimeMetadata).one().start_time
+        rt = self.runtime_metadata()
+        if rt:
+            return rt.start_time
+        else:
+            return datetime.now()
 
     def is_completed(self) -> bool:
-        return self.db.get(RuntimeMetadata).one().completed is not None
+        rt = self.runtime_metadata()
+        return bool(rt and rt.completed is not None)
 
     def num_plates(self) -> int:
-        return self.db.get(RuntimeMetadata).one().num_plates
-
-    def drop_validate(self) -> Log:
-        res = self
-        res = res.drop(lambda e: isinstance(e.cmd, BiotekCmd) and e.cmd.action == 'Validate' and not e.metadata.gui_force_show)
-        return res
-
-    def drop_test_comm(self) -> Log:
-        res = self
-        res = res.drop(lambda e: isinstance(e.cmd, BiotekCmd) and e.cmd.action == 'TestCommunications' and not e.metadata.gui_force_show)
-        res = res.drop(lambda e: isinstance(e.cmd, IncuCmd) and e.cmd.action == 'get_status' and not e.metadata.gui_force_show)
-        return res
-
-    def drop(self, p: Callable[[LogEntry], Any]) -> Log:
-        return self.where(lambda x: not p(x))
-
-    def where(self, p: Callable[[LogEntry], Any]) -> Log:
-        return Log(
-            x
-            for x in self
-            if p(x)
-        )
-
-    def add(self, metadata: Metadata) -> Log:
-        return Log(
-            x.add(metadata)
-            for x in self
-        )
-
-    def drop_after(self, secs: float | int) -> Log:
-        return Log([e for e in self if e.t <= secs])
-
+        rt = self.runtime_metadata()
+        return rt.num_plates if rt else 0
 
 pbutils.serializer.register(globals())
