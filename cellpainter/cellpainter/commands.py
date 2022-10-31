@@ -44,8 +44,6 @@ class Metadata:
     def is_sleep(self):
         return self.sleep_secs is not None
 
-    is_estimate: bool = False
-
     def merge(self, *others: Metadata) -> Metadata:
         repl: dict[str, Any] = {}
         for other in others:
@@ -54,6 +52,10 @@ class Metadata:
         return out
 
 class Command(abc.ABC):
+    @property
+    def type(self) -> str:
+        return self.__class__.__name__
+
     def required_resource(self) -> Literal['robotarm', 'incu', 'wash', 'disp'] | None:
         return None
 

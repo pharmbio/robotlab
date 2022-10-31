@@ -4,12 +4,12 @@ from typing import *
 
 from .runtime import Runtime
 
-from .log import Metadata, LogEntry, Error
+from .log import CommandWithMetadata, Metadata, Error
 from .commands import BiotekAction
 
 def execute(
     runtime: Runtime,
-    entry: LogEntry,
+    entry: CommandWithMetadata,
     machine: Literal['wash', 'disp'],
     protocol_path: str | None,
     action: BiotekAction = 'Run',
@@ -66,7 +66,7 @@ def execute(
         if biotek is None:
             est = entry.metadata.est
             assert isinstance(est, float)
-            runtime.sleep(est, entry.add(Metadata(dry_run_sleep=True)))
+            runtime.sleep(est, entry.merge(Metadata(dry_run_sleep=True)))
             res: Any = {"success":True, "lines":[]}
         else:
             match action:
@@ -91,9 +91,9 @@ def execute(
             break
         elif 'Error code: 6061' in details:
             for line in lines:
-                runtime.log(entry.add(msg=f'{machine}: {line}'))
-            runtime.log(entry.add(msg=f'{machine} got error code 6061, retrying...'))
+                runtime.log(entry.message(msg=f'{machine}: {line}'))
+            runtime.log(entry.message(msg=f'{machine} got error code 6061, retrying...'))
         else:
             for line in lines or ['']:
-                runtime.log(entry.add(err=Error(f'{machine}: {line}')))
+                runtime.log(entry.message(f'{machine}: {line}', is_error=True))
             raise ValueError(res)

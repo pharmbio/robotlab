@@ -4,15 +4,17 @@ from dataclasses import *
 
 import contextlib
 import os
+import pickle
 
 from pathlib import Path
 
 from . import commands
 
 from .log import (
+    CommandState,
     RuntimeMetadata,
-    LogEntry,
     Log,
+    CommandWithMetadata,
 )
 
 from .commands import (
@@ -49,7 +51,7 @@ from pbutils.mixins import DB, DBMixin
 def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
     if isinstance(cmd, EstCmd) and metadata.est is None:
         metadata = metadata.merge(Metadata(est=estimate(cmd)))
-    entry = LogEntry(cmd=cmd, metadata=metadata)
+    entry = CommandWithMetadata(cmd=cmd, metadata=metadata)
     match cmd:
         case Meta():
             execute(cmd.command, runtime, metadata.merge(cmd.metadata))
@@ -59,12 +61,11 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
                 execute(c, runtime, metadata)
 
         case Info():
-            runtime.log(entry.add(msg=cmd.msg))
+            runtime.log(entry.message(cmd.msg))
 
         case Idle():
             secs = cmd.secs
             assert isinstance(secs, (float, int))
-            entry = entry.add(Metadata(sleep_secs=secs))
             with runtime.timeit(entry):
                 runtime.sleep(secs, entry)
 
@@ -78,14 +79,16 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
             t0 = runtime.wait_for_checkpoint(cmd.name)
             desired_point_in_time = t0 + plus_secs
             delay = desired_point_in_time - runtime.monotonic()
-            secs = round(delay, 3)
-            entry = entry.add(msg=msg, metadata=Metadata(sleep_secs=secs))
-            with runtime.timeit(entry):
+            runtime.log(entry.message(msg))
+            if entry.metadata.id:
+                with runtime.timeit(entry):
+                    runtime.sleep(delay, entry)
+            else:
                 runtime.sleep(delay, entry)
 
         case Duration():
             t0 = runtime.wait_for_checkpoint(cmd.name)
-            runtime.log(entry, t0=t0)
+            runtime.timeit_end(entry, t0=t0)
 
         case Fork():
             thread_name = cmd.thread_name
@@ -105,7 +108,7 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
                         print(metadata.sim_delay)
                     runtime.sleep(
                         estimate(cmd) + (metadata.sim_delay or 0),
-                        entry.add(Metadata(dry_run_sleep=True))
+                        entry.merge(Metadata(dry_run_sleep=True))
                     )
                 else:
                     movelist = MoveList(movelists[cmd.program_name])
@@ -161,19 +164,16 @@ def make_runtime(config: RuntimeConfig, metadata: dict[str, str]) -> Iterator[Ru
     with runtime.excepthook():
         yield runtime
 
-def check_correspondence(program: Command, est_db: DB, expected_ends: dict[str, float]):
+def check_correspondence(program: Command, states: list[CommandState], expected_ends: dict[str, float]):
     matches = 0
     mismatches = 0
     seen: set[str] = set()
-    for e in est_db.get(LogEntry).where_some(
-        LogEntry.t0 != None,
-        LogEntry.cmd.type == 'Checkpoint' # type: ignore
-    ):
-        i = e.metadata.id
-        if i and (e.is_end() or isinstance(e.cmd, Checkpoint)):
+    for state in states:
+        i = state.metadata.id
+        if i:
             seen.add(i)
-            if abs(e.t - expected_ends[i]) > 0.3:
-                pbutils.pr(('mismatch!', i, e, expected_ends[i]))
+            if abs(state.t - expected_ends[i]) > 0.3:
+                pbutils.pr(('mismatch!', i, state, expected_ends[i]))
                 mismatches += 1
             else:
                 matches += 1
@@ -185,18 +185,20 @@ def check_correspondence(program: Command, est_db: DB, expected_ends: dict[str, 
         if (i := c.metadata.id)
     }
 
+    not_seen = 0
     for i, e in expected_ends.items():
         if i not in seen:
             cmd = by_id.get(i)
             match cmd:
-                case Meta(command=Info()):
+                case Meta(command=Info() | Checkpoint()):
                     continue
                 case _:
                     pass
             print('not seen:', i, e, cmd, sep='\t')
+            not_seen += 1
 
-    if mismatches or not matches:
-        print(f'{matches=} {mismatches=} {len(expected_ends)=}')
+    if mismatches or not matches or not_seen:
+        raise ValueError(f'Correspondence check failed {matches=} {mismatches=} {len(expected_ends)=} {not_seen=}')
 
 @dataclass(frozen=True)
 class Program(DBMixin):
@@ -223,16 +225,18 @@ def execute_program(config: RuntimeConfig, program: Command, metadata: dict[str,
     if for_visualizer:
         return runtime_est.get_log()
 
+    with pbutils.timeit('get estimates'):
+        states = runtime_est.log_db.get(CommandState).list()
+
     with pbutils.timeit('check correspondence'):
-        check_correspondence(program, runtime_est.log_db, expected_ends)
+        check_correspondence(program, states, expected_ends)
 
     cache = Path('cache/')
     cache.mkdir(parents=True, exist_ok=True)
 
     now_str = pbutils.now_str_for_filename()
 
-    estimates_filename = cache / (now_str + '_estimates.db')
-    program_filename   = cache / (now_str + '_program.json')
+    program_filename = cache / (now_str + '_program.json')
 
     if metadata.get('program') == 'cell_paint':
         missing: list[str] = []
@@ -249,12 +253,14 @@ def execute_program(config: RuntimeConfig, program: Command, metadata: dict[str,
             pass
 
         program = program.remove_scheduling_idles()
-
         with pbutils.timeit('write estimates'):
-            runtime_est.log_db.con.execute('vacuum into ?', (str(estimates_filename),))
-        import pickle
+            with runtime.log_db.transaction:
+                for state in states:
+                    if isinstance(state.cmd, WaitForCheckpoint | Checkpoint | Idle):
+                        continue
+                    state.state = 'planned'
+                    state.save(runtime.log_db)
         with pbutils.timeit('write program'):
-            # pbutils.serializer.write_json(program, program_filename, indent=2)
             with open(program_filename, 'wb') as fp:
                 pickle.dump(program, fp)
 
@@ -272,7 +278,6 @@ def execute_program(config: RuntimeConfig, program: Command, metadata: dict[str,
             start_time         = runtime.start_time,
             num_plates         = num_plates,
             log_filename       = config.log_filename,
-            estimates_filename = str(estimates_filename),
             program_filename   = str(program_filename),
         )
         runtime_metadata = runtime_metadata.save(runtime.log_db)

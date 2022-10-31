@@ -26,7 +26,7 @@ import shlex
 import textwrap
 import subprocess
 
-from .log import Log, Running
+from .log import Log
 from .cli import Args
 
 from . import commands
@@ -229,7 +229,7 @@ class AnalyzeResult:
         if not alive:
             t_now = m.max_t() + 1
 
-        errors = m.errors(current_runtime_only=True)
+        errors = m.errors()
         if errors:
             t_now = Log(e for _, e in errors).max_t() + 1
 

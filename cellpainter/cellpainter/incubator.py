@@ -3,11 +3,11 @@ from dataclasses import *
 from typing import *
 
 from .runtime import Runtime
-from .log import Metadata, LogEntry, Error
+from .log import Metadata, CommandWithMetadata, Error
 
 def execute(
     runtime: Runtime,
-    entry: LogEntry,
+    entry: CommandWithMetadata,
     action: Literal['put', 'get', 'get_status', 'reset_and_activate'],
     incu_loc: str | None,
 ):
@@ -17,7 +17,7 @@ def execute(
     if runtime.incu is None:
         est = entry.metadata.est
         assert isinstance(est, float)
-        runtime.sleep(est, entry.add(Metadata(dry_run_sleep=True)))
+        runtime.sleep(est, entry.merge(Metadata(dry_run_sleep=True)))
     else:
         try:
             if action == 'put':
@@ -36,5 +36,5 @@ def execute(
                 raise ValueError('Incubator {action=} not supported')
         except BaseException as e:
             machine = 'incu'
-            runtime.log(entry.add(err=Error(f'{machine}: {e}')))
+            runtime.log(entry.message(f'{machine}: {e}', is_error=True))
             raise

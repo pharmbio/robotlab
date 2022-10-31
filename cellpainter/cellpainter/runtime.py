@@ -23,7 +23,7 @@ from pbutils.mixins import DB
 from .timelike import Timelike, WallTime, SimulatedTime
 from .moves import World, Effect
 
-from .log import LogEntry, Metadata, Error, Log
+from .log import Message, CommandState, CommandWithMetadata, Metadata, Error, Log
 
 from labrobots import WindowsNUC, Biotek, STX
 
@@ -161,7 +161,7 @@ class Runtime:
         if self.config.name != 'dry-run':
             def handle_signal(signum: int, _frame: Any):
                 pid = os.getpid()
-                self.log(LogEntry(err=Error(f'Received {signal.strsignal(signum)}, shutting down ({pid=})')))
+                self.log(Message(f'Received {signal.strsignal(signum)}, shutting down ({pid=})', is_error=True))
                 self.stop_arm()
                 sys.exit(1)
 
@@ -181,10 +181,7 @@ class Runtime:
         self.set_robotarm_speed(self.config.robotarm_speed)
 
     def get_log(self) -> Log:
-        with pbutils.timeit('get_log'):
-            return Log(self.log_db.get(LogEntry).list())
-        # raise ValueError
-        # return Log(self.log_entries)
+        return Log(self.log_db)
 
     def kill(self):
         self.stop_arm()
@@ -225,127 +222,144 @@ class Runtime:
             yield
         except BaseException as e:
             import reprlib
-            self.log(LogEntry(err=Error(reprlib.repr(e), traceback.format_exc())))
+            self.log(Message(f'{type(e).__name__}: {e}', traceback=traceback.format_exc(), is_error=True))
             if not isinstance(e, SystemExit):
                 os.kill(os.getpid(), signal.SIGTERM)
 
-    def log(self, entry: LogEntry, t0: float | None = None) -> LogEntry:
+    def log(self, message: Message) -> Message: # entry: LogEntry, t0: float | None = None) -> LogEntry:
         with self.lock:
             t = round(self.monotonic(), 3)
-            log_time = self.now()
-            entry = entry.init(
-                log_time=str(log_time),
-                t=t,
-                t0=t0,
-            )
-            # the logging logic is quite convoluted so let's safeguard against software errors in it
-            if 0:
-                try:
-                    line = self.log_entry_to_line(entry)
-                except BaseException:
-                    traceback.print_exc()
-                    pbutils.pr(entry)
-                    line = None
-                if line:
-                    print(line)
-            if entry.err and entry.err.traceback:
-                print(entry.err.traceback, file=sys.stderr)
-            entry = entry.save(self.log_db)
-            # log_filename = self.config.log_filename
-            # if log_filename:
-            #     pbutils.serializer.write_jsonl([entry], log_filename, mode='a')
-            # self.log_entries.append(entry)
-            return entry
+            message = message.replace(t=t).save(self.log_db)
+            if message.traceback:
+                print(message.msg)
+                print(message.traceback)
+            return message
 
-    def apply_effect(self, effect: Effect, entry: LogEntry | None = None):
+    def apply_effect(self, effect: Effect, entry: CommandWithMetadata):
         # return
         with self.lock:
             try:
                 next = effect.apply(self.world)
             except Exception as error:
-                import traceback as tb
                 fatal = self.config.name == 'dry-run'
-                message = pbutils.show({
+                msg = pbutils.show({
                     'message': 'Cannot apply effect at this world',
                     'effect': effect,
                     'world': self.world,
                     'error': error,
                 }, use_color=False)
-                self.log(LogEntry(
-                    cmd=entry.cmd if entry else None,
-                    err=Error(message, tb.format_exc())
-                ))
+                self.log(entry.message(msg, is_error=True))
                 if fatal:
-                    raise ValueError(message)
+                    raise ValueError(msg)
             else:
                 if next.data != self.world.data:
                     next = next.replace(t=round(self.timelike.monotonic(), 3))
                     next = next.save(self.log_db)
                     self.world = next
 
-    def log_entry_to_line(self, entry: LogEntry) -> str | None:
+    def log_state(self, state: CommandState) -> str | None:
         with self.lock:
-            m = entry.metadata
-            if entry.err:
-                pass
-            elif not self.config.log_filename:
-                return
-            elif m.dry_run_sleep:
-                return
-            t = self.pp_time_offset(entry.t)
-            if entry.cmd:
-                desc = ', '.join(f'{k}={v}' for k, v in pbutils.nub(entry.cmd).items() if k != 'machine')
-            else:
-                desc = ''
-            if entry.msg:
-                desc = entry.msg
-            machine = entry.machine() or entry.cmd.__class__.__name__
-            if entry.cmd is None:
-                machine = ''
-            if machine in ('WaitForCheckpoint', 'Idle'):
-                machine = 'wait'
-            if machine in ('robotarm', 'wait') and entry.is_end():
-                return
-            if entry.is_end() and machine in ('wash', 'disp', 'incu'):
-                machine += ' done'
-            machine = machine.lower()
-            if machine == 'duration':
-                desc = f"`{getattr(entry.cmd, 'name', '?')}` = {pbutils.pp_secs(entry.duration or 0)}"
-            desc = re.sub('^automation_', '', desc)
-            desc = re.sub(r'\.LHC', '', desc)
-            desc = re.sub(r'\w*path=', '', desc)
-            desc = re.sub(r'\w*name=', '', desc)
-            if not desc:
-                desc = str(pbutils.nub(entry.metadata))
+            pass
+            # print(state.state, state.cmd)
+            # m = entry.metadata
+            # if entry.err:
+            #     pass
+            # elif not self.config.log_filename:
+            #     return
+            # elif m.dry_run_sleep:
+            #     return
+            # t = self.pp_time_offset(entry.t)
+            # if entry.cmd:
+            #     desc = ', '.join(f'{k}={v}' for k, v in pbutils.nub(entry.cmd).items() if k != 'machine')
+            # else:
+            #     desc = ''
+            # if entry.msg:
+            #     desc = entry.msg
+            # machine = entry.machine() or entry.cmd.__class__.__name__
+            # if entry.cmd is None:
+            #     machine = ''
+            # if machine in ('WaitForCheckpoint', 'Idle'):
+            #     machine = 'wait'
+            # if machine in ('robotarm', 'wait') and entry.is_end():
+            #     return
+            # if entry.is_end() and machine in ('wash', 'disp', 'incu'):
+            #     machine += ' done'
+            # machine = machine.lower()
+            # if machine == 'duration':
+            #     desc = f"`{getattr(entry.cmd, 'name', '?')}` = {pbutils.pp_secs(entry.duration or 0)}"
+            # desc = re.sub('^automation_', '', desc)
+            # desc = re.sub(r'\.LHC', '', desc)
+            # desc = re.sub(r'\w*path=', '', desc)
+            # desc = re.sub(r'\w*name=', '', desc)
+            # if not desc:
+            #     desc = str(pbutils.nub(entry.metadata))
 
-            if entry.err and entry.err.message:
-                desc = entry.err.message
-                print(entry.err.message)
+            # if entry.err and entry.err.message:
+            #     desc = entry.err.message
+            #     print(entry.err.message)
 
-            w = ','.join(f'{k}:{v}' for k, v in self.world.data.items())
-            parts = [
-                t,
-                f'{m.id or ""       : >4}',
-                f'{machine[:12]     : <12}',
-                f'{desc[:50]        : <50}',
-                f'{m.plate_id or "" : >2}',
-                f'{m.step           : <9}',
-                f'{w                : <30}',
-            ]
-            return ' | '.join(parts)
+            # w = ','.join(f'{k}:{v}' for k, v in self.world.data.items())
+            # parts = [
+            #     t,
+            #     f'{m.id or ""       : >4}',
+            #     f'{machine[:12]     : <12}',
+            #     f'{desc[:50]        : <50}',
+            #     f'{m.plate_id or "" : >2}',
+            #     f'{m.step           : <9}',
+            #     f'{w                : <30}',
+            # ]
+            # return ' | '.join(parts)
 
-    def timeit(self, entry: LogEntry) -> ContextManager[None]:
+    def timeit(self, entry: CommandWithMetadata) -> ContextManager[None]:
         # The inferred type for the decorated function is wrong hence this wrapper to get the correct type
+
+        try:
+            id = int(entry.metadata.id)
+        except:
+            pbutils.pr(entry)
+            raise
+        assert id >= 0
 
         @contextmanager
         def worker():
             with self.lock:
-                e0 = self.log(entry.replace(is_running=True))
+                t0 = round(self.monotonic(), 3)
+                state = CommandState(
+                    t0=t0,
+                    t=t0 + (entry.metadata.est or 3),
+                    cmd=entry.cmd,
+                    metadata=entry.metadata,
+                    state='running',
+                    id=id,
+                ).save(self.log_db)
+                self.log_state(state)
             yield
             with self.lock:
-                self.log(e0.replace(is_running=False), t0=e0.t)
+                t = round(self.monotonic(), 3)
+                state.state='completed'
+                state.t=t
+                state = state.save(self.log_db)
+                self.log_state(state)
 
         return worker()
+
+    def timeit_end(self, entry: CommandWithMetadata, t0: float):
+        # for Duration
+
+        id = int(entry.metadata.id)
+        assert id >= 0
+
+        with self.lock:
+            t = round(self.monotonic(), 3)
+            state = CommandState(
+                t0=t0,
+                t=t,
+                cmd=entry.cmd,
+                metadata=entry.metadata,
+                state='completed',
+                id=id,
+            ).save(self.log_db)
+            self.log_state(state)
 
     def pp_time_offset(self, secs: int | float):
         dt = self.start_time + timedelta(seconds=secs)
@@ -357,16 +371,16 @@ class Runtime:
     def monotonic(self) -> float:
         return self.timelike.monotonic()
 
-    def sleep(self, secs: float, entry: LogEntry):
+    def sleep(self, secs: float, entry: CommandWithMetadata):
         secs = round(secs, 3)
-        entry = entry.add(Metadata(sleep_secs=secs))
+        entry = entry.merge(Metadata(sleep_secs=secs))
         if abs(secs) < 0.1:
-            self.log(entry.add(msg=f'on time {pp_secs(secs)}s'))
+            self.log(entry.message(f'on time {pp_secs(secs)}s'))
         elif secs < 0:
-            self.log(entry.add(msg=f'behind time {pp_secs(secs)}s'))
+            self.log(entry.message(f'behind time {pp_secs(secs)}s'))
         else:
             to = self.pp_time_offset(self.monotonic() + secs)
-            self.log(entry.add(msg=f'sleeping to {to} ({pp_secs(secs)}s)'))
+            self.log(entry.message(f'sleeping to {to} ({pp_secs(secs)}s)'))
             self.timelike.sleep(secs)
 
     def queue_get(self, queue: Queue[A]) -> A:
@@ -384,10 +398,10 @@ class Runtime:
     def thread_done(self):
         return self.timelike.thread_done()
 
-    def checkpoint(self, name: str, entry: LogEntry):
+    def checkpoint(self, name: str, entry: CommandWithMetadata):
         with self.lock:
             assert name not in self.checkpoint_times, f'{name!r} already checkpointed in {pbutils.show(self.checkpoint_times, use_color=False)}'
-            self.checkpoint_times[name] = self.log(entry).t
+            self.checkpoint_times[name] = self.monotonic()
             for q in self.checkpoint_waits[name]:
                 self.queue_put_nowait(q, None)
             self.checkpoint_waits[name].clear()
@@ -401,7 +415,7 @@ class Runtime:
                 self.checkpoint_waits[name] += [q]
         return q
 
-    def wait_for_checkpoint(self, name: str):
+    def wait_for_checkpoint(self, name: str) -> float:
         q = self.enqueue_for_checkpoint(name)
         self.queue_get(q)
         with self.lock:

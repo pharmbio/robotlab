@@ -9,7 +9,6 @@ from . import serializer
 
 from typing import *
 if TYPE_CHECKING:
-    from typing_extensions import Concatenate
     from typing_extensions import Self
 
 def collect_fields(cls: Any, args: tuple[Any], kws: dict[str, Any]) -> dict[str, Any]:

@@ -25,7 +25,8 @@ def timeit(desc: str='') -> ContextManager[None]:
             print(f'{T:.3f}', desc, repr(e))
             raise e
         else:
-            print(f'{T:.3f}', desc)
+            pass
+            # print(f'{T:.3f}', desc)
 
     return worker()
 

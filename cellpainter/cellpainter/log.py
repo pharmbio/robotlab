@@ -15,11 +15,10 @@ import platform
 
 @dataclass(frozen=False)
 class RuntimeMetadata(DBMixin):
-    start_time:         datetime
-    num_plates:         int
-    log_filename:       str | None
-    estimates_filename: str
-    program_filename:   str
+    start_time:       datetime
+    num_plates:       int
+    log_filename:     str | None
+    program_filename: str
     pid: int      = field(default_factory=lambda: os.getpid())
     host: str     = field(default_factory=lambda: platform.node())
     git_HEAD: str = field(default_factory=lambda: pbutils.git_HEAD() or '')
@@ -27,16 +26,42 @@ class RuntimeMetadata(DBMixin):
     id: int = -1
 
 @dataclass(frozen=True)
-class LogEntry(DBMixin):
-    log_time: str       = ''
-    t: float            = -1.0
-    t0: float | None    = None
-    metadata: Metadata  = field(default_factory=lambda: Metadata())
-    cmd: Command | None = None
-    err: Error | None   = None
-    msg: str | None     = None
-    is_running: bool    = False
-    id: int             = -1
+class Message(DBMixin):
+    msg: str = ''
+    t: float = -1
+    cmd: Command | None       = None
+    metadata: Metadata | None = None
+    is_error: bool            = False
+    traceback: str | None     = None
+    id: int = -1
+
+    __meta__: ClassVar = pbutils.mixins.Meta(
+        views={
+            'cmd_id': 'value ->> "metadata.id"',
+            'cmd_type': 'value ->> "cmd.type"',
+            'cmd_arg': 'coalesce(value ->> "cmd.program_name", value ->> "cmd.name", value ->> "cmd.protocol_path")',
+        }
+    )
+
+@dataclass(frozen=True)
+class CommandWithMetadata:
+    cmd: Command
+    metadata: Metadata
+
+    def merge(self, *metadata: Metadata) -> CommandWithMetadata:
+        return replace(self, metadata=self.metadata.merge(*metadata))
+
+    def message(self, msg: str, is_error: bool=False):
+        return Message(msg, cmd=self.cmd, metadata=self.metadata, is_error=is_error)
+
+@dataclass
+class CommandState(DBMixin):
+    t0: float
+    t: float
+    cmd: Command
+    metadata: Metadata
+    state: Literal['completed', 'running', 'planned']
+    id: int # should be int(Metadata.id)
 
     __meta__: ClassVar = pbutils.mixins.Meta(
         views={
@@ -45,6 +70,9 @@ class LogEntry(DBMixin):
             if k.name != 'id'
         } | {
             'metadata': '',
+            'metadata_id': 'value ->> "metadata.id"',
+            'duration': 'round((value ->> "t") - (value ->> "t0"), 3)',
+            'cmd_type': 'value ->> "cmd.type"',
         },
         indexes={
             'cmd_type': 'value ->> "cmd.type"',
@@ -53,43 +81,12 @@ class LogEntry(DBMixin):
         }
     )
 
-    def init(
-        self,
-        log_time: str,
-        t: float,
-        t0: float | None = None
-    ) -> LogEntry:
-        return replace(self, log_time=log_time, t=t, t0=t0)
-
-    def add(
-        self,
-        metadata: Metadata = Metadata(),
-        msg: str = '',
-        err: Error | None = None
-    ) -> LogEntry:
-        if self.msg:
-            msg = self.msg + '; ' + msg
-        if err:
-            assert not self.err
-        return replace(self, metadata=self.metadata.merge(metadata), msg=msg, err=err)
-
     @property
     def duration(self) -> float | None:
-        t0 = self.t0
-        if isinstance(t0, float):
-            return round(self.t - t0, 3)
-        else:
-            return None
-
-    def is_end(self):
-        return isinstance(self.t0, float)
-
-    def is_end_or_info(self):
-        return self.is_end() or isinstance(self.cmd, Info)
+        return round(self.t - self.t0, 3)
 
     def machine(self):
         try:
-            assert self.cmd
             s = self.cmd.required_resource()
             return s
         except:
@@ -98,8 +95,8 @@ class LogEntry(DBMixin):
     def countdown(self, t_now: float):
         return countdown(t_now, self.t)
 
-    def strftime(self, format: str) -> str:
-        return datetime.fromisoformat(self.log_time).strftime(format)
+    # def strftime(self, format: str) -> str:
+    #     return datetime.fromisoformat(self.log_time).strftime(format)
 
 def countdown(t_now: float, to: float):
     return math.ceil(to - math.ceil(t_now))
@@ -137,10 +134,7 @@ class Log:
     def durations(self) -> dict[str, float]:
         return {
             e.cmd.name: d
-            for e in self.db.get(LogEntry).where(
-                LogEntry.t0 != None,
-                LogEntry.cmd.type == 'Duration', # type: ignore
-            )
+            for e in self.db.get(CommandState).where(CommandState.cmd.type == 'Duration')
             if isinstance(e.cmd, Duration)
             if (d := e.duration)
         }
