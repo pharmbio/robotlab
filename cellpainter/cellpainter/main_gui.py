@@ -483,7 +483,10 @@ class AnalyzeResult:
                     width: {width * my_width - 2}px;
                 ''',
                 data_plate_id=plate_id,
-                onclick=None if t_end is None else store.update(t_end, int(row.t0 + 1)).goto(),
+                onclick=store.update(
+                    t_end,
+                    js(f'event.offsetY / this.clientHeight * {duration:.1f} + {row.t0:.1f}')
+                ).goto() if t_end else None,
                 css__='cursor: pointer' if t_end is not None else '',
             )
 
