@@ -235,7 +235,7 @@ def update_cookies(kvs: dict[str, str]) -> Any:
         def later(response: Response) -> Response:
             response.set_cookie('v', json.dumps(next))
             return response
-        return jsonify(refresh=True)
+        return {'refresh': True}
 
 @dataclass(frozen=True)
 class Provenance:
