@@ -178,7 +178,7 @@ def process_is_alive(pid: int, log_filename: str) -> bool:
 class AnalyzeResult:
     zero_time: datetime
     t_now: float
-    runtime_metadata: RuntimeMetadata | None
+    runtime_metadata: RuntimeMetadata
     completed: bool
     running_state: list[CommandState]
     errors: list[Message]
@@ -197,21 +197,20 @@ class AnalyzeResult:
     @staticmethod
     def init(m: Log, drop_after: float | None = None) -> AnalyzeResult | None:
       with pbutils.timeit('ar'):
-        completed = m.is_completed()
         runtime_metadata = m.runtime_metadata()
-        zero_time = m.zero_time()
+        if not runtime_metadata:
+            return None
+        completed = runtime_metadata.completed is not None
+        zero_time = runtime_metadata.start_time
         t_now = (datetime.now() - zero_time).total_seconds()
 
-        if t_now < m.time_end():
-            t_now = m.time_end()
+        if t_now < m.time_end_excluding_planned():
+            t_now = m.time_end_excluding_planned()
 
         if completed:
             t_now = m.time_end() + 1
 
-        if runtime_metadata:
-            alive = process_is_alive(runtime_metadata.pid, runtime_metadata.log_filename)
-        else:
-            alive = False
+        alive = process_is_alive(runtime_metadata.pid, runtime_metadata.log_filename)
 
         if not alive:
             t_now = m.time_end() + 1
@@ -221,19 +220,19 @@ class AnalyzeResult:
             t_now = max([e.t for e in errors], default = m.time_end()) + 1
 
         if drop_after is not None:
-            completed = False
+            # completed = False
             t_now = drop_after
 
         running_state = m.running(t=drop_after)
-        num_plates = m.num_plates()
+        num_plates = runtime_metadata.num_plates
         world = m.world(t=drop_after)
         sections = m.section_starts_with_endpoints()
 
         return AnalyzeResult(
             zero_time=zero_time,
             t_now=t_now,
-            runtime_metadata=runtime_metadata,
             completed=completed,
+            runtime_metadata=runtime_metadata,
             running_state=running_state,
             errors=errors,
             world=world,
@@ -241,7 +240,7 @@ class AnalyzeResult:
             process_is_alive=alive,
             sections=sections,
             time_end=m.time_end(),
-            vis=m.vis(),
+            vis=m.vis(t_now),
         )
 
     def entry_desc_for_hover(self, e: CommandState):
@@ -365,12 +364,12 @@ class AnalyzeResult:
                 min-height: 1px;
                 background: var(--row-color);
             }
-            & > [is-estimate]:not(:hover)::before {
+            & > :not(:hover)::before {
                 position: absolute;
                 left: 0;
-                top: 0;
+                bottom: 0;
                 width: 100%;
-                height: 100%;
+                height: var(--pct-incomplete);
                 content: "";
                 background: #0005;
             }
@@ -454,10 +453,22 @@ class AnalyzeResult:
                     '''
                 )
             plate_id = metadata and metadata.plate_id or ''
+            duration = row.t - row.t0
+
+            frac_complete = (self.t_now - row.t0) / (duration or 1.0)
+            if frac_complete > 1:
+                frac_complete = 1.0
+            if frac_complete < 0:
+                frac_complete = 0.0
+            if not row.state:
+                frac_complete = 1.0
+
+            if row.state and row.state.state == 'planned':
+                frac_complete = 0.0
+
             area += div(
                 title,
                 plate_id,
-                is_estimate=row.state.state != 'completed' if row.state else False,
                 can_hover=can_hover,
                 # data_row=repr(row),
                 style=f'''
@@ -466,12 +477,13 @@ class AnalyzeResult:
                     height:{h * 100:.3f}%;
                     --row-color:{color};
                     --info:{repr(info)};
+                    --pct-incomplete:{100 - frac_complete * 100:.3f}%;
                 ''',
                 css_=f'''
                     width: {width * my_width - 2}px;
                 ''',
                 data_plate_id=plate_id,
-                onclick=None if t_end is None else store.update(t_end, int(row.t + 1)).goto(),
+                onclick=None if t_end is None else store.update(t_end, int(row.t0 + 1)).goto(),
                 css__='cursor: pointer' if t_end is not None else '',
             )
 
@@ -851,7 +863,7 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
             stderr = as_stderr(path).read_text()
         except:
             stderr = ''
-        if log and log.is_completed() and 'dry' in config.name:
+        if log and (rt := log.runtime_metadata()) and rt.completed and 'dry' in config.name:
             simulation_completed = True
             t_min = 0
             t_max = int(log.time_end()) + 1
@@ -888,10 +900,10 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
             ar = AnalyzeResult.init(log, drop_after=float(t_end.value))
         elif log is not None:
             ar = AnalyzeResult.init(log)
-    if log is None:
+    if ar is None:
         if stderr:
             box = div(
-                border='2px var(--red) solid',
+                border='2px var(--orange) solid',
                 px=8,
                 py=4,
                 border_radius=2,

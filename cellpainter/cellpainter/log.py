@@ -161,10 +161,13 @@ class Log:
             return {}
 
     def running(self, t: float | None = None) -> list[CommandState]:
+        q = self.db.get(CommandState)
+        q = q.where(CommandState.cmd.type != 'Duration')
+        q = q.where(CommandState.gui_boring != True)
         if t is None:
-            return self.db.get(CommandState).where(CommandState.state == 'running').list()
+            return q.where(CommandState.state == 'running').list()
         else:
-            return self.db.get(CommandState).where(
+            return q.where(
                 CommandState.t0 <= t,
                 t <= CommandState.t,
             ).list()
@@ -179,6 +182,9 @@ class Log:
 
     def time_end(self):
         return self.gui_query().max(CommandState.t) or 0.0
+
+    def time_end_excluding_planned(self):
+        return self.gui_query().where(CommandState.state != 'planned').max(CommandState.t0) or 0.0
 
     def section_starts_with_endpoints(self) -> dict[str, float]:
         return {
@@ -196,7 +202,7 @@ class Log:
         section_columns = {section: i for i, section in enumerate(section_starts.keys())}
 
         def time_to_section(t: float):
-            for section, t0 in section_starts.items():
+            for section, t0 in reversed(section_starts.items()):
                 if t >= t0:
                     return section
             return 'before time'
@@ -214,14 +220,6 @@ class Log:
                 bg = True,
             )
             rows += [bg_row]
-
-        if t is not None:
-            now_row = VisRow(
-                t0 = t,
-                t = t,
-                section = time_to_section(t),
-            )
-            rows += [now_row]
 
         q = self.gui_query()
         states = q.where_some(CommandState.resource == 'disp', CommandState.resource == 'wash')
@@ -243,6 +241,15 @@ class Log:
                 section = state.metadata.section,
             )
             rows += [row]
+
+        if t is not None:
+            now_row = VisRow(
+                t0 = t,
+                t = t,
+                section = time_to_section(t),
+                now = True,
+            )
+            rows += [now_row]
 
         for row in rows:
             row.section_column = section_columns[row.section]
@@ -286,20 +293,5 @@ class Log:
         for m in self.db.get(RuntimeMetadata):
             return m
         return None
-
-    def zero_time(self) -> datetime:
-        rt = self.runtime_metadata()
-        if rt:
-            return rt.start_time
-        else:
-            return datetime.now()
-
-    def is_completed(self) -> bool:
-        rt = self.runtime_metadata()
-        return bool(rt and rt.completed is not None)
-
-    def num_plates(self) -> int:
-        rt = self.runtime_metadata()
-        return rt.num_plates if rt else 0
 
 pbutils.serializer.register(globals())
