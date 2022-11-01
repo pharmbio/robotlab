@@ -7,9 +7,13 @@ import textwrap
 from datetime import datetime
 from . import serializer
 
+from pprint import pp
+
 from typing import *
 if TYPE_CHECKING:
     from typing_extensions import Self
+
+from . import p
 
 def collect_fields(cls: Any, args: tuple[Any], kws: dict[str, Any]) -> dict[str, Any]:
     for field, arg in zip(fields(cls), args):
@@ -36,7 +40,8 @@ R = TypeVar('R')
 @dataclass(frozen=True)
 class Select(Generic[R], PrivateReplaceMixin):
     _db: DB                    = cast(Any, None)
-    _focus: Syntax | Var       = cast(Any, None)
+    _focus: list[Syntax | Var] = cast(Any, None)
+    _convss: list[list[Converter[Any, Any]]] = cast(Any, None)
     _var: Var                  = cast(Any, None)
     _table: str                = cast(Any, None)
     _where: list[Syntax | Var] = field(default_factory=list)
@@ -62,7 +67,7 @@ class Select(Generic[R], PrivateReplaceMixin):
                 return none
             else:
                 return sep.join(values)
-        select = to_sql(self._focus)
+        select = ', '.join(to_sql(f) for f in self._focus)
         where = [to_sql(w) for w in self._where]
         stmt = {
             'select': select,
@@ -113,13 +118,21 @@ class Select(Generic[R], PrivateReplaceMixin):
         return self.limit(1, self._offset).list()[0]
 
     def list(self) -> list[R]:
-        stmt = self.sql()
+        stmt = self.show().sql()
         def throw(e: Exception):
             raise e
-        return [
-            serializer.loads(v) if isinstance(v, str) else throw(ValueError(f'{v} is not string'))
-            for v, in self._db.con.execute(stmt).fetchall()
-        ]
+        ress: list[Any] = []
+        for vs in self._db.con.execute(stmt).fetchall():
+            res: list[Any] = []
+            for v, convs in zip(vs, self._convss):
+                for conv in convs:
+                    if isinstance(v, conv.sql_type):
+                        res += [conv.to_py(v) if conv.to_py else v]
+                        break
+                else:
+                    raise ValueError(f'Cannot convert {v=} {convs=}')
+            ress += [res]
+        return ress
 
     def limit(self, bound: int | None = None, offset: int | None = None) -> Select[R]:
         return self._replace(_limit=bound, _offset=offset)
@@ -307,8 +320,7 @@ def call_str(head: str, *args: str):
 def to_sql(v: Var | Syntax | Any) -> str:
     match v:
         case Var():
-            path = '.'.join(['$', *v._attrs])
-            return f"({v._head}.value ->> '{path}')"
+            return '.'.join([v._head, *v._attrs])
         case Syntax('*', []):
             return '*'
         case Syntax(op, [lhs, rhs]) if v.binop:
@@ -368,16 +380,19 @@ class DB:
         Table = t.__name__
         TableView = f'{Table}View'
         if not self.has_table(Table):
-            self.con.execute(textwrap.dedent(f'''
-                create table if not exists {Table} (
-                    id integer as (value ->> 'id') unique,
-                    value text,
-                    check (typeof(id) = 'integer'),
-                    check (id >= 0),
-                    check (json_valid(value))
-                );
-                create index if not exists {Table}_id on {Table} (id);
-            '''))
+            rows: list[str] = []
+            d = desc(t)
+            assert isinstance(d, DataClassDesc)
+            for k, convs in d.flatten().items():
+                if k == 'id':
+                    rows += ['`id` integer primary key']
+                else:
+                    rows += [f'`{k}` {type_as_sql(convs)}']
+            rows += ['check (id >= 0)']
+            body = ','.join('\n    ' + row for row in rows)
+            self.con.execute(
+                f'create table if not exists {Table} ({body}) strict;' | p
+            )
         if is_dataclass(t):
             meta = getattr(t, '__meta__', None)
             if isinstance(meta, Meta):
@@ -414,7 +429,15 @@ class DB:
         var = Var(Table.lower(), [])
         for f in fields(t):
             setattr(t, f.name, getattr(var, f.name))
-        return Select(self, var, var, Table)
+
+        d = desc(t)
+        assert isinstance(d, DataClassDesc)
+        vals: list[Var | Syntax] = []
+        convss: list[list[Converter[Any, Any]]] = []
+        for k, convs in d.flatten().items():
+            vals += [Var(Table.lower(), [f'`{k}`'])]
+            convss += [convs]
+        return Select(self, vals, convss, var, Table)
 
     def __post_init__(self):
         self.con.execute('pragma journal_mode=WAL')
@@ -438,33 +461,6 @@ class DBMixin(ReplaceMixin):
     def save(self, db: DB) -> Self:
         with db.transaction:
             Table = db.table_name(self.__class__)
-            meta = getattr(self.__class__, '__meta__', None)
-
-            if isinstance(meta, Meta) and meta.log:
-                LogTable = meta.log_table or f'{Table}Log'
-                exists = any(
-                    db.con.execute(f'''
-                        select 1 from sqlite_master where type = "table" and name = ?
-                    ''', [LogTable])
-                )
-                if not exists:
-                    db.con.execute(textwrap.dedent(f'''
-                        create table {LogTable} (
-                            t timestamp default (strftime('%Y-%m-%d %H:%M:%f', 'now', 'localtime')),
-                            action text,
-                            old json,
-                            new json
-                        );
-                        create trigger {Table}_insert after insert on {Table} begin
-                            insert into {LogTable}(action, old, new) values ("insert", NULL, NEW.value);
-                        end;
-                        create trigger {Table}_update after update on {Table} begin
-                            insert into {LogTable}(action, old, new) values ("update", OLD.value, NEW.value);
-                        end;
-                        create trigger {Table}_delete after delete on {Table} begin
-                            insert into {LogTable}(action, old, new) values ("delete", OLD.value, NULL);
-                        end;
-                    '''))
             if self.id == -1:
                 exists = False
             else:
@@ -486,14 +482,31 @@ class DBMixin(ReplaceMixin):
                     ''').fetchone()
                     assert reply is not None
                     id, = reply
-                    res = self.replace(id=id) # type: ignore
+                    res = replace(self, id=id) # type: ignore
                 else:
                     id = self.id
                     res = self
-                db.con.execute(f'''
-                    insert into {Table} values (? -> '$')
-                ''', [serializer.dumps(res, with_nub=False)])
-                # db.con.commit()
+
+                d = desc(self.__class__)
+                assert isinstance(d, DataClassDesc)
+                vs: list[str] = []
+                vals: list[SQLType] = []
+                for k, convs in d.flatten().items():
+                    vs += ['?']
+                    v = res
+                    for kp in k.split('.'):
+                        v = getattr(v, kp)
+                    for conv in convs:
+                        if isinstance(v, conv.py_type):
+                            vals += [conv.to_sql(v) if conv.to_sql else v]
+                            break
+                    else:
+                        raise ValueError(f'No converter! {self.__class__=} {k=} {v=}')
+
+                db.con.execute(
+                    f'insert into {Table} values ({",".join(vs)})',
+                    vals
+                )
                 return res
 
     def delete(self, db: DB):
@@ -513,26 +526,138 @@ class Meta:
     views: dict[str, str] = field(default_factory=dict)
     indexes: dict[str, str] = field(default_factory=dict)
 
+import sys, functools, inspect
+
+@functools.cache
+def get_annotations(cls: Type[Any]):
+    return inspect.get_annotations(
+        cls,
+        globals=sys.modules[cls.__module__].__dict__,
+        locals=dict(vars(cls)),
+        eval_str=True,
+    )
+
+SQLType: TypeAlias = str | int | float | bytes | None
+
+S = TypeVar('S', str, int, float, bytes, None)
+Py = TypeVar('Py')
+
+@dataclass
+class Converter(Generic[S, Py]):
+    sql_type: Type[S]
+    py_type: Type[Py]
+    to_py: Callable[[S], Py] | None = None
+    to_sql: Callable[[Py], S] | None = None
+
+serializer_converter = Converter(str, object, serializer.loads, serializer.dumps)
+
+from datetime import datetime, timedelta, date, time
+from types import UnionType
+
+@functools.cache
+def make_converter(t: Type[Any]) -> list[Converter[Any, Any]]:
+    if t in (str, int, float, bytes, type(None)):
+        return [Converter(t, t)]
+    elif t == bool:
+        return [Converter(int, bool, bool, int)]
+    elif t == datetime:
+        return [Converter(str, datetime, datetime.fromisoformat, lambda d: datetime.isoformat(d, sep=' '))]
+    elif t == date:
+        return [Converter(str, date, date.fromisoformat, lambda d: date.isoformat(d))]
+    elif t == time:
+        return [Converter(str, t, time.fromisoformat, lambda d: time.isoformat(d))]
+    elif t == timedelta:
+        return [Converter(float, timedelta, lambda d: timedelta(seconds=d), timedelta.total_seconds)]
+    elif get_origin(t) in (UnionType, Union):
+        res = DefaultDict[SQLType, list[Any]](list)
+        for alt in get_args(t):
+            for conv in make_converter(alt):
+                res[conv.sql_type] += [conv]
+        pp((t, res))
+        needs_json = any(len(convs) > 1 for convs in res.values())
+        if needs_json:
+            no_serializer = [
+                convs[0]
+                for sql_type, convs in res.items()
+                if len(convs) == 1 and sql_type != str
+            ]
+            return no_serializer + [serializer_converter]
+        else:
+            return [
+                convs[0]
+                for convs in res.values()
+            ]
+    else:
+        return [serializer_converter]
+
+@dataclass
+class DataClassDesc:
+    fields: dict[str, DataClassDesc | list[Converter[Any, Any]]]
+
+    def flatten(self):
+        out: dict[str, list[Converter[Any, Any]]] = {}
+        for k, f in self.fields.items():
+            if isinstance(f, list):
+                out[k] = f
+            else:
+                for kk, li in f.flatten().items():
+                    out[k + '.' + kk] = li
+        return out
+
+@functools.cache
+def desc(dc: Type[Any]) -> DataClassDesc | list[Converter[Any, Any]]:
+    if not is_dataclass(dc) or dc.__subclasses__():
+        return make_converter(dc)
+    field_dict = {field.name: field for field in fields(dc)}
+    return DataClassDesc({
+        k: desc(v)
+        for k, v in get_annotations(dc).items()
+        if k in field_dict
+    })
+
+def type_as_sql(t: SQLType | Converter[Any, Any] | list[Converter[Any, Any]]) -> str:
+    if isinstance(t, Converter):
+        return type_as_sql(t.sql_type)
+    elif isinstance(t, list):
+        if len(t) == 1:
+            return type_as_sql(t[0])
+        else:
+            return 'any'
+    elif t == str:
+        return 'text'
+    elif t == int:
+        return 'integer'
+    elif t == float:
+        return 'real'
+    elif t == type(None):
+        return 'null'
+    elif t == bytes:
+        return 'blob'
+    else:
+        raise ValueError(t)
+
+@dataclass
+class Inner:
+    x: int = 1
+    y: float = 1.0
+
+@dataclass
+class Todo(DBMixin):
+    msg: str = ''
+    done: bool = False
+    # created: datetime = field(default_factory=lambda: datetime.now())
+    # deleted: None | datetime = None
+    # x: Union[None, datetime] = None
+    # y: Union[None, Union[datetime, int]] = None
+    # b: datetime | str | None = None
+    inner: Inner = field(default_factory=Inner)
+    id: int = -1
+
 def test():
     '''
     python -m imager.utils.mixins
     '''
     from pprint import pp
-
-    @dataclass
-    class Todo(DBMixin):
-        msg: str = ''
-        done: bool = False
-        created: datetime = field(default_factory=lambda: datetime.now())
-        deleted: None | datetime = None
-        id: int = -1
-        __meta__: ClassVar = Meta(
-            log=True,
-            views={
-                'created': 'value ->> "created.value"',
-                'deleted': 'value ->> "deleted.value"',
-            },
-        )
 
     @dataclass
     class TodoGroup(DBMixin):
@@ -544,14 +669,20 @@ def test():
     serializer.register({'Todo': Todo})
     TodoGroup.__qualname__ = 'TodoGroup'
     serializer.register({'TodoGroup': TodoGroup})
+    Inner.__qualname__ = 'Inner'
+    serializer.register({'Inner': Inner})
 
     with DB.open(':memory:') as db:
-        t0 = Todo('hello world').save(db)
-        t1 = Todo('hello again').save(db)
-        t2 = Todo('hello there').save(db)
-        t3 = Todo('goodbye world').save(db)
-        tg = TodoGroup('todo group 1', [t0, t2, t3]).save(db)
+        pp(desc(Todo))
+        t0 = Todo('hello world', inner=Inner()).save(db)
+        # t1 = Todo('hello again').save(db)
+        # t2 = Todo('hello there').save(db)
+        # t3 = Todo('goodbye world').save(db)
         Todos = db.get(Todo)
+        pp(Todos.list())
+        quit()
+        tg = TodoGroup('todo group 1', [t0, t2, t3]).save(db)
+
         TodoGroups = db.get(TodoGroup)
         print(TodoGroup.head)
         pp(TodoGroups.list())
