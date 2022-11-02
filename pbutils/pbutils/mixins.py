@@ -1,6 +1,7 @@
 from __future__ import annotations
 from contextlib import contextmanager
 from dataclasses import *
+from urllib.request import DataHandler
 import apsw
 import textwrap
 
@@ -36,14 +37,18 @@ class PrivateReplaceMixin:
 
 P = ParamSpec('P')
 R = TypeVar('R')
+A = TypeVar('A')
+SQLType: TypeAlias = str | int | float | bytes | None
+S = TypeVar('S', str, int, float, bytes, None)
+Py = TypeVar('Py')
+K = TypeVar('K')
+V = TypeVar('V')
 
 @dataclass(frozen=True)
 class Select(Generic[R], PrivateReplaceMixin):
-    _db: DB                    = cast(Any, None)
-    _focus: list[Syntax | Var] = cast(Any, None)
-    _convss: list[list[Converter[Any, Any]]] = cast(Any, None)
-    _var: Var                  = cast(Any, None)
-    _table: str                = cast(Any, None)
+    _db: DB               = cast(Any, None)
+    _focus: Var           = cast(Any, None)
+    _table: DataClassDesc = cast(Any, None)
     _where: list[Syntax | Var] = field(default_factory=list)
     _order: tuple[Any, str] | None = None
     _limit: int | None             = None
@@ -67,16 +72,19 @@ class Select(Generic[R], PrivateReplaceMixin):
                 return none
             else:
                 return sep.join(values)
-        select = ', '.join(to_sql(f) for f in self._focus)
+        select = ', '.join([
+            f'{self._table.var_name()}.{c}'
+            for c in self._focus._follow().sql_columns()
+        ])
         where = [to_sql(w) for w in self._where]
         stmt = {
             'select': select,
-            'from': f'{self._table} {self._var._head}',
+            'from': f'{self._table.table_name()} {self._table.var_name()}',
         }
         if where:
             stmt['where'] = '\n  and '.join(where)
         if self._order is None:
-            order, dir = self._var.id, 'asc'
+            order, dir = self._table.var().id, 'asc'
         else:
             order, dir = self._order
         assert dir.lower() in ('desc', 'asc', 'desc nulls last', 'asc nulls first')
@@ -88,6 +96,7 @@ class Select(Generic[R], PrivateReplaceMixin):
         return '\n'.join(k + '\n  ' + v for k, v in stmt.items()) + ';'
 
     def _agg(self, fn: str, thing: Any, *args: Any, default: Any = None) -> Any:
+        # TODO: Syntax needs a converter to convert an aggregated value back to python
         focus = Syntax(fn, [thing, *args])
         if default is not None:
             focus = Syntax.ifnull(focus, default)
@@ -102,6 +111,12 @@ class Select(Generic[R], PrivateReplaceMixin):
     def total(self, v: A) -> A: return self._agg('total', v)
     def json_group_array(self, v: A) -> list[A]: return self._agg('json_group_array', v)
     def group_concat(self, v: Any, sep: str=',') -> str: return self._agg('group_concat', v, sep)
+
+    def select(self, v: A) -> Select[A]:
+        if isinstance(v, Var):
+            return self._replace(_focus=v)
+        else:
+            raise ValueError(f'Can only select variables, not {v}')
 
     def group(self, by: K) -> Group[K, list[R]]:
         assert not self._order
@@ -121,18 +136,8 @@ class Select(Generic[R], PrivateReplaceMixin):
         stmt = self.show().sql()
         def throw(e: Exception):
             raise e
-        ress: list[Any] = []
-        for vs in self._db.con.execute(stmt).fetchall():
-            res: list[Any] = []
-            for v, convs in zip(vs, self._convss):
-                for conv in convs:
-                    if isinstance(v, conv.sql_type):
-                        res += [conv.to_py(v) if conv.to_py else v]
-                        break
-                else:
-                    raise ValueError(f'Cannot convert {v=} {convs=}')
-            ress += [res]
-        return ress
+        rows = self._db.con.execute(stmt).fetchall()
+        return self._focus._follow().from_sql_tuples(rows)
 
     def limit(self, bound: int | None = None, offset: int | None = None) -> Select[R]:
         return self._replace(_limit=bound, _offset=offset)
@@ -142,9 +147,6 @@ class Select(Generic[R], PrivateReplaceMixin):
 
     def __iter__(self):
         yield from self.list()
-
-K = TypeVar('K')
-V = TypeVar('V')
 
 @dataclass(frozen=True)
 class Group(Generic[K, V], PrivateReplaceMixin):
@@ -235,21 +237,49 @@ from typing import *
 import typing_extensions as tx
 from datetime import datetime
 
+def getattrs(obj: Any, attrs: list[str]):
+    for attr in attrs:
+        obj = getattr(obj, attr)
+    return obj
+
 def Var_wrap(op: str):
     def inner(this: Any, other: Any) -> bool:
-        if isinstance(other, datetime):
-            return Var_wrap(op)(
-                Syntax.julianday(this.isoformat()),
-                Syntax.julianday(other.isoformat()),
-            )
-        s = Syntax(op, [this, other], binop=True)
+        assert isinstance(this, Var)
+        d = this._follow()
+        depth = len(this._attrs)
+        if isinstance(d, DataClassDesc):
+            lhs = [
+                getattrs(this, k.split('$')[depth:])
+                for k, _ in d.flat.items()
+            ]
+            rhs = [
+                getattrs(other, k.split('$')[depth:])
+                for k, _ in d.flat.items()
+            ]
+            lhs = Syntax(',', lhs)
+            rhs = Syntax(',', rhs)
+        else:
+            lhs = this
+            rhs = other
+        s = Syntax(op, [lhs, rhs], binop=True)
         return cast(bool, s)
     return inner
 
 @dataclass(frozen=True)
 class Var(PrivateReplaceMixin):
     _head: str = ''
+    _desc: DataClassDesc = cast(Any, None)
     _attrs: list[str] = field(default_factory=list)
+
+    def _follow(self) -> DataClassDesc | Converters:
+        desc: DataClassDesc | Converters = self._desc
+        path: list[str] = []
+        for attr in self._attrs:
+            path += [attr]
+            if not isinstance(desc, DataClassDesc):
+                raise ValueError(f'Refusing to go into opaque {path} in var {self}')
+            desc = desc.fields['$'.join(path)]
+        return desc
 
     def __getattr__(self, attr: str):
         return self._replace(_attrs=[*self._attrs, attr])
@@ -259,9 +289,6 @@ class Var(PrivateReplaceMixin):
 
     def endswith(self, suffix: str) -> bool:
         return sql.glob(self, '*' + suffix)
-
-    def isoformat(self) -> str:
-        return self.value
 
     __eq__      = Var_wrap('is')
     __ne__      = Var_wrap('is not')
@@ -315,12 +342,16 @@ class Syntax(PrivateReplaceMixin):
     def julianday(a: Any):        return Syntax('julianday', [])
 
 def call_str(head: str, *args: str):
-    return head + '(' + ','.join(args) + ')'
+    return head + '(' + ', '.join(args) + ')'
 
 def to_sql(v: Var | Syntax | Any) -> str:
     match v:
         case Var():
-            return '.'.join([v._head, *v._attrs])
+            return v._head + '.' + '$'.join(v._attrs)
+            # return '.'.join([v._head, *v._attrs])
+        case Syntax(',', args):
+            # tuple (sqlite row value)
+            return call_str('', *map(to_sql, args))
         case Syntax('*', []):
             return '*'
         case Syntax(op, [lhs, rhs]) if v.binop:
@@ -339,8 +370,6 @@ def to_sql(v: Var | Syntax | Any) -> str:
             return call_str('json', sqlquote(serializer.dumps(v, with_nub=False)))
 
 import contextlib
-
-A = TypeVar('A')
 
 @dataclass
 class DB:
@@ -376,68 +405,16 @@ class DB:
             ''', [name, type])
         )
 
-    def table_name(self, t: Callable[P, Any]):
-        Table = t.__name__
-        TableView = f'{Table}View'
-        if not self.has_table(Table):
-            rows: list[str] = []
-            d = desc(t)
-            assert isinstance(d, DataClassDesc)
-            for k, convs in d.flatten().items():
-                if k == 'id':
-                    rows += ['`id` integer primary key']
-                else:
-                    rows += [f'`{k}` {type_as_sql(convs)}']
-            rows += ['check (id >= 0)']
-            body = ','.join('\n    ' + row for row in rows)
-            self.con.execute(
-                f'create table if not exists {Table} ({body}) strict;' | p
-            )
-        if is_dataclass(t):
-            meta = getattr(t, '__meta__', None)
-            if isinstance(meta, Meta):
-                for index_name, index_expr in meta.indexes.items():
-                    self.con.execute(textwrap.dedent(f'''
-                        create index if not exists {Table}_{index_name} on {Table} ({index_expr});
-                    '''))
-        if is_dataclass(t) and not self.has_table(TableView, 'view'):
-            meta = getattr(t, '__meta__', None)
-            views: dict[str, str] = {
-                f.name: f'value ->> {sqlquote(f.name)}'
-                for f in sorted(
-                    fields(t),
-                    key=lambda f: f.name != 'id',
-                )
-            }
-            if isinstance(meta, Meta):
-                views.update(meta.views)
-            xs = [
-                f'({expr}) as {sqlquote(name)}'
-                for name, expr in views.items()
-                if expr
-            ]
-            self.con.execute(textwrap.dedent(f'''
-                create view {TableView} as select
-                    {""",
-                    """.join(xs)}
-                    from {Table} order by id
-            '''))
-        return Table
-
     def get(self, t: Type[R]) -> Select[R]:
-        Table = self.table_name(t)
-        var = Var(Table.lower(), [])
-        for f in fields(t):
-            setattr(t, f.name, getattr(var, f.name))
+        d = DataClassDesc.get(t)
+        return Select(self, d.var(), d)
 
-        d = desc(t)
-        assert isinstance(d, DataClassDesc)
-        vals: list[Var | Syntax] = []
-        convss: list[list[Converter[Any, Any]]] = []
-        for k, convs in d.flatten().items():
-            vals += [Var(Table.lower(), [f'`{k}`'])]
-            convss += [convs]
-        return Select(self, vals, convss, var, Table)
+    def get_desc(self, t: Type[Any]) -> tuple[str, DataClassDesc]:
+        d = DataClassDesc.get(t)
+        Table = d.table_name()
+        if not self.has_table(Table):
+            self.con.execute(d.schema())
+        return Table, d
 
     def __post_init__(self):
         self.con.execute('pragma journal_mode=WAL')
@@ -460,7 +437,7 @@ class DBMixin(ReplaceMixin):
 
     def save(self, db: DB) -> Self:
         with db.transaction:
-            Table = db.table_name(self.__class__)
+            Table, d = db.get_desc(self.__class__)
             if self.id == -1:
                 exists = False
             else:
@@ -470,10 +447,14 @@ class DBMixin(ReplaceMixin):
                     ''', [self.id])
                 )
             if exists:
-                db.con.execute(f'''
-                    update {Table} set value = ? -> '$' where id = ?
-                ''', [serializer.dumps(self, with_nub=False), self.id])
-                # db.con.commit()
+                pairs = dict(zip(d.sql_columns(), d.to_sql_tuple(self)))
+                pairs.pop('id')
+                rows = [f'{c} = ?' for c, v in pairs.items()]
+                vals = [v          for c, v in pairs.items()]
+                db.con.execute(
+                    f'update {Table} set {", ".join(rows)} where id = ?',
+                    [*vals, self.id]
+                )
                 return self
             else:
                 if self.id == -1:
@@ -487,24 +468,10 @@ class DBMixin(ReplaceMixin):
                     id = self.id
                     res = self
 
-                d = desc(self.__class__)
-                assert isinstance(d, DataClassDesc)
-                vs: list[str] = []
-                vals: list[SQLType] = []
-                for k, convs in d.flatten().items():
-                    vs += ['?']
-                    v = res
-                    for kp in k.split('.'):
-                        v = getattr(v, kp)
-                    for conv in convs:
-                        if isinstance(v, conv.py_type):
-                            vals += [conv.to_sql(v) if conv.to_sql else v]
-                            break
-                    else:
-                        raise ValueError(f'No converter! {self.__class__=} {k=} {v=}')
-
+                vals = d.to_sql_tuple(res)
+                qs = ','.join('?' for _ in vals)
                 db.con.execute(
-                    f'insert into {Table} values ({",".join(vs)})',
+                    f'insert into {Table} values ({qs})',
                     vals
                 )
                 return res
@@ -537,11 +504,6 @@ def get_annotations(cls: Type[Any]):
         eval_str=True,
     )
 
-SQLType: TypeAlias = str | int | float | bytes | None
-
-S = TypeVar('S', str, int, float, bytes, None)
-Py = TypeVar('Py')
-
 @dataclass
 class Converter(Generic[S, Py]):
     sql_type: Type[S]
@@ -556,8 +518,13 @@ from types import UnionType
 
 @functools.cache
 def make_converter(t: Type[Any]) -> list[Converter[Any, Any]]:
-    if t in (str, int, float, bytes, type(None)):
+    if t in (str, int, bytes, type(None)):
         return [Converter(t, t)]
+    elif t == float:
+        return [
+            Converter(t, t),
+            Converter(float, int, None, float),
+        ]
     elif t == bool:
         return [Converter(int, bool, bool, int)]
     elif t == datetime:
@@ -591,38 +558,164 @@ def make_converter(t: Type[Any]) -> list[Converter[Any, Any]]:
         return [serializer_converter]
 
 @dataclass
-class DataClassDesc:
-    fields: dict[str, DataClassDesc | list[Converter[Any, Any]]]
+class Converters:
+    xs: list[Converter[Any, Any]]
+    key: str
 
-    def flatten(self):
-        out: dict[str, list[Converter[Any, Any]]] = {}
+    def sql_columns(self) -> list[str]:
+        return [self.key]
+
+    def sql_columns_with_type(self) -> list[tuple[str, str]]:
+        return [
+            (self.key, 'integer primary key' if self.key == 'id' else type_as_sql(self))
+        ]
+
+    def conv_to_py(self, val: SQLType):
+        for conv in self.xs:
+            if isinstance(val, conv.sql_type):
+                return conv.to_py(val) if conv.to_py else val
+        raise ValueError(f'Cannot convert {val=} {self=}')
+
+    def conv_to_sql(self, val: Any):
+        for conv in self.xs:
+            if isinstance(val, conv.py_type):
+                return conv.to_sql(val) if conv.to_sql else val
+        raise ValueError(f'No converter! {val=} {self}')
+
+    def from_sql_tuple(self, row: tuple[SQLType, ...]) -> Any:
+        assert len(row) == 1
+        return self.conv_to_py(row[0])
+
+    def from_sql_tuples(self, rows: list[tuple[SQLType, ...]]) -> list[Any]:
+        return [self.from_sql_tuple(row) for row in rows]
+
+@dataclass
+class DataClassDesc:
+    con: Any
+    fields: dict[str, DataClassDesc | Converters]
+    flat: dict[str, Converters] = field(default_factory=dict)
+
+    def sql_columns(self) -> list[str]:
+        return list(self.flat.keys())
+
+    def sql_columns_with_type(self) -> list[tuple[str, str]]:
+        return [
+            (k, 'integer primary key' if k == 'id' else type_as_sql(convs))
+            for k, convs in self.flat.items()
+        ]
+
+    def table_name(self) -> str:
+        return self.con.__name__
+
+    def var_name(self):
+        return self.table_name().lower()
+
+    def var(self) -> Var:
+        return Var(self.table_name().lower(), self, [])
+
+    def schema(self):
+        rows: list[str] = []
+        for k, t in self.sql_columns_with_type():
+            rows += [f'{k} {t}']
+        rows += ['check (id >= 0)']
+        body = ','.join('\n    ' + row for row in rows)
+        return f'create table if not exists {self.table_name()} ({body}) strict;'
+
+    def to_sql_tuple(self, value: Any) -> list[SQLType]:
+        out: list[SQLType] = []
         for k, f in self.fields.items():
-            if isinstance(f, list):
-                out[k] = f
+            v = getattr(value, k.split('$')[-1])
+            if isinstance(f, DataClassDesc):
+                out += f.to_sql_tuple(v)
             else:
-                for kk, li in f.flatten().items():
-                    out[k + '.' + kk] = li
+                out += [f.conv_to_sql(v)]
         return out
 
-@functools.cache
-def desc(dc: Type[Any]) -> DataClassDesc | list[Converter[Any, Any]]:
-    if not is_dataclass(dc) or dc.__subclasses__():
-        return make_converter(dc)
-    field_dict = {field.name: field for field in fields(dc)}
-    return DataClassDesc({
-        k: desc(v)
-        for k, v in get_annotations(dc).items()
-        if k in field_dict
-    })
+    def from_sql_tuple(self, row: tuple[SQLType, ...]) -> Any:
+        kv = {
+            k: convs.conv_to_py(v)
+            for v, (k, convs) in zip(row, self.flat.items())
+        }
+        def unflatten(d: DataClassDesc):
+            args: list[Any] = []
+            for k, f in d.fields.items():
+                if isinstance(f, Converters):
+                    args += [kv.get(k)]
+                else:
+                    args += [unflatten(f)]
+            return d.con(*args)
+        return unflatten(self)
 
-def type_as_sql(t: SQLType | Converter[Any, Any] | list[Converter[Any, Any]]) -> str:
+    def from_sql_tuples(self, rows: list[tuple[SQLType, ...]]) -> list[Any]:
+        return [self.from_sql_tuple(row) for row in rows]
+
+    def __post_init__(self):
+        def flatten(d: DataClassDesc):
+            out: dict[str, Converters] = {}
+            for k, f in d.fields.items():
+                if isinstance(f, Converters):
+                    out[k] = f
+                else:
+                    for kk, li in flatten(f).items():
+                        out[kk] = li
+            return out
+        self.flat = flatten(self)
+
+    @functools.cache
+    @staticmethod
+    def get(dc: Type[Any] | Callable[..., Any]) -> DataClassDesc:
+        ret = desc(dc)
+        assert isinstance(ret, DataClassDesc)
+        def scope_names(d: DataClassDesc | Converters, path: list[str]) -> DataClassDesc | Converters:
+            if isinstance(d, Converters):
+                return Converters(d.xs, '$'.join(path))
+            else:
+                return DataClassDesc(
+                    d.con,
+                    {
+                        '$'.join([*path, k]): scope_names(f, path=[*path, k])
+                        for k, f in d.fields.items()
+                    }
+                )
+        scoped = scope_names(ret, [])
+        assert isinstance(scoped, DataClassDesc)
+        for k, _ in scoped.fields.items():
+            setattr(dc, k, getattr(scoped.var(), k))
+        return scoped
+
+@functools.cache
+def desc(dc: Type[Any]) -> DataClassDesc | Converters:
+    if not is_dataclass(dc) or dc.__subclasses__():
+        return Converters(make_converter(dc), '<converter key to be filled in by scope_names>')
+    field_dict = {field.name: field for field in fields(dc)}
+    return DataClassDesc(
+        dc,
+        {
+            k: desc(v)
+            for k, v in get_annotations(dc).items()
+            if k in field_dict
+        }
+    )
+
+def type_as_sql(t: SQLType | Converter[Any, Any] | Converters) -> str:
     if isinstance(t, Converter):
         return type_as_sql(t.sql_type)
-    elif isinstance(t, list):
-        if len(t) == 1:
-            return type_as_sql(t[0])
+    elif isinstance(t, Converters):
+        ts = [type_as_sql(x) for x in t.xs]
+        non_nulls = [t for t in ts if t != 'null']
+        nulls =     [t for t in ts if t == 'null']
+        if not non_nulls:
+            return 'null'
         else:
-            return 'any'
+            head, *_ = non_nulls
+            if all(head == t for t in non_nulls):
+                repr = head
+            else:
+                repr = 'any'
+            if nulls:
+                return repr
+            else:
+                return repr + ' not null'
     elif t == str:
         return 'text'
     elif t == int:
@@ -636,17 +729,21 @@ def type_as_sql(t: SQLType | Converter[Any, Any] | list[Converter[Any, Any]]) ->
     else:
         raise ValueError(t)
 
-@dataclass
+@dataclass(frozen=True, order=True)
 class Inner:
     x: int = 1
-    y: float = 1.0
+    y: float = 1.5
+    # z: float | int = 2
+    # u: float | None = 2.5
+    # v: int | None = 3
+    # w: float | int | None = None
 
 @dataclass
 class Todo(DBMixin):
     msg: str = ''
     done: bool = False
-    # created: datetime = field(default_factory=lambda: datetime.now())
-    # deleted: None | datetime = None
+    created: datetime = field(default_factory=lambda: datetime.now())
+    deleted: None | datetime = None
     # x: Union[None, datetime] = None
     # y: Union[None, Union[datetime, int]] = None
     # b: datetime | str | None = None
@@ -673,21 +770,35 @@ def test():
     serializer.register({'Inner': Inner})
 
     with DB.open(':memory:') as db:
-        pp(desc(Todo))
+        # pp(desc(Todo))
         t0 = Todo('hello world', inner=Inner()).save(db)
-        # t1 = Todo('hello again').save(db)
-        # t2 = Todo('hello there').save(db)
-        # t3 = Todo('goodbye world').save(db)
+        t1 = Todo('hello again', inner=Inner(2, 3)).save(db)
+        t2 = Todo('hello there', inner=Inner(False, 5)).save(db)
+        t3 = Todo('goodbye world', inner=Inner(0, False)).save(db)
+        now = datetime.now()
+        t3.replace(deleted=now).save(db)
         Todos = db.get(Todo)
-        pp(Todos.list())
-        quit()
-        tg = TodoGroup('todo group 1', [t0, t2, t3]).save(db)
+        p | Todos.where(Todo.id < 2).list()
+        p | Todos.where(Todo.inner.y > 2).list()
+        p | Todos.where(Todo.inner == Inner()).list()
+        p | Todos.where(Todo.inner >= Inner()).list()
+        p | Todos.where(
+            Todo.msg > 'hello',
+            Todo.id >= 1,
+            Todo.created <= datetime.now(),
+            Todo.deleted == None,
+        ).list()
+        if 1:
+            p | Todos.select(Todo.inner).list()
+            p | Todos.select(Todo.msg).list()
+            p | Todos.select(Todo.inner.y).list()
+            TodoGroup('todo group 1', [t0, t2]).save(db)
+            TodoGroup('todo group 2', [t1, t3]).save(db)
+            p | db.get(TodoGroup).list()
+            p | db.get(TodoGroup).select(TodoGroup.todos).list()
+            p | db.get(TodoGroup).select(TodoGroup.head).list()
+            # pp(Todos.where(Todo.id == 2).list())
 
-        TodoGroups = db.get(TodoGroup)
-        print(TodoGroup.head)
-        pp(TodoGroups.list())
-        pp(TodoGroups.group(TodoGroup.head).list())
-        quit()
         pp(Todos.where(
             Todo.msg > 'hello',
             Todo.id >= 1,
@@ -702,8 +813,6 @@ def test():
             Todo.msg.startswith('hello')
         ), sep='\n')
         print(*Todos.where(Todo.id>1, Todo.id<=2), sep='\n')
-        now = datetime.now()
-        t3.replace(deleted=now).save(db)
         print(*Todos.where(Todo.deleted != None), sep='\n')
         print(*Todos.where(Todo.deleted == now), sep='\n')
         print()
@@ -713,9 +822,16 @@ def test():
         print(*Todos.where(Todo.done), sep='\n')
         t1.delete(db)
         t3.replace(deleted=datetime.now()).save(db)
+
+        from pathlib import Path
+        Path("boo.db").unlink()
+        db.con.execute('vacuum into ?', ["boo.db"])
+
+        quit()
+
         print(Todos.max(Todo.msg))
         print(Todos.avg(Todo.id))
-        print(Todos.max(Todo.created.isoformat()))
+        print(Todos.max(Todo.created))
         print(Todos.count())
         print(Todos.group_concat(Todo.msg))
         print(Todos.group_concat(Todo.msg, ', '))
