@@ -133,7 +133,7 @@ class Select(Generic[R], PrivateReplaceMixin):
         return self.limit(1, self._offset).list()[0]
 
     def list(self) -> list[R]:
-        stmt = self.show().sql()
+        stmt = self.sql()
         def throw(e: Exception):
             raise e
         rows = self._db.con.execute(stmt).fetchall()
@@ -277,7 +277,7 @@ class Var(PrivateReplaceMixin):
         for attr in self._attrs:
             path += [attr]
             if not isinstance(desc, DataClassDesc):
-                raise ValueError(f'Refusing to go into opaque {path} in var {self}')
+                raise ValueError(f'Refusing to go into opaque {path} in var {self._head}.{self._attrs}')
             desc = desc.fields['$'.join(path)]
         return desc
 
@@ -540,7 +540,7 @@ def make_converter(t: Type[Any]) -> list[Converter[Any, Any]]:
         for alt in get_args(t):
             for conv in make_converter(alt):
                 res[conv.sql_type] += [conv]
-        pp((t, res))
+        # pp((t, res))
         needs_json = any(len(convs) > 1 for convs in res.values())
         if needs_json:
             no_serializer = [

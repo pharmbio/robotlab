@@ -65,11 +65,13 @@ class CommandState(DBMixin):
     id: int # should be int(Metadata.id)
 
     # generated for the UI from cmd and metadata:
+    cmd_type: str = ''
     gui_boring: bool = False
     resource: Literal['robotarm', 'incu', 'disp', 'wash'] | None = None
 
     def __post_init__(self):
         self.resource = self.cmd.required_resource()
+        self.cmd_type = self.cmd.type
         if isinstance(self.cmd, BiotekCmd):
             if self.cmd.action == 'Validate':
                 self.gui_boring = True
@@ -162,7 +164,7 @@ class Log:
 
     def running(self, t: float | None = None) -> list[CommandState]:
         q = self.db.get(CommandState)
-        q = q.where(CommandState.cmd.type != 'Duration')
+        q = q.where(CommandState.cmd_type != 'Duration')
         q = q.where(CommandState.gui_boring != True)
         if t is None:
             return q.where(CommandState.state == 'running').list()
@@ -260,7 +262,7 @@ class Log:
     def durations(self) -> dict[str, float]:
         return {
             e.cmd.name: d
-            for e in self.db.get(CommandState).where(CommandState.cmd.type == 'Duration')
+            for e in self.db.get(CommandState).where(CommandState.cmd_type == 'Duration')
             if isinstance(e.cmd, Duration)
             if (d := e.duration)
         }

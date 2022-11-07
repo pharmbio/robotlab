@@ -17,7 +17,7 @@ def empty_default_factory(f: Field[Any]):
     elif f.default_factory is not MISSING:
         return not f.default_factory()
     else:
-        return True
+        return False
 
 def nub(x: Any) -> dict[str, Any]:
     assert is_dataclass(x)
