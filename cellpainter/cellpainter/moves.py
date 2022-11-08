@@ -386,6 +386,8 @@ def read_movelists() -> dict[str, TaggedMoveList]:
             assert 'incu_A21' in base # these are used to put arm in A-neutral start position
             out += [TaggedMoveList(base, 'full', v, is_ret='put-return' in base)]
             continue
+        if 'calib' in base:
+            continue
         out += [TaggedMoveList(base, 'full', v)]
         parts = v.split()
         prep = TaggedMoveList(base, 'prep', parts.prep)
