@@ -27,7 +27,7 @@ class PathInfo(tx.TypedDict):
     full: str
     modified: str
 
-@dataclass
+@dataclass(frozen=True)
 class DirList(Machine):
     root_dir: str
     ext: str

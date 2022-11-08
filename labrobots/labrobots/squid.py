@@ -1,7 +1,7 @@
 from .machine import Machine
 from dataclasses import *
 
-@dataclass
+@dataclass(frozen=True)
 class Squid(Machine):
     def home(self) -> None:
         raise

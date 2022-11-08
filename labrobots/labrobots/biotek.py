@@ -13,7 +13,7 @@ class BiotekResult(TypedDict):
     success: bool
     lines: list[str]
 
-@dataclass
+@dataclass(frozen=True)
 class Biotek(Machine):
     name: str
     args: List[str]

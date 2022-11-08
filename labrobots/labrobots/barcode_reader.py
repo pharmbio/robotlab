@@ -11,8 +11,7 @@ from serial import Serial # type: ignore
 
 from .machine import Machine
 
-
-@dataclass
+@dataclass(frozen=True)
 class BarcodeReader(Machine):
     last_seen: Dict[str, Union[str, List[str]]] = field(default_factory=lambda: {
         'barcode': '',
@@ -32,27 +31,27 @@ class BarcodeReader(Machine):
                 line = b.decode('ascii')
             except Exception as e:
                 traceback.print_exc()
-                self.last_seen = {
+                self.last_seen.update({
                     'error': str(e),
                     'traceback': traceback.format_exc().splitlines(keepends=False)
-                }
+                })
                 continue
             line = line.strip()
             if line:
-                self.last_seen = {
+                self.last_seen.update({
                     'barcode': line,
                     'date': datetime.now().replace(microsecond=0).isoformat(sep=' ')
-                }
+                })
                 print('message', line)
 
     def read(self):
         return self.last_seen
 
     def clear(self):
-        self.last_seen = {
+        self.last_seen.update({
             'barcode': '',
             'date': '',
-        }
+        })
 
     def read_and_clear(self):
         val = self.read()

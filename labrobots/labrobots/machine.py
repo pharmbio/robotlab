@@ -6,7 +6,6 @@ from subprocess import run, check_output
 from threading import Thread, Lock
 from typing_extensions import Self
 from typing import *
-from typing import *
 from urllib.request import urlopen, Request
 import inspect
 import json
@@ -169,7 +168,7 @@ class Machine:
         assert call(['up?'])
         return Proxy(cls, call) # type: ignore
 
-@dataclass
+@dataclass(frozen=True)
 class Echo(Machine):
     def error(self, *args: str, **kws: Any):
         raise ValueError(f'error {args!r} {kws!r}')
@@ -183,7 +182,7 @@ class Echo(Machine):
         '''
         return f'echo {args!r} {kws!r}'
 
-@dataclass
+@dataclass(frozen=True)
 class Git(Machine):
     def pull_and_shutdown(self):
         import os
