@@ -158,7 +158,7 @@ def keydown(program_name: str, args: dict[str, Any]):
             m,
         )
 
-def update(program_name: str, i: int):
+def update(program_name: str, i: int, grouped: bool=False):
     if i is None:
         return
 
@@ -171,19 +171,27 @@ def update(program_name: str, i: int):
         v['rpy'] = [pbutils.round_nnz(v, 1) for v in polled_info['rpy']]
         ml = MoveList(ml)
         ml[i] = moves.MoveLin(**v)
-        ml.write_jsonl(filename)
     elif isinstance(m, (moves.GripperMove)):
         v = asdict(m)
         v['pos'] = polled_info['pos'][0]
         ml = MoveList(ml)
         ml[i] = moves.GripperMove(**v)
-        ml.write_jsonl(filename)
     elif isinstance(m, (moves.MoveJoint)):
         v = asdict(m)
         v['joints'] = [pbutils.round_nnz(v, 2) for v in polled_info['joints']]
         ml = MoveList(ml)
         ml[i] = moves.MoveJoint(**v)
-        ml.write_jsonl(filename)
+    else:
+        return
+
+    if grouped:
+        for j, _ in enumerate(ml):
+            if j == i:
+                continue
+            if isinstance(ml[j], type(ml[i])) and ml[j].try_name() == ml[i].try_name():
+                print(i, j, ml[i], ml[j], ml[i].try_name(), ml[j].try_name())
+                ml[j] = ml[i]
+    ml.write_jsonl(filename)
 
 def get_programs() -> dict[str, Path]:
     return {
@@ -446,6 +454,7 @@ def index() -> Iterator[Tag | dict[str, str]]:
             style=f'grid-column: update',
             css='margin: 0 10px;',
             onclick=call(update, program_name, i),
+            oncontextmenu='event.preventDefault();' + call(update, program_name, i, grouped=True),
         )
 
         row += input(
