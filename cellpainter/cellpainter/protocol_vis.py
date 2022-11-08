@@ -132,7 +132,8 @@ def start(cmdline0: str, cmdline_to_log: Callable[[str], Log]):
         )
 
         try:
-            entries = cmdline_to_log(cmdline.value)
+            log = cmdline_to_log(cmdline.value)
+            entries = log.command_states().list()
         except:
             import traceback
             traceback.print_exc()
@@ -143,13 +144,14 @@ def start(cmdline0: str, cmdline_to_log: Callable[[str], Log]):
         if estimates.guesses:
             pbutils.pr(estimates.guesses)
 
-        yield pre('\n'.join(entries.group_durations_for_display()))
+        yield pre('\n'.join(log.group_durations_for_display()))
 
         area = div(style=f'''
             width: 100%;
             height: {zoom * max(e.t for e in entries)}px;
         ''', css='''
             position: relative;
+            user-select: none;
         ''')
         for e in reversed(entries):
             t0 = e.t0

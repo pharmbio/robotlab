@@ -106,12 +106,15 @@ def sleek_program(program: Command) -> Command:
     )
 
 def initial_world(plates: list[Plate], p: ProtocolConfig) -> World:
-    if p.start_from_pfa:
+    if p.start_in_rt_from_pfa:
         return World({p.out_loc: p.id for p in plates})
     else:
         return World({p.incu_loc: p.id for p in plates})
 
-def add_world_metadata(program: Command, world0: World) -> Command:
+def InitialWorldInfo(world0: World) -> Meta:
+    return Info('initial world').add(Metadata(effect=InitialWorld(world0), stage='start'))
+
+def add_world_metadata(program: Command, world0: World, add_initial_world_info: bool=True) -> Command:
     def F(cmd: Command) -> Command:
         match cmd:
             case RobotarmCmd() if e := effects.get(cmd.program_name):
@@ -124,10 +127,10 @@ def add_world_metadata(program: Command, world0: World) -> Command:
                 return cmd.add(Metadata(effect=e))
             case _:
                 return cmd
-    return Seq(
-        Info('initial world').add(Metadata(effect=InitialWorld(world0), stage='start')),
-        program.transform(F)
-    )
+    program = program.transform(F)
+    if add_initial_world_info:
+        program = Seq(InitialWorldInfo(world0), program)
+    return program
 
 def define_plates(batch_sizes: list[int]) -> list[list[Plate]]:
     plates: list[list[Plate]] = []
@@ -284,7 +287,7 @@ class ProtocolArgsInterface(typing.Protocol):
     interleave:       bool
     two_final_washes: bool
     lockstep:         bool
-    start_from_pfa:   bool
+    start_in_rt_from_pfa:   bool
 
 @dataclass(frozen=True)
 class ProtocolArgs:
@@ -292,7 +295,7 @@ class ProtocolArgs:
     interleave:       bool = False
     two_final_washes: bool = False
     lockstep:         bool = False
-    start_from_pfa:   bool = False
+    start_in_rt_from_pfa:   bool = False
 
 if typing.TYPE_CHECKING:
     _: ProtocolArgsInterface = ProtocolArgs()
@@ -309,7 +312,7 @@ class ProtocolConfig:
     interleavings: list[str]
     interleave:    bool
     lockstep:      bool
-    start_from_pfa: bool
+    start_in_rt_from_pfa: bool
     def __post_init__(self):
         d: dict[str, list[Any]] = {}
         for field in fields(self):
@@ -378,11 +381,11 @@ def make_protocol_config(paths: ProtocolPaths, args: ProtocolArgsInterface = Pro
         incu           = incu,
         interleave     = args.interleave,
         interleavings  = interleavings,
-        start_from_pfa = False,
+        start_in_rt_from_pfa = False,
     )
-    if args.start_from_pfa:
+    if args.start_in_rt_from_pfa:
         return ProtocolConfig(
-            start_from_pfa = True,
+            start_in_rt_from_pfa = True,
 
             # skip mito and rename PFA
             step_names    = ['PFA RT'] + p.step_names[2:],
@@ -410,13 +413,13 @@ def test_make_protocol_config():
             incu = incu,
             two_final_washes = two_final_washes,
             interleave = interleave,
-            start_from_pfa = start_from_pfa,
+            start_in_rt_from_pfa = start_in_rt_from_pfa,
             lockstep = lockstep,
         )
         for incu in ['i1, i2, i3', '21:00,20:00', '1200']
         for two_final_washes in [True, False]
         for interleave in [True, False]
-        for start_from_pfa in [True, False]
+        for start_in_rt_from_pfa in [True, False]
         for lockstep in [False]
     ]
     for args in argss:
@@ -781,11 +784,14 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
     ).add(Metadata(batch_index=batch_index + 1))
 
 from . import constraints
+from pbutils import p
 
 def remove_stages(program: Command, until_stage: str, world0: World) -> tuple[Command, World]:
     with pbutils.timeit('constraints'):
         opt_res = constraints.optimal_env(program.make_resource_checkpoints())
     program = program.resolve(opt_res.env)
+
+    pbutils.serializer.write_json(program, '/tmp/program.json', indent=2)
 
     stages = program.stages()
     until_index = stages.index(until_stage)
@@ -794,7 +800,7 @@ def remove_stages(program: Command, until_stage: str, world0: World) -> tuple[Co
         if isinstance(cmd, Meta) and (stage := cmd.metadata.stage):
             if stages.index(stage) < until_index:
                 for c in cmd.universe():
-                    if isinstance(c, Meta) and (effect := c.metadata.effect):
+                    if isinstance(c, Meta) and (effect := c.metadata.effect) is not None:
                         effects.append(effect)
                 return Seq()
         return cmd
@@ -804,25 +810,29 @@ def remove_stages(program: Command, until_stage: str, world0: World) -> tuple[Co
     for effect in effects:
         world0 = effect.apply(world0)
 
-    reference_t0 = 'reference t0'
     checkpoints = program.checkpoints()
+    dangling: set[str] = set()
     i = 0
     def FixDanglingCheckpoints(cmd: Command):
         nonlocal i
         if isinstance(cmd, WaitForCheckpoint | Duration) and cmd.name not in checkpoints:
             i += 1
-            return WaitForCheckpoint(reference_t0, assume='nothing') + f'wiggle {i}'
+            dangling.add(cmd.name)
+            replacement = WaitForCheckpoint(cmd.name, assume='nothing') + f'wiggle {i}'
+            if isinstance(cmd, Duration):
+                replacement = Seq(replacement, Duration(cmd.name))
+            return replacement
         else:
             return cmd
 
+    program = program.transform(FixDanglingCheckpoints)
     program = Seq(
-        # Info('initial world').add(Metadata(effect=moves.InitialWorld(world0), stage='start')),
-        Checkpoint(reference_t0),
-        program.transform(FixDanglingCheckpoints),
+        *[Checkpoint(dang) for dang in dangling],
+        program,
     )
     return program, world0
 
-def cell_paint_program(batch_sizes: list[int], protocol_config: ProtocolConfig, sleek: bool = True, remove_until_stage: str | None = None) -> Command:
+def cell_paint_program(batch_sizes: list[int], protocol_config: ProtocolConfig, sleek: bool = True, start_from_stage: str | None = None) -> Command:
     cmds: list[Command] = []
     plates = define_plates(batch_sizes)
     for batch in plates:
@@ -835,14 +845,15 @@ def cell_paint_program(batch_sizes: list[int], protocol_config: ProtocolConfig, 
     program = Seq(*cmds)
     if sleek:
         program = sleek_program(program)
-    if remove_until_stage:
-        program, world0 = remove_stages(program, until_stage=remove_until_stage, world0=world0)
+    program = add_world_metadata(program, world0, add_initial_world_info=False)
+    if start_from_stage:
+        program, world0 = remove_stages(program, until_stage=start_from_stage, world0=world0)
     program = Seq(
+        InitialWorldInfo(world0),
         Checkpoint('run'),
-        test_comm_program(with_incu=not protocol_config.start_from_pfa),
+        test_comm_program(with_incu=not protocol_config.start_in_rt_from_pfa),
         program,
         Duration('run', opt_weight=-0.1)
     )
-    program = add_world_metadata(program, world0)
     return program
 

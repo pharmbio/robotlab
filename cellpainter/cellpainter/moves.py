@@ -453,11 +453,6 @@ class Effect(abc.ABC):
         pass
 
 @dataclass(frozen=True)
-class NoEffect(Effect):
-    def effect(self, world: World) -> dict[str, str | None]:
-        return {}
-
-@dataclass(frozen=True)
 class InitialWorld(Effect):
     world0: World
     def effect(self, world: World) -> dict[str, str | None]:

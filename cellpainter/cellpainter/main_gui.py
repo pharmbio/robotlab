@@ -674,7 +674,7 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
 
         protocol_dir = m.str(default='automation_v5.0', name='protocol dir', desc='Directory on the windows computer to read biotek LHC files from')
         plates = m.str(desc='The number of plates per batch, separated by comma. Example: 6,6')
-        start_from_pfa = m.bool(name='start from pfa', desc='Skip mito and start with PFA (including pre-PFA wash). Plates start on their output positions (A hotel).')
+        start_in_rt_from_pfa = m.bool(name='start from pfa', desc='Skip mito and start with PFA (including pre-PFA wash). Plates start on their output positions (A hotel).')
         incu = m.str(name='incubation times', default='20:00', desc='The incubation times in seconds or minutes:seconds, separated by comma. If too few values are specified, the last value is repeated. Example: 21:00,20:00')
         params = m.str(name='params', desc=f'Additional parameters to protocol "{protocol.value}"')
 
@@ -684,7 +684,7 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
 
         form_fields: list[Str | Bool] = []
         if protocol.value == 'cell-paint':
-            form_fields = [plates, incu, start_from_pfa, protocol_dir]
+            form_fields = [plates, incu, start_in_rt_from_pfa, protocol_dir]
             batch_sizes = plates.value
             N = pbutils.catch(lambda: max(pbutils.read_commasep(batch_sizes, int)), 0)
             interleave = N >= 7
@@ -697,11 +697,11 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
                 incu_csv = '1200,1200,1200,1200,X'
                 if N == 10:
                     incu_csv = '1235,1230,1230,1235,1260'
-                if start_from_pfa.value:
+                if start_in_rt_from_pfa.value:
                     incu_csv = '1200,1200,1200,X'
             args = Args(
                 cell_paint=batch_sizes,
-                start_from_pfa=start_from_pfa.value,
+                start_in_rt_from_pfa=start_in_rt_from_pfa.value,
                 incu=incu_csv,
                 interleave=interleave,
                 two_final_washes=two_final_washes,

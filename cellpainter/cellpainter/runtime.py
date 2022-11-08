@@ -221,7 +221,6 @@ class Runtime:
         try:
             yield
         except BaseException as e:
-            import reprlib
             self.log(Message(f'{type(e).__name__}: {e}', traceback=traceback.format_exc(), is_error=True))
             if not isinstance(e, SystemExit):
                 os.kill(os.getpid(), signal.SIGTERM)
@@ -236,7 +235,6 @@ class Runtime:
             return message
 
     def apply_effect(self, effect: Effect, entry: CommandWithMetadata):
-        # return
         with self.lock:
             try:
                 next = effect.apply(self.world)
@@ -247,6 +245,7 @@ class Runtime:
                     'effect': effect,
                     'world': self.world,
                     'error': error,
+                    'entry': entry,
                 }, use_color=False)
                 self.log(entry.message(msg, is_error=True))
                 if fatal:

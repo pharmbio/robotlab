@@ -146,6 +146,10 @@ class Log:
     def open(filename: str):
         return Log(DB.connect(filename))
 
+    def command_states(self):
+        q = self.db.get(CommandState)
+        return q
+
     def gui_query(self):
         q = self.db.get(CommandState)
         q = q.where(CommandState.resource != None)

@@ -54,7 +54,7 @@ class Args:
     interleave:                bool = arg(help='Interleave plates, required for 7 plate batches')
     two_final_washes:          bool = arg(help='Use two shorter final washes in the end, required for big batch sizes, required for 8 plate batches')
     lockstep:                  bool = arg(help='Allow steps to overlap: first plate PFA starts before last plate Mito finished and so on, required for 10 plate batches')
-    start_from_pfa:            bool = arg(help='Start from PFA (in room temperature). Use this if you have done Mito manually beforehand')
+    start_in_rt_from_pfa:            bool = arg(help='Start from PFA (in room temperature). Use this if you have done Mito manually beforehand')
     log_filename:              str  = arg(help='Manually set the log filename instead of having a generated name based on date')
     protocol_dir:              str  = arg(default='automation_v5.0', help='Directory to read biotek .LHC files from on the windows server (relative to the protocol root).')
     force_update_protocol_dir: bool = arg(help='Update the protcol dir based on the windows server even if config is not --live.')
@@ -70,7 +70,7 @@ class Args:
     num_plates:                int  = arg(help='For some protocols only: number of plates')
     params:                    list[str] = arg(help='For some protocols only: more parameters')
 
-    remove_until_stage:        str  = arg(help='Remove commands before this stage')
+    start_from_stage:        str  = arg(help="Start from this stage (example: 'Mito, plate 2')")
 
     visualize:                 bool = arg(help='Run detailed protocol visualizer')
     init_cmd_for_visualize:    str  = arg(help='Starting cmdline for visualizer')
@@ -230,7 +230,7 @@ def args_to_program(args: Args) -> Program | None:
         program = protocol.cell_paint_program(
             batch_sizes=batch_sizes,
             protocol_config=protocol_config,
-            remove_until_stage=args.remove_until_stage or None,
+            start_from_stage=args.start_from_stage or None,
         )
         return Program(program, {
             'program': 'cell_paint',
