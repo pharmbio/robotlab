@@ -198,8 +198,27 @@ def zip_add(xs: list[float], ys: list[float], ndigits: int=1) -> list[float]:
 
 class PP:
     def __call__(self, thing: A) -> A:
-        from pprint import pp
-        pp(thing)
+        from pprint import pformat
+        import executing
+        import inspect
+        import re
+        import textwrap
+        from pathlib import Path
+        frames = inspect.getouterframes(inspect.currentframe())
+        for fr in frames:
+            if fr.filename != __file__:
+                break
+        else:
+            return thing
+        src: str = executing.Source.executing(fr.frame).text() # type: ignore
+        src = re.sub(r'\s*\|\s*p\s*$', '', src, flags=re.MULTILINE)
+        src = re.sub(r'^\s*p\s*\|\s*', '', src, flags=re.MULTILINE)
+        fmt = pformat(thing)
+        filename = Path(fr.filename).relative_to(Path.cwd())
+        if len(fmt) < 40 and '\n' not in fmt:
+            print(f'{filename}:{fr.lineno}:{src} = {fmt}')
+        else:
+            print(f'{filename}:{fr.lineno}:{src} =\n{textwrap.indent(fmt, "  ")}')
         return thing
 
     def __or__(self, thing: A) -> A:
