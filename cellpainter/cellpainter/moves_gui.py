@@ -301,10 +301,11 @@ def index() -> Iterator[Tag | dict[str, str]]:
         grid-template-columns:
             [run] 130px
             [value] 1fr
+            [p] 80px
             [update] 90px
-            [x] 100px
-            [y] 100px
-            [z] 100px
+            [x] 90px
+            [y] 90px
+            [z] 90px
             [go] 90px
             [name] 180px
         ;
@@ -383,8 +384,8 @@ def index() -> Iterator[Tag | dict[str, str]]:
                 ('x', f'{dx: 6.1f}', moves.MoveRel(xyz=[dx, 0, 0], rpy=[0, 0, 0])),
                 ('y', f'{dy: 6.1f}', moves.MoveRel(xyz=[0, dy, 0], rpy=[0, 0, 0])),
                 ('z', f'{dz: 6.1f}', moves.MoveRel(xyz=[0, 0, dz], rpy=[0, 0, 0])),
-                # (f'P', moves.MoveRel(xyz=[0, 0, 0],  rpy=[0, dP, 0])),
-                # (f'Y', moves.MoveRel(xyz=[0, 0, 0],  rpy=[0, 0, dY])),
+                ('p', f'{dP: 5.1f}', moves.MoveRel(xyz=[0, 0, 0],  rpy=[0, dP, 0])),
+                # ('Y', moves.MoveRel(xyz=[0, 0, 0],  rpy=[0, 0, dY])),
             ]
             if any(abs(d) < 10.0 for d in dxyz):
                 for col, k, v in buttons:
@@ -405,6 +406,7 @@ def index() -> Iterator[Tag | dict[str, str]]:
                                     inset  0px -1px #0006;
                             }
                         ''',
+                        title=col,
                         onclick=call(arm_do, moves.RawCode("EnsureRelPos()"), v),
                     )
             else:
@@ -483,8 +485,18 @@ def index() -> Iterator[Tag | dict[str, str]]:
             oninput=call(edit_at, program_name, i, js("{name:event.target.value}")),
         )
         if not isinstance(m, moves.Section):
-            row += V.code(m.to_script(),
+            script = m.to_script()
+            if isinstance(m, moves.MoveLin):
+                script = f'''MoveLin({
+                    m.xyz[0]:7.1f},{
+                    m.xyz[1]:7.1f},{
+                    m.xyz[2]:7.1f},{
+                    m.rpy[0]:5.1f},{
+                    m.rpy[1]:5.1f},{
+                    m.rpy[2]:6.1f})'''
+            row += V.pre(script,
                 style=f'grid-column: value',
+                css='margin: unset',
             )
 
     yield div(
