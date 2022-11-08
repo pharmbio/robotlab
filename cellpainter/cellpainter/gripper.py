@@ -9,6 +9,7 @@ gripper_code = str('''
     end
     textmsg("log gripper send ", s)
     socket_send_line(s, sock)
+    sleep(0.1)
     res = socket_read_line(sock)
     textmsg("log gripper recv ", res)
     if expect != "":
@@ -25,7 +26,7 @@ gripper_code = str('''
   def GripperPos():
     msg_mm = GripperSend("~g_pos")
     mm_idx = str_find(msg_mm, "mm")
-    textmsg("log mm_idx: ", mm_idx)
+    # textmsg("log mm_idx: ", mm_idx)
     if mm_idx > 0:
       current_mm = to_num(str_sub(msg_mm, 0, mm_idx))
       textmsg("log current_mm: ", current_mm)
