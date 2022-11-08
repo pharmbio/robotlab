@@ -309,7 +309,8 @@ class Serve:
             HOST = os.environ.get('VIABLE_HOST', host)
             PORT = os.environ.get('VIABLE_PORT', port)
             PORT = int(PORT) if PORT else None
-            print(f'Running app on http://{HOST}:{PORT}')
+            if HOST and PORT:
+                print(f'Running app on http://{HOST}:{PORT}')
             app.run(host=HOST, port=PORT, threaded=True)
 
     def suppress_flask_logging(self):

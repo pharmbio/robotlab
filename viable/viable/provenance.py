@@ -5,7 +5,6 @@ from dataclasses import *
 from collections import defaultdict
 from flask import after_this_request, jsonify, request, g
 from flask.wrappers import Response
-from typing import *
 from werkzeug.local import LocalProxy
 import abc
 import functools
