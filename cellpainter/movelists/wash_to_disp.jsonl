@@ -1,17 +1,17 @@
-{"type": "MoveJoint", "joints": [94.6, -111.3, 93.2, 18, 94.6, -0.1], "name": "B neu"}
-{"type": "MoveJoint", "joints": [69.7, -114.5, 95.1, 19.4, 104.6, -0.1], "name": "B safe"}
-{"type": "MoveJoint", "joints": [-96.41, -125.21, 148.22, -24.55, -5.43, 1.55], "name": "wash above"}
-{"type": "MoveLin", "xyz": [-269.5, 196, 148.4], "rpy": [0.0, 0.0, -1.2], "name": "wash neu", "slow": true}
-{"type": "MoveLin", "xyz": [-269.5, 196, 131.9], "rpy": [0.0, 0.0, -1.2], "name": "wash pick", "slow": true}
-{"type": "GripperMove", "pos": 255}
-{"type": "MoveLin", "xyz": [-269.5, 196, 148.4], "rpy": [0.0, 0.0, -1.2], "name": "wash neu", "slow": true}
-{"type": "MoveLin", "xyz": [-262.4, 198.1, 390.2], "rpy": [0, 0, -0.7], "name": "wash above", "slow": true}
-{"type": "MoveJoint", "joints": [-98.62, -128.45, 143.78, -16.44, -7.93, 1.12], "name": "wash above"}
-{"type": "MoveJoint", "joints": [67.81, -89.07, 125.16, -36.45, 158.11, -0.39], "name": "disp above"}
-{"type": "MoveLin", "xyz": [-132.8, -502.3, 337.3], "rpy": [0, 0, -0.4], "name": "disp above"}
-{"type": "MoveLin", "xyz": [-132.8, -502.3, 76.1], "rpy": [0, 0, -0.4], "name": "disp drop"}
-{"type": "GripperMove", "pos": 89}
-{"type": "MoveLin", "xyz": [-132.8, -502.3, 126.8], "rpy": [0, 0, -0.4], "name": "disp neu"}
-{"type": "MoveLin", "xyz": [-132.8, -502.3, 398.1], "rpy": [0, 0, -0.4], "name": "disp above"}
-{"type": "MoveLin", "xyz": [-2, -421.7, 808.7], "rpy": [0, 0, 55.1], "name": "B safe"}
-{"type": "MoveLin", "xyz": [198.7, -421.7, 808.6], "rpy": [0, 0, 90], "name": "B neu"}
+{"type":"MoveJoint","joints":[94.6,-110.9,91.5,19.3,94.6,179.9],"name":"B neu"}
+{"type":"MoveLin","xyz":[-298,-400.9,674.8],"rpy":[0.0,0.7,-2.3],"name":"B safe"}
+{"type":"MoveLin","xyz":[-296,202.1,455.3],"rpy":[0.0,0.7,-1.5],"name":"wash above"}
+{"type":"MoveLin","xyz":[-296,202.1,249.7],"rpy":[0.0,0.7,0.0],"name":"wash neu"}
+{"type":"MoveLin","xyz":[-296,202.1,159.7],"rpy":[0.0,0.7,0.0],"name":"wash pick","slow":true}
+{"type":"GripperMove","pos":255}
+{"type":"MoveLin","xyz":[-296,202.1,290],"rpy":[0.0,0.7,0.0],"name":"wash neu","slow":true}
+{"type":"MoveLin","xyz":[-396,202.1,490],"rpy":[0.0,0.7,0.0],"name":"wash by window"}
+{"type":"MoveLin","xyz":[-396,-201.5,490.1],"rpy":[0.0,0.7,0.0],"name":"disp by window"}
+{"type":"MoveLin","xyz":[-146,-500.6,390.2],"rpy":[0.0,0.7,0.0],"name":"disp above"}
+{"type":"MoveLin","xyz":[-146,-500.6,180.2],"rpy":[0.0,0.7,0.0],"name":"disp neu"}
+{"type":"MoveLin","xyz":[-146.2,-500.6,107.7],"rpy":[0.0,0.0,0.0],"name":"disp drop","slow":true}
+{"type":"GripperMove","pos":89}
+{"type":"MoveLin","xyz":[-146,-500.6,180.2],"rpy":[0.0,0.7,0.0],"name":"disp neu"}
+{"type":"MoveLin","xyz":[-146,-500.6,390.2],"rpy":[0.0,0.7,0.0],"name":"disp above"}
+{"type":"MoveLin","xyz":[-2,-421.8,822.6],"rpy":[0.0,0.0,55.1],"name":"B safe"}
+{"type":"MoveLin","xyz":[198.7,-421.8,822.6],"rpy":[0.0,0.0,90],"name":"B neu"}

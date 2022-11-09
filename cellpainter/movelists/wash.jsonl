@@ -19,7 +19,7 @@
 {"type":"MoveLin","xyz":[-298,-400.9,674.8],"rpy":[0.0,0.7,-2.3],"name":"B safe"}
 {"type":"MoveLin","xyz":[-297.7,196.8,455.3],"rpy":[0.0,0.7,-1.5],"name":"wash above"}
 {"type":"MoveLin","xyz":[-297.7,196.9,205.3],"rpy":[0.0,0.7,-1.5],"name":"wash neu"}
-{"type":"MoveLin","xyz":[-299,197.5,158.8],"rpy":[0.0,0.7,-1.3],"name":"wash pick","slow":true}
+{"type":"MoveLin","xyz":[-296,202.1,159.7],"rpy":[0.0,0.7,0.0],"name":"wash pick","slow":true}
 {"type":"GripperMove","pos":255}
 {"type":"MoveLin","xyz":[-297.7,196.8,455.3],"rpy":[0.0,0.7,-1.5],"name":"wash above"}
 {"type":"MoveLin","xyz":[-298,-400.9,674.8],"rpy":[0.0,0.7,-2.3],"name":"B safe"}
