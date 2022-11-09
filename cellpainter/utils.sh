@@ -230,7 +230,7 @@ note '
 function forward-robot-then-entr-gui {
     forward-robot-to-localhost &
     sleep 1
-    ls *py | entr -c -r cellpainter-moves "$@" --forward
+    ls **/*py | entr -c -r cellpainter-moves "$@" --forward
 }
 
 note '

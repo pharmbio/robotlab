@@ -298,9 +298,12 @@ def index() -> Iterator[Tag | dict[str, str]]:
     grid = div(css='''
         display: grid;
         grid-gap: 3px 0;
+        max-width: fit-content;
+        margin: 0 auto;
         grid-template-columns:
-            [run] 130px
+            [run] 160px
             [value] 1fr
+            [r] 80px
             [p] 80px
             [update] 90px
             [x] 90px
@@ -384,6 +387,7 @@ def index() -> Iterator[Tag | dict[str, str]]:
                 ('x', f'{dx: 6.1f}', moves.MoveRel(xyz=[dx, 0, 0], rpy=[0, 0, 0])),
                 ('y', f'{dy: 6.1f}', moves.MoveRel(xyz=[0, dy, 0], rpy=[0, 0, 0])),
                 ('z', f'{dz: 6.1f}', moves.MoveRel(xyz=[0, 0, dz], rpy=[0, 0, 0])),
+                ('r', f'{dR: 5.1f}', moves.MoveRel(xyz=[0, 0, 0],  rpy=[dR, 0, 0])),
                 ('p', f'{dP: 5.1f}', moves.MoveRel(xyz=[0, 0, 0],  rpy=[0, dP, 0])),
                 # ('Y', moves.MoveRel(xyz=[0, 0, 0],  rpy=[0, 0, dY])),
             ]
@@ -441,13 +445,23 @@ def index() -> Iterator[Tag | dict[str, str]]:
         )
 
         from_here = [m for _, m in visible_moves[row_index:] if not isinstance(m, moves.Section)]
+        to_here = [m for _, m in visible_moves[:row_index+1] if not isinstance(m, moves.Section)]
 
-        row += button('run from here',
-            tabindex='-1',
+        row += div(
+            button('run from here',
+                tabindex='-1',
+                css='margin: 0;',
+                onclick=call(arm_do, *from_here),
+                title=', '.join(m.try_name() or m.__class__.__name__ for m in from_here)
+            ),
+            button('to',
+                tabindex='-1',
+                css='margin: 0;',
+                onclick=call(arm_do, *to_here),
+                title=', '.join(m.try_name() or m.__class__.__name__ for m in to_here)
+            ),
             style=f'grid-column: run',
-            css='margin: 0 10px;',
-            onclick=call(arm_do, *from_here),
-            title=', '.join(m.try_name() or m.__class__.__name__ for m in from_here)
+            css='margin: 0 10px; display: flex;',
         )
 
 
