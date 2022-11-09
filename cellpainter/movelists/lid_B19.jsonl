@@ -13,7 +13,7 @@
 {"type":"MoveLin","xyz":[196.5,-421.8,751.1],"rpy":[-0.4,1.8,90.5],"tag":"19/21","name":"B19 entrance"}
 {"type":"MoveLin","xyz":[196.5,-421.8,831],"rpy":[-0.4,1.8,90.5],"name":"B neu"}
 {"type":"Section","sections":["get"]}
-{"type":"MoveJoint","joints":[94.6,-110.6,90.5,20.1,94.6,179.9],"name":"B neu"}
+{"type":"MoveJoint","joints":[94,-111.2,91.2,18.1,93.5,180.2],"name":"B neu"}
 {"type":"MoveLin","xyz":[196.5,-421.8,751.1],"rpy":[-0.4,1.8,90.5],"tag":"19/21","name":"B19 entrance"}
 {"type":"MoveLin","xyz":[196.6,-567.4,751.1],"rpy":[-0.4,1.8,90.5],"tag":"19/21","name":"B19 pick neu"}
 {"type":"MoveLin","xyz":[196.6,-567.4,737.6],"rpy":[-0.4,1.8,90.5],"tag":"19/21","name":"B19 pick"}
