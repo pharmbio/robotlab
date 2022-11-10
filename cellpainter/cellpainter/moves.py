@@ -33,7 +33,7 @@ class Move(abc.ABC):
             return ""
 
     def is_gripper(self) -> bool:
-        return isinstance(self, (GripperMove, GripperCheck))
+        return isinstance(self, (GripperMove, GripperInitAndCheck))
 
     def is_close(self) -> bool:
         if isinstance(self, GripperMove):
@@ -118,9 +118,9 @@ class GripperMove(Move):
         return call('GripperMove', self.pos, **keep_true(soft=self.soft))
 
 @dataclass(frozen=True)
-class GripperCheck(Move):
+class GripperInitAndCheck(Move):
     def to_script(self) -> str:
-        return call('GripperCheck')
+        return call('GripperInitAndCheck')
 
 @dataclass(frozen=True)
 class Section(Move):
@@ -413,7 +413,7 @@ def read_movelists() -> dict[str, TaggedMoveList]:
 
     out += [
         TaggedMoveList('noop', 'full', MoveList()),
-        TaggedMoveList('gripper check', 'full', MoveList([GripperCheck()])),
+        TaggedMoveList('gripper init and check', 'full', MoveList([GripperInitAndCheck()])),
     ]
 
     to_neu = {v.name: v for v in out}['lid_B19 put prep'].movelist[0]

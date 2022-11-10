@@ -105,6 +105,9 @@ def gripper_code(with_gripper: bool=False) -> str:
                 write_output_integer_register(0, pos)
                 sleep(0.1)
             end
+            def GripperInit():
+                sleep(0.1)
+            end
         '''
 
     return code + '''
@@ -123,10 +126,9 @@ def gripper_code(with_gripper: bool=False) -> str:
             GripperMove(start_pos, soft=True) MoveRel(0, 0,     -0.25, 0, 0, 0)
         end
 
-        def GripperCheck():
-            sleep(1.5)
+        def GripperInitAndCheck():
+            GripperInit()
             GripperMove(95)
-            GripperMove(88)
         end
     '''
 
@@ -195,12 +197,12 @@ class Robotarm:
             raise RuntimeError
         while True:
             data = self.sock.recv(4096)
-            for m in re.findall(rb'[\x20-\x7e]*(?:log|program|assert|\w+exception|error|\w+_\w+:)[\x20-\x7e]*', data, re.IGNORECASE):
+            for m in re.findall(rb'[\x20-\x7e]*(?:log|fatal|program|assert|\w+exception|error|\w+_\w+:)[\x20-\x7e]*', data, re.IGNORECASE):
                 m = m.decode()
                 # self.quiet or print(f'{m = }')
                 print(f'{m = }')
-                if 'panic' in m:
-                    self.sock.sendall('textmsg("panic stop")\n'.encode())
+                if 'fatal' in m:
+                    self.sock.sendall('textmsg("log panic stop")\n'.encode())
                     raise RuntimeError(m)
             yield data
 

@@ -10,14 +10,18 @@ gripper_code = str('''
     textmsg("log gripper send ", s)
     socket_send_line(s, sock)
     sleep(0.1)
-    res = socket_read_line(sock)
-    textmsg("log gripper recv ", res)
+    while True:
+      res = socket_read_line(sock)
+      textmsg("log gripper recv ", res)
+      if res != "startup":
+        break
+      end
+    end
     if expect != "":
       if res != expect:
-        popup(
-          str_cat("Gripper error on ", s) + str_cat(": ", res),
-          "Error", False, True, True
-        )
+        msg = str_cat("Gripper error on ", s) + str_cat(": ", res)
+        textmsg("fatal: ", msg)
+        popup(msg, "fatal", error=False, blocking=True)
       end
     end
     return res
@@ -37,7 +41,18 @@ gripper_code = str('''
     end
   end
 
+  def GripperInit():
+    GripperSend("~home", "Parameter successfully set")
+    sleep(1.5)
+    GripperSend("~s_p_op 97", "Parameter successfully set")
+    GripperSend("~s_force 30", "Parameter successfully set")
+    sleep(0.1)
+  end
+
   def GripperMove(pos, soft=False):
+    while not is_steady():
+      sync()
+    end
     # compability with previous gripper where 255 means close.
     # other numbers we send to portrait
     close = pos == 255
@@ -51,6 +66,15 @@ gripper_code = str('''
     while 1:
       p = GripperPos()
       if close and p <= 90:
+        if 0:
+          sleep(0.15)
+          p = GripperPos()
+          if p <= 80:
+            msg = str_cat("Gripper closed more than expected: ", p) + "mm"
+            textmsg("fatal: ", msg)
+            popup(msg, "fatal", error=False, blocking=True)
+          end
+        end
         break
       end
       if not close and p >= 97:
@@ -60,6 +84,7 @@ gripper_code = str('''
   end
 
   def GripperMoveTo(pos_mm, soft=False):
+    # this makes the gripper start to wobble
     if pos_mm > 140:
       pos_mm = 140
     elif pos_mm < 70:
