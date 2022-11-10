@@ -55,6 +55,9 @@ serve.suppress_flask_logging()
 def sigint(pid: int):
     os.kill(pid, signal.SIGINT)
 
+def sigkill(pid: int):
+    os.kill(pid, signal.SIGKILL)
+
 def robotarm_do(ms: list[Move]):
     arm = get_robotarm(config, quiet=False, include_gripper=True)
     arm.execute_moves(ms, name='gui', allow_partial_completion=True)
@@ -790,7 +793,7 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
                 }
             '''
         )
-        running: list[str] = []
+        running: list[tuple[int, str]] = []
         try:
             x = subprocess.check_output(['pgrep', '^cellpainter$']).decode()
         except:
@@ -801,7 +804,7 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
                 args = get_json_arg_from_argv(pid)
                 if isinstance(v := args.get("log_filename"), str):
                     pbutils.pr(args)
-                    running += [v]
+                    running += [(pid, v)]
             except:
                 pass
         if running:
@@ -809,8 +812,22 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
                 'Running processes:',
                 V.ul(
                     *[
-                        V.li(V.a(arg, href=arg), padding_top=8)
-                        for arg in running
+                        V.li(
+                            V.a(arg, href=arg),
+                            V.button(
+                                'kill',
+                                data_arg=arg,
+                                onclick=
+                                    'window.confirm("Really kill " + this.dataset.arg + "?") && ' +
+                                    call(sigkill, pid),
+                                py=5, m=8,
+                                border_radius=3,
+                                border_width=1,
+                                border_color='var(--red)',
+                            ),
+                            padding_top=8
+                        )
+                        for pid, arg in running
                     ],
                 ),
                 grid_area='info',
@@ -1142,7 +1159,7 @@ def form(*vs: Int | Str | Bool):
         )
 
 def main():
-    if config.name == 'dry-run':
+    if config.name in ('dry-run', 'forward'):
         host = 'localhost'
     else:
         host = '10.10.0.55'
