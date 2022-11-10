@@ -112,6 +112,12 @@ def edit_at(program_name: str, i: int, changes: dict[str, Any]):
     ml.write_jsonl(filename)
     return {'refresh': True}
 
+def cos(deg: float) -> float:
+    return math.cos(deg / 180 * math.pi)
+
+def sin(deg: float) -> float:
+    return math.sin(deg / 180 * math.pi)
+
 def keydown(program_name: str, args: dict[str, Any]):
     mm: float = 1.0
     deg: float = 1.0
@@ -128,11 +134,17 @@ def keydown(program_name: str, args: dict[str, Any]):
         mm = 100.0
         deg = 90.0
     k = str(args['key'])
+    _, _, yaw = polled_info.get('rpy', [0, 0, 0])
+    yaw += 180
     keymap = {
-        'ArrowRight': moves.MoveRel(xyz=[ mm, 0, 0], rpy=[0, 0, 0]),
-        'ArrowLeft':  moves.MoveRel(xyz=[-mm, 0, 0], rpy=[0, 0, 0]),
-        'ArrowUp':    moves.MoveRel(xyz=[0,  mm, 0], rpy=[0, 0, 0]),
-        'ArrowDown':  moves.MoveRel(xyz=[0, -mm, 0], rpy=[0, 0, 0]),
+        'ArrowDown':  moves.MoveRel(xyz=[mm * cos(yaw + 180), mm * sin(yaw + 180), 0], rpy=[0, 0, 0]),
+        'ArrowUp':    moves.MoveRel(xyz=[mm * cos(yaw),       mm * sin(yaw),       0], rpy=[0, 0, 0]),
+        'ArrowLeft':  moves.MoveRel(xyz=[mm * cos(yaw + 90),  mm * sin(yaw + 90),  0], rpy=[0, 0, 0]),
+        'ArrowRight': moves.MoveRel(xyz=[mm * cos(yaw - 90),  mm * sin(yaw - 90),  0], rpy=[0, 0, 0]),
+        # 'ArrowRight': moves.MoveRel(xyz=[ mm, 0, 0], rpy=[0, 0, 0]),
+        # 'ArrowLeft':  moves.MoveRel(xyz=[-mm, 0, 0], rpy=[0, 0, 0]),
+        # 'ArrowUp':    moves.MoveRel(xyz=[0,  mm, 0], rpy=[0, 0, 0]),
+        # 'ArrowDown':  moves.MoveRel(xyz=[0, -mm, 0], rpy=[0, 0, 0]),
         'PageUp':     moves.MoveRel(xyz=[0, 0,  mm], rpy=[0, 0, 0]),
         'PageDown':   moves.MoveRel(xyz=[0, 0, -mm], rpy=[0, 0, 0]),
         'Home':       moves.MoveRel(xyz=[0, 0, 0], rpy=[0, 0, -deg]),
@@ -562,7 +574,6 @@ def index() -> Iterator[Tag | dict[str, str]]:
         """)
         btns += button('roll -> 0° (level roll)',                  tabindex='-1', onclick=call(arm_do, EnsureRelPos, moves.MoveRel([0, 0, 0], [-r,  0,       0     ])))
         btns += button('pitch -> 0° (face horizontally)',          tabindex='-1', onclick=call(arm_do, EnsureRelPos, moves.MoveRel([0, 0, 0], [ 0, -p,       0     ])))
-        btns += button('pitch -> -90° (face the floor)',           tabindex='-1', onclick=call(arm_do, EnsureRelPos, moves.MoveRel([0, 0, 0], [ 0, -p - 90,  0     ])))
         btns += button('yaw -> 0° (towards washer and dispenser)', tabindex='-1', onclick=call(arm_do, EnsureRelPos, moves.MoveRel([0, 0, 0], [ 0,  0,      -y     ])))
         btns += button('yaw -> 90° (towards hotels and incu)',     tabindex='-1', onclick=call(arm_do, EnsureRelPos, moves.MoveRel([0, 0, 0], [ 0,  0,      -y + 90])))
         foot += btns
@@ -589,7 +600,7 @@ def index() -> Iterator[Tag | dict[str, str]]:
             text-align: left;
         }
     """)
-    for speed in [20, 40, 60, 80, 100]:
+    for speed in [25, 50, 80, 100]:
         speed_btns += button(f'set speed to {speed}', tabindex='-1', onclick=call(arm_set_speed, speed))
     foot += speed_btns
 
