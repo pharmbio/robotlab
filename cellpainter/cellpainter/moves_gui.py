@@ -540,7 +540,8 @@ def index() -> Iterator[Tag | dict[str, str]]:
                 margin-left: 10px;
             }
         """).append(
-            button('run program',   tabindex='-1', onclick=call(arm_do, *visible_program)                              , css='width: 160px'),
+            button('run program',   tabindex='-1', onclick=call(arm_do, *visible_program),
+                                                   oncontextmenu='event.preventDefault();' + call(arm_do, *(visible_program * 100)), css='width: 160px'),
             button('freedrive',     tabindex='-1', onclick=call(arm_do, moves.RawCode("freedrive_mode() sleep(3600)"))),
             button('stop robot',    tabindex='-1', onclick=call(arm_do, )                                              , css='flex-grow: 1; color: red; font-size: 48px'),
             button('gripper open',  tabindex='-1', onclick=call(arm_do, moves.RawCode("GripperMove(88)"))),
