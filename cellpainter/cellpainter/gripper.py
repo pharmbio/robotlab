@@ -57,7 +57,11 @@ gripper_code = str('''
     # other numbers we send to portrait
     close = pos == 255
     if close:
-      GripperSend("~m_close", "Parameter successfully set")
+      if soft:
+        GripperSend("~stop", "Parameter successfully set")
+      else:
+        GripperSend("~m_close", "Parameter successfully set")
+      end
     else:
       GripperSend("~m_p_op", "Parameter successfully set")
     end
