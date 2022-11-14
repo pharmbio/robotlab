@@ -7,24 +7,30 @@ gripper_code = str('''
       socket_open("127.0.0.1", 54321, sock)
       gripper_init = True
     end
-    textmsg("log gripper send ", s)
-    socket_send_line(s, sock)
-    sleep(0.1)
-    while True:
-      res = socket_read_line(sock)
-      textmsg("log gripper recv ", res)
-      if res != "startup":
-        break
+    retries = 0
+    while retries < 10:
+      textmsg("log gripper send ", s)
+      socket_send_line(s, sock)
+      sleep(0.1)
+      while True:
+        res = socket_read_line(sock)
+        textmsg("log gripper recv ", res)
+        if res != "startup":
+          break
+        end
+      end
+      if expect == "":
+        return res
+      elif res == expect:
+        return res
+      else:
+        textmsg("log retrying", s)
+        retries = retries + 1
       end
     end
-    if expect != "":
-      if res != expect:
-        msg = str_cat("Gripper error on ", s) + str_cat(": ", res)
-        textmsg("fatal: ", msg)
-        popup(msg, "fatal", error=False, blocking=True)
-      end
-    end
-    return res
+    msg = str_cat("Gripper error on ", s) + str_cat(": ", res)
+    textmsg("fatal: ", msg)
+    popup(msg, "fatal", error=False, blocking=True)
   end
 
   def GripperPos():
