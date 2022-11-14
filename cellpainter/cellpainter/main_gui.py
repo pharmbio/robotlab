@@ -207,7 +207,7 @@ class AnalyzeResult:
         zero_time = runtime_metadata.start_time
         t_now = (datetime.now() - zero_time).total_seconds()
 
-        if t_now < m.time_end_excluding_planned():
+        if t_now > m.time_end_excluding_planned():
             t_now = m.time_end_excluding_planned()
 
         if completed:
