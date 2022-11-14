@@ -37,7 +37,7 @@ Clone with the access token from https://github.com/settings/tokens?type=beta
 A copy is put in our password managing system.
 
 ```
-git clone https://github_pat_<TOKEN>/pharmbio/robotlab.git
+git clone https://oauth2:github_pat_<TOKEN>@github.com/pharmbio/robotlab.git
 ```
 
 Install Python >= 3.8 on Windows.
