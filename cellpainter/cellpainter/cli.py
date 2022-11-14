@@ -162,7 +162,7 @@ def main_with_args(args: Args, parser: argparse.ArgumentParser | None=None):
             args, _ = arg.parse_args(Args, args=[cmdname, *shlex.split(cmdline)], exit_on_error=False)
             pbutils.pr(args)
             if args.log_file_for_visualize:
-                return Log.read_jsonl(args.log_file_for_visualize)
+                return Log.open(args.log_file_for_visualize)
             else:
                 p = args_to_program(args)
                 assert p, 'no program from these arguments!'
@@ -226,6 +226,7 @@ def args_to_program(args: Args) -> Program | None:
     protocol_config = protocol.make_protocol_config(paths, args)
 
     if args.cell_paint:
+      with pbutils.timeit('generating program'):
         batch_sizes = pbutils.read_commasep(args.cell_paint, int)
         program = protocol.cell_paint_program(
             batch_sizes=batch_sizes,

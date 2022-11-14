@@ -96,7 +96,7 @@ class Select(Generic[R], PrivateReplaceMixin):
         return '\n'.join(k + '\n  ' + v for k, v in stmt.items()) + ';'
 
     def _agg(self, fn: str, thing: Any, *args: Any, default: Any = None) -> Any:
-        # TODO: Syntax needs a converter to convert an aggregated value back to python
+        raise ValueError('TODO: Syntax needs a converter to convert an aggregated value back to python')
         focus = Syntax(fn, [thing, *args])
         if default is not None:
             focus = Syntax.ifnull(focus, default)
@@ -405,16 +405,16 @@ class DB:
             ''', [name, type])
         )
 
-    def get(self, t: Type[R]) -> Select[R]:
-        d = DataClassDesc.get(t)
-        return Select(self, d.var(), d)
-
     def get_desc(self, t: Type[Any]) -> tuple[str, DataClassDesc]:
         d = DataClassDesc.get(t)
         Table = d.table_name()
         if not self.has_table(Table):
             self.con.execute(d.schema())
         return Table, d
+
+    def get(self, t: Type[R]) -> Select[R]:
+        _, d = self.get_desc(t)
+        return Select(self, d.var(), d)
 
     def __post_init__(self):
         self.con.execute('pragma journal_mode=WAL')

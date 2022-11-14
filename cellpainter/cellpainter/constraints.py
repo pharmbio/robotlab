@@ -46,8 +46,9 @@ from . import estimates
 from .estimates import estimate
 import pbutils
 
-def optimize(cmd: Command) -> tuple[Command, dict[str, float]]:
+def optimize(cmd: Command) -> tuple[Command, dict[int, float]]:
     cmd = cmd.make_resource_checkpoints()
+    cmd = cmd.assign_ids()
     opt = optimal_env(cmd)
     cmd = cmd.resolve(opt.env)
     return cmd, opt.expected_ends
@@ -63,7 +64,7 @@ class Ids:
 @dataclass(frozen=True)
 class OptimalResult:
     env: dict[str, float]
-    expected_ends: dict[str, float]
+    expected_ends: dict[int, float]
 
 def optimal_env(cmd: Command, unsat_core: bool=False) -> OptimalResult:
     if unsat_core:
@@ -134,7 +135,7 @@ def optimal_env(cmd: Command, unsat_core: bool=False) -> OptimalResult:
             s.add(clause)
 
     maximize_terms: list[tuple[float, Symbolic]] = []
-    ends: dict[str, Symbolic] = {}
+    ends: dict[int, Symbolic] = {}
 
     def run(cmd: Command, begin: Symbolic, *, is_main: bool) -> Symbolic:
         '''
@@ -188,7 +189,6 @@ def optimal_env(cmd: Command, unsat_core: bool=False) -> OptimalResult:
             case Meta():
                 end = run(cmd.command, begin, is_main=is_main)
                 if cmd_id := cmd.metadata.id:
-                    assert isinstance(cmd_id, str)
                     ends[cmd_id] = end
                 return end
             case Fork():

@@ -1,5 +1,6 @@
 from __future__ import annotations
 from dataclasses import *
+import time
 from typing import *
 
 import math
@@ -62,15 +63,17 @@ class CommandState(DBMixin):
     cmd: Command
     metadata: Metadata
     state: Literal['completed', 'running', 'planned']
-    id: int # should be int(Metadata.id)
+    id: int # should be Metadata.id
 
     # generated for the UI from cmd and metadata:
     cmd_type: str = ''
     gui_boring: bool = False
-    resource: Literal['robotarm', 'incu', 'disp', 'wash'] | None = None
+    resource: str | None = None
+        # Literal['robotarm', 'incu', 'disp', 'wash'] | None = None
+        # todo: db mixin should support literal strings
 
     def __post_init__(self):
-        self.resource = self.cmd.required_resource()
+        self.resource = self.cmd.required_resource() # or ''
         self.cmd_type = self.cmd.type
         if isinstance(self.cmd, BiotekCmd):
             if self.cmd.action == 'Validate':
@@ -154,7 +157,6 @@ class Log:
         q = self.db.get(CommandState)
         q = q.where(CommandState.resource != None)
         q = q.where(CommandState.gui_boring != True)
-        q = q.where(CommandState.metadata.section != '')
         return q
 
     def world(self, t: float | None = None) -> dict[str, str]:
@@ -178,19 +180,43 @@ class Log:
                 t <= CommandState.t,
             ).list()
 
-    def section_starts(self):
+    def section_starts(self) -> dict[str, float]:
         q = self.gui_query()
-        g = q.group(CommandState.metadata.section)
-        return {
-            k: v
-            for k, v in sorted(g.min(CommandState.t0).items(), key=lambda kv: kv[1])
-        }
+        out: dict[str, float] = {}
+        for k in q.select(CommandState.metadata.section):
+            if k in out:
+                continue
+            out[k] = q.select(CommandState.t0).order(CommandState.t0).where(CommandState.metadata.section == k).one()
+        if '' in out and len(out) >= 2:
+            empty = out.pop('')
+            first, *_ = out.keys()
+            out[first] = min(out[first], empty)
+        return out
+        # g = q.group(CommandState.metadata.section)
+        # return {
+        #     k: v
+        #     for k, v in sorted(g.min(CommandState.t0).items(), key=lambda kv: kv[1])
+        # }
 
     def time_end(self):
-        return self.gui_query().max(CommandState.t) or 0.0
+        q = self.gui_query()
+        q = q.order(CommandState.t, 'desc').limit(1)
+        q = q.select(CommandState.t)
+        for t in q:
+            return t
+        else:
+            return 0.0
+        # return self.gui_query().max(CommandState.t) or 0.0
 
     def time_end_excluding_planned(self):
-        return self.gui_query().where(CommandState.state != 'planned').max(CommandState.t0) or 0.0
+        q = self.gui_query()
+        q = q.order(CommandState.t, 'desc').limit(1)
+        q = q.where(CommandState.state != 'planned')
+        q = q.select(CommandState.t0)
+        for t0 in q:
+            return t0
+        else:
+            return 0.0
 
     def section_starts_with_endpoints(self) -> dict[str, float]:
         return {
@@ -229,7 +255,7 @@ class Log:
 
         q = self.gui_query()
         states = q.where_some(CommandState.resource == 'disp', CommandState.resource == 'wash')
-        if not states.count():
+        if not states.list():
             # show incu if no bioteks (for incu load)
             states = q.where_some(CommandState.resource == 'incu')
         for state in states:
@@ -258,6 +284,8 @@ class Log:
             rows += [now_row]
 
         for row in rows:
+            if row.section == '':
+                row.section = time_to_section(row.t)
             row.section_column = section_columns[row.section]
             row.section_t0 = section_starts[row.section]
 

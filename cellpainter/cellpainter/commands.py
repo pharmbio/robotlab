@@ -13,7 +13,7 @@ import pbutils
 
 @dataclass(frozen=True)
 class Metadata:
-    id: str = ''
+    id: int = 0
     completed: bool = False
     effect: Effect | None = None
     report_behind_time: bool = False
@@ -92,10 +92,12 @@ class Command(abc.ABC):
     def is_noop(self: Command) -> bool:
         match self:
             case Idle():
-                try:
-                    return not self.seconds.resolve()
-                except KeyError:
+                return False
+                s = self.seconds
+                if s.var_names:
                     return False
+                else:
+                    return float(s.offset) == 0.0
             case Seq_():
                 return all(cmd.is_noop() for cmd in self.commands)
             case Fork() | Meta():
@@ -203,11 +205,11 @@ class Command(abc.ABC):
         next = 0
         for cmd in self.universe():
             if isinstance(cmd, Meta) and (i := cmd.metadata.id):
-                next = max(next, int(i) + 1)
+                next = max(next, i + 1)
         return next
 
     def assign_ids(self: Command) -> Command:
-        count = 0
+        count = 1 + max((m.metadata.id for m in self.universe() if isinstance(m, Meta)), default=0)
         def F(cmd: Command) -> Command:
             nonlocal count
             match cmd:
@@ -215,8 +217,7 @@ class Command(abc.ABC):
                     return cmd
                 case _:
                     count += 1
-                    id = str(count)
-                    return cmd.add(Metadata(id=id))
+                    return cmd.add(Metadata(id=count))
         return self.transform(F)
 
     def remove_scheduling_idles(self: Command) -> Command:

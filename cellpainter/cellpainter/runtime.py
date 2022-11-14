@@ -17,15 +17,17 @@ from threading import RLock
 
 from .robotarm import Robotarm
 import pbutils
-from pbutils import pp_secs
+from pbutils import pp_secs, p
 from pbutils.mixins import DB
 
 from .timelike import Timelike, WallTime, SimulatedTime
 from .moves import World, Effect
 
-from .log import Message, CommandState, CommandWithMetadata, Metadata, Error, Log
+from .log import Message, CommandState, CommandWithMetadata, Metadata, Error, Log, RuntimeMetadata
 
 from labrobots import WindowsNUC, Biotek, STX
+
+import contextlib
 
 @dataclass(frozen=True)
 class RobotarmEnv:
@@ -313,11 +315,11 @@ class Runtime:
         # The inferred type for the decorated function is wrong hence this wrapper to get the correct type
 
         try:
-            id = int(entry.metadata.id)
+            id = entry.metadata.id
+            assert id
         except:
-            pbutils.pr(entry)
-            raise
-        assert id >= 0
+            pbutils.pr(('no id on:', entry))
+            return contextlib.nullcontext()
 
         @contextmanager
         def worker():

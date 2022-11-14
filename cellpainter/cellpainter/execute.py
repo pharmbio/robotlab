@@ -164,21 +164,20 @@ def make_runtime(config: RuntimeConfig, metadata: dict[str, str]) -> Iterator[Ru
     with runtime.excepthook():
         yield runtime
 
-def check_correspondence(program: Command, states: list[CommandState], expected_ends: dict[str, float]):
+def check_correspondence(program: Command, states: list[CommandState], expected_ends: dict[int, float]):
     matches = 0
     mismatches = 0
-    seen: set[str] = set()
+    seen: set[int] = set()
     for state in states:
         i = state.metadata.id
         if i:
             seen.add(i)
             if abs(state.t - expected_ends[i]) > 0.3:
-                pbutils.pr(('mismatch!', i, state, expected_ends[i]))
+                pbutils.pr(('mismatch!', i, expected_ends[i], state))
                 mismatches += 1
             else:
                 matches += 1
-            # pbutils.pr((f'{matches=}', i, e, ends[i]))
-    by_id: dict[str, Command] = {
+    by_id: dict[int, Command] = {
         i: c
         for c in program.universe()
         if isinstance(c, commands.Meta)
@@ -194,7 +193,7 @@ def check_correspondence(program: Command, states: list[CommandState], expected_
                     continue
                 case _:
                     pass
-            print('not seen:', i, e, cmd, sep='\t')
+            pbutils.pr(('not seen in simulation:', i, e, cmd))
             not_seen += 1
 
     if mismatches or not matches or not_seen:
@@ -204,11 +203,10 @@ def check_correspondence(program: Command, states: list[CommandState], expected_
 class Program(DBMixin):
     program: Command
 
-def execute_program(config: RuntimeConfig, program: Command, metadata: dict[str, str], for_visualizer: bool = False, sim_delays: dict[str, float] = {}) -> Log:
+def execute_program(config: RuntimeConfig, program: Command, metadata: dict[str, str], for_visualizer: bool = False, sim_delays: dict[int, float] = {}) -> Log:
     program = program.remove_noops()
-    program = program.assign_ids()
 
-    with pbutils.timeit('constraints'):
+    with pbutils.timeit('scheduling'):
         program, expected_ends = constraints.optimize(program)
 
     def AddSimDelays(cmd: commands.Command) -> commands.Command:
@@ -216,19 +214,20 @@ def execute_program(config: RuntimeConfig, program: Command, metadata: dict[str,
             if sim_delay := sim_delays.get(cmd.metadata.id):
                 return cmd.add(commands.Metadata(sim_delay=sim_delay))
         return cmd
-    program = program.transform(AddSimDelays)
+    if sim_delays:
+        program = program.transform(AddSimDelays)
 
-    with pbutils.timeit('estimates'):
+    with pbutils.timeit('simulating'):
         with make_runtime(dry_run.replace(log_to_file=False, log_filename=None), {}) as runtime_est:
             execute(program, runtime_est, Metadata())
 
     if for_visualizer:
         return runtime_est.get_log()
 
-    with pbutils.timeit('get estimates'):
+    with pbutils.timeit('get simulation estimates'):
         states = runtime_est.log_db.get(CommandState).list()
 
-    with pbutils.timeit('check correspondence'):
+    with pbutils.timeit('check schedule and simulation correspondence'):
         check_correspondence(program, states, expected_ends)
 
     cache = Path('cache/')
@@ -253,7 +252,7 @@ def execute_program(config: RuntimeConfig, program: Command, metadata: dict[str,
             pass
 
         program = program.remove_scheduling_idles()
-        with pbutils.timeit('write estimates'):
+        with pbutils.timeit('write simulation estimates'):
             with runtime.log_db.transaction:
                 for state in states:
                     if isinstance(state.cmd, WaitForCheckpoint | Checkpoint | Idle):
@@ -277,7 +276,7 @@ def execute_program(config: RuntimeConfig, program: Command, metadata: dict[str,
         runtime_metadata = RuntimeMetadata(
             start_time         = runtime.start_time,
             num_plates         = num_plates,
-            log_filename       = config.log_filename,
+            log_filename       = config.log_filename or ':memory:',
             program_filename   = str(program_filename),
         )
         runtime_metadata = runtime_metadata.save(runtime.log_db)

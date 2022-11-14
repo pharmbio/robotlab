@@ -98,7 +98,7 @@ def as_stderr(log_path: str):
 def start(args: Args, simulate: bool):
     config_name='dry-run' if simulate else config.name
     program_name='cell-paint' if args.cell_paint else args.small_protocol
-    log_filename = 'logs/' + pbutils.now_str_for_filename() + f'-{program_name}-{config_name}-from-gui.jsonl'
+    log_filename = 'logs/' + pbutils.now_str_for_filename() + f'-{program_name}-{config_name}-from-gui.db'
     args = replace(
         args,
         config_name=config_name,
@@ -287,7 +287,7 @@ class AnalyzeResult:
             case commands.Idle() if e.t0:
                 return f'sleeping to {self.pp_time_at(e.t)}'
             case _:
-                return str(e)
+                return str(e.cmd_type)
 
     def running(self):
         d: dict[str, CommandState | None] = {}
@@ -657,7 +657,7 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
     if path == 'latest':
         logs = [
             (log, log.stat().st_mtime)
-            for log in Path('logs').glob('*.jsonl')
+            for log in Path('logs').glob('*.db')
         ]
         logfile, _ = max(logs, key=lambda ab: ab[1], default=(None, None))
         if logfile:
@@ -874,8 +874,7 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
     t_end: Int | None = None
     simulation_completed: bool = False
     if path:
-        with pbutils.timeit('path_to_log'):
-          log = path_to_log(path)
+        log = path_to_log(path)
         try:
             stderr = as_stderr(path).read_text()
         except:
@@ -920,7 +919,14 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
     if ar is None:
         if stderr:
             box = div(
-                border='2px var(--orange) solid',
+                border=(
+                    '2px var(--red) solid'
+                    if any([
+                        'error' in stderr.lower(),
+                        'exception' in stderr.lower(),
+                    ]) else
+                    '2px var(--blue) solid'
+                ),
                 px=8,
                 py=4,
                 border_radius=2,
