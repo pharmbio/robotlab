@@ -164,6 +164,30 @@ def test_circuit(_: SmallProtocolArgs):
     return program
 
 @small_protocols.append
+def test_circuit_with_incubator(args: SmallProtocolArgs):
+    '''
+    Move plates around to all its positions using the robotarm and incubator, without running bioteks.
+    Plates start in incubator L1, L2, .. as normal cell painting
+    '''
+    num_plates = args.num_plates
+    v5 = make_protocol_config(paths_v5(), ProtocolArgs(incu='s1,s2,s3,s4,s5', two_final_washes=True, interleave=True))
+    program = cell_paint_program([num_plates], protocol_config=v5)
+    program = Seq(
+        *[
+            cmd.add(metadata)
+            for cmd, metadata in program.collect()
+            if (
+                isinstance(cmd, Info) or
+                isinstance(cmd, RobotarmCmd) or
+                isinstance(cmd, Fork) and cmd.resource == 'incu' or
+                isinstance(cmd, WaitForResource) and cmd.resource == 'incu'
+            )
+        ],
+    )
+    program = sleek_program(program)
+    return program
+
+@small_protocols.append
 def incu_reset_and_activate(_: SmallProtocolArgs):
     '''
     Reset and activate the incubator.
