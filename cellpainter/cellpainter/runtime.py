@@ -162,6 +162,10 @@ class Runtime:
 
         if self.config.name != 'dry-run':
             def handle_signal(signum: int, _frame: Any):
+                signal.signal(signal.SIGINT, signal.SIG_DFL)
+                signal.signal(signal.SIGQUIT, signal.SIG_DFL)
+                signal.signal(signal.SIGTERM, signal.SIG_DFL)
+                signal.signal(signal.SIGABRT, signal.SIG_DFL)
                 pid = os.getpid()
                 self.log(Message(f'Received {signal.strsignal(signum)}, shutting down ({pid=})', is_error=True))
                 self.stop_arm()
@@ -231,8 +235,8 @@ class Runtime:
         with self.lock:
             t = round(self.monotonic(), 3)
             message = message.replace(t=t).save(self.log_db)
+            print(message.msg)
             if message.traceback:
-                print(message.msg)
                 print(message.traceback)
             return message
 
