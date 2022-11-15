@@ -1870,7 +1870,7 @@
       "action": "RunValidated"
     },
     "times": {
-      "2022-02-23 15:06:50": 30.0
+      "2022-02-23 15:06:50": 30
     }
   },
   {
@@ -1892,7 +1892,7 @@
       "action": "RunValidated"
     },
     "times": {
-      "2022-02-23 15:07:22": 30.0
+      "2022-02-23 15:07:22": 30
     }
   },
   {
@@ -1914,7 +1914,7 @@
       "action": "RunValidated"
     },
     "times": {
-      "2022-02-23 15:07:55": 30.0
+      "2022-02-23 15:07:55": 30
     }
   },
   {
@@ -1936,7 +1936,7 @@
       "action": "RunValidated"
     },
     "times": {
-      "2022-02-23 15:08:27": 30.0
+      "2022-02-23 15:08:27": 30
     }
   },
   {
@@ -1958,7 +1958,7 @@
       "action": "RunValidated"
     },
     "times": {
-      "2022-02-23 15:09:00": 30.0
+      "2022-02-23 15:09:00": 30
     }
   },
   {
@@ -3691,7 +3691,7 @@
       "action": "RunValidated"
     },
     "times": {
-      "2022-02-23 15:07:58": 100.0
+      "2022-02-23 15:07:58": 100
     }
   },
   {
@@ -3713,7 +3713,7 @@
       "action": "RunValidated"
     },
     "times": {
-      "2022-02-23 15:09:40": 100.0
+      "2022-02-23 15:09:40": 100
     }
   },
   {
@@ -3735,7 +3735,7 @@
       "action": "RunValidated"
     },
     "times": {
-      "2022-02-23 15:11:23": 100.0
+      "2022-02-23 15:11:23": 100
     }
   },
   {
@@ -3757,7 +3757,7 @@
       "action": "RunValidated"
     },
     "times": {
-      "2022-02-23 15:13:05": 100.0
+      "2022-02-23 15:13:05": 100
     }
   },
   {
@@ -4665,6 +4665,132 @@
       "2022-11-15 09:28:30": 12.955,
       "2022-11-15 09:30:09": 12.756,
       "2022-11-15 09:31:29": 12.852
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "incu_A1 put prep"
+    },
+    "times": {
+      "2022-11-15 09:08:40": 4.017
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "incu_A1 put return"
+    },
+    "times": {
+      "2022-11-15 09:08:50": 2.006
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "incu_A1 put transfer from drop neu"
+    },
+    "times": {
+      "2022-11-15 09:08:48": 2.31
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "incu_A1 put transfer to drop neu"
+    },
+    "times": {
+      "2022-11-15 09:08:46": 5.522
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "incu_A21 put-prep"
+    },
+    "times": {
+      "2022-11-15 09:08:36": 2.211
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "incu_A21 put-return"
+    },
+    "times": {
+      "2022-11-15 09:09:33": 4.116
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "incu_A3 put prep"
+    },
+    "times": {
+      "2022-11-15 09:08:53": 2.61
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "incu_A3 put return"
+    },
+    "times": {
+      "2022-11-15 09:09:09": 1.805
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "incu_A3 put transfer from drop neu"
+    },
+    "times": {
+      "2022-11-15 09:09:07": 2.587
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "incu_A3 put transfer to drop neu"
+    },
+    "times": {
+      "2022-11-15 09:08:58": 5.72
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "incu_A5 put prep"
+    },
+    "times": {
+      "2022-11-15 09:09:12": 2.608
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "incu_A5 put return"
+    },
+    "times": {
+      "2022-11-15 09:09:29": 2.005
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "incu_A5 put transfer from drop neu"
+    },
+    "times": {
+      "2022-11-15 09:09:27": 2.253
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "incu_A5 put transfer to drop neu"
+    },
+    "times": {
+      "2022-11-15 09:09:17": 5.118
     }
   }
 ]
