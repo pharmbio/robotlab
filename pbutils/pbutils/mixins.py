@@ -253,14 +253,18 @@ def Var_wrap(op: str):
                 for k, _ in d.flat.items()
             ]
             rhs = [
-                getattrs(other, k.split('$')[depth:])
-                for k, _ in d.flat.items()
+                other_at_k if isinstance(other_at_k, Var | Syntax) else convs.conv_to_sql(other_at_k)
+                for k, convs in d.flat.items()
+                for other_at_k in [getattrs(other, k.split('$')[depth:])]
             ]
             lhs = Syntax(',', lhs)
             rhs = Syntax(',', rhs)
         else:
             lhs = this
-            rhs = other
+            if isinstance(other, Var | Syntax):
+                rhs = other
+            else:
+                rhs = d.conv_to_sql(other)
         s = Syntax(op, [lhs, rhs], binop=True)
         return cast(bool, s)
     return inner
@@ -367,7 +371,9 @@ def to_sql(v: Var | Syntax | Any) -> str:
         case None:
             return 'NULL'
         case _:
-            return call_str('json', sqlquote(serializer.dumps(v, with_nub=False)))
+            raise ValueError(f'Cannot convert {v} to sql without more type info')
+        # case _:
+        #     return call_str('json', sqlquote(serializer.dumps(v, with_nub=False)))
 
 import contextlib
 
@@ -508,8 +514,8 @@ def get_annotations(cls: Type[Any]):
 class Converter(Generic[S, Py]):
     sql_type: Type[S]
     py_type: Type[Py]
-    to_py: Callable[[S], Py] | None = None
-    to_sql: Callable[[Py], S] | None = None
+    to_py: Callable[[S], Py] | None = field(default=None, repr=False)
+    to_sql: Callable[[Py], S] | None = field(default=None, repr=False)
 
 serializer_converter = Converter(str, object, serializer.loads, serializer.dumps)
 
@@ -554,6 +560,11 @@ def make_converter(t: Type[Any]) -> list[Converter[Any, Any]]:
                 convs[0]
                 for convs in res.values()
             ]
+    elif get_origin(t) is Literal:
+        types = {type(a) for a in get_args(t)}
+        if len(types) != 1:
+            raise ValueError(f'Literals need to be of one type for now ({types=})')
+        return make_converter(types.pop())
     else:
         return [serializer_converter]
 
@@ -593,7 +604,7 @@ class Converters:
 class DataClassDesc:
     con: Any
     fields: dict[str, DataClassDesc | Converters]
-    flat: dict[str, Converters] = field(default_factory=dict)
+    flat: dict[str, Converters] = field(default_factory=dict, repr=False)
 
     def sql_columns(self) -> list[str]:
         return list(self.flat.keys())
@@ -729,32 +740,32 @@ def type_as_sql(t: SQLType | Converter[Any, Any] | Converters) -> str:
     else:
         raise ValueError(t)
 
-@dataclass(frozen=True, order=True)
-class Inner:
-    x: int = 1
-    y: float = 1.5
-    # z: float | int = 2
-    # u: float | None = 2.5
-    # v: int | None = 3
-    # w: float | int | None = None
-
-@dataclass
-class Todo(DBMixin):
-    msg: str = ''
-    done: bool = False
-    created: datetime = field(default_factory=lambda: datetime.now())
-    deleted: None | datetime = None
-    # x: Union[None, datetime] = None
-    # y: Union[None, Union[datetime, int]] = None
-    # b: datetime | str | None = None
-    inner: Inner = field(default_factory=Inner)
-    id: int = -1
-
 def test():
     '''
     python -m imager.utils.mixins
     '''
     from pprint import pp
+
+    @dataclass(frozen=True, order=True)
+    class Inner:
+        x: int = 1
+        y: float = 1.5
+        # z: float | int = 2
+        # u: float | None = 2.5
+        # v: int | None = 3
+        # w: float | int | None = None
+
+    @dataclass
+    class Todo(DBMixin):
+        msg: str = ''
+        done: bool = False
+        created: datetime = field(default_factory=lambda: datetime.now())
+        deleted: None | datetime = None
+        # x: Union[None, datetime] = None
+        # y: Union[None, Union[datetime, int]] = None
+        # b: datetime | str | None = None
+        inner: Inner = field(default_factory=Inner)
+        id: int = -1
 
     @dataclass
     class TodoGroup(DBMixin):
@@ -762,14 +773,38 @@ def test():
         todos: list[Todo] = field(default_factory=list)
         id: int = -1
 
-    Todo.__qualname__ = 'Todo'
-    serializer.register({'Todo': Todo})
-    TodoGroup.__qualname__ = 'TodoGroup'
-    serializer.register({'TodoGroup': TodoGroup})
-    Inner.__qualname__ = 'Inner'
-    serializer.register({'Inner': Inner})
+    @dataclass
+    class Test(DBMixin):
+        a: str = ''
+        b: str | None = None
+        c: Literal['a', 'b'] = 'a'
+        d: Literal['a', 'b'] | None = None
+        id: int = -1
+
+    @dataclass
+    class A(DBMixin):
+        a: str | list[str] = ''
+        id: int = -1
+
+    @dataclass
+    class Aw(DBMixin):
+        a: A
+        id: int = -1
+
+    serializer.register(locals())
 
     with DB.open(':memory:') as db:
+        # x = Test(a='a').save(db)
+        # y = Test(a='a', b='b').save(db)
+        # z = Test(a='a', b='b', d='b').save(db)
+        # db.con.execute('select * from Test').fetchall() | p
+        Aw(A(a='a').save(db)).save(db)
+        Aw(A(a=['a']).save(db)).save(db)
+        db.get(A).where(A.a == 'a').show().list() | p
+        db.get(A).where(A.a == ['a']).show().list() | p
+        db.get(Aw).where(Aw.a == A('a', id=0)).show().list() | p
+        db.get(Aw).where(Aw.a == A(['a'], id=1)).show().list() | p
+        quit()
         # pp(desc(Todo))
         t0 = Todo('hello world', inner=Inner()).save(db)
         t1 = Todo('hello again', inner=Inner(2, 3)).save(db)
