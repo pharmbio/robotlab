@@ -62,7 +62,7 @@ class CommandState(DBMixin):
     t: float
     cmd: Command
     metadata: Metadata
-    state: Literal['completed', 'running', 'planned']
+    state: str # Literal['completed', 'running', 'planned']
     id: int # should be Metadata.id
 
     # generated for the UI from cmd and metadata:
@@ -207,16 +207,6 @@ class Log:
         else:
             return 0.0
         # return self.gui_query().max(CommandState.t) or 0.0
-
-    def time_end_excluding_planned(self):
-        q = self.gui_query()
-        q = q.order(CommandState.t, 'desc').limit(1)
-        q = q.where(CommandState.state != 'planned')
-        q = q.select(CommandState.t0)
-        for t0 in q:
-            return t0
-        else:
-            return 0.0
 
     def section_starts_with_endpoints(self) -> dict[str, float]:
         return {

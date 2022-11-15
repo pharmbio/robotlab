@@ -207,9 +207,6 @@ class AnalyzeResult:
         zero_time = runtime_metadata.start_time
         t_now = (datetime.now() - zero_time).total_seconds()
 
-        if t_now > m.time_end_excluding_planned():
-            t_now = m.time_end_excluding_planned()
-
         if completed:
             t_now = m.time_end() + 1
 
@@ -1169,7 +1166,7 @@ def form(*vs: Int | Str | Bool):
         )
 
 def main():
-    if config.name in ('dry-run', 'forward'):
+    if config.name in ('dry-wall', 'dry-run', 'forward'):
         host = 'localhost'
     else:
         host = '10.10.0.55'

@@ -235,8 +235,8 @@ class Runtime:
         with self.lock:
             t = round(self.monotonic(), 3)
             message = message.replace(t=t).save(self.log_db)
-            print(message.msg)
             if message.traceback:
+                print(message.msg)
                 print(message.traceback)
             return message
 

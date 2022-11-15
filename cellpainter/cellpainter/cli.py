@@ -131,7 +131,7 @@ def main_with_args(args: Args, parser: argparse.ArgumentParser | None=None):
                                     config_lookup('dry-run').replace(log_to_file=False),
                                     p.program, {}, for_visualizer=True
                                 )
-                                T = pbutils.pp_secs(res.max_t())
+                                T = pbutils.pp_secs(res.time_end())
                             except:
                                 T = float('NaN')
                             print(f'{N=}, {interleave=}, {two_final_washes=}, {incu=}, {T=}')
