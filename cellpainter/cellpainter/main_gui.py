@@ -653,8 +653,9 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
         }
     ''' + inverted_inputs_css
 
-
+    show_buttons = True
     if path == 'latest':
+        show_buttons = False
         logs = [
             (log, log.stat().st_mtime)
             for log in Path('logs').glob('*.db')
@@ -1085,6 +1086,9 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
                 padding='22px',
                 border_radius='2px',
             )
+        elif not show_buttons:
+            # skip showing buttons for endpoint /latest
+            pass
         elif ar.process_is_alive:
             yield store.defaults.goto_script()
             yield div(
