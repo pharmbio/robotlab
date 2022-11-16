@@ -647,9 +647,9 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
         }
     ''' + inverted_inputs_css
 
-    path_is_latest = True
+    path_is_latest = False
     if path == 'latest':
-        path_is_latest = False
+        path_is_latest = True
         logs = [
             (log, log.stat().st_mtime)
             for log in Path('logs').glob('*.db')
@@ -1080,7 +1080,7 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
                 padding='22px',
                 border_radius='2px',
             )
-        elif not path_is_latest:
+        elif path_is_latest:
             # skip showing buttons for endpoint /latest
             pass
         elif ar.process_is_alive:
