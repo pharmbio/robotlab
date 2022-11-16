@@ -199,7 +199,6 @@ class AnalyzeResult:
 
     @staticmethod
     def init(m: Log, drop_after: float | None = None) -> AnalyzeResult | None:
-      with pbutils.timeit('ar'):
         runtime_metadata = m.runtime_metadata()
         if not runtime_metadata:
             return None
@@ -1152,8 +1151,11 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
 
     yield vis.extend(grid_area='vis')
 
-    if path and not (ar and ar.completed) or path_is_latest:
+    if path and not (ar and ar.completed):
         yield V.queue_refresh(100)
+    elif path_is_latest:
+        # simulation finished or error, start a slower poll
+        yield V.queue_refresh(1000)
 
 def form(*vs: Int | Str | Bool):
     for v in vs:
