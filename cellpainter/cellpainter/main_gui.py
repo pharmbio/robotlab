@@ -470,7 +470,6 @@ class AnalyzeResult:
                 title,
                 plate_id,
                 can_hover=can_hover,
-                # data_row=repr(row),
                 style=f'''
                     left:{(row.section_column*2.3 + slot) * width:.0f}px;
                     top:{  y0 * 100:.3f}%;
@@ -482,7 +481,6 @@ class AnalyzeResult:
                 css_=f'''
                     width: {width * my_width - 2}px;
                 ''',
-                data_plate_id=plate_id,
                 onclick=None if t_end is None else store.update(t_end, int(row.t0 + 1)).goto(),
                 css__='cursor: pointer' if t_end is not None else '',
             )
@@ -650,9 +648,9 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
         }
     ''' + inverted_inputs_css
 
-    show_buttons = True
+    path_is_latest = True
     if path == 'latest':
-        show_buttons = False
+        path_is_latest = False
         logs = [
             (log, log.stat().st_mtime)
             for log in Path('logs').glob('*.db')
@@ -1083,7 +1081,7 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
                 padding='22px',
                 border_radius='2px',
             )
-        elif not show_buttons:
+        elif not path_is_latest:
             # skip showing buttons for endpoint /latest
             pass
         elif ar.process_is_alive:
@@ -1154,7 +1152,7 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
 
     yield vis.extend(grid_area='vis')
 
-    if path and not (ar and ar.completed):
+    if path and not (ar and ar.completed) or path_is_latest:
         yield V.queue_refresh(100)
 
 def form(*vs: Int | Str | Bool):
