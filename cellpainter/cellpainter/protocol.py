@@ -9,6 +9,7 @@ import graphlib
 import re
 
 from .commands import (
+    Program,
     Command,
     Fork,
     Info,
@@ -111,10 +112,7 @@ def initial_world(plates: list[Plate], p: ProtocolConfig) -> World:
     else:
         return World({p.incu_loc: p.id for p in plates})
 
-def InitialWorldInfo(world0: World) -> Meta:
-    return Info('initial world').add(Metadata(effect=InitialWorld(world0), stage='start'))
-
-def add_world_metadata(program: Command, world0: World, add_initial_world_info: bool=True) -> Command:
+def add_world_metadata(program: Command) -> Command:
     def F(cmd: Command) -> Command:
         match cmd:
             case RobotarmCmd() if e := effects.get(cmd.program_name):
@@ -128,8 +126,6 @@ def add_world_metadata(program: Command, world0: World, add_initial_world_info: 
             case _:
                 return cmd
     program = program.transform(F)
-    if add_initial_world_info:
-        program = Seq(InitialWorldInfo(world0), program)
     return program
 
 def define_plates(batch_sizes: list[int]) -> list[list[Plate]]:
@@ -786,53 +782,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
 from . import constraints
 from pbutils import p
 
-def remove_stages(program: Command, until_stage: str, world0: World) -> tuple[Command, World]:
-    with pbutils.timeit('constraints'):
-        opt_res = constraints.optimal_env(program.make_resource_checkpoints())
-    program = program.resolve(opt_res.env)
-
-    pbutils.serializer.write_json(program, '/tmp/program.json', indent=2)
-
-    stages = program.stages()
-    until_index = stages.index(until_stage)
-    effects: list[moves.Effect] = []
-    def FilterStage(cmd: Command):
-        if isinstance(cmd, Meta) and (stage := cmd.metadata.stage):
-            if stages.index(stage) < until_index:
-                for c in cmd.universe():
-                    if isinstance(c, Meta) and (effect := c.metadata.effect) is not None:
-                        effects.append(effect)
-                return Seq()
-        return cmd
-    program = program.transform(FilterStage)
-    program = program.remove_noops()
-
-    for effect in effects:
-        world0 = effect.apply(world0)
-
-    checkpoints = program.checkpoints()
-    dangling: set[str] = set()
-    i = 0
-    def FixDanglingCheckpoints(cmd: Command):
-        nonlocal i
-        if isinstance(cmd, WaitForCheckpoint | Duration) and cmd.name not in checkpoints:
-            i += 1
-            dangling.add(cmd.name)
-            replacement = WaitForCheckpoint(cmd.name, assume='nothing') + f'wiggle {i}'
-            if isinstance(cmd, Duration):
-                replacement = Seq(replacement, Duration(cmd.name))
-            return replacement
-        else:
-            return cmd
-
-    program = program.transform(FixDanglingCheckpoints)
-    program = Seq(
-        *[Checkpoint(dang) for dang in dangling],
-        program,
-    )
-    return program, world0
-
-def cell_paint_program(batch_sizes: list[int], protocol_config: ProtocolConfig, sleek: bool = True, start_from_stage: str | None = None) -> Command:
+def cell_paint_program(batch_sizes: list[int], protocol_config: ProtocolConfig, sleek: bool = True) -> Program:
     cmds: list[Command] = []
     plates = define_plates(batch_sizes)
     for batch in plates:
@@ -841,19 +791,18 @@ def cell_paint_program(batch_sizes: list[int], protocol_config: ProtocolConfig, 
             protocol_config=protocol_config,
         )
         cmds += [batch_cmds]
+
     world0 = initial_world(pbutils.flatten(plates), protocol_config)
     program = Seq(*cmds)
     if sleek:
         program = sleek_program(program)
-    program = add_world_metadata(program, world0, add_initial_world_info=False)
-    if start_from_stage:
-        program, world0 = remove_stages(program, until_stage=start_from_stage, world0=world0)
     program = Seq(
-        InitialWorldInfo(world0),
         Checkpoint('run'),
         test_comm_program(with_incu=not protocol_config.start_in_rt_from_pfa),
         program,
         Duration('run', opt_weight=-0.1)
     )
-    return program
-
+    return Program(
+        command=program,
+        world0=world0,
+    )

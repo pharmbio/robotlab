@@ -236,11 +236,11 @@ class Runtime:
             t = round(self.monotonic(), 3)
             message = message.replace(t=t).save(self.log_db)
             if message.traceback:
-                print(message.msg)
-                print(message.traceback)
+                print(message.msg, file=sys.stderr)
+                print(message.traceback, file=sys.stderr)
             return message
 
-    def apply_effect(self, effect: Effect, entry: CommandWithMetadata):
+    def apply_effect(self, effect: Effect, entry: CommandWithMetadata | None):
         with self.lock:
             try:
                 next = effect.apply(self.world)
@@ -253,7 +253,8 @@ class Runtime:
                     'error': error,
                     'entry': entry,
                 }, use_color=False)
-                self.log(entry.message(msg, is_error=True))
+                if entry:
+                    self.log(entry.message(msg, is_error=True))
                 if fatal:
                     raise ValueError(msg)
             else:
@@ -264,8 +265,8 @@ class Runtime:
 
     def log_state(self, state: CommandState) -> str | None:
         with self.lock:
+            print(f'{state.state: >10}', state.cmd_type, *astuple(state.cmd))
             pass
-            # print(state.state, state.cmd)
             # m = entry.metadata
             # if entry.err:
             #     pass

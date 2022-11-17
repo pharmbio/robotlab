@@ -8,6 +8,10 @@ import pickle
 
 from pathlib import Path
 
+from labrobots import Example
+
+from cellpainter.protocol import add_world_metadata
+
 from . import commands
 
 from .log import (
@@ -18,6 +22,7 @@ from .log import (
 )
 
 from .commands import (
+    Program,
     Metadata,
     Command,
     BiotekCmd,
@@ -40,6 +45,7 @@ from . import constraints
 import pbutils
 from .symbolic import Symbolic
 from .moves import movelists, MoveList
+from . import moves
 from . import bioteks
 from . import incubator
 from .estimates import estimate, EstCmd
@@ -47,6 +53,7 @@ from . import estimates
 from datetime import datetime
 
 from pbutils.mixins import DB, DBMixin
+from pbutils import p
 
 def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
     if isinstance(cmd, EstCmd) and metadata.est is None:
@@ -199,15 +206,58 @@ def check_correspondence(program: Command, states: list[CommandState], expected_
     if mismatches or not matches or not_seen:
         raise ValueError(f'Correspondence check failed {matches=} {mismatches=} {len(expected_ends)=} {not_seen=}')
 
-@dataclass(frozen=True)
-class Program(DBMixin):
-    program: Command
+def remove_stages(program: Program, until_stage: str) -> Program:
+    cmd = program.command
+    with pbutils.timeit('constraints'):
+        opt_res = constraints.optimal_env(cmd.make_resource_checkpoints())
+    cmd = cmd.resolve(opt_res.env)
 
-def execute_program(config: RuntimeConfig, program: Command, metadata: dict[str, str], for_visualizer: bool = False, sim_delays: dict[int, float] = {}) -> Log:
-    program = program.remove_noops()
+    stages = cmd.stages()
+    until_index = stages.index(until_stage)
+    effects: list[moves.Effect] = []
+    def FilterStage(cmd: Command):
+        if isinstance(cmd, Meta) and (stage := cmd.metadata.stage):
+            if stages.index(stage) < until_index:
+                for c in add_world_metadata(cmd).universe():
+                    if isinstance(c, Meta) and (effect := c.metadata.effect) is not None:
+                        effects.append(effect)
+                return Seq()
+        return cmd
+    cmd = cmd.transform(FilterStage)
+    cmd = cmd.remove_noops()
+
+    world0 = program.world0
+    for effect in effects:
+        world0 = effect.apply(world0)
+
+    checkpoints = cmd.checkpoints()
+    dangling: set[str] = set()
+    i = 0
+    def FixDanglingCheckpoints(cmd: Command):
+        nonlocal i
+        if isinstance(cmd, WaitForCheckpoint | Duration) and cmd.name not in checkpoints:
+            i += 1
+            dangling.add(cmd.name)
+            replacement = WaitForCheckpoint(cmd.name, assume='nothing') + f'wiggle {i}'
+            if isinstance(cmd, Duration):
+                replacement = Seq(replacement, Duration(cmd.name))
+            return replacement
+        else:
+            return cmd
+
+    cmd = cmd.transform(FixDanglingCheckpoints)
+    cmd = Seq(
+        *[Checkpoint(dang) for dang in dangling],
+        cmd,
+    )
+    return program.replace(command=cmd, world0=world0)
+
+def prepare_program(config: RuntimeConfig, program: Program, sim_delays: dict[int, float]) -> tuple[Program, dict[int, float]]:
+    cmd = program.command
+    cmd = cmd.remove_noops()
 
     with pbutils.timeit('scheduling'):
-        program, expected_ends = constraints.optimize(program)
+        cmd, expected_ends = constraints.optimize(cmd)
 
     def AddSimDelays(cmd: commands.Command) -> commands.Command:
         if isinstance(cmd, commands.Meta):
@@ -215,28 +265,44 @@ def execute_program(config: RuntimeConfig, program: Command, metadata: dict[str,
                 return cmd.add(commands.Metadata(sim_delay=sim_delay))
         return cmd
     if sim_delays:
-        program = program.transform(AddSimDelays)
+        cmd = cmd.transform(AddSimDelays)
+
+    if program.world0.data:
+        cmd = add_world_metadata(cmd)
+
+    program = program.replace(command=cmd)
+    return program, expected_ends
+
+def execute_program(config: RuntimeConfig, program: Program, for_visualizer: bool = False, sim_delays: dict[int, float] = {}) -> Log:
+    program, expected_ends = prepare_program(config, program, sim_delays)
+    cmd = program.command
+    num_plates = max(
+        (
+            int(p)
+            for x in cmd.universe()
+            if isinstance(x, Meta)
+            if (p := x.metadata.plate_id)
+        ),
+        default=0
+    )
 
     with pbutils.timeit('simulating'):
         with make_runtime(dry_run.replace(log_to_file=False, log_filename=None), {}) as runtime_est:
-            execute(program, runtime_est, Metadata())
-
-    if for_visualizer:
-        return runtime_est.get_log()
+            runtime_est.apply_effect(moves.InitialWorld(program.world0), None)
+            execute(cmd, runtime_est, Metadata())
 
     with pbutils.timeit('get simulation estimates'):
         states = runtime_est.log_db.get(CommandState).list()
 
     with pbutils.timeit('check schedule and simulation correspondence'):
-        check_correspondence(program, states, expected_ends)
+        check_correspondence(cmd, states, expected_ends)
 
     cache = Path('cache/')
     cache.mkdir(parents=True, exist_ok=True)
-
     now_str = pbutils.now_str_for_filename()
+    program_filename = cache / (now_str + '_program.pickle')
 
-    program_filename = cache / (now_str + '_program.json')
-
+    metadata = program.metadata
     if metadata.get('program') == 'cell_paint':
         missing: list[str] = []
         for k, _v in estimates.guesses.items():
@@ -245,13 +311,17 @@ def execute_program(config: RuntimeConfig, program: Command, metadata: dict[str,
         if missing:
             raise ValueError('Missing timings for the following biotek paths:', ', '.join(sorted(set(missing))))
 
+    with pbutils.timeit('write program'):
+        with open(program_filename, 'wb') as fp:
+            pickle.dump(program, fp)
+
     with make_runtime(config, metadata) as runtime:
+        runtime.apply_effect(moves.InitialWorld(program.world0), None)
         try:
             print('Expected finish:', runtime.pp_time_offset(max(expected_ends.values())))
         except:
             pass
 
-        program = program.remove_scheduling_idles()
         with pbutils.timeit('write simulation estimates'):
             with runtime.log_db.transaction:
                 for state in states:
@@ -259,19 +329,6 @@ def execute_program(config: RuntimeConfig, program: Command, metadata: dict[str,
                         continue
                     state.state = 'planned'
                     state.save(runtime.log_db)
-        with pbutils.timeit('write program'):
-            with open(program_filename, 'wb') as fp:
-                pickle.dump(program, fp)
-
-        num_plates = max(
-            (
-                int(p)
-                for x in program.universe()
-                if isinstance(x, Meta)
-                if (p := x.metadata.plate_id)
-            ),
-            default=0
-        )
 
         runtime_metadata = RuntimeMetadata(
             start_time         = runtime.start_time,
@@ -282,7 +339,9 @@ def execute_program(config: RuntimeConfig, program: Command, metadata: dict[str,
         runtime_metadata = runtime_metadata.save(runtime.log_db)
 
         with pbutils.timeit('execute'):
-            execute(program, runtime, Metadata())
+            cmd = program.command
+            cmd = cmd.remove_scheduling_idles()
+            execute(cmd, runtime, Metadata())
 
         runtime_metadata.completed = datetime.now()
         runtime_metadata = runtime_metadata.save(runtime.log_db)
@@ -291,4 +350,3 @@ def execute_program(config: RuntimeConfig, program: Command, metadata: dict[str,
             print(line)
 
         return runtime.get_log()
-

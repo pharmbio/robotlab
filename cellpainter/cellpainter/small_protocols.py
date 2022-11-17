@@ -3,6 +3,7 @@ from typing import *
 from dataclasses import *
 
 from .commands import (
+    Program,               # type: ignore
     Command,               # type: ignore
     Fork,                  # type: ignore
     Info,                  # type: ignore
@@ -52,7 +53,7 @@ class SmallProtocolArgs:
     params: list[str] = field(default_factory=list)
     protocol_dir: str = 'automation_v5.0'
 
-SmallProtocol: TypeAlias = Callable[[SmallProtocolArgs], Command]
+SmallProtocol: TypeAlias = Callable[[SmallProtocolArgs], Program]
 
 small_protocols: list[SmallProtocol] = []
 
@@ -111,7 +112,7 @@ def incu_load(args: SmallProtocolArgs):
                 RobotarmCmd(f'incu_A{pos} put transfer from drop neu'),
                 IncuFork('put', p.incu_loc),
                 RobotarmCmd(f'incu_A{pos} put return'),
-            ).add(Metadata(plate_id=p.id))
+            ).add(Metadata(plate_id=p.id, stage=f'plate {p.id} to {p.incu_loc}'))
         ]
     program = Seq(*[
         RobotarmCmd('incu_A21 put-prep'),
@@ -119,15 +120,14 @@ def incu_load(args: SmallProtocolArgs):
         RobotarmCmd('incu_A21 put-return'),
         WaitForResource('incu'),
     ])
-    program = add_world_metadata(program, World(world0))
-    return program
+    return Program(program, World(world0))
 
 @small_protocols.append
 def test_comm(_: SmallProtocolArgs):
     '''
     Test communication with robotarm, washer, dispenser and incubator.
     '''
-    return protocol.test_comm_program().add(Metadata(gui_force_show=True))
+    return Program(protocol.test_comm_program().add(Metadata(gui_force_show=True)))
 
 @small_protocols.append
 def test_circuit(_: SmallProtocolArgs):
@@ -145,7 +145,7 @@ def test_circuit(_: SmallProtocolArgs):
     '''
     [[plate]] = define_plates([1])
     v5 = make_protocol_config(paths_v5(), ProtocolArgs(incu='s1,s2,s3,s4,s5', two_final_washes=True, interleave=True))
-    program = cell_paint_program([1], protocol_config=v5)
+    program = cell_paint_program([1], protocol_config=v5).command
     program = Seq(
         *[
             cmd.add(metadata)
@@ -157,11 +157,7 @@ def test_circuit(_: SmallProtocolArgs):
         *RobotarmCmds('incu put'),
     )
     program = sleek_program(program)
-    program = Seq(
-        Info('initial world').add(Metadata(effect=InitialWorld(World({'incu': plate.id})))),
-        program,
-    )
-    return program
+    return Program(program, World({'incu': plate.id}))
 
 @small_protocols.append
 def test_circuit_with_incubator(args: SmallProtocolArgs):
@@ -171,7 +167,7 @@ def test_circuit_with_incubator(args: SmallProtocolArgs):
     '''
     num_plates = args.num_plates
     v5 = make_protocol_config(paths_v5(), ProtocolArgs(incu='s1,s2,s3,s4,s5', two_final_washes=True, interleave=True))
-    program = cell_paint_program([num_plates], protocol_config=v5)
+    program = cell_paint_program([num_plates], protocol_config=v5).command
     program = Seq(
         *[
             cmd.add(metadata)
@@ -185,7 +181,7 @@ def test_circuit_with_incubator(args: SmallProtocolArgs):
         ],
     )
     program = sleek_program(program)
-    return program
+    return Program(program)
 
 @small_protocols.append
 def incu_reset_and_activate(_: SmallProtocolArgs):
@@ -198,7 +194,7 @@ def incu_reset_and_activate(_: SmallProtocolArgs):
         IncuFork('get_status'),
         WaitForResource('incu'),
     )
-    return program.add(Metadata(gui_force_show=True))
+    return Program(program.add(Metadata(gui_force_show=True)))
 
 @small_protocols.append
 def wash_plates_clean(args: SmallProtocolArgs):
@@ -217,7 +213,7 @@ def wash_plates_clean(args: SmallProtocolArgs):
     '''
     N = args.num_plates
     if not N:
-        return Idle()
+        return Program()
     cmds: list[Command] = []
     [plates] = define_plates([N])
     cmds += [Section('H₂O')]
@@ -270,8 +266,8 @@ def wash_plates_clean(args: SmallProtocolArgs):
     world0 = World({plate.out_loc: plate.id for plate in plates})
     program = Seq(*cmds)
     program = sleek_program(program)
-    program = add_world_metadata(program, world0)
-    return program
+    # program = add_world_metadata(program, world0)
+    return Program(program, world0)
 
 @small_protocols.append
 def validate_all_protocols(args: SmallProtocolArgs):
@@ -293,7 +289,7 @@ def validate_all_protocols(args: SmallProtocolArgs):
         WaitForResource('wash'),
         WaitForResource('disp'),
     )
-    return program.add(Metadata(gui_force_show=True))
+    return Program(program.add(Metadata(gui_force_show=True)))
 
 @small_protocols.append
 def run_biotek(args: SmallProtocolArgs):
@@ -322,7 +318,7 @@ def run_biotek(args: SmallProtocolArgs):
                     Fork(BiotekValidateThenRun(machine, p)),
                     WaitForResource(machine)
                 ]
-    return Seq(*cmds)
+    return Program(Seq(*cmds))
 
 @small_protocols.append
 def incu_put(args: SmallProtocolArgs):
@@ -337,7 +333,7 @@ def incu_put(args: SmallProtocolArgs):
             IncuFork('put', x),
             WaitForResource('incu'),
         ]
-    return Seq(*cmds)
+    return Program(Seq(*cmds))
 
 @small_protocols.append
 def incu_get(args: SmallProtocolArgs):
@@ -352,7 +348,7 @@ def incu_get(args: SmallProtocolArgs):
             IncuFork('get', x),
             WaitForResource('incu'),
         ]
-    return Seq(*cmds)
+    return Program(Seq(*cmds))
 
 @small_protocols.append
 def robotarm(args: SmallProtocolArgs):
@@ -366,7 +362,7 @@ def robotarm(args: SmallProtocolArgs):
         cmds += [
             RobotarmCmd(x.replace('-', ' ')),
         ]
-    return Seq(*cmds)
+    return Program(Seq(*cmds))
 
 # @small_protocols.append
 def time_arm_incu(_: SmallProtocolArgs):
@@ -437,7 +433,7 @@ def time_arm_incu(_: SmallProtocolArgs):
         *arm2,
     ]
     program = Seq(*cmds)
-    return program
+    return Program(program)
 
 # @small_protocols.append
 def lid_stress_test(_: SmallProtocolArgs):
@@ -465,7 +461,7 @@ def lid_stress_test(_: SmallProtocolArgs):
             *RobotarmCmds(p.out_get),
         ]
     program = sleek_program(Seq(*cmds))
-    return program
+    return Program(program)
 
 # @small_protocols.append
 def incu_unload(args: SmallProtocolArgs):
@@ -503,7 +499,7 @@ def incu_unload(args: SmallProtocolArgs):
             RobotarmCmd(f'incu_A{pos} get transfer'),
             RobotarmCmd(f'incu_A{pos} get return'),
         ]
-    return Seq(*cmds)
+    return Program(Seq(*cmds))
 
 # @small_protocols.append
 def plate_shuffle(_: SmallProtocolArgs):
@@ -539,7 +535,7 @@ def add_missing_timings(_: SmallProtocolArgs):
             *RobotarmCmds(plate.out_get),
         ]
     program = Seq(*cmds)
-    return program
+    return Program(program)
 
 @small_protocols.append
 def time_bioteks(args: SmallProtocolArgs):
@@ -567,7 +563,7 @@ def time_bioteks(args: SmallProtocolArgs):
         WaitForResource('wash'),
         WaitForResource('disp'),
     )
-    return program
+    return Program(program)
 
 @dataclass(frozen=True)
 class SmallProtocolData:
@@ -577,6 +573,11 @@ class SmallProtocolData:
     doc: str
 
 small_protocols_dict = {
-    p.__name__: SmallProtocolData(p.__name__, p, protocol_args(p), pbutils.doc_header(p))
+    p.__name__: SmallProtocolData(
+        p.__name__,
+        p,
+        protocol_args(p),
+        pbutils.doc_header(p)
+    )
     for p in small_protocols
 }

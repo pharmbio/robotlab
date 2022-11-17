@@ -21,7 +21,8 @@ from . import protocol
 from . import estimates
 from . import moves
 
-from .execute import execute_program
+from .commands import Program
+from .execute import execute_program, remove_stages
 from .log import Log
 from .moves import movelists
 from .runtime import RuntimeConfig, configs, config_lookup
@@ -54,7 +55,7 @@ class Args:
     interleave:                bool = arg(help='Interleave plates, required for 7 plate batches')
     two_final_washes:          bool = arg(help='Use two shorter final washes in the end, required for big batch sizes, required for 8 plate batches')
     lockstep:                  bool = arg(help='Allow steps to overlap: first plate PFA starts before last plate Mito finished and so on, required for 10 plate batches')
-    start_in_rt_from_pfa:            bool = arg(help='Start from PFA (in room temperature). Use this if you have done Mito manually beforehand')
+    start_in_rt_from_pfa:      bool = arg(help='Start from PFA (in room temperature). Use this if you have done Mito manually beforehand')
     log_filename:              str  = arg(help='Manually set the log filename instead of having a generated name based on date')
     protocol_dir:              str  = arg(default='automation_v5.0', help='Directory to read biotek .LHC files from on the windows server (relative to the protocol root).')
     force_update_protocol_dir: bool = arg(help='Update the protcol dir based on the windows server even if config is not --live.')
@@ -70,7 +71,8 @@ class Args:
     num_plates:                int  = arg(help='For some protocols only: number of plates')
     params:                    list[str] = arg(help='For some protocols only: more parameters')
 
-    start_from_stage:        str  = arg(help="Start from this stage (example: 'Mito, plate 2')")
+    start_from_stage:          str  = arg(help="Start from this stage (example: 'Mito, plate 2')")
+    list_stages:               bool = arg(help="List the stages and then exit")
 
     visualize:                 bool = arg(help='Run detailed protocol visualizer')
     init_cmd_for_visualize:    str  = arg(help='Starting cmdline for visualizer')
@@ -115,7 +117,18 @@ def main_with_args(args: Args, parser: argparse.ArgumentParser | None=None):
         log_filename=args.log_filename,
     )
 
+    sim_delays: dict[int, float] = {}
+    for kv in args.sim_delays.split(','):
+        if kv:
+            id, delay = kv.split(':')
+            if id.isnumeric():
+                sim_delays[int(id)] = float(delay)
+
+    if sim_delays:
+        print('delays =', show(sim_delays))
+
     print('config =', show(config))
+    print('args =', show(args))
 
     if args.timing_matrix:
         out: list[list[Any]] = []
@@ -129,7 +142,7 @@ def main_with_args(args: Args, parser: argparse.ArgumentParser | None=None):
                             try:
                                 res = execute_program(
                                     config_lookup('dry-run').replace(log_to_file=False),
-                                    p.program, {}, for_visualizer=True
+                                    p, for_visualizer=True
                                 )
                                 T = pbutils.pp_secs(res.time_end())
                             except:
@@ -166,13 +179,16 @@ def main_with_args(args: Args, parser: argparse.ArgumentParser | None=None):
             else:
                 p = args_to_program(args)
                 assert p, 'no program from these arguments!'
-                return execute_program(config, p.program, {}, for_visualizer=True, sim_delays=p.sim_delays)
+                return execute_program(config, p, for_visualizer=True, sim_delays=sim_delays)
         pv.start(cmdline0, cmdline_to_log)
+
+    elif args.list_stages:
+        pbutils.pr(args_to_stages(args))
 
     elif p := args_to_program(args):
         if config.name != 'dry-run' and p.doc and not args.yes:
             ATTENTION(p.doc)
-        log = execute_program(config, p.program, p.metadata, sim_delays=p.sim_delays)
+        log = execute_program(config, p, sim_delays=sim_delays)
         if re.match('time.bioteks', p.metadata.get('program', '')) and config.name == 'live':
             estimates.add_estimates_from('estimates.json', log)
 
@@ -204,26 +220,20 @@ def main_with_args(args: Args, parser: argparse.ArgumentParser | None=None):
         print('Guessed these times:')
         pbutils.pr(estimates.guesses)
 
-@dataclass(frozen=True)
-class Program:
-    program: commands.Command
-    metadata: dict[str, Any]
-    doc: str = ''
-    sim_delays: dict[str, float] = field(default_factory=dict)
+@pbutils.cache_by(lambda args: str(args))
+def args_to_stages(args: Args) -> list[str] | None:
+    p = args_to_program(args)
+    if p:
+        return p.command.stages()
+    else:
+        return None
 
 def args_to_program(args: Args) -> Program | None:
 
-    sim_delays: dict[str, float] = {}
-    for kv in args.sim_delays.split(','):
-        if kv:
-            id, delay = kv.split(':')
-            sim_delays[id] = float(delay)
-
-    if sim_delays:
-        print('delays =', show(sim_delays))
-
     paths =  protocol_paths.get_protocol_paths()[args.protocol_dir]
     protocol_config = protocol.make_protocol_config(paths, args)
+
+    program: Program | None = None
 
     if args.cell_paint:
       with pbutils.timeit('generating program'):
@@ -231,12 +241,11 @@ def args_to_program(args: Args) -> Program | None:
         program = protocol.cell_paint_program(
             batch_sizes=batch_sizes,
             protocol_config=protocol_config,
-            start_from_stage=args.start_from_stage or None,
         )
-        return Program(program, {
+        program = program.replace(metadata=program.metadata | {
             'program': 'cell_paint',
             'batch_sizes': ','.join(str(bs) for bs in batch_sizes),
-        }, sim_delays=sim_delays)
+        })
 
     elif args.small_protocol:
         name = args.small_protocol.replace('-', '_')
@@ -248,10 +257,14 @@ def args_to_program(args: Args) -> Program | None:
                 protocol_dir = args.protocol_dir,
             )
             program = p.make(small_args)
-            return Program(program, {'program': p.name}, doc=p.doc, sim_delays=sim_delays)
+            program = program.replace(metadata={'program': p.name}, doc=p.doc)
         else:
             raise ValueError(f'Unknown protocol: {name} (available: {", ".join(small_protocols_dict.keys())})')
 
+    if program:
+        if args.start_from_stage:
+            program = remove_stages(program, args.start_from_stage)
+        return program
     else:
         return None
 

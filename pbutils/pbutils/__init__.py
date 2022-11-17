@@ -19,8 +19,50 @@ from urllib.request import urlopen, Request
 
 from viable import check
 
+import functools
+
 A = TypeVar('A')
 B = TypeVar('B')
+P = ParamSpec('P')
+R = TypeVar('R')
+
+@dataclass(frozen=True, eq=False, order=False)
+class Hide(Generic[A]):
+    value: A
+    def __eq__(self, other: object) -> bool:
+        return True
+
+    def __lt__(self, other: object) -> bool:
+        return True
+
+    def __hash__(self) -> int:
+        return 0
+
+def cache_by(key: Callable[[A], Any]) -> Callable[[Callable[[A], R]], Callable[[A], R]]:
+    def inner(f: Callable[[A], R]) -> Callable[[A], R]:
+        @functools.cache
+        def C(k: Any, v: Hide[A]) -> R:
+            return f(v.value)
+
+        @functools.wraps(f)
+        def F(v: A) -> R:
+            return C(key(v), Hide(v))
+        return F
+    return inner
+
+@check.test
+def test_cache_by():
+    log: list[Any] = []
+    @cache_by(lambda x: str(x))
+    def fn(x: int):
+        log.append(x)
+        return x + 1
+
+    check(log == [])
+    check(fn(1) == 2)
+    check(log == [1])
+    check(fn(1) == 2)
+    check(log == [1])
 
 def curl(url: str) -> Any:
     ten_minutes = 60 * 10

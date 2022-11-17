@@ -7,11 +7,12 @@ from viable import store, js, call, serve
 from viable import Tag, div, span, label, button, pre
 import viable as V
 from viable.provenance import Int, Str, Bool
+from viable import provenance
 
 from collections import *
 from dataclasses import *
 from datetime import datetime, timedelta
-from functools import lru_cache
+import functools
 
 from pathlib import Path
 from subprocess import Popen, DEVNULL
@@ -27,7 +28,8 @@ import textwrap
 import subprocess
 
 from .log import Log
-from .cli import Args
+from .cli import Args, args_to_stages
+from . import cli
 
 from . import commands
 from .commands import IncuCmd, BiotekCmd
@@ -723,6 +725,19 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
             form_fields = []
             args = None
 
+        if args:
+            stages = cli.args_to_stages(args)
+            if stages:
+                start_from_stage = m.str(
+                    name='start from stage',
+                    default='start',
+                    desc='Stage to start from',
+                    options=stages
+                )
+                form_fields += [start_from_stage]
+                if start_from_stage.value:
+                    args = replace(args, start_from_stage=start_from_stage.value)
+
         if isinstance(small_data, SmallProtocolData):
             doc_full = textwrap.dedent(small_data.make.__doc__ or '').strip()
             doc_header = small_data.doc
@@ -1143,7 +1158,6 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
             yield div(
                 button('open gripper', onclick=call(robotarm_open_gripper, )),
                 button('set robot in freedrive', onclick=call(robotarm_freedrive, )),
-                button('move robot to neutral', onclick='confirm("Move robot to neutral?")&&' + call(robotarm_to_neutral, )),
                 grid_area='stop',
                 css=form_css,
                 css_='& button { grid-column: 1 / span 2 }',

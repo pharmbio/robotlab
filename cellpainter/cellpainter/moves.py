@@ -430,7 +430,7 @@ def read_movelists() -> dict[str, TaggedMoveList]:
 @dataclass(frozen=True)
 class World(DBMixin):
     data: dict[str, str] = field(default_factory=dict)
-    t: float = 0
+    t: float = 0  # filled in when executing
     id: int = -1
 
     def __getitem__(self, key: str) -> str:
