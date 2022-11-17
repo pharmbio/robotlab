@@ -73,6 +73,7 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
         case Idle():
             secs = cmd.secs
             assert isinstance(secs, (float, int))
+            entry = entry.merge(Metadata(est=secs))
             with runtime.timeit(entry):
                 runtime.sleep(secs, entry)
 
@@ -86,6 +87,7 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
             t0 = runtime.wait_for_checkpoint(cmd.name)
             desired_point_in_time = t0 + plus_secs
             delay = desired_point_in_time - runtime.monotonic()
+            entry = entry.merge(Metadata(est=delay))
             runtime.log(entry.message(msg))
             if entry.metadata.id:
                 with runtime.timeit(entry):
@@ -146,26 +148,11 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
 
 @contextlib.contextmanager
 def make_runtime(config: RuntimeConfig, metadata: dict[str, str]) -> Iterator[Runtime]:
-    metadata = {
-        'start_time': pbutils.now_str_for_filename(),
-        **metadata,
-        'config_name': config.name,
-    }
-    if config.log_to_file:
-        log_filename = config.log_filename
-        if not log_filename:
-            log_filename = ' '.join(['event log', *metadata.values()])
-            log_filename = 'logs/' + log_filename.replace(' ', '_') + '.db'
-        abspath = os.path.abspath(log_filename)
-        os.makedirs(os.path.dirname(abspath), exist_ok=True)
-        print(f'{log_filename=}')
-        with open(log_filename, 'w') as fp:
-            fp.write('') # clear file
-    else:
-        log_filename = None
-
-    config = config.replace(log_filename=log_filename)
-
+    log_filename = config.log_filename
+    if log_filename:
+        log_path = Path(log_filename)
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        log_path.unlink(missing_ok=True)
     runtime = config.make_runtime()
 
     with runtime.excepthook():
@@ -208,7 +195,7 @@ def check_correspondence(program: Command, states: list[CommandState], expected_
 
 def remove_stages(program: Program, until_stage: str) -> Program:
     cmd = program.command
-    with pbutils.timeit('constraints'):
+    with pbutils.timeit('scheduling for removing stages'):
         opt_res = constraints.optimal_env(cmd.make_resource_checkpoints())
     cmd = cmd.resolve(opt_res.env)
 
@@ -229,6 +216,8 @@ def remove_stages(program: Program, until_stage: str) -> Program:
     world0 = program.world0
     for effect in effects:
         world0 = effect.apply(world0)
+
+    # could prune plates here that are never moved in the program
 
     checkpoints = cmd.checkpoints()
     dangling: set[str] = set()
@@ -252,7 +241,7 @@ def remove_stages(program: Program, until_stage: str) -> Program:
     )
     return program.replace(command=cmd, world0=world0)
 
-def prepare_program(config: RuntimeConfig, program: Program, sim_delays: dict[int, float]) -> tuple[Program, dict[int, float]]:
+def prepare_program(program: Program, sim_delays: dict[int, float]) -> tuple[Program, dict[int, float]]:
     cmd = program.command
     cmd = cmd.remove_noops()
 
@@ -273,8 +262,27 @@ def prepare_program(config: RuntimeConfig, program: Program, sim_delays: dict[in
     program = program.replace(command=cmd)
     return program, expected_ends
 
-def execute_program(config: RuntimeConfig, program: Program, for_visualizer: bool = False, sim_delays: dict[int, float] = {}) -> Log:
-    program, expected_ends = prepare_program(config, program, sim_delays)
+def simulate_program(program: Program, sim_delays: dict[int, float] = {}, log_filename: str | None=None) -> DB:
+    program, expected_ends = prepare_program(program, sim_delays=sim_delays)
+    cmd = program.command
+    with pbutils.timeit('simulating'):
+        config = dry_run.replace(log_filename=log_filename)
+        with make_runtime(config, {}) as runtime_est:
+            program.save(runtime_est.log_db)
+
+            runtime_est.apply_effect(moves.InitialWorld(program.world0), None)
+            execute(cmd, runtime_est, Metadata())
+
+    if not sim_delays:
+        with pbutils.timeit('get simulation estimates'):
+            states = runtime_est.log_db.get(CommandState).list()
+
+        with pbutils.timeit('check schedule and simulation correspondence'):
+            check_correspondence(cmd, states, expected_ends)
+
+    return runtime_est.log_db
+
+def program_num_plates(program: Program) -> int:
     cmd = program.command
     num_plates = max(
         (
@@ -285,23 +293,17 @@ def execute_program(config: RuntimeConfig, program: Program, for_visualizer: boo
         ),
         default=0
     )
+    return num_plates
 
-    with pbutils.timeit('simulating'):
-        with make_runtime(dry_run.replace(log_to_file=False, log_filename=None), {}) as runtime_est:
-            runtime_est.apply_effect(moves.InitialWorld(program.world0), None)
-            execute(cmd, runtime_est, Metadata())
-
-    with pbutils.timeit('get simulation estimates'):
-        states = runtime_est.log_db.get(CommandState).list()
-
-    with pbutils.timeit('check schedule and simulation correspondence'):
-        check_correspondence(cmd, states, expected_ends)
-
-    cache = Path('cache/')
-    cache.mkdir(parents=True, exist_ok=True)
-    now_str = pbutils.now_str_for_filename()
-    program_filename = cache / (now_str + '_program.pickle')
-
+def execute_simulated_program(config: RuntimeConfig, sim_db: DB) -> Log:
+    programs = sim_db.get(Program).list()
+    if len(programs) == 0:
+        raise ValueError(f'No program stored in {sim_db.con.filename}')
+    elif len(programs) > 1:
+        raise ValueError(f'More than one program stored in {sim_db.con.filename}')
+    else:
+        [program] = programs
+    cmd = program.command
     metadata = program.metadata
     if metadata.get('program') == 'cell_paint':
         missing: list[str] = []
@@ -311,36 +313,29 @@ def execute_program(config: RuntimeConfig, program: Program, for_visualizer: boo
         if missing:
             raise ValueError('Missing timings for the following biotek paths:', ', '.join(sorted(set(missing))))
 
-    with pbutils.timeit('write program'):
-        with open(program_filename, 'wb') as fp:
-            pickle.dump(program, fp)
-
     with make_runtime(config, metadata) as runtime:
+        program.save(runtime.log_db)
         runtime.apply_effect(moves.InitialWorld(program.world0), None)
-        try:
-            print('Expected finish:', runtime.pp_time_offset(max(expected_ends.values())))
-        except:
-            pass
 
-        with pbutils.timeit('write simulation estimates'):
-            with runtime.log_db.transaction:
-                for state in states:
-                    if isinstance(state.cmd, WaitForCheckpoint | Checkpoint | Idle):
-                        continue
-                    state.state = 'planned'
-                    state.save(runtime.log_db)
+        states = sim_db.get(CommandState).list()
+        with runtime.log_db.transaction:
+            for state in states:
+                if isinstance(state.cmd, WaitForCheckpoint | Checkpoint | Idle):
+                    continue
+                state.state = 'planned'
+                state.save(runtime.log_db)
 
         runtime_metadata = RuntimeMetadata(
-            start_time         = runtime.start_time,
-            num_plates         = num_plates,
-            log_filename       = config.log_filename or ':memory:',
-            program_filename   = str(program_filename),
+            start_time     = runtime.start_time,
+            num_plates     = program_num_plates(program),
+            config_name    = config.name,
+            log_filename   = config.log_filename or ':memory:',
         )
         runtime_metadata = runtime_metadata.save(runtime.log_db)
 
+        cmd = program.command
+        cmd = cmd.remove_scheduling_idles()
         with pbutils.timeit('execute'):
-            cmd = program.command
-            cmd = cmd.remove_scheduling_idles()
             execute(cmd, runtime, Metadata())
 
         runtime_metadata.completed = datetime.now()
@@ -350,3 +345,7 @@ def execute_program(config: RuntimeConfig, program: Program, for_visualizer: boo
             print(line)
 
         return runtime.get_log()
+
+def execute_program(config: RuntimeConfig, program: Program, sim_delays: dict[int, float] = {}) -> Log:
+    db = simulate_program(program, sim_delays=sim_delays)
+    return execute_simulated_program(config, db)

@@ -56,7 +56,6 @@ class RuntimeConfig:
 
     robotarm_speed: int = 100
     log_filename: str | None = None
-    log_to_file: bool = True
 
     def make_runtime(self) -> Runtime:
         return Runtime(
@@ -71,13 +70,11 @@ class RuntimeConfig:
     def replace(self,
         robotarm_speed:       Keep | int                 = keep,
         log_filename:         Keep | str | None          = keep,
-        log_to_file:          Keep | bool                = keep,
     ):
         next = self
         updates = dict(
             robotarm_speed=robotarm_speed,
             log_filename=log_filename,
-            log_to_file=log_to_file,
         )
         for k, v in updates.items():
             if v is keep:
@@ -264,9 +261,9 @@ class Runtime:
                     self.world = next
 
     def log_state(self, state: CommandState) -> str | None:
-        with self.lock:
-            print(f'{state.state: >10}', state.cmd_type, *astuple(state.cmd))
-            pass
+        pass
+        # with self.lock:
+        #     print(f'{state.state: >10}', state.cmd_type, *astuple(state.cmd))
             # m = entry.metadata
             # if entry.err:
             #     pass
@@ -426,4 +423,3 @@ class Runtime:
         self.queue_get(q)
         with self.lock:
             return self.checkpoint_times[name]
-

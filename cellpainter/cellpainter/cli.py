@@ -8,41 +8,28 @@ import json
 import textwrap
 import shlex
 import re
+import pickle
 
-from datetime import timedelta
 from dataclasses import *
 
 from pbutils import show
 import pbutils
 
-from . import commands
 from . import make_uml
 from . import protocol
 from . import estimates
 from . import moves
 
 from .commands import Program
-from .execute import execute_program, remove_stages
+from . import execute
 from .log import Log
 from .moves import movelists
 from .runtime import RuntimeConfig, configs, config_lookup
 from .small_protocols import small_protocols_dict, SmallProtocolArgs
 from . import protocol_paths
 
+from pbutils.mixins import DB
 from pbutils.args import arg, option
-
-def ATTENTION(s: str):
-    color = pbutils.Color()
-    print(color.red('*' * 80))
-    print()
-    print(textwrap.indent(textwrap.dedent(s.strip('\n')), '    ').rstrip('\n'))
-    print()
-    print(color.red('*' * 80))
-    v = input('Continue? [y/n] ')
-    if v.strip() != 'y':
-        raise ValueError('Program aborted by user')
-    else:
-        print('continuing...')
 
 @dataclass(frozen=True)
 class Args:
@@ -50,7 +37,7 @@ class Args:
         'dry-run',
         enum=[option(c.name, c.name, help='Run with config ' + c.name) for c in configs]
     )
-    cell_paint:                str  = arg(help='Cell paint with batch sizes of BS, separated by comma (such as 6,6 for 2x6). Plates start stored in incubator L1, L2, ..')
+    cell_paint:                str  = arg(help='Cell paint with batch sizes separated by comma (such as 6,6 for 2x6). Plates start stored in incubator L1, L2, ..')
     incu:                      str  = arg(default='1200,1200,1200,1200,1200', help='Incubation times in seconds, separated by comma')
     interleave:                bool = arg(help='Interleave plates, required for 7 plate batches')
     two_final_washes:          bool = arg(help='Use two shorter final washes in the end, required for big batch sizes, required for 8 plate batches')
@@ -61,6 +48,8 @@ class Args:
     force_update_protocol_dir: bool = arg(help='Update the protcol dir based on the windows server even if config is not --live.')
 
     timing_matrix:             bool = arg(help='Print a timing matrix.')
+
+    run_program_in_log_filename: str  = arg(help='Run the program stored in a log file. Used to run simulated programs from the gui.')
 
     small_protocol:            str  = arg(
         enum=[
@@ -117,16 +106,6 @@ def main_with_args(args: Args, parser: argparse.ArgumentParser | None=None):
         log_filename=args.log_filename,
     )
 
-    sim_delays: dict[int, float] = {}
-    for kv in args.sim_delays.split(','):
-        if kv:
-            id, delay = kv.split(':')
-            if id.isnumeric():
-                sim_delays[int(id)] = float(delay)
-
-    if sim_delays:
-        print('delays =', show(sim_delays))
-
     print('config =', show(config))
     print('args =', show(args))
 
@@ -140,11 +119,8 @@ def main_with_args(args: Args, parser: argparse.ArgumentParser | None=None):
                         p = args_to_program(args2)
                         if p:
                             try:
-                                res = execute_program(
-                                    config_lookup('dry-run').replace(log_to_file=False),
-                                    p, for_visualizer=True
-                                )
-                                T = pbutils.pp_secs(res.time_end())
+                                sim_db = execute.simulate_program(p)
+                                T = pbutils.pp_secs(Log(sim_db).time_end())
                             except:
                                 T = float('NaN')
                             print(f'{N=}, {interleave=}, {two_final_washes=}, {incu=}, {T=}')
@@ -179,16 +155,31 @@ def main_with_args(args: Args, parser: argparse.ArgumentParser | None=None):
             else:
                 p = args_to_program(args)
                 assert p, 'no program from these arguments!'
-                return execute_program(config, p, for_visualizer=True, sim_delays=sim_delays)
+                return Log(execute.simulate_program(p, sim_delays=parse_sim_delays(args)))
         pv.start(cmdline0, cmdline_to_log)
 
     elif args.list_stages:
         pbutils.pr(args_to_stages(args))
 
+    elif args.run_program_in_log_filename:
+        with DB.open(args.run_program_in_log_filename) as db:
+            execute.execute_simulated_program(config, db)
+
     elif p := args_to_program(args):
         if config.name != 'dry-run' and p.doc and not args.yes:
-            ATTENTION(p.doc)
-        log = execute_program(config, p, sim_delays=sim_delays)
+            confirm(p.doc)
+
+        if not args.log_filename:
+            metadata = {
+                'start_time': pbutils.now_str_for_filename(),
+                **p.metadata,
+                'config_name': config.name,
+            }
+            log_filename = ' '.join(['event log', *metadata.values()])
+            log_filename = 'logs/' + log_filename.replace(' ', '_') + '.db'
+            config = config.replace(log_filename=log_filename)
+
+        log = execute.execute_program(config, p, sim_delays=parse_sim_delays(args))
         if re.match('time.bioteks', p.metadata.get('program', '')) and config.name == 'live':
             estimates.add_estimates_from('estimates.json', log)
 
@@ -229,23 +220,21 @@ def args_to_stages(args: Args) -> list[str] | None:
         return None
 
 def args_to_program(args: Args) -> Program | None:
-
     paths =  protocol_paths.get_protocol_paths()[args.protocol_dir]
     protocol_config = protocol.make_protocol_config(paths, args)
 
     program: Program | None = None
-
     if args.cell_paint:
-      with pbutils.timeit('generating program'):
-        batch_sizes = pbutils.read_commasep(args.cell_paint, int)
-        program = protocol.cell_paint_program(
-            batch_sizes=batch_sizes,
-            protocol_config=protocol_config,
-        )
-        program = program.replace(metadata=program.metadata | {
-            'program': 'cell_paint',
-            'batch_sizes': ','.join(str(bs) for bs in batch_sizes),
-        })
+        with pbutils.timeit('generating program'):
+            batch_sizes = pbutils.read_commasep(args.cell_paint, int)
+            program = protocol.cell_paint_program(
+                batch_sizes=batch_sizes,
+                protocol_config=protocol_config,
+            )
+            program = program.replace(metadata=program.metadata | {
+                'program': 'cell_paint',
+                'batch_sizes': ','.join(str(bs) for bs in batch_sizes),
+            })
 
     elif args.small_protocol:
         name = args.small_protocol.replace('-', '_')
@@ -263,10 +252,36 @@ def args_to_program(args: Args) -> Program | None:
 
     if program:
         if args.start_from_stage:
-            program = remove_stages(program, args.start_from_stage)
+            if args.start_from_stage != program.command.stages()[0]:
+                program = execute.remove_stages(program, args.start_from_stage)
         return program
     else:
         return None
+
+def parse_sim_delays(args: Args):
+    sim_delays: dict[int, float] = {}
+    for kv in args.sim_delays.split(','):
+        if kv:
+            id, delay = kv.split(':')
+            if id.isnumeric():
+                sim_delays[int(id)] = float(delay)
+
+    if sim_delays:
+        print('sim_delays =', show(sim_delays))
+    return sim_delays
+
+def confirm(s: str):
+    color = pbutils.Color()
+    print(color.red('*' * 80))
+    print()
+    print(textwrap.indent(textwrap.dedent(s.strip('\n')), '    ').rstrip('\n'))
+    print()
+    print(color.red('*' * 80))
+    v = input('Continue? [y/n] ')
+    if v.strip() != 'y':
+        raise ValueError('Program aborted by user')
+    else:
+        print('continuing...')
 
 if __name__ == '__main__':
     main()

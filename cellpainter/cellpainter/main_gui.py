@@ -98,9 +98,13 @@ def as_stderr(log_path: str):
     return p
 
 def start(args: Args, simulate: bool):
-    config_name='dry-run' if simulate else config.name
-    program_name='cell-paint' if args.cell_paint else args.small_protocol
-    log_filename = 'logs/' + pbutils.now_str_for_filename() + f'-{program_name}-{config_name}-from-gui.db'
+    config_name = 'dry-run' if simulate else config.name
+    if args.run_program_in_log_filename:
+        log_filename = re.sub(r'\d{4}[\d\-_:]*', pbutils.now_str_for_filename() + '-', args.run_program_in_log_filename)
+        log_filename = log_filename.replace('dry-run', config_name)
+    else:
+        program_name = 'cell-paint' if args.cell_paint else args.small_protocol
+        log_filename = 'logs/' + pbutils.now_str_for_filename() + f'-{program_name}-{config_name}-from-gui.db'
     args = replace(
         args,
         config_name=config_name,
@@ -111,7 +115,10 @@ def start(args: Args, simulate: bool):
     Path('cache').mkdir(exist_ok=True)
     cmd = [
         'sh', '-c',
-        'cellpainter --json-arg "$1" 2>"$2"',
+        '''
+            echo starting... >"$2"
+            cellpainter --json-arg "$1" 2>>"$2"
+        ''',
         '--',
         json.dumps(pbutils.nub(args)),
         as_stderr(log_filename),
@@ -573,6 +580,15 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
                 --cyan:      #66cccc;
                 --orange:    #f99157;
             }
+            .svg-triangle {
+                margin-right: 6px;
+                width: 16px;
+                height: 16px;
+                transform: translateY(4px);
+            }
+            .svg-triangle polygon {
+                fill: var(--green);
+            }
         '''
     }
     yield V.head(V.title('cell painter - ', path or ''))
@@ -789,15 +805,6 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
                 & label > span {
                     text-align: right;
                 }
-                & .svg-triangle {
-                    margin-right: 6px;
-                    width: 16px;
-                    height: 16px;
-                    transform: translateY(4px);
-                }
-                & .svg-triangle polygon {
-                    fill: var(--green);
-                }
                 & button {
                     height: 100%;
                 }
@@ -883,50 +890,57 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
     t_end_form: div | None = None
     t_end: Int | None = None
     simulation_completed: bool = False
+    simulation: bool = False
     if path:
         log = path_to_log(path)
         try:
             stderr = as_stderr(path).read_text()
         except:
             stderr = ''
-        if log and (rt := log.runtime_metadata()) and rt.completed and 'dry' in config.name:
-            simulation_completed = True
-            t_min = 0
-            t_max = int(log.time_end()) + 1
-            t_end = m.int(t_max, min=t_min, max=t_max)
-            spinner = div(
-                div('|'),
-                css='''
-                    & {
-                      position: relative;
-                    }
-                    & div {
-                      animation: -&-1 1.0s infinite;
-                      position: relative;
-                    }
-                    @keyframes -&-1 { 12% { transform: rotate(0deg);  } 100% { transform: rotate(360deg); } }
-                    & {
-                        display: inline-block;
-                        opacity: 0;
-                        transition: opacity 50ms 0ms;
-                    }
-                    [loading="1"] & {
-                        opacity: 1;
-                        transition: opacity 50ms 400ms;
-                    }
-                ''')
+        if log and (rt := log.runtime_metadata()) and rt.config_name == 'dry-run':
+            simulation = True
+            if not rt.completed:
+                t_high = 2**60
+                t_end = m.int(t_high, name='t_end')
+                yield store.update(t_end, t_high).goto_script()
+            elif rt.completed:
+                simulation_completed = True
+                t_min = 0
+                t_max = int(log.time_end()) + 1
+                t_end = m.int(t_max, name='t_end', min=t_min, max=t_max)
+                spinner = div(
+                    div('|'),
+                    css='''
+                        & {
+                          position: relative;
+                        }
+                        & div {
+                          animation: -&-1 1.0s infinite;
+                          position: relative;
+                        }
+                        @keyframes -&-1 { 12% { transform: rotate(0deg);  } 100% { transform: rotate(360deg); } }
+                        & {
+                            display: inline-block;
+                            opacity: 0;
+                            transition: opacity 50ms 0ms;
+                        }
+                        [loading="1"] & {
+                            opacity: 1;
+                            transition: opacity 50ms 400ms;
+                        }
+                    ''')
 
-            t_end_form = div(
-                div(spinner, t_end.range(),
-                    str(timedelta(seconds=t_end.value)),
-                    css=inverted_inputs_css,
-                    css_='& input { width: 700px; }'),
-                margin='0 auto',
-            )
-            ar = AnalyzeResult.init(log, drop_after=float(t_end.value))
+                t_end_form = div(
+                    div(spinner, t_end.range(),
+                        str(timedelta(seconds=t_end.value)),
+                        css=inverted_inputs_css,
+                        css_='& input { width: 700px; }'),
+                    margin='0 auto',
+                )
+                ar = AnalyzeResult.init(log, drop_after=float(t_end.value))
         elif log is not None:
             ar = AnalyzeResult.init(log)
-    if ar is None:
+    if ar is None or simulation and not simulation_completed:
         if stderr:
             box = div(
                 border=(
@@ -1087,8 +1101,24 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
 
         if ar.completed and not ar.has_error():
             info += div(
-                'Simulation finished.' if simulation_completed else
-                'Finished successfully!',
+                div(
+                    'Simulation finished.' if simulation_completed else
+                    'Finished successfully!'
+                ),
+                button(
+                    V.raw(triangle.strip()), ' ', 'start',
+                    onclick=call(
+                        start,
+                        args=Args(run_program_in_log_filename=path),
+                        simulate=False
+                    ),
+                    css='''
+                        padding: 8px 20px;
+                        border-radius: 2px;
+                        background: var(--bg);
+                        color: var(--fg);
+                    '''
+                ) if simulation_completed else '',
                 border='2px var(--green) solid',
                 color='#eee',
                 text_align='center',

@@ -17,10 +17,10 @@ import platform
 
 @dataclass(frozen=False)
 class RuntimeMetadata(DBMixin):
-    start_time:       datetime
-    num_plates:       int
-    program_filename: str
-    log_filename:     str = ':memory:'
+    start_time:   datetime
+    num_plates:   int
+    config_name:  str
+    log_filename: str
     pid: int      = field(default_factory=lambda: os.getpid())
     host: str     = field(default_factory=lambda: platform.node())
     git_HEAD: str = field(default_factory=lambda: pbutils.git_HEAD() or '')

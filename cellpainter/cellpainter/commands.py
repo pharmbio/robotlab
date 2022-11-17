@@ -6,7 +6,7 @@ from collections import defaultdict
 
 import abc
 
-from pbutils.mixins import ReplaceMixin
+from pbutils.mixins import ReplaceMixin, DBMixin
 
 from .moves import movelists, Effect, World
 from . import moves
@@ -473,10 +473,11 @@ def IncuFork(
     return Fork(IncuCmd(action, incu_loc), assume=assume)
 
 @dataclass(frozen=True)
-class Program(ReplaceMixin):
+class Program(DBMixin):
     command: Command = field(default_factory=lambda: Seq())
     world0: World = field(default_factory=World)
     metadata: dict[str, Any] = field(default_factory=dict)
     doc: str = ''
+    id: int = -1
 
 pbutils.serializer.register(globals())
