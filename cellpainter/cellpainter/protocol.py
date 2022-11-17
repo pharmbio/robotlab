@@ -107,10 +107,7 @@ def sleek_program(program: Command) -> Command:
     )
 
 def initial_world(plates: list[Plate], p: ProtocolConfig) -> World:
-    if p.start_in_rt_from_pfa:
-        return World({p.out_loc: p.id for p in plates})
-    else:
-        return World({p.incu_loc: p.id for p in plates})
+    return World({p.incu_loc: p.id for p in plates})
 
 def add_world_metadata(program: Command) -> Command:
     def F(cmd: Command) -> Command:
@@ -283,7 +280,6 @@ class ProtocolArgsInterface(typing.Protocol):
     interleave:       bool
     two_final_washes: bool
     lockstep:         bool
-    start_in_rt_from_pfa:   bool
 
 @dataclass(frozen=True)
 class ProtocolArgs:
@@ -291,7 +287,6 @@ class ProtocolArgs:
     interleave:       bool = False
     two_final_washes: bool = False
     lockstep:         bool = False
-    start_in_rt_from_pfa:   bool = False
 
 if typing.TYPE_CHECKING:
     _: ProtocolArgsInterface = ProtocolArgs()
@@ -308,7 +303,6 @@ class ProtocolConfig:
     interleavings: list[str]
     interleave:    bool
     lockstep:      bool
-    start_in_rt_from_pfa: bool
     def __post_init__(self):
         d: dict[str, list[Any]] = {}
         for field in fields(self):
@@ -377,31 +371,8 @@ def make_protocol_config(paths: ProtocolPaths, args: ProtocolArgsInterface = Pro
         incu           = incu,
         interleave     = args.interleave,
         interleavings  = interleavings,
-        start_in_rt_from_pfa = False,
     )
-    if args.start_in_rt_from_pfa:
-        return ProtocolConfig(
-            start_in_rt_from_pfa = True,
-
-            # skip mito and rename PFA
-            step_names    = ['PFA RT'] + p.step_names[2:],
-
-            # skip all mito stuff
-            wash          = p.wash[1:],
-            disp_prime    = p.disp_prime[1:],
-            disp_prep     = p.disp_prep[1:],
-            disp          = p.disp[1:],
-            interleavings = p.interleavings[1:],
-
-            # let user write post-pfa incubation times first in the list
-            incu          = p.incu[:-1],
-
-            lockstep      = p.lockstep,
-            interleave    = p.interleave,
-            wash_prime    = p.wash_prime,
-        )
-    else:
-        return p
+    return p
 
 def test_make_protocol_config():
     argss: list[ProtocolArgs] = [
@@ -409,13 +380,11 @@ def test_make_protocol_config():
             incu = incu,
             two_final_washes = two_final_washes,
             interleave = interleave,
-            start_in_rt_from_pfa = start_in_rt_from_pfa,
             lockstep = lockstep,
         )
         for incu in ['i1, i2, i3', '21:00,20:00', '1200']
         for two_final_washes in [True, False]
         for interleave in [True, False]
-        for start_in_rt_from_pfa in [True, False]
         for lockstep in [False]
     ]
     for args in argss:
@@ -546,11 +515,6 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                         WaitForResource('incu', assume='will wait'),
                         Duration(f'{plate_desc} 37C', opt_weight=1),
                     ]),
-                    *lid_off,
-                ]
-            elif step == 'PFA RT':
-                incu_get = [
-                    *RobotarmCmds(plate.out_get),
                     *lid_off,
                 ]
             else:
@@ -798,7 +762,7 @@ def cell_paint_program(batch_sizes: list[int], protocol_config: ProtocolConfig, 
         program = sleek_program(program)
     program = Seq(
         Checkpoint('run'),
-        test_comm_program(with_incu=not protocol_config.start_in_rt_from_pfa),
+        test_comm_program(),
         program,
         Duration('run', opt_weight=-0.1)
     )

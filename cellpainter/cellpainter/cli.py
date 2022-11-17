@@ -42,7 +42,6 @@ class Args:
     interleave:                bool = arg(help='Interleave plates, required for 7 plate batches')
     two_final_washes:          bool = arg(help='Use two shorter final washes in the end, required for big batch sizes, required for 8 plate batches')
     lockstep:                  bool = arg(help='Allow steps to overlap: first plate PFA starts before last plate Mito finished and so on, required for 10 plate batches')
-    start_in_rt_from_pfa:      bool = arg(help='Start from PFA (in room temperature). Use this if you have done Mito manually beforehand')
     log_filename:              str  = arg(help='Manually set the log filename instead of having a generated name based on date')
     protocol_dir:              str  = arg(default='automation_v5.0', help='Directory to read biotek .LHC files from on the windows server (relative to the protocol root).')
     force_update_protocol_dir: bool = arg(help='Update the protcol dir based on the windows server even if config is not --live.')
