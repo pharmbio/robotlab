@@ -112,7 +112,7 @@ def incu_load(args: SmallProtocolArgs):
                 RobotarmCmd(f'incu_A{pos} put transfer from drop neu'),
                 IncuFork('put', p.incu_loc),
                 RobotarmCmd(f'incu_A{pos} put return'),
-            ).add(Metadata(plate_id=p.id, stage=f'plate {p.id} to {p.incu_loc}'))
+            ).add(Metadata(plate_id=p.id, stage=f'plate from A{pos} to {p.incu_loc}'))
         ]
     program = Seq(*[
         RobotarmCmd('incu_A21 put-prep'),
