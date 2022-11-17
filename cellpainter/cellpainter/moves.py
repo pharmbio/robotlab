@@ -331,22 +331,15 @@ def sleek_movements(
     ]
 
 @dataclass(frozen=True)
-class TaggedMoveList:
-    '''
-    Extra information about a move list that is used for resumption
-    '''
+class NamedMoveList:
     base: str
     kind: Literal[
         'full',
         'prep',
         'transfer',
         'return',
-        'transfer to drop neu',
-        'transfer from drop neu',
-    ]
+    ] | str
     movelist: MoveList
-    prep: list[str] = field(default_factory=list)
-    is_ret: bool = False
 
     @property
     def name(self):
@@ -363,7 +356,7 @@ def read_and_expand(filename: Path) -> dict[str, MoveList]:
         expanded |= v.expand_hotels(k)
     return expanded
 
-def read_movelists() -> dict[str, TaggedMoveList]:
+def read_movelists() -> dict[str, MoveList]:
     expanded: dict[str, MoveList] = {}
     for filename in Path('./movelists').glob('*.jsonl'):
         expanded |= read_and_expand(filename)
@@ -380,19 +373,19 @@ def read_movelists() -> dict[str, TaggedMoveList]:
         ''', file=sys.stderr)
         sys.exit(-1)
 
-    out: list[TaggedMoveList] = []
+    out: list[NamedMoveList] = []
     for base, v in expanded.items():
         if 'put-prep' in base or 'put-return' in base:
             assert 'incu_A21' in base # these are used to put arm in A-neutral start position
-            out += [TaggedMoveList(base, 'full', v, is_ret='put-return' in base)]
+            out += [NamedMoveList(base, 'full', v)]
             continue
         if 'calib' in base:
             continue
-        out += [TaggedMoveList(base, 'full', v)]
+        out += [NamedMoveList(base, 'full', v)]
         parts = v.split()
-        prep = TaggedMoveList(base, 'prep', parts.prep)
-        ret = TaggedMoveList(base, 'return', parts.ret, is_ret=True)
-        transfer = TaggedMoveList(base, 'transfer', parts.transfer, prep=[prep.name])
+        prep = NamedMoveList(base, 'prep', parts.prep)
+        ret = NamedMoveList(base, 'return', parts.ret)
+        transfer = NamedMoveList(base, 'transfer', parts.transfer)
         out += [
             prep,
             ret,
@@ -403,17 +396,16 @@ def read_movelists() -> dict[str, TaggedMoveList]:
             to_neu, neu, after_neu = parts.transfer.split_on(lambda m: m.try_name().endswith('drop neu'))
             assert to_neu.has_close() and not to_neu.has_open()
             assert not after_neu.has_close() and after_neu.has_open()
-            A21_put_prep = 'incu_A21 put-prep'
-            to_drop = TaggedMoveList(base, 'transfer to drop neu', MoveList(to_neu + [neu]), prep=[A21_put_prep, prep.name])
-            from_drop = TaggedMoveList(base, 'transfer from drop neu', after_neu, prep=[A21_put_prep, prep.name, to_drop.name])
+            to_drop = NamedMoveList(base, 'transfer to drop neu', MoveList(to_neu + [neu]))
+            from_drop = NamedMoveList(base, 'transfer from drop neu', after_neu)
             out += [
                 to_drop,
                 from_drop,
             ]
 
     out += [
-        TaggedMoveList('noop', 'full', MoveList()),
-        TaggedMoveList('gripper init and check', 'full', MoveList([GripperInitAndCheck()])),
+        NamedMoveList('noop', 'full', MoveList()),
+        NamedMoveList('gripper init and check', 'full', MoveList([GripperInitAndCheck()])),
     ]
 
     to_neu = {v.name: v for v in out}['lid_B19 put prep'].movelist[0]
@@ -422,10 +414,9 @@ def read_movelists() -> dict[str, TaggedMoveList]:
     to_neu_slow = replace(to_neu, slow=True)
 
     out += [
-        TaggedMoveList('to neu', 'full', MoveList([to_neu_slow])),
+        NamedMoveList('to neu', 'full', MoveList([to_neu_slow])),
     ]
-
-    return {v.name: v for v in out}
+    return {v.name: v.movelist for v in out}
 
 @dataclass(frozen=True)
 class World(DBMixin):
@@ -483,17 +474,8 @@ class PutLidOn(Effect):
 
 pbutils.serializer.register(globals())
 
-tagged_movelists : dict[str, TaggedMoveList]
-tagged_movelists = read_movelists()
-
-for k, v in tagged_movelists.items():
-    for p in v.prep:
-        assert p in tagged_movelists
-    if v.is_ret:
-        assert 'return' in k
-
 movelists: dict[str, MoveList]
-movelists = {k: v.movelist for k, v in tagged_movelists.items()}
+movelists = read_movelists()
 
 B21 = 'B21'
 effects: dict[str, Effect] = {}
