@@ -135,14 +135,8 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
         runtime.apply_effect(effect, entry)
 
 @contextlib.contextmanager
-def make_runtime(config: RuntimeConfig, metadata: dict[str, str], program: Program) -> Iterator[Runtime]:
-    log_filename = config.log_filename
-    if log_filename:
-        log_path = Path(log_filename)
-        log_path.parent.mkdir(parents=True, exist_ok=True)
-        log_path.unlink(missing_ok=True)
+def make_runtime(config: RuntimeConfig, program: Program) -> Iterator[Runtime]:
     runtime = config.make_runtime()
-
     with runtime.excepthook():
         program.save(runtime.log_db)
         if program.world0:
@@ -255,7 +249,7 @@ def simulate_program(program: Program, sim_delays: dict[int, float] = {}, log_fi
     cmd = program.command
     with pbutils.timeit('simulating'):
         config = simulate.replace(log_filename=log_filename)
-        with make_runtime(config, {}, program) as runtime_est:
+        with make_runtime(config, program) as runtime_est:
             execute(cmd, runtime_est, Metadata())
 
     if not sim_delays:
@@ -298,7 +292,7 @@ def execute_simulated_program(config: RuntimeConfig, sim_db: DB):
         if missing:
             raise ValueError('Missing timings for the following biotek paths:', ', '.join(sorted(set(missing))))
 
-    with make_runtime(config, metadata, program) as runtime:
+    with make_runtime(config, program) as runtime:
         states = sim_db.get(CommandState).list()
         with runtime.log_db.transaction:
             for state in states:

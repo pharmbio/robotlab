@@ -8,7 +8,7 @@ import json
 import textwrap
 import shlex
 import re
-import pickle
+from pathlib import Path
 
 from dataclasses import *
 
@@ -178,9 +178,17 @@ def main_with_args(args: Args, parser: argparse.ArgumentParser | None=None):
             log_filename = 'logs/' + log_filename.replace(' ', '_') + '.db'
             config = config.replace(log_filename=log_filename)
 
-        log = execute.execute_program(config, p, sim_delays=parse_sim_delays(args))
-        if re.match('time.bioteks', p.metadata.get('program', '')) and config.name == 'live':
-            estimates.add_estimates_from('estimates.json', log)
+        if log_filename := config.log_filename:
+            log_path = Path(log_filename)
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+            log_path.unlink(missing_ok=True)
+
+            if config.name == 'live' and args.protocol_dir:
+                protocol_paths.add_protocol_dir_as_sqlar(log_filename, args.protocol_dir)
+
+        execute.execute_program(config, p, sim_delays=parse_sim_delays(args))
+        # if re.match('time.bioteks', p.metadata.get('program', '')) and config.name == 'live':
+        #     estimates.add_estimates_from('estimates.json', log)
 
     elif args.robotarm_send:
         runtime = config.make_runtime()
