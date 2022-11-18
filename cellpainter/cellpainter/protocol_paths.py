@@ -135,11 +135,19 @@ def make_protocol_paths(protocol_dir: str, infos: list[PathInfo]):
     )
     return paths
 
+from pathlib import Path
+import sys
+
 def add_protocol_dir_as_sqlar(db_path: str, protocol_dir: str):
     '''
     Add the LHC files in the protocol_dir as an SQLite Archive (sqlar) table (without compression for simplicity)
     '''
     files = labrobots.WindowsNUC().remote().dir_list.read_files(protocol_dir)
+    print(
+        db_path,
+        Path(db_path).stat(),
+        file=sys.stderr,
+    )
     with sqlite3.connect(db_path) as con:
         con.executescript(textwrap.dedent('''
             CREATE TABLE IF NOT EXISTS sqlar(
