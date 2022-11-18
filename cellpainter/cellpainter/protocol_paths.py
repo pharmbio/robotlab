@@ -5,7 +5,7 @@ import labrobots
 from labrobots.dir_list import PathInfo
 
 import pbutils
-import sqlite3
+import apsw
 import textwrap
 import base64
 
@@ -135,20 +135,12 @@ def make_protocol_paths(protocol_dir: str, infos: list[PathInfo]):
     )
     return paths
 
-from pathlib import Path
-import sys
-
 def add_protocol_dir_as_sqlar(db_path: str, protocol_dir: str):
     '''
     Add the LHC files in the protocol_dir as an SQLite Archive (sqlar) table (without compression for simplicity)
     '''
     files = labrobots.WindowsNUC().remote().dir_list.read_files(protocol_dir)
-    print(
-        db_path,
-        Path(db_path).stat(),
-        file=sys.stderr,
-    )
-    with sqlite3.connect(db_path) as con:
+    with apsw.Connection(db_path) as con:
         con.executescript(textwrap.dedent('''
             CREATE TABLE IF NOT EXISTS sqlar(
               name TEXT PRIMARY KEY,  -- name of the file
@@ -159,16 +151,16 @@ def add_protocol_dir_as_sqlar(db_path: str, protocol_dir: str):
             );
         ''')).fetchall()
 
-        for f in files:
-            data: bytes = base64.b64decode(f['data_b64'])
-            con.execute('''
-                INSERT INTO sqlar VALUES (?,?,?,?,?)
-            ''', [
-                f['name'],
-                0o644,
-                f['mtime'],
-                len(data),
-                data,
-            ]).fetchall()
 
-        con.commit()
+        with con:
+            for f in files:
+                data: bytes = base64.b64decode(f['data_b64'])
+                con.execute('''
+                    INSERT INTO sqlar VALUES (?,?,?,?,?)
+                ''', [
+                    f['name'],
+                    0o644,
+                    f['mtime'],
+                    len(data),
+                    data,
+                ]).fetchall()

@@ -5,6 +5,7 @@ requirements = '''
     viable
     z3-solver
     labrobots
+    apsw>=3.39.3
 '''
 
 console_scripts = '''
