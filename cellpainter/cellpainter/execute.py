@@ -3,14 +3,8 @@ from typing import *
 from dataclasses import *
 
 import contextlib
-import os
-import pickle
 
 from pathlib import Path
-
-from labrobots import Example
-
-from cellpainter.protocol import add_world_metadata
 
 from . import commands
 
@@ -52,8 +46,7 @@ from .estimates import estimate, EstCmd
 from . import estimates
 from datetime import datetime
 
-from pbutils.mixins import DB, DBMixin
-from pbutils import p
+from pbutils.mixins import DB
 
 def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
     if isinstance(cmd, EstCmd) and metadata.est is None:
@@ -73,7 +66,7 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
         case Idle():
             secs = cmd.secs
             assert isinstance(secs, (float, int))
-            entry = entry.merge(Metadata(est=secs))
+            entry = entry.merge(Metadata(est=round(secs, 3)))
             with runtime.timeit(entry):
                 runtime.sleep(secs, entry)
 
@@ -87,7 +80,7 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
             t0 = runtime.wait_for_checkpoint(cmd.name)
             desired_point_in_time = t0 + plus_secs
             delay = desired_point_in_time - runtime.monotonic()
-            entry = entry.merge(Metadata(est=delay))
+            entry = entry.merge(Metadata(est=round(delay, 3)))
             runtime.log(entry.message(msg))
             if entry.metadata.id:
                 with runtime.timeit(entry):
@@ -100,14 +93,13 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
             runtime.timeit_end(entry, t0=t0)
 
         case Fork():
-            thread_name = cmd.thread_name
-            assert thread_name
-            fork_metadata = metadata.merge(Metadata(thread_name=thread_name, thread_resource=cmd.resource))
+            thread_resource = cmd.resource
+            thread_metadata = Metadata(thread_resource=thread_resource)
+
             @runtime.spawn
             def fork():
-                assert thread_name
-                runtime.register_thread(thread_name)
-                execute(cmd.command, runtime, fork_metadata)
+                runtime.register_thread(f'{thread_resource} {thread_metadata.id}')
+                execute(cmd.command, runtime, thread_metadata)
                 runtime.thread_done()
 
         case RobotarmCmd():
@@ -139,15 +131,11 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
         case _:
             raise ValueError(cmd)
 
-    match cmd:
-        case IncuCmd() | RobotarmCmd() | Info():
-            if effect := metadata.effect:
-                runtime.apply_effect(effect, entry)
-        case _:
-            pass
+    if effect := cmd.effect():
+        runtime.apply_effect(effect, entry)
 
 @contextlib.contextmanager
-def make_runtime(config: RuntimeConfig, metadata: dict[str, str]) -> Iterator[Runtime]:
+def make_runtime(config: RuntimeConfig, metadata: dict[str, str], program: Program) -> Iterator[Runtime]:
     log_filename = config.log_filename
     if log_filename:
         log_path = Path(log_filename)
@@ -156,6 +144,9 @@ def make_runtime(config: RuntimeConfig, metadata: dict[str, str]) -> Iterator[Ru
     runtime = config.make_runtime()
 
     with runtime.excepthook():
+        program.save(runtime.log_db)
+        if program.world0:
+            runtime.set_world(program.world0)
         yield runtime
 
 def check_correspondence(program: Command, states: list[CommandState], expected_ends: dict[int, float]):
@@ -205,8 +196,8 @@ def remove_stages(program: Program, until_stage: str) -> Program:
     def FilterStage(cmd: Command):
         if isinstance(cmd, Meta) and (stage := cmd.metadata.stage):
             if stages.index(stage) < until_index:
-                for c in add_world_metadata(cmd).universe():
-                    if isinstance(c, Meta) and (effect := c.metadata.effect) is not None:
+                for c in cmd.universe():
+                    if isinstance(c, Meta) and (effect := c.effect()) is not None:
                         effects.append(effect)
                 return Seq()
         return cmd
@@ -214,10 +205,10 @@ def remove_stages(program: Program, until_stage: str) -> Program:
     cmd = cmd.remove_noops()
 
     world0 = program.world0
-    for effect in effects:
-        world0 = effect.apply(world0)
-
-    # could prune plates here that are never moved in the program
+    if world0:
+        for effect in effects:
+            world0 = effect.apply(world0)
+        # could prune plates from world here that are never moved in the program
 
     checkpoints = cmd.checkpoints()
     dangling: set[str] = set()
@@ -256,9 +247,6 @@ def prepare_program(program: Program, sim_delays: dict[int, float]) -> tuple[Pro
     if sim_delays:
         cmd = cmd.transform(AddSimDelays)
 
-    if program.world0.data:
-        cmd = add_world_metadata(cmd)
-
     program = program.replace(command=cmd)
     return program, expected_ends
 
@@ -267,10 +255,7 @@ def simulate_program(program: Program, sim_delays: dict[int, float] = {}, log_fi
     cmd = program.command
     with pbutils.timeit('simulating'):
         config = dry_run.replace(log_filename=log_filename)
-        with make_runtime(config, {}) as runtime_est:
-            program.save(runtime_est.log_db)
-
-            runtime_est.apply_effect(moves.InitialWorld(program.world0), None)
+        with make_runtime(config, {}, program) as runtime_est:
             execute(cmd, runtime_est, Metadata())
 
     if not sim_delays:
@@ -295,7 +280,7 @@ def program_num_plates(program: Program) -> int:
     )
     return num_plates
 
-def execute_simulated_program(config: RuntimeConfig, sim_db: DB) -> Log:
+def execute_simulated_program(config: RuntimeConfig, sim_db: DB):
     programs = sim_db.get(Program).list()
     if len(programs) == 0:
         raise ValueError(f'No program stored in {sim_db.con.filename}')
@@ -313,10 +298,7 @@ def execute_simulated_program(config: RuntimeConfig, sim_db: DB) -> Log:
         if missing:
             raise ValueError('Missing timings for the following biotek paths:', ', '.join(sorted(set(missing))))
 
-    with make_runtime(config, metadata) as runtime:
-        program.save(runtime.log_db)
-        runtime.apply_effect(moves.InitialWorld(program.world0), None)
-
+    with make_runtime(config, metadata, program) as runtime:
         states = sim_db.get(CommandState).list()
         with runtime.log_db.transaction:
             for state in states:
@@ -344,8 +326,6 @@ def execute_simulated_program(config: RuntimeConfig, sim_db: DB) -> Log:
         for line in runtime.get_log().group_durations_for_display():
             print(line)
 
-        return runtime.get_log()
-
-def execute_program(config: RuntimeConfig, program: Program, sim_delays: dict[int, float] = {}) -> Log:
+def execute_program(config: RuntimeConfig, program: Program, sim_delays: dict[int, float] = {}):
     db = simulate_program(program, sim_delays=sim_delays)
-    return execute_simulated_program(config, db)
+    execute_simulated_program(config, db)

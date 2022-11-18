@@ -8,7 +8,7 @@ import abc
 
 from pbutils.mixins import ReplaceMixin, DBMixin
 
-from .moves import movelists, Effect, World
+from .moves import movelists, Effect, World, effects, InitialWorld, MovePlate
 from . import moves
 from .symbolic import Symbolic
 import pbutils
@@ -16,35 +16,25 @@ import pbutils
 @dataclass(frozen=True)
 class Metadata:
     id: int = 0
-    completed: bool = False
-    effect: Effect | None = None
-    report_behind_time: bool = False
 
     batch_index: int = 0
     plate_id: str | None = None
-    step: str = ''
-    substep: str = ''
-    slot: int = 0
 
-    stage: str = ''
+    step: str = ''         # 'Mito'
+    substep: str = ''      # 'incu -> B21'
+    slot: int = 0          # 1               (for --visualize, derived from substep)
+    section: str = ''      # 'Mito 0'        (f'{step} {batch_index}', for gui columns)
+    stage: str = ''        # 'Mito, plate 1' (f'{step} {plate_id}', for start from stage)
 
-    thread_name: str | None = None
     thread_resource: str | None = None
     predispense: bool = False
 
-    section: str = ''
-
     dry_run_sleep: bool = False
-    log_sleep: bool = False
 
     est:        float | None = None
     sim_delay:  float | None = None
-    sleep_secs: float | None = None
 
     gui_force_show: bool = False
-
-    def is_sleep(self):
-        return self.sleep_secs is not None
 
     def merge(self, *others: Metadata) -> Metadata:
         repl: dict[str, Any] = {}
@@ -167,7 +157,7 @@ class Command(abc.ABC):
                     if this_name in taken:
                         raise ValueError('Cannot run make_resource_checkpoints twice')
                     if this:
-                        return WaitForCheckpoint(name=this_name, assume=cmd.assume, report_behind_time=False)
+                        return WaitForCheckpoint(name=this_name, assume=cmd.assume)
                     else:
                         return Seq()
                 case Fork(resource=resource):
@@ -197,7 +187,6 @@ class Command(abc.ABC):
                             cmd.command,
                             Checkpoint(this_name),
                         ),
-                        thread_name=this_name,
                     )
                 case _:
                     return cmd
@@ -265,6 +254,18 @@ class Command(abc.ABC):
                     pass
         return out
 
+    def effect(self) -> Effect | None:
+        match self:
+            case RobotarmCmd():
+                return effects.get(self.program_name)
+            case IncuCmd() if self.action == 'put' and self.incu_loc:
+                return MovePlate(source='incu', target=self.incu_loc)
+            case IncuCmd() if self.action == 'get' and self.incu_loc:
+                return MovePlate(source=self.incu_loc, target='incu')
+            case _:
+                return None
+
+
 @dataclass(frozen=True, kw_only=True)
 class Meta(Command):
     command: Command
@@ -323,7 +324,6 @@ WaitAssumption = Literal['nothing', 'will wait', 'no wait']
 class WaitForCheckpoint(Command):
     name: str
     plus_secs: Symbolic | float | int = 0.0
-    report_behind_time: bool = True
     assume: WaitAssumption = 'will wait'
 
     @property
@@ -352,7 +352,6 @@ ForkAssumption = Literal['nothing', 'busy', 'idle']
 @dataclass(frozen=True)
 class Fork(Command):
     command: Command
-    thread_name: str | None = None
     assume: ForkAssumption = 'idle'
 
     @property
@@ -370,11 +369,8 @@ class Fork(Command):
             if resource := cmd.required_resource():
                 assert resource == self_resource
 
-    def replace(self, command: Command, thread_name: str | None = None):
-        if thread_name is not None:
-            return replace(self, command=command, thread_name=thread_name)
-        else:
-            return replace(self, command=command)
+    def replace(self, command: Command):
+        return replace(self, command=command)
 
 
     def delay(self, other: float | int | str | Symbolic) -> Fork:
@@ -475,7 +471,7 @@ def IncuFork(
 @dataclass(frozen=True)
 class Program(DBMixin):
     command: Command = field(default_factory=lambda: Seq())
-    world0: World = field(default_factory=World)
+    world0: World | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
     doc: str = ''
     id: int = -1

@@ -1,6 +1,5 @@
 from __future__ import annotations
 from dataclasses import *
-import time
 from typing import *
 
 import math
@@ -37,14 +36,6 @@ class Message(DBMixin):
     traceback: str | None     = None
     id: int = -1
 
-    __meta__: ClassVar = pbutils.mixins.Meta(
-        views={
-            'cmd_id': 'value ->> "metadata.id"',
-            'cmd_type': 'value ->> "cmd.type"',
-            'cmd_arg': 'coalesce(value ->> "cmd.program_name", value ->> "cmd.name", value ->> "cmd.protocol_path")',
-        }
-    )
-
 @dataclass(frozen=True)
 class CommandWithMetadata:
     cmd: Command
@@ -62,18 +53,18 @@ class CommandState(DBMixin):
     t: float
     cmd: Command
     metadata: Metadata
-    state: str # Literal['completed', 'running', 'planned']
+    state: Literal['completed', 'running', 'planned']
     id: int # should be Metadata.id
 
     # generated for the UI from cmd and metadata:
     cmd_type: str = ''
     gui_boring: bool = False
-    resource: str | None = None
-        # Literal['robotarm', 'incu', 'disp', 'wash'] | None = None
-        # todo: db mixin should support literal strings
+    resource: Literal['robotarm', 'incu', 'disp', 'wash'] | None = None
+
+    # views={'duration': 'round(t - t0, 3)'},
 
     def __post_init__(self):
-        self.resource = self.cmd.required_resource() # or ''
+        self.resource = self.cmd.required_resource()
         self.cmd_type = self.cmd.type
         if isinstance(self.cmd, BiotekCmd):
             if self.cmd.action == 'Validate':
@@ -86,23 +77,6 @@ class CommandState(DBMixin):
         if self.metadata.gui_force_show:
             self.gui_boring = False
 
-    __meta__: ClassVar = pbutils.mixins.Meta(
-        views={
-            k.name: f'value ->> "metadata.{k.name}"'
-            for k in fields(Metadata)
-            if k.name != 'id'
-        } | {
-            'metadata': '',
-            'metadata_id': 'value ->> "metadata.id"',
-            'duration': 'round((value ->> "t") - (value ->> "t0"), 3)',
-            'cmd_type': 'value ->> "cmd.type"',
-        },
-        indexes={
-            'cmd_type': 'value ->> "cmd.type"',
-            't0': 'value ->> "t0"',
-            't': 'value ->> "t"',
-        }
-    )
 
     @property
     def duration(self) -> float | None:

@@ -59,9 +59,9 @@ class RuntimeConfig:
 
     def make_runtime(self) -> Runtime:
         return Runtime(
-            config=self,
-            timelike=self.make_timelike(),
-            log_db=DB.connect(self.log_filename if self.log_filename else ':memory:'),
+            config=self | p,
+            timelike=self.make_timelike() | p,
+            log_db=DB.connect(self.log_filename if self.log_filename else ':memory:') | p,
         )
 
     def make_timelike(self) -> Timelike:
@@ -149,7 +149,7 @@ class Runtime:
         lambda: defaultdict[str, list[Queue[None]]](list)
     )
 
-    world: World = field(default_factory=World)
+    world: World | None = None
 
     def __post_init__(self):
         self.register_thread('main')
@@ -237,8 +237,17 @@ class Runtime:
                 print(message.traceback, file=sys.stderr)
             return message
 
+    def set_world(self, world: World | None):
+        with self.lock:
+            if world is not None:
+                world = world.replace(t=round(self.timelike.monotonic(), 3))
+                world = world.save(self.log_db)
+            self.world = world
+
     def apply_effect(self, effect: Effect, entry: CommandWithMetadata | None):
         with self.lock:
+            if self.world is None:
+                return
             try:
                 next = effect.apply(self.world)
             except Exception as error:
@@ -256,9 +265,7 @@ class Runtime:
                     raise ValueError(msg)
             else:
                 if next.data != self.world.data:
-                    next = next.replace(t=round(self.timelike.monotonic(), 3))
-                    next = next.save(self.log_db)
-                    self.world = next
+                    self.set_world(next)
 
     def log_state(self, state: CommandState) -> str | None:
         pass
@@ -353,6 +360,7 @@ class Runtime:
         assert id >= 0
 
         with self.lock:
+            t0 = round(t0, 3)
             t = round(self.monotonic(), 3)
             state = CommandState(
                 t0=t0,
@@ -376,7 +384,6 @@ class Runtime:
 
     def sleep(self, secs: float, entry: CommandWithMetadata):
         secs = round(secs, 3)
-        entry = entry.merge(Metadata(sleep_secs=secs))
         if abs(secs) < 0.1:
             self.log(entry.message(f'on time {pp_secs(secs)}s'))
         elif secs < 0:

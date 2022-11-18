@@ -109,22 +109,6 @@ def sleek_program(program: Command) -> Command:
 def initial_world(plates: list[Plate], p: ProtocolConfig) -> World:
     return World({p.incu_loc: p.id for p in plates})
 
-def add_world_metadata(program: Command) -> Command:
-    def F(cmd: Command) -> Command:
-        match cmd:
-            case RobotarmCmd() if e := effects.get(cmd.program_name):
-                return cmd.add(Metadata(effect=e))
-            case IncuCmd() if cmd.action == 'put' and cmd.incu_loc:
-                e = MovePlate(source='incu', target=cmd.incu_loc)
-                return cmd.add(Metadata(effect=e))
-            case IncuCmd() if cmd.action == 'get' and cmd.incu_loc:
-                e = MovePlate(source=cmd.incu_loc, target='incu')
-                return cmd.add(Metadata(effect=e))
-            case _:
-                return cmd
-    program = program.transform(F)
-    return program
-
 def define_plates(batch_sizes: list[int]) -> list[list[Plate]]:
     plates: list[list[Plate]] = []
 
@@ -473,10 +457,10 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
             wash_delay: list[Command]
             if step_index == 0:
                 incu_delay = [
-                    WaitForCheckpoint(f'batch {batch_index}', report_behind_time=plate is not first_plate) + f'{plate_desc} incu delay {ix}'
+                    WaitForCheckpoint(f'batch {batch_index}') + f'{plate_desc} incu delay {ix}'
                 ]
                 wash_delay = [
-                    (WaitForCheckpoint(f'batch {batch_index}', report_behind_time=plate is not first_plate) + f'{plate_desc} first wash delay').add(Metadata(log_sleep=True))
+                    WaitForCheckpoint(f'batch {batch_index}') + f'{plate_desc} first wash delay'
                 ]
             else:
                 incu_delay = [
@@ -484,10 +468,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                 ]
                 wash_delay = [
                     Early(2),
-                    (
-                        WaitForCheckpoint(f'{plate_desc} incubation {ix-1}') + p.incu[i-1]
-                        # .rename('batch_index', str(batch_index))
-                    ).add(Metadata(log_sleep=True))
+                    WaitForCheckpoint(f'{plate_desc} incubation {ix-1}') + p.incu[i-1]
                 ]
 
             lid_off = [
@@ -610,7 +591,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
 
             disp_to_B21 = [
                 RobotarmCmd('disp get prep'),
-                WaitForCheckpoint(f'{plate_desc} disp {ix} done', report_behind_time=False, assume='nothing'),
+                WaitForCheckpoint(f'{plate_desc} disp {ix} done', assume='nothing'),
                 RobotarmCmd('disp get transfer'),
                 RobotarmCmd('disp get return'),
             ]

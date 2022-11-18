@@ -39,7 +39,6 @@ from .protocol import (
     define_plates,
     RobotarmCmds,
     sleek_program,
-    add_world_metadata,
     cell_paint_program,
 )
 
@@ -266,7 +265,6 @@ def wash_plates_clean(args: SmallProtocolArgs):
     world0 = World({plate.out_loc: plate.id for plate in plates})
     program = Seq(*cmds)
     program = sleek_program(program)
-    # program = add_world_metadata(program, world0)
     return Program(program, world0)
 
 @small_protocols.append
