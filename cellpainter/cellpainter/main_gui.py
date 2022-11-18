@@ -667,14 +667,16 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
 
     path_is_latest = False
     if path == 'latest':
-        path_is_latest = True
         logs = [
             (log, log.stat().st_mtime)
             for log in Path('logs').glob('*.db')
         ]
         logfile, _ = max(logs, key=lambda ab: ab[1], default=(None, None))
         if logfile:
+            path_is_latest = True
             path = str(logfile)
+        else:
+            path = None
 
     m = store.cookie
     if not path:
