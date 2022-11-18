@@ -491,23 +491,7 @@ class AnalyzeResult:
                 ''',
                 onclick=None if t_end is None else store.update(t_end, int(row.t0 + 1)).goto(),
                 css__='cursor: pointer' if t_end is not None else '',
-                data_t0=str(row.t0),
-                data_t=str(row.t),
             )
-
-        if t_end:
-            # store update cannot be called this way :/
-            area.onclick += call(store.update, t_end, js('''
-                (() => {
-                    let frac = event.offsetY / event.target.clientHeight
-                    let t = Number(event.target.dataset.t)
-                    let t0 = Number(event.target.dataset.t0)
-                    let d = t - t0
-                    let T = t0 + frac * d
-                    console.log(T, t0, t, d, frac)
-                    return T
-                })()
-            '''))
 
         return area
 
