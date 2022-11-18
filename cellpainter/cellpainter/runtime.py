@@ -59,9 +59,9 @@ class RuntimeConfig:
 
     def make_runtime(self) -> Runtime:
         return Runtime(
-            config=self | p,
-            timelike=self.make_timelike() | p,
-            log_db=DB.connect(self.log_filename if self.log_filename else ':memory:') | p,
+            config=self,
+            timelike=self.make_timelike(),
+            log_db=DB.connect(self.log_filename if self.log_filename else ':memory:'),
         )
 
     def make_timelike(self) -> Timelike:
