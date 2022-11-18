@@ -24,7 +24,7 @@ class Metadata:
     substep: str = ''      # 'incu -> B21'
     slot: int = 0          # 1               (for --visualize, derived from substep)
     section: str = ''      # 'Mito 0'        (f'{step} {batch_index}', for gui columns)
-    stage: str = ''        # 'Mito, plate 1' (f'{step} {plate_id}', for start from stage)
+    stage: str = ''        # 'Mito, plate 1' (f'{step}, {plate_id}', for start from stage)
 
     thread_resource: str | None = None
     predispense: bool = False
