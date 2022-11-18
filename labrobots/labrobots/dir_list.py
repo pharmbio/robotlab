@@ -6,6 +6,7 @@ from typing import *
 import typing_extensions as tx
 from .machine import Machine
 from dataclasses import *
+import base64
 
 class PathInfo(tx.TypedDict):
     '''
@@ -26,6 +27,12 @@ class PathInfo(tx.TypedDict):
     path: str
     full: str
     modified: str
+
+class ReadFile(tx.TypedDict):
+    name: str  # path relative to root
+    full: str  # full path
+    mtime: int # seconds since 1970
+    data_b64: str  # base64 encoded bytes
 
 @dataclass(frozen=True)
 class DirList(Machine):
@@ -53,7 +60,21 @@ class DirList(Machine):
             ]
         return value
 
+    def read(self, filepath: str) -> ReadFile:
+        assert '..' not in filepath
+        assert not filepath.startswith('/')
+        path = self.root / filepath
+        return ReadFile(
+            name=filepath,
+            full=str(path.resolve()),
+            mtime=int(path.stat().st_mtime),
+            data_b64=base64.b64encode(path.read_bytes()).decode('ascii'),
+        )
+
     def hts_mod(self, path: str, experiment_set: str, experiment_base_name: str):
+        '''
+        Modifies the experiment name in the IMX microscopes .HTS protocol files.
+        '''
         assert self.enable_hts_mod
         full_path = (self.root / Path(path)).resolve()
         lines = full_path.read_bytes().splitlines(keepends=True)
