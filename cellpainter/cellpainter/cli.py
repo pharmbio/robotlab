@@ -184,7 +184,8 @@ def main_with_args(args: Args, parser: argparse.ArgumentParser | None=None):
             log_path.unlink(missing_ok=True)
 
             if config.name == 'live' and args.protocol_dir:
-                protocol_paths.add_protocol_dir_as_sqlar(log_filename, args.protocol_dir)
+                with pbutils.timeit(f'saving {args.protocol_dir} protocol files'):
+                    protocol_paths.add_protocol_dir_as_sqlar(log_filename, args.protocol_dir)
 
         execute.execute_program(config, p, sim_delays=parse_sim_delays(args))
         # if re.match('time.bioteks', p.metadata.get('program', '')) and config.name == 'live':
