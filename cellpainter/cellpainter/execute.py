@@ -197,7 +197,7 @@ def remove_stages(program: Program, until_stage: str) -> Program:
         if isinstance(cmd, Meta) and (stage := cmd.metadata.stage):
             if stages.index(stage) < until_index:
                 for c in cmd.universe():
-                    if isinstance(c, Meta) and (effect := c.effect()) is not None:
+                    if (effect := c.effect()) is not None:
                         effects.append(effect)
                 return Seq()
         return cmd
