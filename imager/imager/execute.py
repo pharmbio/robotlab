@@ -24,24 +24,12 @@ class FridgeSlot(DBMixin):
     loc: str = ""
     occupant: FridgeOccupant | None = None
     id: int = -1
-    __meta__: ClassVar = Meta(
-        log=True,
-        views={
-            'project': 'value ->> "occupant.project"',
-            'barcode': 'value ->> "occupant.barcode"',
-        },
-    )
 
 @dataclass(frozen=True)
 class Checkpoint(DBMixin):
     name: str = ""
     t: datetime = field(default_factory=datetime.now)
     id: int = -1
-    __meta__: ClassVar = Meta(
-        views={
-            't': 'value ->> "t.value"',
-        },
-    )
 
 @dataclass(frozen=True)
 class QueueItem(DBMixin):
@@ -51,14 +39,6 @@ class QueueItem(DBMixin):
     error: str | None = None
     pos: int = -1
     id: int = -1
-    __meta__: ClassVar = Meta(
-        log=True,
-        views={
-            'type': 'value ->> "cmd.type"',
-            'started': 'value ->> "started.value"',
-            'finished': 'value ->> "finished.value"',
-        },
-    )
 
 pbutils.serializer.register(globals())
 

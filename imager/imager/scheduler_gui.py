@@ -272,7 +272,6 @@ class PlateMetadata(DBMixin):
     base_name: str = ''
     hts_file: str = ''
     id: int = -1
-    __meta__ = Meta(log=True)
 
 serializer.register(globals())
 

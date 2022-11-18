@@ -23,16 +23,6 @@ class Curl(DBMixin):
     started: datetime | None = None
     finished: datetime | None = None
     id: int = -1
-    __meta__: ClassVar = Meta(
-        views={
-            'success': 'value ->> "res.success"',
-            'started': 'value ->> "started.value"',
-            'finished': 'value ->> "finished.value"',
-            'lines': 'value ->> "value.res.lines"',
-            'success': 'value ->> "value.res.success"',
-            'valval': 'value ->> "value.res.value"',
-        },
-    )
 
 pbutils.serializer.register(globals())
 
