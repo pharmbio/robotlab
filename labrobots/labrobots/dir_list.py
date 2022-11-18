@@ -30,7 +30,6 @@ class PathInfo(tx.TypedDict):
 
 class ReadFile(tx.TypedDict):
     name: str  # path relative to root
-    full: str  # full path
     mtime: int # seconds since 1970
     data_b64: str  # base64 encoded bytes
 
@@ -60,16 +59,18 @@ class DirList(Machine):
             ]
         return value
 
-    def read(self, filepath: str) -> ReadFile:
-        assert '..' not in filepath
-        assert not filepath.startswith('/')
-        path = self.root / filepath
-        return ReadFile(
-            name=filepath,
-            full=str(path.resolve()),
-            mtime=int(path.stat().st_mtime),
-            data_b64=base64.b64encode(path.read_bytes()).decode('ascii'),
-        )
+    def read_files(self, subdir: str) -> List[ReadFile]:
+        value: List[ReadFile] = []
+        for lhc in self.root.glob(f'{subdir}/**/*.{self.ext}'):
+            path = str(lhc.relative_to(self.root)).replace('\\', '/')
+            value += [
+                ReadFile(
+                    name=path,
+                    mtime=int(lhc.stat().st_mtime),
+                    data_b64=base64.b64encode(lhc.read_bytes()).decode('ascii'),
+                )
+            ]
+        return value
 
     def hts_mod(self, path: str, experiment_set: str, experiment_base_name: str):
         '''
