@@ -141,6 +141,7 @@ def add_protocol_dir_as_sqlar(db_path: str, protocol_dir: str):
     '''
     files = labrobots.WindowsNUC().remote().dir_list.read_files(protocol_dir)
     with apsw.Connection(db_path) as con:
+        con: Any = con # ignore types for now
         con.execute(textwrap.dedent('''
             CREATE TABLE IF NOT EXISTS sqlar(
               name TEXT PRIMARY KEY,  -- name of the file
@@ -159,7 +160,7 @@ def add_protocol_dir_as_sqlar(db_path: str, protocol_dir: str):
                     INSERT INTO sqlar VALUES (?,?,?,?,?)
                 ''', [
                     f['name'],
-                    0o644,
+                    0o100644, # S_IFREG 100000 Regular file type
                     f['mtime'],
                     len(data),
                     data,
