@@ -33,7 +33,7 @@ from .commands import (
     WaitForCheckpoint,
     WaitForResource,
 )
-from .runtime import RuntimeConfig, Runtime, dry_run
+from .runtime import RuntimeConfig, Runtime, simulate
 from . import commands
 from . import constraints
 import pbutils
@@ -254,7 +254,7 @@ def simulate_program(program: Program, sim_delays: dict[int, float] = {}, log_fi
     program, expected_ends = prepare_program(program, sim_delays=sim_delays)
     cmd = program.command
     with pbutils.timeit('simulating'):
-        config = dry_run.replace(log_filename=log_filename)
+        config = simulate.replace(log_filename=log_filename)
         with make_runtime(config, {}, program) as runtime_est:
             execute(cmd, runtime_est, Metadata())
 

@@ -98,10 +98,10 @@ def as_stderr(log_path: str):
     return p
 
 def start(args: Args, simulate: bool):
-    config_name = 'dry-run' if simulate else config.name
+    config_name = 'simulate' if simulate else config.name
     if args.run_program_in_log_filename:
-        log_filename = re.sub(r'\d{4}[\d\-_:]*', pbutils.now_str_for_filename() + '-', args.run_program_in_log_filename)
-        log_filename = log_filename.replace('dry-run', config_name)
+        log_filename = re.sub(r'\d{4}[\d_:\.\-]*', pbutils.now_str_for_filename() + '-', args.run_program_in_log_filename)
+        log_filename = log_filename.replace('simulate', config_name)
     else:
         program_name = 'cell-paint' if args.cell_paint else args.small_protocol
         log_filename = 'logs/' + pbutils.now_str_for_filename() + f'-{program_name}-{config_name}-from-gui.db'
@@ -909,7 +909,7 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
             stderr = as_stderr(path).read_text()
         except:
             stderr = ''
-        if log and (rt := log.runtime_metadata()) and rt.config_name == 'dry-run':
+        if log and (rt := log.runtime_metadata()) and rt.config_name == 'simulate':
             simulation = True
             if not rt.completed:
                 t_high = 2**60
@@ -1222,7 +1222,7 @@ def form(*vs: Int | Str | Bool):
         )
 
 def main():
-    if config.name in ('dry-wall', 'dry-run', 'forward'):
+    if config.name in ('simulate-wall', 'simulate', 'forward'):
         host = 'localhost'
     else:
         host = '10.10.0.55'

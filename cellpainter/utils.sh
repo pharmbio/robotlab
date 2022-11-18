@@ -238,7 +238,7 @@ note '
 '
 function simulator-entr-gui {
     sleep 1
-    ls *py | entr -c -r cellpainter-moves "$@" --simulator
+    ls *py | entr -c -r cellpainter-moves "$@" --ur-simulator
 }
 
 note '

@@ -17,7 +17,7 @@ pip install --editable .
 ## Test
 
 ```
-cellpainter --cell-paint 6,6 --dry-run
+cellpainter --cell-paint 6,6 --simulate
 ```
 
 Github actions is set up, check .github/workflows/test.yml. One way to run this locally is to use [`act`](https://github.com/nektos/act).

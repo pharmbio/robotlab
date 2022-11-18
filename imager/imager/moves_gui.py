@@ -23,7 +23,7 @@ import sys
 serve.suppress_flask_logging()
 polled_info: dict[str, Any] = {}
 
-dry_run = '--dry-run' in sys.argv
+dry_run = any('--sim' in arg for arg in sys.argv)
 
 print(f'{dry_run=}')
 

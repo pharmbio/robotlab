@@ -87,11 +87,11 @@ class RuntimeConfig:
 
 configs: list[RuntimeConfig]
 configs = [
-    RuntimeConfig('live',      WallTime,      robotarm_env=RobotarmEnvs.live,      run_incu_wash_disp=True,),
-    RuntimeConfig('simulator', WallTime,      robotarm_env=RobotarmEnvs.simulator, run_incu_wash_disp=False),
-    RuntimeConfig('forward',   WallTime,      robotarm_env=RobotarmEnvs.forward,   run_incu_wash_disp=False),
-    RuntimeConfig('dry-wall',  WallTime,      robotarm_env=RobotarmEnvs.dry,       run_incu_wash_disp=False),
-    RuntimeConfig('dry-run',   SimulatedTime, robotarm_env=RobotarmEnvs.dry,       run_incu_wash_disp=False),
+    RuntimeConfig('live',         WallTime,      robotarm_env=RobotarmEnvs.live,      run_incu_wash_disp=True,),
+    RuntimeConfig('ur-simulator', WallTime,      robotarm_env=RobotarmEnvs.simulator, run_incu_wash_disp=False),
+    RuntimeConfig('forward',      WallTime,      robotarm_env=RobotarmEnvs.forward,   run_incu_wash_disp=False),
+    RuntimeConfig('simulate-wall',     WallTime,      robotarm_env=RobotarmEnvs.dry,       run_incu_wash_disp=False),
+    RuntimeConfig('simulate',          SimulatedTime, robotarm_env=RobotarmEnvs.dry,       run_incu_wash_disp=False),
 ]
 
 def config_lookup(name: str) -> RuntimeConfig:
@@ -100,7 +100,7 @@ def config_lookup(name: str) -> RuntimeConfig:
             return config
     raise KeyError(name)
 
-dry_run = config_lookup('dry-run')
+simulate = config_lookup('simulate')
 
 def trim_LHC_filenames(s: str) -> str:
     if '.LHC' in s:
@@ -157,7 +157,7 @@ class Runtime:
         if self.log_db:
             self.log_db.con.execute('pragma synchronous=OFF;')
 
-        if self.config.name != 'dry-run':
+        if self.config.name != 'simulate':
             def handle_signal(signum: int, _frame: Any):
                 signal.signal(signal.SIGINT, signal.SIG_DFL)
                 signal.signal(signal.SIGQUIT, signal.SIG_DFL)
@@ -251,7 +251,7 @@ class Runtime:
             try:
                 next = effect.apply(self.world)
             except Exception as error:
-                fatal = self.config.name == 'dry-run'
+                fatal = self.config.name == 'simulate'
                 msg = pbutils.show({
                     'message': 'Cannot apply effect at this world',
                     'effect': effect,

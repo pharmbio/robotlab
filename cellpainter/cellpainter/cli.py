@@ -34,7 +34,7 @@ from pbutils.args import arg, option
 @dataclass(frozen=True)
 class Args:
     config_name: str = arg(
-        'dry-run',
+        'simulate',
         enum=[option(c.name, c.name, help='Run with config ' + c.name) for c in configs]
     )
     cell_paint:                str  = arg(help='Cell paint with batch sizes separated by comma (such as 6,6 for 2x6). Plates start stored in incubator L1, L2, ..')
@@ -165,7 +165,7 @@ def main_with_args(args: Args, parser: argparse.ArgumentParser | None=None):
             execute.execute_simulated_program(config, db)
 
     elif p := args_to_program(args):
-        if config.name != 'dry-run' and p.doc and not args.yes:
+        if config.name != 'simulate' and p.doc and not args.yes:
             confirm(p.doc)
 
         if not args.log_filename:
@@ -174,7 +174,7 @@ def main_with_args(args: Args, parser: argparse.ArgumentParser | None=None):
                 **p.metadata,
                 'config_name': config.name,
             }
-            log_filename = ' '.join(['event log', *metadata.values()])
+            log_filename = ' '.join(metadata.values())
             log_filename = 'logs/' + log_filename.replace(' ', '_') + '.db'
             config = config.replace(log_filename=log_filename)
 

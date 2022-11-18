@@ -115,7 +115,7 @@ def read_commasep(s: str, p: Callable[[str], A] = lambda x: x) -> list[A]:
     return [p(x.strip()) for x in s.strip().split(',') if x.strip()]
 
 def now_str_for_filename() -> str:
-    return datetime.now().replace(microsecond=0).isoformat(sep='_')
+    return datetime.now().replace(microsecond=0).isoformat(sep='_').replace(':', '.')
 
 def iterate_with_full_context(xs: Iterable[A]) -> list[tuple[list[A], A, list[A]]]:
     xs = list(xs)

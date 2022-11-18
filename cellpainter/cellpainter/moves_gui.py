@@ -607,7 +607,7 @@ def index() -> Iterator[Tag | dict[str, str]]:
 
 def main():
     host = '10.10.0.55'
-    if config.name in ('dry-run', 'forward'):
+    if config.name in ('simulate', 'forward'):
         host = 'localhost'
     serve.run(
         port=5000,
