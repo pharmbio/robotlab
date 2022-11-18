@@ -94,7 +94,7 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
 
         case Fork():
             thread_resource = cmd.resource
-            thread_metadata = Metadata(thread_resource=thread_resource)
+            thread_metadata = metadata.merge(Metadata(thread_resource=thread_resource))
 
             @runtime.spawn
             def fork():
