@@ -141,7 +141,7 @@ def add_protocol_dir_as_sqlar(db_path: str, protocol_dir: str):
     '''
     files = labrobots.WindowsNUC().remote().dir_list.read_files(protocol_dir)
     with apsw.Connection(db_path) as con:
-        con.executescript(textwrap.dedent('''
+        con.execute(textwrap.dedent('''
             CREATE TABLE IF NOT EXISTS sqlar(
               name TEXT PRIMARY KEY,  -- name of the file
               mode INT,               -- access permissions
