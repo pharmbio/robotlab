@@ -53,6 +53,8 @@ class Serializer:
                 d = asdict_shallow(x)
             cls = x.__class__
             type = cls.__name__
+            if type not in self.classes:
+                raise KeyError(f'{type=} {x=}')
             assert self.classes[type] == cls
             assert 'type' not in d
             return self.to_json({'type': type, **d}, with_nub=with_nub)

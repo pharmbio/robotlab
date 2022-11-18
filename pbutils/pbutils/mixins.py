@@ -1,7 +1,6 @@
 from __future__ import annotations
 from contextlib import contextmanager
 from dataclasses import *
-from urllib.request import DataHandler
 import apsw
 import textwrap
 
@@ -494,10 +493,11 @@ class DBMixin(ReplaceMixin):
 
 @dataclass(frozen=True)
 class Meta:
-    log: bool = False
-    log_table: None | str = None
-    views: dict[str, str] = field(default_factory=dict)
-    indexes: dict[str, str] = field(default_factory=dict)
+    pass
+    # log: bool = False
+    # log_table: None | str = None
+    # views: dict[str, str] = field(default_factory=dict)
+    # indexes: dict[str, str] = field(default_factory=dict)
 
 import sys, functools, inspect
 
