@@ -9,6 +9,7 @@ def minify_string() -> Callable[[str, str], str]:
         import minify           # type: ignore
         return minify.string    # type: ignore
     except Exception as e:
+        # alternative: https://github.com/wilsonzlin/minify-html
         print('Not using tdewolff-minify:', str(e), file=sys.stderr)
         return lambda _, s: s
 

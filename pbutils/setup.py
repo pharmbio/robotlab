@@ -2,9 +2,11 @@ from setuptools import setup
 
 requirements = '''
     apsw>=3.39.3
+    executing
 '''
 
 console_scripts = '''
+    pbutils-check=pbutils.check:main
 '''
 
 name='pbutils'

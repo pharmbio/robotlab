@@ -13,11 +13,10 @@ from .nub import nub # type: ignore
 from .pp import show, pr, Color # type: ignore
 from .profiling import timeit, memit # type: ignore
 from .args import doc_header # type: ignore
+from .check import check
 
 import json
 from urllib.request import urlopen, Request
-
-from viable import check
 
 import functools
 
@@ -272,3 +271,16 @@ class PP:
         return thing
 
 p = PP()
+
+def TODO(*args: Any) -> None:
+    from pathlib import Path
+    import inspect
+    _, fr, *_ = inspect.getouterframes(inspect.currentframe())
+    filename = Path(fr.filename).relative_to(Path.cwd())
+    header = f'{filename}:{fr.lineno}:{fr.function}:'
+    return _TODO(header, *args)
+
+@functools.cache
+def _TODO(*args: Any) -> None:
+    import sys
+    print(*args, file=sys.stderr)

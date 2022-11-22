@@ -1,11 +1,11 @@
 from __future__ import annotations
 from dataclasses import *
-from types import FunctionType, CellType, MethodType, CodeType
 from typing import *
+from types import FunctionType, CellType, MethodType, CodeType
 import marshal
 import sys
 
-from .check import check
+from pbutils import check
 
 @dataclass(frozen=True, slots=True)
 class Box:
