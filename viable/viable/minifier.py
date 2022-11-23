@@ -19,6 +19,6 @@ def minify(s: str, loader: str='js') -> str:
     elif loader in ('html', 'css'):
         loader = 'text/' + loader
     else:
-        print('???', loader)
+        print(f'Unknown {loader=}')
         return(s)
     return minify_string()(loader, s)

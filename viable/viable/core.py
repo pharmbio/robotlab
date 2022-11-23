@@ -10,6 +10,8 @@ import sys
 import traceback
 import time
 import functools
+import json
+import base64
 from pathlib import Path
 
 from flask import request, jsonify, make_response, Flask
@@ -21,7 +23,7 @@ from pbutils import TODO
 from .tags import Node, Tag, Tags, raw
 from .minifier import minify
 from .call_js import CallJS
-from .provenance import add_request_data, request_data, write
+from .provenance import add_request_data, request_data
 
 def is_true(x: str | bool | int | None):
     return str(x).lower() in 'true y yes 1'.split()
@@ -40,8 +42,8 @@ def get_viable_js():
     from .viable_js import viable_js
     res = viable_js
     if env.VIABLE_HOT:
-        res += 'poll()'
-    res = minify(res)
+        res += '\npoll()'
+    # res = minify(res)
     return res
 
 def read_secret() -> str:
@@ -90,6 +92,7 @@ class Serve:
 
     def route(self, rule: str = '/'):
         def inner(f: Callable[..., Iterable[Node | str | dict[str, str]]]):
+
             self._routes_added.append(f)
             endpoint = f'viable_{f.__name__}_{len(self._routes_added)}' # flask insists on getting an endpoint name
             self.app.add_url_rule( # type: ignore
@@ -108,7 +111,9 @@ class Serve:
         return inner
 
     def view(self, f: Callable[..., Iterable[Node | str | dict[str, str]]], *args: Any, **kws: Any) -> Response:
+
         add_request_data(self._call_js)
+
         try:
             parts = f(*args, **kws)
             body_node = Tags.body(*cast(Any, parts))
@@ -162,6 +167,7 @@ class Serve:
             head_node += Tags.link(rel="icon", type="image/png", href="data:image/png;base64,iVBORw0KGgo=")
 
         compress = bool(re.search('gzip|br|deflate', cast(Any, request).headers.get('Accept-encoding', '')))
+        compress = False
         indent = 0 if compress else 2
         newline = '' if compress else '\n'
 
@@ -170,12 +176,17 @@ class Serve:
         if classes:
             head_node += Tags.style(raw('\n'.join(inst for _, inst in classes.values())))
 
-        head_node += Tags.script(src=f"/viable.js") # , defer=True)
+        head_node += Tags.script(src='/viable.js') # , defer=True)
 
-        if request_data().did_request_session():
+        req_data = request_data()
+        if updates := req_data.updates():
+            # body = base64.b64encode(json.dumps(req_data.updates(), ensure_ascii=True).encode('ascii')).decode()
+            # body_node += Tags.script(raw(f'handle_call_updates(JSON.parse(atob({body!r})))'), eval=True)
+            updates_json = json.dumps(updates, ensure_ascii=True, separators=(',', ':'))
+            code = f'handle_call_updates({updates_json})'.replace('<', r'\x3C')
+            body_node += Tags.script(raw(code), eval=True)
+        elif not req_data.session_provided and req_data.did_request_session():
             body_node += Tags.script('refresh()', eval=True)
-        if vals := request_data().written_values:
-            body_node += Tags.script(raw(self.call(write, vals)), eval=True)
 
         html_str = (
             f'<!doctype html>{newline}' +

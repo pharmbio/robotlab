@@ -1,4 +1,5 @@
-viable_js = str(r'''
+import textwrap
+viable_js = textwrap.dedent(r'''
     async function call(...args) {
         const resp = await fetch('/call', {
             method: 'POST',
@@ -6,6 +7,9 @@ viable_js = str(r'''
             body: JSON.stringify({...state(), args: [...args]}),
         })
         const body = await resp.json()
+        await handle_call_updates(body)
+    }
+    async function handle_call_updates(body) {
         if (body.query) {
             update_query(body.query)
         }
@@ -30,7 +34,7 @@ viable_js = str(r'''
     }
     function get_session() {
         try {
-            return JSON.parse(sessionStorage.getItem('v'))
+            return JSON.parse(sessionStorage.getItem('v')) || {}
         } catch (e) {
             return {}
         }
@@ -49,19 +53,23 @@ viable_js = str(r'''
     }
 
     let current_refresh = null
+    let needs_refresh = false
     async function refresh() {
+        needs_refresh = true
         if (!current_refresh) {
             current_refresh = refresh_worker()
         }
-        try {
-            return await current_refresh
-        } finally {
-            current_refresh = null
+        const res = await current_refresh
+        if (needs_refresh == true) {
+            refresh()
         }
+        return res
     }
     async function refresh_worker() {
         const html = document.querySelector('html')
+        needs_refresh = false
         html.setAttribute('loading', '1')
+        let doc
         try {
             const resp = await fetch(location.href, {
                 method: 'POST',
@@ -69,28 +77,31 @@ viable_js = str(r'''
                 body: JSON.stringify(state()),
             })
             const text = await resp.text()
-        } catch (e) {
-            return {'ok': false}
-        }
-        if (text === null) {
-            return {'ok': false}
-        }
-        try {
             const parser = new DOMParser()
-            const doc = parser.parseFromString(text, "text/html")
-            morph(document.head, doc.head)
-            morph(document.body, doc.body)
-            for (const script of document.querySelectorAll('script[eval]')) {
-                (0, eval)(script.textContent)
-            }
+            doc = parser.parseFromString(text, "text/html")
         } catch (e) {
-            console.warn(e)
+            current_refresh = null
+            return {'ok': false}
+        }
+        morph(document.head, doc.head)
+        morph(document.body, doc.body)
+        const scripts = []
+        for (const script of document.querySelectorAll('script[eval]')) {
+            scripts.push(script.textContent)
+        }
+        for (const script of scripts) {
+            try {
+                ;(0, eval)(script)
+            } catch (e) {
+                console.error(e)
+            }
         }
         requestAnimationFrame(() => {
             if (!current_refresh) {
                 html.setAttribute('loading', '0')
             }
         })
+        current_refresh = null
         return {'ok': true}
     }
     async function poll() {
@@ -100,11 +111,14 @@ viable_js = str(r'''
                 const body = await resp.json()
                 continue
             } catch (e) {
-                console.warn('poll', e)
+                console.info(`🔁 refreshing... (${e.toString().replace('TypeError: ', '')} /ping)`)
+                const t0 = Date.now()
                 let retries = 0
                 while (true) {
                     const res = await refresh()
                     if (res.ok) {
+                        const t = Date.now()
+                        console.info(`✅ refreshed! (${t - t0} ms)`)
                         break
                     }
                     const timeout_ms = retries < 100 ? 50 : 2000
@@ -191,10 +205,13 @@ viable_js = str(r'''
         )
     }
 
+''').strip()
+
+'''
     function replace_pathname(s) {
         // unused for now
         let next = new URL(location.href)
         next.pathname = s
         return next.href
     }
-''')
+'''

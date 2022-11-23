@@ -1,5 +1,5 @@
 imager*.db
-viable.db
+.viable.secret
 egg-info
 cache
 .sw*

@@ -16,11 +16,12 @@ import json
 
 from .tags import Tags, Node
 from .call_js import CallJS, js
-from pbutils import check
+from pbutils import check, p
 
 @dataclass(frozen=True)
 class ViableRequestData:
     call_js: CallJS
+    session_provided: bool
     initial_values: dict[tuple[str, str], Any]
     written_values: dict[tuple[str, str], Any] = field(default_factory=dict)
     created_vars: list[Var[Any]] = field(default_factory=list)
@@ -29,7 +30,7 @@ class ViableRequestData:
         t = provenance, name
         if t in self.written_values:
             return self.written_values[t]
-        return self.initial_values[t]
+        return self.initial_values.get(t, default)
         raise ValueError(f'Invalid {provenance=}')
 
     def set(self, provenance: str, name: str, next: Any) -> Any:
@@ -38,7 +39,7 @@ class ViableRequestData:
 
     def updates(self):
         g: dict[str, dict[str, Any]] = DefaultDict(dict)
-        for (provenance, name), v in self.written_values:
+        for (provenance, name), v in self.written_values.items():
             g[provenance][name] = v
         return g
 
@@ -48,26 +49,26 @@ class ViableRequestData:
 def add_request_data(call_js: CallJS):
     query: dict[str, Any]
     session: dict[str, Any]
-    if (body := request.json):
-        query = body.get('query')
-        session = body.get('session')
+    if (body := request.get_json(force=True, silent=True)) is not None:
+        query = body.get('query', {})
+        session = body.get('session', {})
+        session_provided = True
     else:
         query = dict(request.args)
         session = {}
+        session_provided = False
     initial_values: dict[tuple[str, str], Any] = {}
     initial_values |= {('query', k): v for k, v in query.items()}
     initial_values |= {('session', k): v for k, v in session.items()}
     g.viable_request_data = this = ViableRequestData(
         call_js=call_js,
+        session_provided=session_provided,
         initial_values=initial_values
     )
     return this
 
 def request_data() -> ViableRequestData:
     return g.viable_request_data
-
-def write(values: dict[tuple[str, str], Any]):
-    request_data().written_values.update(values)
 
 def get_store() -> Store:
     if not g.get('viable_stores'):
@@ -116,6 +117,7 @@ class Var(Generic[A], abc.ABC):
                 if v._sub_prefix == store.sub_prefix
             )
             self.name = f'_{filtered_count}'
+        request_data().created_vars.append(self)
 
     def rename(self, new_name: str):
         if not self.name.startswith('_'):
@@ -333,7 +335,7 @@ class Store:
         assert res is self
 
     def at(self, provenance: str):
-        return replace(self, default_provenance=provenance)
+        return replace(self, provenance=provenance)
 
     def sub(self, prefix: str):
         full_prefix = self.sub_prefix + prefix + '_'
