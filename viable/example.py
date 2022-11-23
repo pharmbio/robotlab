@@ -1,6 +1,6 @@
 import viable as V
 import time
-from viable import Serve, Flask, call, store
+from viable import Serve, Flask, call, store, js, div
 
 serve = Serve(app := Flask(__name__))
 
@@ -10,15 +10,19 @@ def index():
     y = store.str()
     z = store.str()
     store.assign_names(locals())
-    if y.value:
+    if y.value and 0:
         if not y.value.isdigit():
             y.assign('1')
         time.sleep(0.1)
         y.assign(str(int(y.value) + 1))
         x.assign('</script>')
-    yield x.input()
-    yield y.input()
-    yield z.input()
-    yield x.value
-    yield y.value
-    yield z.value
+    yield div(
+        x.input(),
+        y.input(),
+        z.input(),
+        x.value,
+        y.value,
+        z.value,
+    )
+    for i in range(3):
+        yield V.button(f'bla {i}', onclick=call(lambda t=js('this.outerHTML'): print(t)))

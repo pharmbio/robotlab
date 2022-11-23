@@ -283,4 +283,4 @@ def TODO(*args: Any) -> None:
 @functools.cache
 def _TODO(*args: Any) -> None:
     import sys
-    print(*args, file=sys.stderr)
+    print(Color().red('TODO:'), *args, file=sys.stderr)

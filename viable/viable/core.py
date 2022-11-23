@@ -46,14 +46,9 @@ def get_viable_js():
     # res = minify(res)
     return res
 
-def read_secret() -> str:
-    secret_file = Path('.viable.secret')
-    if not secret_file.exists():
-        secret_file.write_text(secrets.token_hex(32))
-    return secret_file.read_text()
-
 def serializer_factory() -> Serializer:
-    return URLSafeSerializer(read_secret(), serializer=pickle)
+    secret = secrets.token_hex(32)
+    return URLSafeSerializer(secret, serializer=pickle)
 
 P = ParamSpec('P')
 R = TypeVar('R')

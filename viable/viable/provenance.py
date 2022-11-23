@@ -84,11 +84,11 @@ call = LocalProxy(get_call)
 
 A = TypeVar('A')
 B = TypeVar('B')
-def None_map(x: A | None, f: Callable[[A], B]) -> B | None:
-    if x is None:
+def None_map(set: A | None, f: Callable[[A], B]) -> B | None:
+    if set is None:
         return None
     else:
-        return f(x)
+        return f(set)
 
 @dataclass
 class Var(Generic[A], abc.ABC):
@@ -141,8 +141,19 @@ class Var(Generic[A], abc.ABC):
         # from_str ??
         return request_data().get(self._provenance, self.full_name, self.default)
 
-    def assign(self, next: A):
-        request_data().set(self._provenance, self.full_name, next)
+    @property
+    def assign(self) -> Callable[[A], None]:
+        table = {'query': 0, 'session': 1}
+        provenance_int = table[self.provenance]
+        full_name = self.full_name
+        # def set(next: A):
+        #     provenance = 'query session'.split()[provenance_int]
+        #     request_data().set(provenance, full_name, next)
+        # return set
+        def set(next: A, provenance_int: int=provenance_int, full_name: str=full_name):
+            provenance = 'query session'.split()[provenance_int]
+            request_data().set(provenance, full_name, next)
+        return set
 
     def assign_default(self):
         request_data().set(self._provenance, self.full_name, self.default)
@@ -221,8 +232,8 @@ class Int(Var[int]):
     def number(self):
         return self.input(type='number')
 
-def is_true(x: str | bool | int | None):
-    return str(x).lower() in 'true y yes 1'.split()
+def is_true(set: str | bool | int | None):
+    return str(set).lower() in 'true y yes 1'.split()
 
 @dataclass
 class Bool(Var[bool]):
@@ -354,14 +365,14 @@ class Store:
 @check.test
 def test():
     s = Store()
-    x = s.int()
-    sx = s[x]
+    set = s.int()
+    sx = s[set]
     check(sx.provenance == 'cookie')
     check(sx.name == '_0')
     s.assign_names(globals() | locals())
-    sx = s[x]
+    sx = s[set]
     check(sx.provenance == 'cookie')
-    check(sx.name == 'x')
+    check(sx.name == 'set')
 
     y = s.query.bool()
     check(s[y].provenance == 'query')
@@ -371,7 +382,7 @@ def test_app():
     from flask import Flask
     app = Flask(__name__)
     with app.test_request_context(path='http://localhost:5050?a_y=ayay'):
-        x = store.cookie.str(default='xoxo')
+        set = store.cookie.str(default='xoxo')
 
         with store.query:
             with store.sub('a'):
@@ -382,13 +393,13 @@ def test_app():
 
         store.assign_names(locals())
 
-        check(store[x].provenance == 'cookie')
+        check(store[set].provenance == 'cookie')
         check(store[y].provenance == 'query')
         check(store[z].provenance == 'query')
-        check(store[x].full_name == 'x')
+        check(store[set].full_name == 'set')
         check(store[y].full_name == 'a_y')
         check(store[z].full_name == 'b_c_d_z')
-        check(x.value == 'xoxo')
+        check(set.value == 'xoxo')
         check(y.value == 'ayay')
         check(store[y].default_value == 'ynone')
         check(store[y].initial_value == 'ayay')
