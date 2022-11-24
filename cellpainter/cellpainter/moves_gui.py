@@ -3,7 +3,6 @@ from typing import *
 
 from dataclasses import *
 
-from flask import request
 from pathlib import Path
 import ast
 import math
@@ -16,12 +15,9 @@ from . import robotarm
 from . import runtime
 import pbutils
 
-from viable import head, serve, esc, css_esc, button, pre
-from viable import call, js
-from viable import Tag, div, span, label, img, raw, input
+from viable import store, js, call, Serve, Flask, Int, Str, Bool
+from viable import Tag, div, span, label, button, pre, input
 import viable as V
-
-serve.suppress_flask_logging()
 
 import sys
 
@@ -34,6 +30,9 @@ else:
     raise ValueError('Start with one of ' + ', '.join('--' + c.name for c in runtime.configs))
 
 print(f'Running with {config.name=}', config)
+
+serve = Serve(Flask(__name__))
+serve.suppress_flask_logging()
 
 polled_info: dict[str, list[float]] = {}
 
@@ -80,8 +79,6 @@ def poll() -> None:
                     v = m.group(1).decode(errors='replace')
                     prev = polled_info.copy()
                     polled_info.update(ast.literal_eval(v))
-                    if prev != polled_info:
-                        serve.reload()
                 except:
                     import traceback as tb
                     tb.print_exc()
@@ -214,8 +211,10 @@ def get_programs() -> dict[str, Path]:
 @serve.route('/')
 def index() -> Iterator[Tag | dict[str, str]]:
     programs = get_programs()
-    program_name = request.args.get('program', list(programs.keys())[0])
-    section: tuple[str, ...] = tuple(request.args.get('section', "").split())
+    program_var = store.query.str(name='program')
+    section_var = store.query.str(name='section')
+    program_name = program_var.value or list(programs.keys())[0]
+    section: tuple[str, ...] = tuple(section_var.value.split())
     ml = MoveList.read_jsonl(programs[program_name])
 
     yield V.title(' '.join([program_name, *section]))
@@ -293,9 +292,10 @@ def index() -> Iterator[Tag | dict[str, str]]:
                     background: #ecf;
                 }
             ''',
-            onclick=f'''
-                set_query({{program: {name!r}}}); refresh()
-            ''')
+            onclick=call(lambda: [
+                program_var.assign(name),
+                section_var.assign(''),
+            ]))
     yield header
 
     info = {
@@ -378,7 +378,7 @@ def index() -> Iterator[Tag | dict[str, str]]:
             row += sect
             sect += button(program_name,
                 tabindex='-1',
-                onclick="update_query({ section: '' })",
+                onclick=call(section_var.assign, ''),
                 style="cursor: pointer;"
             )
             seen: list[str] = []
@@ -386,7 +386,7 @@ def index() -> Iterator[Tag | dict[str, str]]:
                 seen += [s]
                 sect += button(s,
                     tabindex='-1',
-                    onclick=f"update_query({{ section: {' '.join(seen)!r} }})",
+                    onclick=call(section_var.assign, ' '.join(seen)),
                     style="cursor: pointer;"
                 )
             continue
@@ -604,6 +604,8 @@ def index() -> Iterator[Tag | dict[str, str]]:
     for speed in [25, 50, 80, 100]:
         speed_btns += button(f'set speed to {speed}', tabindex='-1', onclick=call(arm_set_speed, speed))
     foot += speed_btns
+
+    yield V.queue_refresh(150)
 
 def main():
     host = '10.10.0.55'

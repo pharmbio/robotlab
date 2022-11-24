@@ -255,7 +255,10 @@ class PP:
         src = re.sub(r'\s*\|\s*p\s*$', '', src, flags=re.MULTILINE)
         src = re.sub(r'^\s*p\s*\|\s*', '', src, flags=re.MULTILINE)
         fmt = pformat(thing)
-        filename = Path(fr.filename).relative_to(Path.cwd())
+        try:
+            filename = Path(fr.filename).relative_to(Path.cwd())
+        except:
+            filename = fr.filename
         if len(fmt) < 40 and '\n' not in fmt:
             print(f'{filename}:{fr.lineno}:{src} = {fmt}')
         else:
@@ -276,7 +279,10 @@ def TODO(*args: Any) -> None:
     from pathlib import Path
     import inspect
     _, fr, *_ = inspect.getouterframes(inspect.currentframe())
-    filename = Path(fr.filename).relative_to(Path.cwd())
+    try:
+        filename = Path(fr.filename).relative_to(Path.cwd())
+    except:
+        filename = fr.filename
     header = f'{filename}:{fr.lineno}:{fr.function}:'
     return _TODO(header, *args)
 
