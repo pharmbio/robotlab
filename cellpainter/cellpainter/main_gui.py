@@ -1,8 +1,6 @@
 from __future__ import annotations
 from typing import *
 
-from flask import jsonify
-
 from viable import store, js, call, Serve, Flask, Int, Str, Bool
 from viable import Tag, div, span, label, button, pre
 import viable as V
@@ -10,7 +8,6 @@ import viable as V
 from collections import *
 from dataclasses import *
 from datetime import datetime, timedelta
-import functools
 
 from pathlib import Path
 from subprocess import Popen, DEVNULL
@@ -26,7 +23,7 @@ import textwrap
 import subprocess
 
 from .log import Log
-from .cli import Args, args_to_stages
+from .cli import Args
 from . import cli
 
 from . import commands
@@ -52,6 +49,20 @@ print(f'Running with {config.name=}')
 
 serve = Serve(Flask(__name__))
 serve.suppress_flask_logging()
+
+path_var = Str(name='log', _provenance='query')
+
+def path_var_value():
+    if path_var.value:
+        return 'logs/' + path_var.value
+    else:
+        return ''
+
+def path_var_assign(path: str, push_state: bool=True):
+    if push_state:
+        path_var.push(path.removeprefix('logs/'))
+    else:
+        path_var.assign(path.removeprefix('logs/'))
 
 def sigint(pid: int):
     os.kill(pid, signal.SIGINT)
@@ -96,7 +107,7 @@ def as_stderr(log_path: str):
     p = p.with_suffix('.stderr')
     return p
 
-def start(args: Args, simulate: bool, replace_state: bool=False):
+def start(args: Args, simulate: bool, push_state: bool=False):
     config_name = 'simulate' if simulate else config.name
     if args.run_program_in_log_filename:
         log_filename = re.sub(r'\d{4}[\d_:\.\-]*', pbutils.now_str_for_filename() + '-', args.run_program_in_log_filename)
@@ -123,11 +134,7 @@ def start(args: Args, simulate: bool, replace_state: bool=False):
         as_stderr(log_filename),
     ]
     Popen(cmd, start_new_session=True, stdout=DEVNULL, stderr=DEVNULL, stdin=DEVNULL)
-    path_var = store.query.str(name='path')
-    if replace_state:
-        path_var.assign(log_filename)
-    else:
-        path_var.push(log_filename)
+    path_var_assign(log_filename, push_state=push_state)
 
 def path_to_log(path: str) -> Log | None:
     try:
@@ -496,7 +503,6 @@ class AnalyzeResult:
             )
 
         if t_end:
-            # store update cannot be called this way :/
             area.onmousemove += js(f'''
                 if (!event.buttons) return
                 let frac = (event.offsetY - 2) / event.target.clientHeight
@@ -607,8 +613,7 @@ def index(path_from_route: str | None = None) -> Iterator[Tag | V.Node | dict[st
         '''
     }
 
-    path_var = store.query.str(name='path')
-    path = path_var.value or path_from_route
+    path = path_var_value() or path_from_route
 
     yield V.head(V.title('cell painter - ', path or ''))
 
@@ -759,7 +764,10 @@ def index(path_from_route: str | None = None) -> Iterator[Tag | V.Node | dict[st
             args = None
 
         if args:
-            stages = cli.args_to_stages(args)
+            try:
+                stages = cli.args_to_stages(args)
+            except:
+                stages = []
             if stages:
                 start_from_stage = m.str(
                     name='start from stage',
@@ -847,7 +855,7 @@ def index(path_from_route: str | None = None) -> Iterator[Tag | V.Node | dict[st
                 V.ul(
                     *[
                         V.li(
-                            V.span(arg, onclick=call(path_var.push, arg), text_decoration='underline', cursor='pointer'),
+                            V.span(arg, onclick=call(path_var_assign, arg), text_decoration='underline', cursor='pointer'),
                             V.button(
                                 'kill',
                                 data_arg=arg,
@@ -1129,7 +1137,7 @@ def index(path_from_route: str | None = None) -> Iterator[Tag | V.Node | dict[st
                         start,
                         args=Args(run_program_in_log_filename=path),
                         simulate=False,
-                        replace_state=True,
+                        push_state=False,
                     ),
                     css='''
                         padding: 8px 20px;
@@ -1213,12 +1221,11 @@ def index(path_from_route: str | None = None) -> Iterator[Tag | V.Node | dict[st
 
     yield vis.extend(grid_area='vis')
 
-    if 0:
-        if path and not (ar and ar.completed):
-            yield V.queue_refresh(100)
-        elif path_is_latest:
-            # simulation finished or error, start a slower poll
-            yield V.queue_refresh(1000)
+    if path and not (ar and ar.completed):
+        yield V.queue_refresh(100)
+    elif path_is_latest:
+        # simulation finished or error, start a slower poll
+        yield V.queue_refresh(1000)
 
 def form(*vs: Int | Str | Bool):
     for v in vs:

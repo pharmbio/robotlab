@@ -277,6 +277,8 @@ class Str(Var[str]):
 
     def input(self, iff:str|None=None):
         if self.options:
+            if self.value not in self.options:
+                self.value = self.options[0]
             return Tags.select(
                 *[
                     Tags.option(
@@ -287,7 +289,7 @@ class Str(Var[str]):
                     for key in self.options
                 ],
                 oninput=
-                    f'({iff or 1}) && ' +
+                    (f'({iff})&&' if iff else '') +
                     call(self.assign, js('this.selectedOptions[0].dataset.key')),
             )
         else:
@@ -304,16 +306,9 @@ class Str(Var[str]):
         return {
             'value': str(self.value),
             'oninput':
-                f'({iff or 1}) && ' +
+                (f'({iff})&&' if iff else '') +
                 call(self.assign, js('this.value')),
         }
-
-def main():
-    t = store.int(0, name='t')
-    t.value
-    # each
-    def cb():
-        t.assign(t.value + 1)
 
 P = ParamSpec('P')
 
