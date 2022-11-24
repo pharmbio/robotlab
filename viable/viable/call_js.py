@@ -4,7 +4,6 @@ from typing import *
 
 from itsdangerous import Serializer
 from inspect import signature
-import json
 
 from .freeze_function import freeze, thaw, Frozen
 
@@ -43,6 +42,7 @@ class CallJS:
             sig = None
         if sig:
             # apply any defaults to the arguments now so that js fragments get evaluated
+            # this also means that there is no need to serialize the default arguments
             b = sig.bind(*args, **kwargs)
             b.apply_defaults()
             all_args: dict[str | int, Any | JS] = {**dict(enumerate(b.args)), **b.kwargs}
@@ -81,7 +81,7 @@ class CallJS:
         if isinstance(enc, bytes):
             enc = enc.decode()
         call_args = ','.join([
-            json.dumps(enc),
+            repr(enc),
             *js_args_vals,
         ])
         debug = debug.replace('\n', ' ')

@@ -6,15 +6,21 @@ import abc
 
 AttrValue: TypeAlias = None | bool | str | int
 
-def esc(txt: str, __table: dict[int, str] = str.maketrans({
+def html_esc(txt: str, __table: dict[int, str] = str.maketrans({
     "<": "&lt;",
     ">": "&gt;",
     "&": "&amp;",
-    "'": "&apos;",
-    '"': "&quot;",
-    '`': "&#96;",
+    # "'": "&apos;",
+    # '"': "&quot;",
+    # '`': "&#96;",
 })) -> str:
     return txt.translate(__table)
+
+def attr_esc(txt: str, __table: dict[int, str] = str.maketrans({
+    '"': "&quot;",
+})) -> str:
+    return txt.translate(__table)
+
 
 def css_esc(txt: str, __table: dict[int, str] = str.maketrans({
     "<": r"\<",
@@ -204,9 +210,11 @@ class Tag(Node):
                     continue
                 elif v is True:
                     kvs += [k]
+                elif isinstance(v, str) and v.isalnum():
+                    kvs += [f'{k}={v}']
                 else:
                     assert isinstance(v, str)
-                    kvs += [f'{k}="{esc(v)}"']
+                    kvs += [f'{k}="{attr_esc(v)}"']
             attrs = ' ' + ' '.join(kvs)
         else:
             attrs = ''
@@ -269,7 +277,7 @@ class text(Node):
         if raw:
             self.txt = txt
         else:
-            self.txt = esc(txt)
+            self.txt = html_esc(txt)
 
     def tag_name(self) -> str:
         return ''

@@ -6,15 +6,15 @@ viable_js = textwrap.dedent(r'''
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({...state(), args: [...args]}),
         })
-        const body = await resp.json()
-        await handle_call_updates(body)
+        const next = await resp.json()
+        await update(next)
     }
-    async function handle_call_updates(body) {
-        if (body.query) {
-            update_query(body.query, push=body.push)
+    async function update(next) {
+        if (next.query) {
+            update_query(next.query, push=next.push)
         }
-        if (body.session) {
-            update_session(body.session)
+        if (next.session) {
+            update_session(next.session)
         }
         await refresh()
     }

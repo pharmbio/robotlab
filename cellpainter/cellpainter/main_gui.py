@@ -107,7 +107,7 @@ def as_stderr(log_path: str):
     p = p.with_suffix('.stderr')
     return p
 
-def start(args: Args, simulate: bool, push_state: bool=False):
+def start(args: Args, simulate: bool, push_state: bool=True):
     config_name = 'simulate' if simulate else config.name
     if args.run_program_in_log_filename:
         log_filename = re.sub(r'\d{4}[\d_:\.\-]*', pbutils.now_str_for_filename() + '-', args.run_program_in_log_filename)
@@ -503,7 +503,7 @@ class AnalyzeResult:
             )
 
         if t_end:
-            area.onmousemove += js(f'''
+            cmd = js(f'''
                 if (!event.buttons) return
                 let frac = (event.offsetY - 2) / event.target.clientHeight
                 let t = Number(event.target.dataset.t)
@@ -511,8 +511,11 @@ class AnalyzeResult:
                 let d = t - t0
                 let T = t0 + frac * d
                 if (!isFinite(T)) return
-                {call(t_end.assign, js('T'))}
+                T = Math.round(T)
+                {t_end.update(js('T'))}
             ''').iife().fragment
+            area.onmousemove += cmd
+            area.onmousedown += cmd
 
         return area
 
@@ -702,7 +705,6 @@ def index(path_from_route: str | None = None) -> Iterator[Tag | V.Node | dict[st
         else:
             path = None
 
-    m = store.session
     if not path:
         options = {
             'cell-paint': 'cell-paint',
@@ -712,14 +714,14 @@ def index(path_from_route: str | None = None) -> Iterator[Tag | V.Node | dict[st
             }
         }
 
-        protocol = m.str(default='cell-paint', options=tuple(options.keys()))
+        protocol = store.str(default='cell-paint', options=tuple(options.keys()))
 
-        protocol_dir = m.str(default='automation_v5.0', name='protocol dir', desc='Directory on the windows computer to read biotek LHC files from')
-        plates = m.str(desc='The number of plates per batch, separated by comma. Example: 6,6')
-        incu = m.str(name='incubation times', default='20:00', desc='The incubation times in seconds or minutes:seconds, separated by comma. If too few values are specified, the last value is repeated. Example: 21:00,20:00')
-        params = m.str(name='params', desc=f'Additional parameters to protocol "{protocol.value}"')
+        protocol_dir = store.str(default='automation_v5.0', name='protocol dir', desc='Directory on the windows computer to read biotek LHC files from')
+        plates = store.str(desc='The number of plates per batch, separated by comma. Example: 6,6')
+        incu = store.str(name='incubation times', default='20:00', desc='The incubation times in seconds or minutes:seconds, separated by comma. If too few values are specified, the last value is repeated. Example: 21:00,20:00')
+        params = store.str(name='params', desc=f'Additional parameters to protocol "{protocol.value}"')
 
-        m.assign_names(locals())
+        store.assign_names(locals())
 
         small_data = options.get(protocol.value)
 
@@ -769,7 +771,7 @@ def index(path_from_route: str | None = None) -> Iterator[Tag | V.Node | dict[st
             except:
                 stages = []
             if stages:
-                start_from_stage = m.str(
+                start_from_stage = store.str(
                     name='start from stage',
                     default='start',
                     desc='Stage to start from',
@@ -926,14 +928,14 @@ def index(path_from_route: str | None = None) -> Iterator[Tag | V.Node | dict[st
             simulation = True
             if not rt.completed:
                 t_high = 2**60
-                t_end = m.int(t_high, name='t_end')
+                t_end = store.int(t_high, name='t_end')
                 if t_end.value != t_high:
                     t_end.value = t_high
             elif rt.completed:
                 simulation_completed = True
                 t_min = 0
                 t_max = int(log.time_end()) + 1
-                t_end = m.int(t_max, name='t_end', min=t_min, max=t_max)
+                t_end = store.int(t_max, name='t_end', min=t_min, max=t_max)
                 spinner = div(
                     div('|'),
                     css='''

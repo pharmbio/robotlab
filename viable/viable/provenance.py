@@ -15,7 +15,7 @@ import functools
 import json
 
 from .tags import Tags, Node
-from .call_js import CallJS, js
+from .call_js import CallJS, js, JS
 from pbutils import check, p
 
 @dataclass
@@ -92,6 +92,12 @@ def None_map(set: A | None, f: Callable[[A], B]) -> B | None:
     else:
         return f(set)
 
+@dataclass(frozen=True)
+class quiet_repr:
+    value: str
+    def __repr__(self):
+        return self.value
+
 @dataclass
 class Var(Generic[A], abc.ABC):
     default: A
@@ -145,6 +151,17 @@ class Var(Generic[A], abc.ABC):
     @value.setter
     def value(self, value: A):
         self.assign(value)
+
+    def update(self, value: A, push: bool=False) -> str:
+        if isinstance(value, JS):
+            rhs = value.fragment
+        else:
+            rhs = json.dumps(value)
+        q = quiet_repr
+        next = {q(self.provenance): {self.full_name: q(rhs)}}
+        if push:
+            next = {**next, q('push'): q('true')}
+        return f'update({next})'
 
     @property
     def assign(self) -> Callable[[A], None]:
@@ -225,7 +242,7 @@ class Int(Var[int]):
     def input(self, type: Literal['input', 'range', 'number'] = 'input'):
         return Tags.input(
             value=str(self.value),
-            oninput=call(self.assign, js('this.value')),
+            oninput=self.update(js('this.value')),
             min=None_map(self.min, str),
             max=None_map(self.max, str),
             title=self.desc,
@@ -255,7 +272,7 @@ class Bool(Var[bool]):
     def input(self):
         return Tags.input(
             checked=self.value,
-            oninput=call(self.assign, js('this.checked')),
+            oninput=self.update(js('this.checked')),
             type='checkbox',
             title=self.desc,
         )
@@ -290,7 +307,7 @@ class Str(Var[str]):
                 ],
                 oninput=
                     (f'({iff})&&' if iff else '') +
-                    call(self.assign, js('this.selectedOptions[0].dataset.key')),
+                    self.update(js('this.selectedOptions[0].dataset.key')),
             )
         else:
             return Tags.input(
@@ -307,7 +324,7 @@ class Str(Var[str]):
             'value': str(self.value),
             'oninput':
                 (f'({iff})&&' if iff else '') +
-                call(self.assign, js('this.value')),
+                self.update(js('this.value')),
         }
 
 P = ParamSpec('P')

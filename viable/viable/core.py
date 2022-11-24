@@ -30,20 +30,19 @@ def is_true(x: str | bool | int | None):
 
 @dataclass(frozen=True)
 class Env:
-    VIABLE_HOT: bool = is_true(os.environ.get('VIABLE_HOT', True))
+    VIABLE_DEV: bool = is_true(os.environ.get('VIABLE_DEV', True))
     VIABLE_RUN: bool = is_true(os.environ.get('VIABLE_RUN', True))
     VIABLE_HOST: str | None = os.environ.get('VIABLE_HOST')
     VIABLE_PORT: int | None = int(port) if (port := os.environ.get('VIABLE_PORT')) else None
 
-env = Env()
-
 @functools.cache
-def get_viable_js():
+def get_viable_js(env: Env):
     from .viable_js import viable_js
     res = viable_js
-    if env.VIABLE_HOT:
+    if env.VIABLE_DEV:
         res += '\npoll()'
-    # res = minify(res)
+    if not env.VIABLE_DEV:
+        res = minify(res)
     return res
 
 def serializer_factory() -> Serializer:
@@ -56,6 +55,7 @@ R = TypeVar('R')
 @dataclass
 class Serve:
     app: Flask
+    env: Env = field(default_factory=Env)
     _routes_added: list[Any] = field(default_factory=list)
     _call_js: CallJS = field(default_factory=lambda: CallJS(serializer_factory()))
 
@@ -78,7 +78,7 @@ class Serve:
 
         @self.app.route('/viable.js') # type: ignore
         def viable_js_route():
-            return get_viable_js(), {'Content-Type': 'application/javascript'}
+            return get_viable_js(self.env), {'Content-Type': 'application/javascript'}
 
         @self.app.post('/ping') # type: ignore
         def ping_route():
@@ -161,8 +161,10 @@ class Serve:
             # favicon because of chromium bug, see https://stackoverflow.com/a/36104057
             head_node += Tags.link(rel="icon", type="image/png", href="data:image/png;base64,iVBORw0KGgo=")
 
-        compress = bool(re.search('gzip|br|deflate', cast(Any, request).headers.get('Accept-encoding', '')))
-        compress = False
+        if self.env.VIABLE_DEV:
+            compress = False
+        else:
+            compress = bool(re.search('gzip|br|deflate', cast(Any, request).headers.get('Accept-encoding', '')))
         indent = 0 if compress else 2
         newline = '' if compress else '\n'
 
@@ -175,10 +177,8 @@ class Serve:
 
         req_data = request_data()
         if updates := req_data.updates():
-            # body = base64.b64encode(json.dumps(req_data.updates(), ensure_ascii=True).encode('ascii')).decode()
-            # body_node += Tags.script(raw(f'handle_call_updates(JSON.parse(atob({body!r})))'), eval=True)
             updates_json = json.dumps(updates, ensure_ascii=True, separators=(',', ':'))
-            code = f'handle_call_updates({updates_json})'.replace('<', r'\x3C')
+            code = f'update({updates_json})'.replace('<', r'\x3C')
             body_node += Tags.script(raw(code), eval=True)
         elif not req_data.session_provided and req_data.did_request_session():
             body_node += Tags.script('refresh()', eval=True)
@@ -194,17 +194,18 @@ class Serve:
         return resp
 
     def run(self, host: str | None = None, port: int | None = None):
-        try:
-            from flask_compress import Compress # type: ignore
-            Compress(self.app)
-        except Exception as e:
-            print('Not using flask_compress:', str(e), file=sys.stderr)
+        print(' *', self.env)
 
-        if env.VIABLE_RUN:
-            HOST = env.VIABLE_HOST or host
-            PORT = env.VIABLE_PORT or port
-            if HOST and PORT:
-                print(f'Running app on http://{HOST}:{PORT}')
+        if not self.env.VIABLE_DEV:
+            try:
+                from flask_compress import Compress # type: ignore
+                Compress(self.app)
+            except Exception as e:
+                print('Not using flask_compress:', str(e), file=sys.stderr)
+
+        if self.env.VIABLE_RUN:
+            HOST = self.env.VIABLE_HOST or host
+            PORT = self.env.VIABLE_PORT or port
             self.app.run(host=HOST, port=PORT, threaded=True)
 
     def suppress_flask_logging(self):
