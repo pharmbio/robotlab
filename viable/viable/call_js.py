@@ -6,6 +6,7 @@ from itsdangerous import Serializer
 from inspect import signature
 
 import json
+import textwrap
 
 from .freeze_function import freeze, thaw, Frozen
 
@@ -14,6 +15,9 @@ class JS:
     fragment: str
     def __repr__(self):
         return f'js({self.fragment!r})'
+
+    def iife(self):
+        return JS('((() => {' + self.fragment + '})())')
 
 def js(fragment: str) -> Any:
     return JS(fragment)
@@ -44,10 +48,16 @@ class CallJS:
             b = sig.bind(*args, **kwargs)
             b.apply_defaults()
             all_args: dict[str | int, Any | JS] = {**dict(enumerate(b.args)), **b.kwargs}
-            debug: str = f'{f.__module__}.{f.__qualname__}{(*b.args, _star_repr(b.kwargs))}'
+            debug_args = b.args
+            debug_kwargs = b.kwargs
         else:
             all_args: dict[str | int, Any | JS] = {**dict(enumerate(args)), **kwargs}
-            debug: str = f'{f.__module__}.{f.__qualname__}{(*args, _star_repr(kwargs))}'
+            debug_args = args
+            debug_kwargs = kwargs
+
+        debug_args = [js('...') if isinstance(a, JS) else a for a in debug_args]
+        debug_kwargs = {k: js('...') if isinstance(a, JS) else a for k, a in debug_kwargs.items()}
+        debug: str = f'{f.__module__}.{f.__qualname__}{(*debug_args, _star_repr(debug_kwargs))}'
 
         py_args: dict[str | int, Any] = {}
         js_args: dict[str | int, str] = {}

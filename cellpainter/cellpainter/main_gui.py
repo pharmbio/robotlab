@@ -3,11 +3,9 @@ from typing import *
 
 from flask import jsonify
 
-from viable import store, js, call, serve
+from viable import store, js, call, Serve, Flask, Int, Str, Bool
 from viable import Tag, div, span, label, button, pre
 import viable as V
-from viable.provenance import Int, Str, Bool
-from viable import provenance
 
 from collections import *
 from dataclasses import *
@@ -52,6 +50,7 @@ else:
 
 print(f'Running with {config.name=}')
 
+serve = Serve(Flask(__name__))
 serve.suppress_flask_logging()
 
 def sigint(pid: int):
@@ -97,7 +96,7 @@ def as_stderr(log_path: str):
     p = p.with_suffix('.stderr')
     return p
 
-def start(args: Args, simulate: bool):
+def start(args: Args, simulate: bool, replace_state: bool=False):
     config_name = 'simulate' if simulate else config.name
     if args.run_program_in_log_filename:
         log_filename = re.sub(r'\d{4}[\d_:\.\-]*', pbutils.now_str_for_filename() + '-', args.run_program_in_log_filename)
@@ -124,10 +123,11 @@ def start(args: Args, simulate: bool):
         as_stderr(log_filename),
     ]
     Popen(cmd, start_new_session=True, stdout=DEVNULL, stderr=DEVNULL, stdin=DEVNULL)
-    return jsonify({
-        'goto': log_filename,
-        'refresh': True,
-    })
+    path_var = store.query.str(name='path')
+    if replace_state:
+        path_var.assign(log_filename)
+    else:
+        path_var.push(log_filename)
 
 def path_to_log(path: str) -> Log | None:
     try:
@@ -489,9 +489,24 @@ class AnalyzeResult:
                 css_=f'''
                     width: {width * my_width - 2}px;
                 ''',
-                onclick=None if t_end is None else store.update(t_end, int(row.t0 + 1)).goto(),
+                # onclick=None if t_end is None else call(t_end.assign, int(row.t0 + 1)),
                 css__='cursor: pointer' if t_end is not None else '',
+                data_t0=str(row.t0),
+                data_t=str(row.t),
             )
+
+        if t_end:
+            # store update cannot be called this way :/
+            area.onmousemove += js(f'''
+                if (!event.buttons) return
+                let frac = (event.offsetY - 2) / event.target.clientHeight
+                let t = Number(event.target.dataset.t)
+                let t0 = Number(event.target.dataset.t0)
+                let d = t - t0
+                let T = t0 + frac * d
+                if (!isFinite(T)) return
+                {call(t_end.assign, js('T'))}
+            ''').iife().fragment
 
         return area
 
@@ -502,8 +517,8 @@ triangle = '''
 '''
 
 @serve.route('/')
-@serve.route('/<path:path>')
-def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
+@serve.route('/<path:path_from_route>')
+def index(path_from_route: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
     yield {
         'sheet': '''
             *, *::before, *::after {
@@ -591,6 +606,10 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
             }
         '''
     }
+
+    path_var = store.query.str(name='path')
+    path = path_var.value or path_from_route
+
     yield V.head(V.title('cell painter - ', path or ''))
 
     inverted_inputs_css = '''
@@ -678,7 +697,7 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
         else:
             path = None
 
-    m = store.cookie
+    m = store.session
     if not path:
         options = {
             'cell-paint': 'cell-paint',
@@ -828,7 +847,7 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
                 V.ul(
                     *[
                         V.li(
-                            V.a(arg, href=arg),
+                            V.span(arg, onclick=call(path_var.push, arg), text_decoration='underline', cursor='pointer'),
                             V.button(
                                 'kill',
                                 data_arg=arg,
@@ -900,7 +919,8 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
             if not rt.completed:
                 t_high = 2**60
                 t_end = m.int(t_high, name='t_end')
-                yield store.update(t_end, t_high).goto_script()
+                if t_end.value != t_high:
+                    t_end.value = t_high
             elif rt.completed:
                 simulation_completed = True
                 t_min = 0
@@ -1108,7 +1128,8 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
                     onclick=call(
                         start,
                         args=Args(run_program_in_log_filename=path),
-                        simulate=False
+                        simulate=False,
+                        replace_state=True,
                     ),
                     css='''
                         padding: 8px 20px;
@@ -1116,7 +1137,7 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
                         background: var(--bg);
                         color: var(--fg);
                     '''
-                ) if simulation_completed else '',
+                ) if simulation_completed and path else '',
                 border='2px var(--green) solid',
                 color='#eee',
                 text_align='center',
@@ -1127,7 +1148,6 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
             # skip showing buttons for endpoint /latest
             pass
         elif ar.process_is_alive:
-            yield store.defaults.goto_script()
             yield div(
                 div(
                     'robotarm speed: ',
@@ -1193,16 +1213,17 @@ def index(path: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
 
     yield vis.extend(grid_area='vis')
 
-    if path and not (ar and ar.completed):
-        yield V.queue_refresh(100)
-    elif path_is_latest:
-        # simulation finished or error, start a slower poll
-        yield V.queue_refresh(1000)
+    if 0:
+        if path and not (ar and ar.completed):
+            yield V.queue_refresh(100)
+        elif path_is_latest:
+            # simulation finished or error, start a slower poll
+            yield V.queue_refresh(1000)
 
 def form(*vs: Int | Str | Bool):
     for v in vs:
         yield label(
-            span(f"{v.given_name or ''}:"),
+            span(f"{v.name or ''}:"),
             v.input().extend(id_=v.name, spellcheck="false", autocomplete="off"),
             title=v.desc,
         )

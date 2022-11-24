@@ -10,6 +10,10 @@ from .call_js import (
 from .provenance import (
     store, # type: ignore
     call,  # type: ignore
+    Var,   # type: ignore
+    Int,   # type: ignore
+    Str,   # type: ignore
+    Bool,  # type: ignore
 )
 from .tags import *
 import flask

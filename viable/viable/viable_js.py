@@ -11,26 +11,27 @@ viable_js = textwrap.dedent(r'''
     }
     async function handle_call_updates(body) {
         if (body.query) {
-            update_query(body.query)
+            update_query(body.query, push=body.push)
         }
         if (body.session) {
             update_session(body.session)
-        }
-        if (body.push_state) {
-            history.pushState(null, null)
         }
         await refresh()
     }
     function get_query() {
         return Object.fromEntries(new URL(location.href).searchParams)
     }
-    function set_query(kvs) {
+    function set_query(kvs, push=false) {
         let next = new URL(location.href)
         next.search = new URLSearchParams(kvs)
-        history.replaceState(null, null, next.href)
+        if (push) {
+            history.pushState(null, null, next.href)
+        } else {
+            history.replaceState(null, null, next.href)
+        }
     }
-    function update_query(kvs) {
-        return set_query({...get_query(), ...kvs})
+    function update_query(kvs, push=false) {
+        return set_query({...get_query(), ...kvs}, push=push)
     }
     function get_session() {
         try {

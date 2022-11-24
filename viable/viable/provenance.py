@@ -18,13 +18,14 @@ from .tags import Tags, Node
 from .call_js import CallJS, js
 from pbutils import check, p
 
-@dataclass(frozen=True)
+@dataclass
 class ViableRequestData:
     call_js: CallJS
     session_provided: bool
     initial_values: dict[tuple[str, str], Any]
     written_values: dict[tuple[str, str], Any] = field(default_factory=dict)
     created_vars: list[Var[Any]] = field(default_factory=list)
+    push: bool = False
 
     def get(self, provenance: str, name: str, default: Any) -> Any:
         t = provenance, name
@@ -41,7 +42,10 @@ class ViableRequestData:
         g: dict[str, dict[str, Any]] = DefaultDict(dict)
         for (provenance, name), v in self.written_values.items():
             g[provenance][name] = v
-        return g
+        if self.push:
+            return {**g, 'push': True}
+        else:
+            return {**g}
 
     def did_request_session(self) -> bool:
         return any(v.provenance == 'session' for v in self.created_vars)
@@ -136,22 +140,26 @@ class Var(Generic[A], abc.ABC):
 
     @property
     def value(self) -> A:
-        # from_str ??
-        return request_data().get(self._provenance, self.full_name, self.default)
+        return self.from_str(request_data().get(self._provenance, self.full_name, self.default))
+
+    @value.setter
+    def value(self, value: A):
+        self.assign(value)
 
     @property
     def assign(self) -> Callable[[A], None]:
         table = {'query': 0, 'session': 1}
         provenance_int = table[self.provenance]
         full_name = self.full_name
-        # def set(next: A):
-        #     provenance = 'query session'.split()[provenance_int]
-        #     request_data().set(provenance, full_name, next)
-        # return set
         def set(next: A, provenance_int: int=provenance_int, full_name: str=full_name):
             provenance = 'query session'.split()[provenance_int]
             request_data().set(provenance, full_name, next)
         return set
+
+    def push(self, next: A):
+        if self.provenance == 'query':
+            request_data().push = True
+        return self.assign(next)
 
     def assign_default(self):
         request_data().set(self._provenance, self.full_name, self.default)
