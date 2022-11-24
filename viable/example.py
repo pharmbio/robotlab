@@ -26,3 +26,4 @@ def index():
     )
     for i in range(3):
         yield V.button(f'bla {i}', onclick=call(lambda t=js('this.outerHTML'): print(t)))
+        yield V.button(f'blap {i}', onclick=call(print, js('this.outerHTML')))

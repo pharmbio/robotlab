@@ -2,6 +2,7 @@ from __future__ import annotations
 from dataclasses import *
 from typing import *
 from types import FunctionType, CellType, MethodType, CodeType
+import pickle
 
 from pbutils import check, p
 
@@ -16,6 +17,9 @@ Cell: TypeAlias = Union[
     Any, # Frozen
 ]
 Frozen: TypeAlias = Union[
+    # pickled builtin
+    bytes,
+
     # function
     FrozenId,
 
@@ -41,9 +45,12 @@ def frozen_id(f: Fn) -> FrozenId:
     return _reg_co_to_id[co]
 
 def freeze(f: Fn, __seen : None | set[int] = None) -> Frozen:
+    assert callable(f)
+    if not is_function(f):
+        # happens for builtins like print
+        return pickle.dumps(f)
     if __seen is None:
         __seen = set()
-    assert is_function(f)
     co = f.__code__
     if id(co) in __seen:
         raise ValueError(f'Cannot freeze recursive local function {f}')
@@ -93,10 +100,23 @@ def thaw(frozen: Frozen) -> Fn:
                     case _:
                         closure += [_make_cell(thaw(c))]
             f = _reg_id_to_fn[i]
-            return FunctionType(f.__code__, f.__globals__, f.__name__, None, tuple(closure))
+            return FunctionType(
+                f.__code__,
+                f.__globals__,
+                f.__name__,
+                None, # defaults
+                tuple(closure)
+            )
+        case bytes(bs):
+            return pickle.loads(bs)
         case i:
             f = _reg_id_to_fn[i]
-            return f
+            return FunctionType(
+                f.__code__,
+                f.__globals__,
+                f.__name__,
+                None, # defaults
+            )
 
 __test: int = 0
 
@@ -186,7 +206,9 @@ def tests():
         f2, f3, f4,
         f5,
         f6,
-        *f7s
+        *f7s,
+        print, # type: ignore
+        int.bit_count,
     ]
 
     for f in fs:
@@ -196,7 +218,7 @@ def tests():
         # b | p
         f_copy = thaw(pickle.loads(b))
         check(f.__name__ == f_copy.__name__)
-        check(f.__module__ == f_copy.__module__)
+        check(getattr(f, '__module__', None) == getattr(f_copy, '__module__' , None))
         check(f(1) == f_copy(1))
         __test += 1
         # t.value += 1

@@ -9,8 +9,6 @@ import json
 
 from .freeze_function import freeze, thaw, Frozen
 
-from pbutils import TODO
-
 @dataclass(frozen=True)
 class JS:
     fragment: str
@@ -22,9 +20,6 @@ def js(fragment: str) -> Any:
 
 P = ParamSpec('P')
 R = TypeVar('R')
-
-from pbutils import p
-import pickle
 
 @dataclass(frozen=True)
 class _star_repr:
@@ -39,27 +34,40 @@ class _star_repr:
 class CallJS:
     serializer: Serializer
     def store_call(self, f: Callable[P, Any], *args: P.args, **kwargs: P.kwargs) -> str:
-        # apply any defaults to the arguments now so that js fragments get evaluated
-        sig = signature(f)
-        b = sig.bind(*args, **kwargs)
-        b.apply_defaults()
+        try:
+            sig = signature(f)
+        except:
+            # happens for builtins like print
+            sig = None
+        if sig:
+            # apply any defaults to the arguments now so that js fragments get evaluated
+            b = sig.bind(*args, **kwargs)
+            b.apply_defaults()
+            all_args: dict[str | int, Any | JS] = {**dict(enumerate(b.args)), **b.kwargs}
+            debug: str = f'{f.__module__}.{f.__qualname__}{(*b.args, _star_repr(b.kwargs))}'
+        else:
+            all_args: dict[str | int, Any | JS] = {**dict(enumerate(args)), **kwargs}
+            debug: str = f'{f.__module__}.{f.__qualname__}{(*args, _star_repr(kwargs))}'
+
         py_args: dict[str | int, Any] = {}
         js_args: dict[str | int, str] = {}
-        all_args: dict[str | int, Any | JS] = {**dict(enumerate(b.args)), **b.kwargs}
         for k, arg in all_args.items():
             if isinstance(arg, JS):
                 js_args[k] = arg.fragment
             else:
                 py_args[k] = arg
         func = freeze(f)
-        js_args_keys = [k for k, _ in js_args.items()]
+        js_args_keys = tuple([k for k, _ in js_args.items()])
         js_args_vals = [v for _, v in js_args.items()]
         func_and_py_args_and_js_args_keys = (func, py_args, js_args_keys)
 
-        # pkl = pickle.dumps(func_and_py_args_and_js_args_keys | p)
-        # s = pkl.decode('ascii', errors='ignore')
-        # s = ' '.join(''.join(c if c.isprintable() else ' ' for c in s).split())
-        # (len(pkl), s) | p
+        if 0:
+            from pbutils import p
+            import pickle
+            pkl = pickle.dumps(func_and_py_args_and_js_args_keys | p)
+            s = pkl.decode('ascii', errors='ignore')
+            s = ' '.join(''.join(c if c.isprintable() else ' ' for c in s).split())
+            (len(pkl), s) | p
 
         enc = self.serializer.dumps(func_and_py_args_and_js_args_keys)
         if isinstance(enc, bytes):
@@ -68,7 +76,9 @@ class CallJS:
             json.dumps(enc),
             *js_args_vals,
         ])
-        return f'call({call_args})\n/* {f.__module__}.{f.__qualname__}{(*b.args, _star_repr(b.kwargs))} */'
+        debug = debug.replace('\n', ' ')
+        newline = '\n'
+        return f'call(//{debug}{newline}{call_args})'
 
     def handle_call(self, enc: str, js_args_vals: list[Any]) -> None:
         func: Frozen
@@ -89,10 +99,6 @@ class CallJS:
         args: list[Any] = [v for _, v in sorted(arg_dict.items(), key=lambda kv: kv[0])]
         f = thaw(func)
         _ret = f(*args, **kwargs)
-        TODO('should we add support for return values? example evaluate some JS to interface with 3rd party lib')
+        # could add support for return values, example: evaluate some JS to interface with 3rd party lib
         return
-        # if isinstance(ret, Response):
-        #     return ret
-        # else:
-        #     return jsonify(refresh=True)
 

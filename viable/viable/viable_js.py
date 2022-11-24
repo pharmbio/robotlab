@@ -49,7 +49,7 @@ viable_js = textwrap.dedent(r'''
         return Object.keys(get_session()).length > 0
     }
     function state() {
-        return {query: get_query(), session: get_session()}
+        return {session: get_session()}
     }
 
     let current_refresh = null
@@ -124,6 +124,9 @@ viable_js = textwrap.dedent(r'''
                     const timeout_ms = retries < 100 ? 50 : 2000
                     await new Promise(x => setTimeout(x, timeout_ms))
                     retries += 1
+                    if (retries == 100) {
+                        console.info(`🟥 still waiting for refresh...`)
+                    }
                 }
             }
         }

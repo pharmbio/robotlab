@@ -47,14 +47,12 @@ class ViableRequestData:
         return any(v.provenance == 'session' for v in self.created_vars)
 
 def add_request_data(call_js: CallJS):
-    query: dict[str, Any]
+    query: dict[str, Any] = dict(request.args)
     session: dict[str, Any]
     if (body := request.get_json(force=True, silent=True)) is not None:
-        query = body.get('query', {})
         session = body.get('session', {})
         session_provided = True
     else:
-        query = dict(request.args)
         session = {}
         session_provided = False
     initial_values: dict[tuple[str, str], Any] = {}
