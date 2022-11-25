@@ -22,7 +22,7 @@ import shlex
 import textwrap
 import subprocess
 
-from .log import Log
+from .log import ExperimentMetadata, Log
 from .cli import Args
 from . import cli
 
@@ -31,7 +31,7 @@ from .commands import IncuCmd, BiotekCmd
 from . import moves
 from . import runtime
 import pbutils
-from .log import CommandState, Message, VisRow, Metadata, RuntimeMetadata, Error, countdown
+from .log import CommandState, Message, VisRow, Metadata, RuntimeMetadata, Error, countdown, Note
 from .moves import RawCode, Move
 from .protocol import Locations
 from .small_protocols import small_protocols_dict, SmallProtocolData
@@ -109,12 +109,16 @@ def as_stderr(log_path: str):
 
 def start(args: Args, simulate: bool, push_state: bool=True):
     config_name = 'simulate' if simulate else config.name
+    now_str = pbutils.now_str_for_filename()
     if args.run_program_in_log_filename:
-        log_filename = re.sub(r'\d{4}[\d_:\.\-]*', pbutils.now_str_for_filename() + '-', args.run_program_in_log_filename)
+        log_filename = re.sub(r'\d{4}[\d_:\.\-]*', now_str + '-', args.run_program_in_log_filename)
         log_filename = log_filename.replace('simulate', config_name)
     else:
         program_name = 'cell-paint' if args.cell_paint else args.small_protocol
-        log_filename = 'logs/' + pbutils.now_str_for_filename() + f'-{program_name}-{config_name}-from-gui.db'
+        if args.project_id:
+            log_filename = f'logs/{args.project_id}-{now_str}-{program_name}-{config_name}.db'
+        else:
+            log_filename = f'logs/{now_str}-{program_name}-{config_name}-from-gui.db'
     args = replace(
         args,
         config_name=config_name,
@@ -198,6 +202,7 @@ class AnalyzeResult:
     zero_time: datetime
     t_now: float
     runtime_metadata: RuntimeMetadata
+    experiment_metadata: ExperimentMetadata
     completed: bool
     running_state: list[CommandState]
     errors: list[Message]
@@ -248,6 +253,7 @@ class AnalyzeResult:
             t_now=t_now,
             completed=completed,
             runtime_metadata=runtime_metadata,
+            experiment_metadata=m.experiment_metadata() or ExperimentMetadata(),
             running_state=running_state,
             errors=errors,
             world=world,
@@ -525,172 +531,379 @@ triangle = '''
   </svg>
 '''
 
+sheet = '''
+    *, *::before, *::after {
+        box-sizing: border-box;
+    }
+    * {
+        margin: 0;
+    }
+    html, body {
+        height: 100%;
+    }
+    html {
+        color:      var(--fg);
+        background: var(--bg);
+        font-size: 16px;
+        font-family: Consolas, monospace;
+        letter-spacing: -0.025em;
+    }
+    * {
+        color: inherit;
+        background: inherit;
+        font-size: inherit;
+        font-family: inherit;
+        letter-spacing: inherit;
+    }
+    table {
+        background: #0005;
+    }
+    table td, table th, table tr, table {
+        border: none;
+    }
+    table td, table th {
+        padding: 2px 8px;
+        margin: 1px 2px;
+        background: var(--bg-bright);
+        min-width: 70px;
+    }
+    table:not(.even) tbody tr:nth-child(odd) td,
+    table:not(.even) tbody tr:nth-child(odd) th
+    {
+        background: var(--bg-brown);
+    }
+    table.even tbody tr:nth-child(even) td,
+    table.even tbody tr:nth-child(even) th
+    {
+        background: var(--bg-brown);
+    }
+    table {
+        border-spacing: 1px;
+        transform: translateY(-1px);
+    }
+    body {
+        display: grid;
+        grid:
+            "pad-left header    header    pad-right" auto
+            "pad-left vis       info      pad-right" 1fr
+            "pad-left vis       stop      pad-right" auto
+            "pad-left info-foot info-foot pad-right" auto
+          / 1fr auto minmax(min-content, 800px) 1fr;
+        grid-gap: 10px;
+        padding: 10px;
+    }
+    html {
+        --bg:        #2d2d2d;
+        --bg-bright: #383838;
+        --bg-brown:  #554535;
+        --fg:        #d3d0c8;
+        --red:       #f2777a;
+        --brown:     #d27b53;
+        --green:     #99cc99;
+        --yellow:    #ffcc66;
+        --blue:      #6699cc;
+        --purple:    #cc99cc;
+        --cyan:      #66cccc;
+        --orange:    #f99157;
+    }
+    .svg-triangle {
+        margin-right: 6px;
+        width: 16px;
+        height: 16px;
+        transform: translateY(4px);
+    }
+    .svg-triangle polygon {
+        fill: var(--green);
+    }
+'''
+
+inverted_inputs_css = '''
+    & input[type=range] {
+        transform: translateY(3px);
+        margin: 0 8px;
+        filter: invert(83%) hue-rotate(135deg);
+    }
+    & input[type=checkbox] {
+        filter: invert(83%) hue-rotate(180deg);
+        cursor: pointer;
+        width: 36px;
+        height: 16px;
+        margin-top: 8px;
+        margin-bottom: 8px;
+        margin-right: auto;
+    }
+'''
+
+form_css = '''
+    & {
+        display: grid;
+        grid-template-columns: auto auto;
+        place-items: center;
+        grid-gap: 10px;
+        margin: 0 auto;
+        user-select: none;
+    }
+    & input {
+        border: 1px #0003 solid;
+        border-right-color: #fff2;
+        border-bottom-color: #fff2;
+    }
+    & button {
+        border-width: 1px;
+    }
+    & input, & button, & select {
+        padding: 8px;
+        border-radius: 2px;
+        background: var(--bg);
+        color: var(--fg);
+    }
+    & select {
+        width: 100%;
+        padding-left: 4px;
+    }
+    & input:focus-visible, & button:focus-visible, & select:focus-visible {
+        outline: 2px  var(--blue) solid;
+        outline-color: var(--blue);
+    }
+    & input:hover {
+        border-color: var(--blue);
+    }
+    & .wide {
+        grid-column: 1 / span 2;
+    }
+    & > button {
+        width: 100%;
+    }
+    & > label {
+        display: contents;
+        cursor: pointer;
+    }
+    & > label > span {
+        justify-self: right;
+    }
+    & input, & select {
+        width: 300px;
+    }
+    & > label > span {
+        grid-column: 1;
+    }
+''' + inverted_inputs_css
+
+def start_form():
+    options = {
+        'cell-paint': 'cell-paint',
+        **{
+            k.replace('_', '-'): v
+            for k, v in small_protocols_dict.items()
+        }
+    }
+
+    protocol = store.str(default='cell-paint', options=tuple(options.keys()))
+    store.assign_names(locals())
+
+    project_id = store.str(name='project id', desc='Example: "specs395-v1"')
+    operators = store.str(name='operators', desc='Example: "Amelie and Christa"')
+    incu = store.str(name='incubation times', default='20:00', desc='The incubation times in seconds or minutes:seconds, separated by comma. If too few values are specified, the last value is repeated. Example: 21:00,20:00')
+    batch_sizes = store.str(default='6', name='batch sizes', desc='The number of plates per batch, separated by comma. Example: 6,6')
+    protocol_dir = store.str(default='automation_v5.0', name='protocol dir', desc='Directory on the windows computer to read biotek LHC files from')
+    final_washes = store.str(name='final wash rounds', options=['auto', 'one', 'two'], desc='Number of final wash rounds. Either run 9_W_*.LHC once or run 9_10_W_*.LHC twice.')
+
+    num_plates = store.str(name='plates', desc='The number of plates')
+    params = store.str(name='params', desc=f'Additional parameters to protocol "{protocol.value}"')
+    store.assign_names(locals())
+
+    small_data = options.get(protocol.value)
+
+    form_fields: list[Str | Bool] = []
+    if protocol.value == 'cell-paint':
+        form_fields = [
+            project_id,
+            operators,
+            batch_sizes,
+            incu,
+            protocol_dir,
+            final_washes,
+        ]
+        bs = batch_sizes.value
+        N = pbutils.catch(lambda: max(pbutils.read_commasep(bs.strip(' ,'), int)), 0)
+        interleave = N >= 7
+        if final_washes.value == 'one':
+            two_final_washes = False
+        elif final_washes.value == 'two':
+            two_final_washes = True
+        else:
+            two_final_washes = N >= 8
+        lockstep = N >= 10
+        incu_csv = incu.value
+        if incu_csv == '':
+            incu_csv = '1200'
+        if incu_csv in ('1200', '20:00') and N >= 8:
+            incu_csv = '1200,1200,1200,1200,X'
+            if N == 10:
+                incu_csv = '1235,1230,1230,1235,1260'
+        args = Args(
+            cell_paint=bs,
+            incu=incu_csv,
+            interleave=interleave,
+            two_final_washes=two_final_washes,
+            lockstep=lockstep,
+            protocol_dir=protocol_dir.value,
+            project_id=project_id.value,
+            operators=operators.value,
+        )
+    elif isinstance(small_data, SmallProtocolData):
+        if 'num_plates' in small_data.args:
+            form_fields += [num_plates]
+        if 'params' in small_data.args:
+            form_fields += [params]
+        if 'protocol_dir' in small_data.args:
+            form_fields += [protocol_dir]
+        args = Args(
+            small_protocol=small_data.name,
+            num_plates=pbutils.catch(lambda: int(num_plates.value), 0),
+            params=pbutils.catch(lambda: shlex.split(params.value), []),
+            protocol_dir=protocol_dir.value,
+        )
+    else:
+        form_fields = []
+        args = None
+
+    if args:
+        try:
+            stages = cli.args_to_stages(args)
+        except:
+            stages = []
+        if stages:
+            start_from_stage = store.str(
+                name='start from stage',
+                default='start',
+                desc='Stage to start from',
+                options=stages
+            )
+            form_fields += [start_from_stage]
+            if start_from_stage.value:
+                args = replace(args, start_from_stage=start_from_stage.value)
+
+    if isinstance(small_data, SmallProtocolData):
+        doc_full = textwrap.dedent(small_data.make.__doc__ or '').strip()
+        doc_header = small_data.doc
+        doc_divs = [
+            div(
+                # fill
+                grid_column='1 / span 2',
+                grid_row='2 / span 2',
+            ),
+            div(
+                doc_header,
+                title=doc_full,
+                grid_column='2 / span 1',
+                grid_row='2 / span 2',
+                css='''
+                    max-width: fit-content;
+                    padding: 5px 12px;
+                    place-self: start;
+                ''',
+            ),
+        ]
+    else:
+        doc_full = ''
+        doc_divs = []
+
+    yield div(
+        *form(protocol),
+        *doc_divs,
+        *form(*form_fields),
+        button(
+            'simulate',
+            onclick=call(start, args=args, simulate=True),
+            grid_row='-1',
+        ) if args else '',
+        button(
+            V.raw(triangle.strip()), ' ', 'start',
+            data_doc=doc_full,
+            onclick=
+                (
+                    'confirm(this.dataset.doc)&&'
+                    if 'required' in doc_full.lower()
+                    else ''
+                )
+                +
+                call(start, args=args, simulate=False),
+            grid_row='-1',
+        ) if args else '',
+        height='100%',
+        padding='80px 0',
+        grid_area='header',
+        user_select='none',
+        css_=form_css,
+        css='''
+            & {
+                grid-template-rows: repeat(8, 40px);
+                grid-template-columns: 160px 300px;
+            }
+            & label > span {
+                text-align: right;
+            }
+            & button {
+                height: 100%;
+            }
+        '''
+    )
+    running_processes: list[tuple[int, str]] = []
+    try:
+        x = subprocess.check_output(['pgrep', '^cellpainter$']).decode()
+    except:
+        x = ''
+    for pid in x.strip().split('\n'):
+        try:
+            pid = int(pid)
+            args = get_json_arg_from_argv(pid)
+            if isinstance(v := args.get("log_filename"), str):
+                pbutils.pr(args)
+                running_processes += [(pid, v)]
+        except:
+            pass
+    if running_processes:
+        yield div(
+            'Running processes:',
+            V.ul(
+                *[
+                    V.li(
+                        V.span(arg, onclick=call(path_var_assign, arg), text_decoration='underline', cursor='pointer'),
+                        V.button(
+                            'kill',
+                            data_arg=arg,
+                            onclick=
+                                'window.confirm("Really kill " + this.dataset.arg + "?") && ' +
+                                call(sigkill, pid),
+                            py=5, m=8,
+                            border_radius=3,
+                            border_width=1,
+                            border_color='var(--red)',
+                        ),
+                        padding_top=8
+                    )
+                    for pid, arg in running_processes
+                ],
+            ),
+            grid_area='info',
+            z_index='1',
+        )
+    yield div(
+        f'Running on {platform.node()} with config {config.name}',
+        grid_area='info-foot',
+        opacity='0.85',
+        margin='0 auto',
+    )
+
 @serve.route('/')
 @serve.route('/<path:path_from_route>')
 def index(path_from_route: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
-    yield {
-        'sheet': '''
-            *, *::before, *::after {
-                box-sizing: border-box;
-            }
-            * {
-                margin: 0;
-            }
-            html, body {
-                height: 100%;
-            }
-            html {
-                color:      var(--fg);
-                background: var(--bg);
-                font-size: 16px;
-                font-family: Consolas, monospace;
-                letter-spacing: -0.025em;
-            }
-            * {
-                color: inherit;
-                background: inherit;
-                font-size: inherit;
-                font-family: inherit;
-                letter-spacing: inherit;
-            }
-            table {
-                background: #0005;
-            }
-            table td, table th, table tr, table {
-                border: none;
-            }
-            table td, table th {
-                padding: 2px 8px;
-                margin: 1px 2px;
-                background: var(--bg-bright);
-                min-width: 70px;
-            }
-            table:not(.even) tbody tr:nth-child(odd) td,
-            table:not(.even) tbody tr:nth-child(odd) th
-            {
-                background: var(--bg-brown);
-            }
-            table.even tbody tr:nth-child(even) td,
-            table.even tbody tr:nth-child(even) th
-            {
-                background: var(--bg-brown);
-            }
-            table {
-                border-spacing: 1px;
-                transform: translateY(-1px);
-            }
-            body {
-                display: grid;
-                grid:
-                    "pad-left header    header    pad-right" auto
-                    "pad-left vis       info      pad-right" 1fr
-                    "pad-left vis       stop      pad-right" auto
-                    "pad-left info-foot info-foot pad-right" auto
-                  / 1fr auto minmax(min-content, 800px) 1fr;
-                grid-gap: 10px;
-                padding: 10px;
-            }
-            html {
-                --bg:        #2d2d2d;
-                --bg-bright: #383838;
-                --bg-brown:  #554535;
-                --fg:        #d3d0c8;
-                --red:       #f2777a;
-                --brown:     #d27b53;
-                --green:     #99cc99;
-                --yellow:    #ffcc66;
-                --blue:      #6699cc;
-                --purple:    #cc99cc;
-                --cyan:      #66cccc;
-                --orange:    #f99157;
-            }
-            .svg-triangle {
-                margin-right: 6px;
-                width: 16px;
-                height: 16px;
-                transform: translateY(4px);
-            }
-            .svg-triangle polygon {
-                fill: var(--green);
-            }
-        '''
-    }
+    yield dict(sheet=sheet)
 
     path = path_var_value() or path_from_route
 
     yield V.head(V.title('cell painter - ', path or ''))
-
-    inverted_inputs_css = '''
-        & input[type=range] {
-            transform: translateY(3px);
-            margin: 0 8px;
-            filter: invert(83%) hue-rotate(135deg);
-        }
-        & input[type=checkbox] {
-            filter: invert(83%) hue-rotate(180deg);
-            cursor: pointer;
-            width: 36px;
-            height: 16px;
-            margin-top: 8px;
-            margin-bottom: 8px;
-            margin-right: auto;
-        }
-    '''
-
-    form_css = '''
-        & {
-            display: grid;
-            grid-template-columns: auto auto;
-            place-items: center;
-            grid-gap: 10px;
-            margin: 0 auto;
-            user-select: none;
-        }
-        & input {
-            border: 1px #0003 solid;
-            border-right-color: #fff2;
-            border-bottom-color: #fff2;
-        }
-        & button {
-            border-width: 1px;
-        }
-        & input, & button, & select {
-            padding: 8px;
-            border-radius: 2px;
-            background: var(--bg);
-            color: var(--fg);
-        }
-        & select {
-            width: 100%;
-            padding-left: 4px;
-        }
-        & input:focus-visible, & button:focus-visible, & select:focus-visible {
-            outline: 2px  var(--blue) solid;
-            outline-color: var(--blue);
-        }
-        & input:hover {
-            border-color: var(--blue);
-        }
-        & .wide {
-            grid-column: 1 / span 2;
-        }
-        & > button {
-            width: 100%;
-        }
-        & > label {
-            display: contents;
-            cursor: pointer;
-        }
-        & > label > span {
-            justify-self: right;
-        }
-        & input, & select {
-            width: 300px;
-        }
-        & > label > span {
-            grid-column: 1;
-        }
-    ''' + inverted_inputs_css
 
     path_is_latest = False
     if path == 'latest':
@@ -706,183 +919,7 @@ def index(path_from_route: str | None = None) -> Iterator[Tag | V.Node | dict[st
             path = None
 
     if not path:
-        options = {
-            'cell-paint': 'cell-paint',
-            **{
-                k.replace('_', '-'): v
-                for k, v in small_protocols_dict.items()
-            }
-        }
-
-        protocol = store.str(default='cell-paint', options=tuple(options.keys()))
-
-        protocol_dir = store.str(default='automation_v5.0', name='protocol dir', desc='Directory on the windows computer to read biotek LHC files from')
-        plates = store.str(desc='The number of plates per batch, separated by comma. Example: 6,6')
-        incu = store.str(name='incubation times', default='20:00', desc='The incubation times in seconds or minutes:seconds, separated by comma. If too few values are specified, the last value is repeated. Example: 21:00,20:00')
-        params = store.str(name='params', desc=f'Additional parameters to protocol "{protocol.value}"')
-
-        store.assign_names(locals())
-
-        small_data = options.get(protocol.value)
-
-        form_fields: list[Str | Bool] = []
-        if protocol.value == 'cell-paint':
-            form_fields = [plates, incu, protocol_dir]
-            batch_sizes = plates.value
-            N = pbutils.catch(lambda: max(pbutils.read_commasep(batch_sizes, int)), 0)
-            interleave = N >= 7
-            two_final_washes = N >= 8
-            lockstep = N >= 10
-            incu_csv = incu.value
-            if incu_csv == '':
-                incu_csv = '1200'
-            if incu_csv in ('1200', '20:00') and N >= 8:
-                incu_csv = '1200,1200,1200,1200,X'
-                if N == 10:
-                    incu_csv = '1235,1230,1230,1235,1260'
-            args = Args(
-                cell_paint=batch_sizes,
-                incu=incu_csv,
-                interleave=interleave,
-                two_final_washes=two_final_washes,
-                lockstep=lockstep,
-                protocol_dir=protocol_dir.value,
-            )
-        elif isinstance(small_data, SmallProtocolData):
-            if 'num_plates' in small_data.args:
-                form_fields += [plates]
-            if 'params' in small_data.args:
-                form_fields += [params]
-            if 'protocol_dir' in small_data.args:
-                form_fields += [protocol_dir]
-            args = Args(
-                small_protocol=small_data.name,
-                num_plates=pbutils.catch(lambda: int(plates.value), 0),
-                params=pbutils.catch(lambda: shlex.split(params.value), []),
-                protocol_dir=protocol_dir.value,
-            )
-        else:
-            form_fields = []
-            args = None
-
-        if args:
-            try:
-                stages = cli.args_to_stages(args)
-            except:
-                stages = []
-            if stages:
-                start_from_stage = store.str(
-                    name='start from stage',
-                    default='start',
-                    desc='Stage to start from',
-                    options=stages
-                )
-                form_fields += [start_from_stage]
-                if start_from_stage.value:
-                    args = replace(args, start_from_stage=start_from_stage.value)
-
-        if isinstance(small_data, SmallProtocolData):
-            doc_full = textwrap.dedent(small_data.make.__doc__ or '').strip()
-            doc_header = small_data.doc
-        else:
-            doc_full = ''
-            doc_header = ''
-
-        yield div(
-            *form(protocol),
-            div(
-                doc_header,
-                title=doc_full,
-                grid_column='2 / span 1',
-                css='''
-                    max-width: fit-content;
-                    padding: 5px 12px;
-                    place-self: start;
-                ''',
-            ),
-            *form(*form_fields),
-            button(
-                'simulate',
-                onclick=call(start, args=args, simulate=True),
-                grid_row='-1',
-            ) if args else '',
-            button(
-                V.raw(triangle.strip()), ' ', 'start',
-                data_doc=doc_full,
-                onclick=
-                    (
-                        'confirm(this.dataset.doc)&&'
-                        if 'required' in doc_full.lower()
-                        else ''
-                    )
-                    +
-                    call(start, args=args, simulate=False),
-                grid_row='-1',
-            ) if args else '',
-            height='100%',
-            padding='80px 0',
-            grid_area='header',
-            user_select='none',
-            css_=form_css,
-            css='''
-                & {
-                    grid-template-rows: 40px 100px repeat(5, 40px);
-                    grid-template-columns: 160px 300px;
-                }
-                & label > span {
-                    text-align: right;
-                }
-                & button {
-                    height: 100%;
-                }
-            '''
-        )
-        running: list[tuple[int, str]] = []
-        try:
-            x = subprocess.check_output(['pgrep', '^cellpainter$']).decode()
-        except:
-            x = ''
-        for pid in x.strip().split('\n'):
-            try:
-                pid = int(pid)
-                args = get_json_arg_from_argv(pid)
-                if isinstance(v := args.get("log_filename"), str):
-                    pbutils.pr(args)
-                    running += [(pid, v)]
-            except:
-                pass
-        if running:
-            yield div(
-                'Running processes:',
-                V.ul(
-                    *[
-                        V.li(
-                            V.span(arg, onclick=call(path_var_assign, arg), text_decoration='underline', cursor='pointer'),
-                            V.button(
-                                'kill',
-                                data_arg=arg,
-                                onclick=
-                                    'window.confirm("Really kill " + this.dataset.arg + "?") && ' +
-                                    call(sigkill, pid),
-                                py=5, m=8,
-                                border_radius=3,
-                                border_width=1,
-                                border_color='var(--red)',
-                            ),
-                            padding_top=8
-                        )
-                        for pid, arg in running
-                    ],
-                ),
-                grid_area='info',
-                z_index='1',
-            )
-        yield div(
-            f'Running on {platform.node()} with config {config.name}',
-            grid_area='info-foot',
-            opacity='0.85',
-            margin='0 auto',
-        )
+        yield from start_form()
     info = div(
         grid_area='info',
         css='''
@@ -1116,9 +1153,9 @@ def index(path_from_route: str | None = None) -> Iterator[Tag | V.Node | dict[st
                     grid_area='info-foot',
                 )
         elif ar.process_is_alive and ar.runtime_metadata:
-            text = f'pid: {ar.runtime_metadata.pid} on {platform.node()} with config {config.name}'
+            text = f'{ar.experiment_metadata.project_id}, pid: {ar.runtime_metadata.pid} on {platform.node()} with config {config.name}'
         else:
-            text = f'pid: - on {platform.node()} with config {config.name}'
+            text = f'{ar.experiment_metadata.project_id}, pid: - on {platform.node()} with config {config.name}'
         if text:
             yield V.pre(text,
                 grid_area='info-foot',
@@ -1159,6 +1196,21 @@ def index(path_from_route: str | None = None) -> Iterator[Tag | V.Node | dict[st
             pass
         elif ar.process_is_alive:
             yield div(
+                div('notes:',
+                    button('add note',
+                        onclick=call(lambda note:
+                            Note(note=note).save(path_to_log(path).db),
+                            js('window.prompt("note:")')
+                        )
+                    ),
+                    button(
+                        'notes',
+                        onclick=
+                            'alert(' +
+                                repr('\n'.join(path_to_log(path).db.get(Note).select(Note.note).list())) +
+                            ')'
+                    )
+                ),
                 div(
                     'robotarm speed: ',
                     *[

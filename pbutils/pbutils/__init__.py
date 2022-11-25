@@ -161,7 +161,7 @@ def git_HEAD() -> str | None:
     from subprocess import run
     try:
         proc = run(['git', 'rev-parse', 'HEAD'], capture_output=True)
-        return proc.stdout.decode().strip()[:8]
+        return proc.stdout.decode().strip()[:12]
     except:
         return None
 

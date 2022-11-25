@@ -1,6 +1,7 @@
 from __future__ import annotations
 from contextlib import contextmanager
 from dataclasses import *
+from dataclasses import _MISSING_TYPE
 import apsw
 import textwrap
 
@@ -129,7 +130,16 @@ class Select(Generic[R], PrivateReplaceMixin):
         return self
 
     def one(self) -> R:
-        return self.limit(1, self._offset).list()[0]
+        for row in self.limit(1, self._offset):
+            return row
+        else:
+            raise ValueError('Empty select')
+
+    def one_or(self, default: A) -> R | A:
+        for row in self.limit(1, self._offset):
+            return row
+        else:
+            return default
 
     def list(self) -> list[R]:
         stmt = self.sql()

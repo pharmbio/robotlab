@@ -717,9 +717,15 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
         for command in chunks[desc]
     ]
 
+    for plate_id, step, _substep in linear:
+        stage1 = f'{step}, plate {plate_id}'
+        break
+    else:
+        stage1 = f'prep, batch {batch_index+1}'
+
     return Seq(
         # Section(p.step_names[0]),
-        Seq(*prep_cmds).add(Metadata(step='prep', stage=f'prep, batch {batch_index+1}')),
+        Seq(*prep_cmds).add(Metadata(step='prep', stage=stage1)),
         *plate_cmds,
         Seq(*post_cmds)
     ).add(Metadata(batch_index=batch_index + 1))

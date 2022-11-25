@@ -26,6 +26,12 @@ class RuntimeMetadata(DBMixin):
     completed: datetime | None = None
     id: int = -1
 
+@dataclass(frozen=False)
+class ExperimentMetadata(DBMixin):
+    project_id: str = ''
+    operators: str = ''
+    id: int = -1
+
 @dataclass(frozen=True)
 class Message(DBMixin):
     msg: str = ''
@@ -34,6 +40,12 @@ class Message(DBMixin):
     metadata: Metadata | None = None
     is_error: bool            = False
     traceback: str | None     = None
+    id: int = -1
+
+@dataclass(frozen=True)
+class Note(DBMixin):
+    time: datetime = field(default_factory=lambda: datetime.now())
+    note: str = ''
     id: int = -1
 
 @dataclass(frozen=True)
@@ -288,8 +300,9 @@ class Log:
         return self.db.get(Message).where(Message.is_error == True).list()
 
     def runtime_metadata(self) -> RuntimeMetadata | None:
-        for m in self.db.get(RuntimeMetadata):
-            return m
-        return None
+        return self.db.get(RuntimeMetadata).one_or(None)
+
+    def experiment_metadata(self) -> ExperimentMetadata | None:
+        return self.db.get(ExperimentMetadata).one_or(None)
 
 pbutils.serializer.register(globals())

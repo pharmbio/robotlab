@@ -10,6 +10,7 @@ from . import commands
 
 from .log import (
     CommandState,
+    ExperimentMetadata,
     RuntimeMetadata,
     Log,
     CommandWithMetadata,
@@ -274,7 +275,7 @@ def program_num_plates(program: Program) -> int:
     )
     return num_plates
 
-def execute_simulated_program(config: RuntimeConfig, sim_db: DB):
+def execute_simulated_program(config: RuntimeConfig, sim_db: DB, experiment_metadata: ExperimentMetadata):
     programs = sim_db.get(Program).list()
     if len(programs) == 0:
         raise ValueError(f'No program stored in {sim_db.con.filename}')
@@ -309,6 +310,8 @@ def execute_simulated_program(config: RuntimeConfig, sim_db: DB):
         )
         runtime_metadata = runtime_metadata.save(runtime.log_db)
 
+        experiment_metadata.save(runtime.log_db)
+
         cmd = program.command
         cmd = cmd.remove_scheduling_idles()
         with pbutils.timeit('execute'):
@@ -320,6 +323,6 @@ def execute_simulated_program(config: RuntimeConfig, sim_db: DB):
         for line in runtime.get_log().group_durations_for_display():
             print(line)
 
-def execute_program(config: RuntimeConfig, program: Program, sim_delays: dict[int, float] = {}):
+def execute_program(config: RuntimeConfig, program: Program, experiment_metadata: ExperimentMetadata, sim_delays: dict[int, float] = {}):
     db = simulate_program(program, sim_delays=sim_delays)
-    execute_simulated_program(config, db)
+    execute_simulated_program(config, db, experiment_metadata)

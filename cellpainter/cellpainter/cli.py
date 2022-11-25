@@ -11,6 +11,7 @@ import re
 from pathlib import Path
 
 from dataclasses import *
+from labrobots import Example
 
 from pbutils import show
 import pbutils
@@ -22,7 +23,7 @@ from . import moves
 
 from .commands import Program
 from . import execute
-from .log import Log
+from .log import ExperimentMetadata, Log
 from .moves import movelists
 from .runtime import RuntimeConfig, configs, config_lookup
 from .small_protocols import small_protocols_dict, SmallProtocolArgs
@@ -79,6 +80,9 @@ class Args:
     yes:                       bool = arg(help='Assume yes in confirmation questions')
     make_uml:                  str  = arg(help='Write uml in dot format to the given path and exit')
 
+    project_id: str = arg(help='Experiment metadata, example: "specs935-v1"')
+    operators:  str = arg(help='Experiment metadata, example: "Amelie and Christa"')
+
 def main():
     args, parser = arg.parse_args(Args, description='Make the lab robots do things.')
     if args.json_arg:
@@ -107,6 +111,8 @@ def main_with_args(args: Args, parser: argparse.ArgumentParser | None=None):
 
     print('config =', show(config))
     print('args =', show(args))
+
+    em = ExperimentMetadata(project_id=args.project_id, operators=args.operators)
 
     if args.timing_matrix:
         out: list[list[Any]] = []
@@ -162,7 +168,7 @@ def main_with_args(args: Args, parser: argparse.ArgumentParser | None=None):
 
     elif args.run_program_in_log_filename:
         with DB.open(args.run_program_in_log_filename) as db:
-            execute.execute_simulated_program(config, db)
+            execute.execute_simulated_program(config, db, db.get(ExperimentMetadata).one_or(em))
 
     elif p := args_to_program(args):
         if config.name != 'simulate' and p.doc and not args.yes:
@@ -187,7 +193,7 @@ def main_with_args(args: Args, parser: argparse.ArgumentParser | None=None):
                 with pbutils.timeit(f'saving {args.protocol_dir} protocol files'):
                     protocol_paths.add_protocol_dir_as_sqlar(log_filename, args.protocol_dir)
 
-        execute.execute_program(config, p, sim_delays=parse_sim_delays(args))
+        execute.execute_program(config, p, em, sim_delays=parse_sim_delays(args))
         # if re.match('time.bioteks', p.metadata.get('program', '')) and config.name == 'live':
         #     estimates.add_estimates_from('estimates.json', log)
 
