@@ -47,7 +47,7 @@ from .estimates import estimate, EstCmd
 from . import estimates
 from datetime import datetime
 
-from pbutils.mixins import DB
+from pbutils.mixins import DB, DBMixin
 
 def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
     if isinstance(cmd, EstCmd) and metadata.est is None:
@@ -225,7 +225,13 @@ def remove_stages(program: Program, until_stage: str) -> Program:
         *[Checkpoint(dang) for dang in dangling],
         cmd,
     )
-    return program.replace(command=cmd, world0=world0)
+    return program.replace(
+        command=cmd,
+        world0=world0,
+        metadata=program.metadata.replace(
+            from_stage=until_stage,
+        )
+    )
 
 def prepare_program(program: Program, sim_delays: dict[int, float]) -> tuple[Program, dict[int, float]]:
     cmd = program.command
@@ -275,7 +281,7 @@ def program_num_plates(program: Program) -> int:
     )
     return num_plates
 
-def execute_simulated_program(config: RuntimeConfig, sim_db: DB, experiment_metadata: ExperimentMetadata):
+def execute_simulated_program(config: RuntimeConfig, sim_db: DB, metadata: list[DBMixin]):
     programs = sim_db.get(Program).list()
     if len(programs) == 0:
         raise ValueError(f'No program stored in {sim_db.con.filename}')
@@ -284,8 +290,8 @@ def execute_simulated_program(config: RuntimeConfig, sim_db: DB, experiment_meta
     else:
         [program] = programs
     cmd = program.command
-    metadata = program.metadata
-    if metadata.get('program') == 'cell_paint':
+
+    if program.metadata.protocol == 'cell-paint':
         missing: list[str] = []
         for k, _v in estimates.guesses.items():
             if isinstance(k, BiotekCmd) and k.protocol_path:
@@ -310,7 +316,8 @@ def execute_simulated_program(config: RuntimeConfig, sim_db: DB, experiment_meta
         )
         runtime_metadata = runtime_metadata.save(runtime.log_db)
 
-        experiment_metadata.save(runtime.log_db)
+        for data in metadata:
+            data.save(runtime.log_db)
 
         cmd = program.command
         cmd = cmd.remove_scheduling_idles()
@@ -323,6 +330,6 @@ def execute_simulated_program(config: RuntimeConfig, sim_db: DB, experiment_meta
         for line in runtime.get_log().group_durations_for_display():
             print(line)
 
-def execute_program(config: RuntimeConfig, program: Program, experiment_metadata: ExperimentMetadata, sim_delays: dict[int, float] = {}):
+def execute_program(config: RuntimeConfig, program: Program, metadata: list[DBMixin]=[], sim_delays: dict[int, float] = {}):
     db = simulate_program(program, sim_delays=sim_delays)
-    execute_simulated_program(config, db, experiment_metadata)
+    execute_simulated_program(config, db, metadata)

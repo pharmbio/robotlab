@@ -7,6 +7,7 @@ import textwrap
 
 from datetime import datetime
 from . import serializer
+from pathlib import Path
 
 from pprint import pp
 
@@ -72,10 +73,27 @@ class Select(Generic[R], PrivateReplaceMixin):
                 return none
             else:
                 return sep.join(values)
-        select = ', '.join([
-            f'{self._table.var_name()}.{c}'
-            for c in self._focus._follow().sql_columns()
-        ])
+        columns: set[str] = {
+            col
+            for col, in
+            self._db.con.execute(
+                'select name from pragma_table_info(?)',
+                (self._table.table_name(),)
+            )
+        }
+        selects: list[str] = []
+        for conv in self._focus._follow().sql_columns_converters():
+            c = conv.key
+            if c in columns:
+                selects += [
+                    f'{self._table.var_name()}.{c}'
+                ]
+            else:
+                print(f'Adding default {c}: {conv.default!r}')
+                selects += [
+                    to_sql(conv.conv_to_sql(conv.default))
+                ]
+        select = ', '.join(selects)
         where = [to_sql(w) for w in self._where]
         stmt = {
             'select': select,
@@ -436,14 +454,14 @@ class DB:
 
     @contextmanager
     @staticmethod
-    def open(path: str):
+    def open(path: str | Path):
         db = DB.connect(path)
         yield db
         db.con.close()
 
     @staticmethod
-    def connect(path: str):
-        con = apsw.Connection(path)
+    def connect(path: str | Path):
+        con = apsw.Connection(str(path))
         con.setbusytimeout(2000)
         return DB(con)
 
@@ -582,9 +600,13 @@ def make_converter(t: Type[Any]) -> list[Converter[Any, Any]]:
 class Converters:
     xs: list[Converter[Any, Any]]
     key: str
+    default: Any
 
     def sql_columns(self) -> list[str]:
         return [self.key]
+
+    def sql_columns_converters(self) -> list[Converters]:
+        return [self]
 
     def sql_columns_with_type(self) -> list[tuple[str, str]]:
         return [
@@ -618,6 +640,9 @@ class DataClassDesc:
 
     def sql_columns(self) -> list[str]:
         return list(self.flat.keys())
+
+    def sql_columns_converters(self) -> list[Converters]:
+        return list(self.flat.values())
 
     def sql_columns_with_type(self) -> list[tuple[str, str]]:
         return [
@@ -689,7 +714,7 @@ class DataClassDesc:
         assert isinstance(ret, DataClassDesc)
         def scope_names(d: DataClassDesc | Converters, path: list[str]) -> DataClassDesc | Converters:
             if isinstance(d, Converters):
-                return Converters(d.xs, '$'.join(path))
+                return Converters(d.xs, '$'.join(path), d.default)
             else:
                 return DataClassDesc(
                     d.con,
@@ -704,17 +729,25 @@ class DataClassDesc:
             setattr(dc, k, getattr(scoped.var(), k))
         return scoped
 
-@functools.cache
-def desc(dc: Type[Any]) -> DataClassDesc | Converters:
+from pbutils import p
+
+def desc(dc: Type[Any], default: Any=None) -> DataClassDesc | Converters:
     if not is_dataclass(dc) or dc.__subclasses__():
-        return Converters(make_converter(dc), '<converter key to be filled in by scope_names>')
-    field_dict = {field.name: field for field in fields(dc)}
+        return Converters(make_converter(dc), '<converter key to be filled in by scope_names>', default)
+    field_dict = {
+        field.name: field for field in fields(dc)
+    }
+    def get_default(field: Field):
+        if callable(field.default_factory):
+            return field.default_factory()
+        else:
+            return field.default
     return DataClassDesc(
         dc,
         {
-            k: desc(v)
+            k: desc(v, get_default(field))
             for k, v in get_annotations(dc).items()
-            if k in field_dict
+            if (field := field_dict.get(k))
         }
     )
 

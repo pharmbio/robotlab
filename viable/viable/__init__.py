@@ -6,6 +6,7 @@ from .core import (
 from .call_js import (
     JS,      # type: ignore
     js,      # type: ignore
+    Action,  # type: ignore
 )
 from .provenance import (
     store, # type: ignore

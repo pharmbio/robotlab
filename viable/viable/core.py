@@ -70,8 +70,8 @@ class Serve:
             enc, *js_args_vals = body['args']
             add_request_data(self._call_js)
             try:
-                self._call_js.handle_call(enc, js_args_vals)
-                return jsonify(request_data().updates())
+                res = self._call_js.handle_call(enc, js_args_vals) or {}
+                return jsonify({**request_data().updates(), **res})
             except:
                 traceback.print_exc()
                 return '', 400
@@ -165,7 +165,7 @@ class Serve:
             compress = False
         else:
             compress = bool(re.search('gzip|br|deflate', cast(Any, request).headers.get('Accept-encoding', '')))
-        indent = 0 if compress else 2
+        indent = 0 # 0 if compress else 2
         newline = '' if compress else '\n'
 
         classes = body_node.make_classes({})

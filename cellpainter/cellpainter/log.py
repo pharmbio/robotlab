@@ -4,9 +4,10 @@ from typing import *
 
 import math
 from datetime import datetime, timedelta
+from pathlib import Path
 
 import pbutils
-from .commands import Metadata, Command, Checkpoint, BiotekCmd, Duration, Info, IncuCmd, RobotarmCmd
+from .commands import Metadata, Command, Checkpoint, BiotekCmd, Duration, Info, IncuCmd, RobotarmCmd, ProgramMetadata
 from .moves import World
 
 from pbutils.mixins import DB, DBMixin
@@ -17,7 +18,7 @@ import platform
 @dataclass(frozen=False)
 class RuntimeMetadata(DBMixin):
     start_time:   datetime
-    num_plates:   int
+    num_plates:   int # to be removed
     config_name:  str
     log_filename: str
     pid: int      = field(default_factory=lambda: os.getpid())
@@ -44,8 +45,8 @@ class Message(DBMixin):
 
 @dataclass(frozen=True)
 class Note(DBMixin):
-    time: datetime = field(default_factory=lambda: datetime.now())
     note: str = ''
+    time: datetime = field(default_factory=lambda: datetime.now())
     id: int = -1
 
 @dataclass(frozen=True)
@@ -132,7 +133,7 @@ class Log:
     db: DB
 
     @staticmethod
-    def open(filename: str):
+    def open(filename: str | Path):
         return Log(DB.connect(filename))
 
     def command_states(self):
@@ -304,5 +305,8 @@ class Log:
 
     def experiment_metadata(self) -> ExperimentMetadata | None:
         return self.db.get(ExperimentMetadata).one_or(None)
+
+    def program_metadata(self) -> ProgramMetadata | None:
+        return self.db.get(ProgramMetadata).one_or(None)
 
 pbutils.serializer.register(globals())

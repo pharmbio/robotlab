@@ -16,7 +16,12 @@ viable_js = textwrap.dedent(r'''
         if (next.session) {
             update_session(next.session)
         }
-        await refresh()
+        if (next.refresh !== false) {
+            await refresh()
+        }
+        if (next.eval_js) {
+            ;(0, eval)(next.eval_js)
+        }
     }
     function get_query() {
         return Object.fromEntries(new URL(location.href).searchParams)

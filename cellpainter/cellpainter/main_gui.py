@@ -22,12 +22,14 @@ import shlex
 import textwrap
 import subprocess
 
+from viable.call_js import asdict_shallow
+
 from .log import ExperimentMetadata, Log
 from .cli import Args
 from . import cli
 
 from . import commands
-from .commands import IncuCmd, BiotekCmd
+from .commands import IncuCmd, BiotekCmd, ProgramMetadata
 from . import moves
 from . import runtime
 import pbutils
@@ -36,6 +38,8 @@ from .moves import RawCode, Move
 from .protocol import Locations
 from .small_protocols import small_protocols_dict, SmallProtocolData
 from .runtime import get_robotarm, RuntimeConfig
+
+from pbutils.mixins import DBMixin, DB
 
 config: RuntimeConfig
 for c in runtime.configs:
@@ -115,6 +119,7 @@ def start(args: Args, simulate: bool, push_state: bool=True):
         log_filename = log_filename.replace('simulate', config_name)
     else:
         program_name = 'cell-paint' if args.cell_paint else args.small_protocol
+        program_name = program_name.replace('_', '-')
         if args.project_id:
             log_filename = f'logs/{args.project_id}-{now_str}-{program_name}-{config_name}.db'
         else:
@@ -171,9 +176,15 @@ def make_table(rows: list[dict[str, Any]], header: bool=True):
             v = row.get(c)
             if v is None:
                 v = ''
-            tr += V.td(str(v) or '\u200b')
+            if isinstance(v, V.Node):
+                tr += V.td(v)
+            else:
+                tr += V.td(str(v) or '\u200b')
         body += tr
-    return V.table(head, body)
+    if header:
+        return V.table(head, body)
+    else:
+        return V.table(body)
 
 def get_argv(pid: int) -> list[str]:
     try:
@@ -228,12 +239,12 @@ class AnalyzeResult:
         t_now = (datetime.now() - zero_time).total_seconds()
 
         if completed:
-            t_now = m.time_end() + 1
+            t_now = m.time_end() + 0.01
 
         alive = process_is_alive(runtime_metadata.pid, runtime_metadata.log_filename)
 
         if not alive:
-            t_now = m.time_end() + 1
+            t_now = m.time_end() + 0.01
 
         errors = m.errors()
         if errors:
@@ -584,13 +595,13 @@ sheet = '''
     body {
         display: grid;
         grid:
-            "pad-left header    header    pad-right" auto
+            "pad-left form      form      pad-right" auto
             "pad-left vis       info      pad-right" 1fr
             "pad-left vis       stop      pad-right" auto
             "pad-left info-foot info-foot pad-right" auto
           / 1fr auto minmax(min-content, 800px) 1fr;
         grid-gap: 10px;
-        padding: 10px;
+        padding: 4px;
     }
     html {
         --bg:        #2d2d2d;
@@ -614,6 +625,9 @@ sheet = '''
     }
     .svg-triangle polygon {
         fill: var(--green);
+    }
+    button {
+        user-select: none;
     }
 '''
 
@@ -809,6 +823,16 @@ def start_form():
         doc_full = ''
         doc_divs = []
 
+    confirm = ''
+    if 'required' in doc_full.lower():
+        confirm = doc_full
+    if not confirm and args and args.cell_paint:
+        if not args.project_id:
+            confirm += 'Not specified: project id.\n'
+        if not args.operators:
+            confirm += 'Not specified: operators.\n'
+        if confirm:
+            confirm += '\nStart anyway?'
     yield div(
         *form(protocol),
         *doc_divs,
@@ -821,10 +845,11 @@ def start_form():
         button(
             V.raw(triangle.strip()), ' ', 'start',
             data_doc=doc_full,
+            data_confirm=confirm,
             onclick=
                 (
-                    'confirm(this.dataset.doc)&&'
-                    if 'required' in doc_full.lower()
+                    'confirm(this.dataset.confirm) && '
+                    if confirm
                     else ''
                 )
                 +
@@ -833,7 +858,7 @@ def start_form():
         ) if args else '',
         height='100%',
         padding='80px 0',
-        grid_area='header',
+        grid_area='form',
         user_select='none',
         css_=form_css,
         css='''
@@ -863,32 +888,50 @@ def start_form():
                 running_processes += [(pid, v)]
         except:
             pass
+
+    info = div(
+        grid_area='info',
+        z_index='1',
+        css='''
+            & li {
+                margin: 8px 0;
+            }
+            & > div {
+                margin: 16px 0;
+            }
+        '''
+    )
     if running_processes:
-        yield div(
-            'Running processes:',
-            V.ul(
-                *[
-                    V.li(
-                        V.span(arg, onclick=call(path_var_assign, arg), text_decoration='underline', cursor='pointer'),
-                        V.button(
-                            'kill',
-                            data_arg=arg,
-                            onclick=
-                                'window.confirm("Really kill " + this.dataset.arg + "?") && ' +
-                                call(sigkill, pid),
-                            py=5, m=8,
-                            border_radius=3,
-                            border_width=1,
-                            border_color='var(--red)',
-                        ),
-                        padding_top=8
-                    )
-                    for pid, arg in running_processes
-                ],
-            ),
-            grid_area='info',
-            z_index='1',
-        )
+        ul = V.ul()
+        for pid, arg in running_processes:
+            ul += V.li(
+                V.span(
+                    arg,
+                    onclick=call(path_var_assign, arg),
+                    text_decoration='underline',
+                    cursor='pointer'
+                ),
+                V.button(
+                    'kill',
+                    data_arg=arg,
+                    onclick=
+                        'window.confirm("Really kill " + this.dataset.arg + "?") && ' +
+                        call(sigkill, pid),
+                    py=5, mx=8, my=0,
+                    border_radius=3,
+                    border_width=1,
+                    border_color='var(--red)',
+                ),
+            )
+        info += div('Running processes:', ul)
+    info += div(
+        'More:',
+        V.ul(
+            V.li(V.a('show timings', href='/timings')),
+            V.li(V.a('show logs', href='/logs')),
+        ),
+    )
+    yield info
     yield div(
         f'Running on {platform.node()} with config {config.name}',
         grid_area='info-foot',
@@ -896,14 +939,158 @@ def start_form():
         margin='0 auto',
     )
 
+def alert(s: str):
+    return V.Action(f'alert({json.dumps(s)})')
+
+def notes_div(path: str):
+    def alert_notes():
+        datetime.now().time
+        res = [
+            note.time.strftime('%H:%M') + ': ' + note.note
+            for note in path_to_log(path).db.get(Note).order(Note.time, 'desc')
+        ]
+        res = '\n'.join(res)
+        if not res:
+            res = 'no notes'
+        return alert(res)
+
+    num_notes = len(path_to_log(path).db.get(Note).select(Note.id).list())
+    num_notes_str = f'({num_notes})' if num_notes else ''
+
+    return div(
+        button('add note',
+            onclick=call(lambda note:
+                Note(note=note).save(path_to_log(path).db)
+                if isinstance(note, str) and note else
+                None,
+                js('window.prompt("note:")')
+            )
+        ),
+        button(f'see notes {num_notes_str}'.strip(), onclick=call(alert_notes)),
+        css='''
+            && button {
+                padding: 10px;
+                margin: 10px;
+                margin-right: 0;
+                min-width: 100px;
+                border-radius: 4px;
+                outline-color: var(--fg);
+                color: var(--fg);
+                border-color: var(--fg);
+                opacity: 0.85;
+                outline-width: 2px;
+                outline-offset: -1px;
+            }
+            & button:hover {
+                opacity: 1.0;
+            }
+            & button:focus {
+                outline-style: solid;
+            }
+            & {
+                text-align: center;
+                padding: 0;
+                margin: 0;
+            }
+        ''',
+    )
+
+def show_timings() -> Iterator[Tag | V.Node | dict[str, str]]:
+    yield div('timings TODO')
+
+A = TypeVar('A')
+B = TypeVar('B')
+class dotdict(Generic[A, B], dict[A, B]):
+    __getattr__ = dict.__getitem__ # type: ignore
+    __setattr__ = dict.__setitem__ # type: ignore
+    __delattr__ = dict.__delitem__ # type: ignore
+
+from pbutils import p
+
+def escape(s: str):
+    if not s or s.strip('''"' \t\n\r''') != s:
+        return repr(s)
+    else:
+        return s
+
+def edit(db_path: str | Path, obj: DBMixin, field: str, conv: Callable[[str], Any] = str):
+    value = str(getattr(obj, field))
+    do_edit = store.bool(name='edit')
+    if not do_edit.value:
+        return div(escape(value))
+    def update(next: str):
+        next_conv = conv(next)
+        with DB.open(db_path) as db:
+            ob = obj.reload(db)
+            ob = ob.replace(**{field: next_conv}) # type: ignore
+            ob.save(db)
+    return div(
+        div(
+            escape(value),
+            px=5,
+        ),
+        V.input(
+            value=value,
+            oninput=call(update, js('this.value'))
+        )
+    )
+
+def show_logs() -> Iterator[Tag | V.Node | dict[str, str]]:
+    do_edit = store.bool(name='edit')
+    logs: list[dict[str, Any]] = []
+    for log in sorted(Path('logs').glob('*.db')):
+        row: dict[str, Any] = dotdict()
+        g = Log.open(log)
+        pm = g.program_metadata() or ProgramMetadata().save(g.db)
+        em = g.experiment_metadata() or ExperimentMetadata().save(g.db)
+        try:
+            if (rt := g.runtime_metadata()):
+                row.day = (rt.start_time.strftime('%a'))
+                row.start_time = (rt.start_time.strftime('%Y-%m-%d %H:%M'))
+                row.end = ((rt.start_time + timedelta(seconds=g.time_end())).strftime('%H:%M'))
+                row.project = edit(log, em, 'project_id')
+                row.operators = edit(log, em, 'operators')
+                row.config_name = rt.config_name
+                row.num_plates = pm.num_plates or rt.num_plates
+                # row.plates = edit(log, pm, 'num_plates', int)
+        except BaseException as e:
+            row.err = repr(e)
+        else:
+            row.err = ''
+        # row.path = pre(str(log))
+        row.mtime = pre(
+            str(datetime.fromtimestamp(log.stat().st_mtime).replace(microsecond=0)),
+            title=str(log),
+        )
+        if 'id' in row:
+            del row.id
+        logs += [row]
+    logs = sorted(logs, key=lambda g: g.get('start_time', '1999'), reverse=True)
+    yield make_table(logs).extend(
+        grid_area='info',
+        css='''
+            & input {
+                border-width: 1px;
+                padding: 4px;
+                padding-bottom: 2px;
+                margin-bottom: 1px;
+                border-radius: 2px;
+            }
+            & * { white-space: pre; min-width: unset }
+        '''
+    )
+    yield div(
+        label(do_edit.input().extend(transform='translateY(3px)'), 'enable editing'),
+        grid_area='form',
+        place_self='center',
+        css=inverted_inputs_css,
+    )
 @serve.route('/')
 @serve.route('/<path:path_from_route>')
 def index(path_from_route: str | None = None) -> Iterator[Tag | V.Node | dict[str, str]]:
     yield dict(sheet=sheet)
 
     path = path_var_value() or path_from_route
-
-    yield V.head(V.title('cell painter - ', path or ''))
 
     path_is_latest = False
     if path == 'latest':
@@ -917,6 +1104,17 @@ def index(path_from_route: str | None = None) -> Iterator[Tag | V.Node | dict[st
             path = str(logfile)
         else:
             path = None
+    if path == 'timings':
+        yield from show_timings()
+        return
+    if path == 'logs':
+        yield from show_logs()
+        return
+
+    if path:
+        yield V.head(V.title('cell painter: ', path.removeprefix('logs/').removesuffix('.db')))
+    else:
+        yield V.head(V.title('cell painter'))
 
     if not path:
         yield from start_form()
@@ -1001,6 +1199,7 @@ def index(path_from_route: str | None = None) -> Iterator[Tag | V.Node | dict[st
                         css=inverted_inputs_css,
                         css_='& input { width: 700px; }'),
                     margin='0 auto',
+                    z_index='1',
                 )
                 ar = AnalyzeResult.init(log, drop_after=float(t_end.value))
         elif log is not None:
@@ -1140,100 +1339,126 @@ def index(path_from_route: str | None = None) -> Iterator[Tag | V.Node | dict[st
                     tb = None
                 if not isinstance(tb, str):
                     tb = None
-                # box += pre(f'[{entry.strftime("%H:%M:%S")}] {err.message} {"(...)" if tb else ""}', title=tb)
                 box += pre(f'{err.msg} {"(...)" if tb else ""}', title=tb)
             if not ar.process_is_alive:
                 box += pre('Controller process has terminated.')
             info += box
+            if path and not simulation:
+                if not path_is_latest:
+                    # skip showing buttons for endpoint /latest
+                    info += notes_div(path)
 
+        project_id = ar.experiment_metadata.project_id
+        if project_id:
+            project_id = f'{project_id}, '
         if ar.completed:
-            text = ''
+            text = project_id.strip(', ')
             if t_end_form:
                 yield t_end_form.extend(
                     grid_area='info-foot',
                 )
         elif ar.process_is_alive and ar.runtime_metadata:
-            text = f'{ar.experiment_metadata.project_id}, pid: {ar.runtime_metadata.pid} on {platform.node()} with config {config.name}'
+            text = f'{project_id}pid: {ar.runtime_metadata.pid} on {platform.node()} with config {config.name}'
         else:
-            text = f'{ar.experiment_metadata.project_id}, pid: - on {platform.node()} with config {config.name}'
+            text = f'{project_id}pid: - on {platform.node()} with config {config.name}'
         if text:
             yield V.pre(text,
                 grid_area='info-foot',
                 padding_top='0.5em',
                 user_select='text',
                 opacity='0.85',
+                background='none',
             )
-
         if ar.completed and not ar.has_error():
-            info += div(
-                div(
-                    'Simulation finished.' if simulation_completed else
-                    'Finished successfully!'
-                ),
-                button(
+            confirm = ''
+            if not ar.experiment_metadata.project_id:
+                confirm += 'Not specified: project id.\n'
+            if not ar.experiment_metadata.operators:
+                confirm += 'Not specified: operators.\n'
+            if confirm:
+                confirm += '\nStart anyway?'
+            if path:
+                start_button = button(
                     V.raw(triangle.strip()), ' ', 'start',
-                    onclick=call(
-                        start,
-                        args=Args(run_program_in_log_filename=path),
-                        simulate=False,
-                        push_state=False,
-                    ),
+                    data_confirm=confirm,
+                    onclick=
+                        (
+                            'confirm(this.dataset.confirm) && '
+                            if confirm
+                            else ''
+                        )
+                        +
+                        call(
+                            start,
+                            args=Args(run_program_in_log_filename=path),
+                            simulate=False,
+                            push_state=False,
+                        ),
                     css='''
                         padding: 8px 20px;
-                        border-radius: 2px;
+                        border-radius: 3px;
                         background: var(--bg);
                         color: var(--fg);
-                    '''
-                ) if simulation_completed and path else '',
+                        margin-left: 36px;
+                    ''',
+                    css_='''&:focus, &:focus-within {
+                        outline: 2px var(--fg) solid;
+                        outline-offset: -1px;
+                    }'''
+                )
+            else:
+                start_button = ''
+            info += div(
+                div(
+                    span(
+                        'Simulation finished.',
+                        start_button,
+                    )
+                    if simulation_completed else
+                    'Finished successfully!'
+                ),
                 border='2px var(--green) solid',
                 color='#eee',
                 text_align='center',
                 padding='22px',
                 border_radius='2px',
             )
+            if path and not simulation_completed:
+                if not path_is_latest:
+                    # skip showing buttons for endpoint /latest
+                    info += notes_div(path)
         elif path_is_latest:
             # skip showing buttons for endpoint /latest
             pass
         elif ar.process_is_alive:
             yield div(
-                div('notes:',
-                    button('add note',
-                        onclick=call(lambda note:
-                            Note(note=note).save(path_to_log(path).db),
-                            js('window.prompt("note:")')
-                        )
-                    ),
-                    button(
-                        'notes',
-                        onclick=
-                            'alert(' +
-                                repr('\n'.join(path_to_log(path).db.get(Note).select(Note.note).list())) +
-                            ')'
-                    )
-                ),
                 div(
+                    path and notes_div(path).extend(display='inline-block', mr='10px') or {},
                     'robotarm speed: ',
                     *[
                         button(name, title=f'{pct}%', onclick=call(robotarm_set_speed, pct))
                         for name, pct in {
                             'normal': 100,
-                            'slow': 40,
-                            'slower': 10,
+                            'slow': 25,
                             'slowest': 1,
                         }.items()
                     ],
                     css='''
                         & {
-                            font-size: 18px;
+                            -font-size: 18px;
                         }
                         & button {
-                            margin: 10px 5px;
+                            margin: 10px;
+                            margin-left: 0;
                             padding: 10px;
-                            min-width: 100px;
+                            min-width: 78px;
                             color:        var(--cyan);
                             border-color: var(--cyan);
                             border-radius: 4px;
                             opacity: 0.8;
+                        }
+                        & button:focus {
+                            outline: 2px var(--cyan) solid;
                         }
                         & button:hover {
                             opacity: 1.0;

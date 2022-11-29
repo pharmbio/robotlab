@@ -29,6 +29,7 @@ from .commands import (
     WaitForCheckpoint,
     WaitForResource,
     Meta,
+    ProgramMetadata,
 )
 from .moves import movelists, effects, InitialWorld, World, MovePlate
 from .symbolic import Symbolic
@@ -730,9 +731,6 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
         Seq(*post_cmds)
     ).add(Metadata(batch_index=batch_index + 1))
 
-from . import constraints
-from pbutils import p
-
 def cell_paint_program(batch_sizes: list[int], protocol_config: ProtocolConfig, sleek: bool = True) -> Program:
     cmds: list[Command] = []
     plates = define_plates(batch_sizes)
@@ -756,4 +754,9 @@ def cell_paint_program(batch_sizes: list[int], protocol_config: ProtocolConfig, 
     return Program(
         command=program,
         world0=world0,
+        metadata=ProgramMetadata(
+            protocol='cell-paint',
+            num_plates=sum(batch_sizes),
+            batch_sizes=batch_sizes,
+        )
     )

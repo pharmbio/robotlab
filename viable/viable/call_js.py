@@ -5,6 +5,8 @@ from typing import *
 from itsdangerous import Serializer
 from inspect import signature
 
+from pbutils.serializer import asdict_shallow
+
 from .freeze_function import freeze, thaw, Frozen
 
 @dataclass(frozen=True)
@@ -32,9 +34,14 @@ class _star_repr:
             return '**' + repr(self.value)
 
 @dataclass(frozen=True)
+class Action:
+    eval_js: str = ''
+    refresh: bool = True
+
+@dataclass(frozen=True)
 class CallJS:
     serializer: Serializer
-    def store_call(self, f: Callable[P, Any], *args: P.args, **kwargs: P.kwargs) -> str:
+    def store_call(self, f: Callable[P, Any | Action], *args: P.args, **kwargs: P.kwargs) -> str:
         try:
             sig = signature(f)
         except:
@@ -72,10 +79,10 @@ class CallJS:
         if 0:
             from pbutils import p
             import pickle
-            pkl = pickle.dumps(func_and_py_args_and_js_args_keys | p)
+            pkl = pickle.dumps(func_and_py_args_and_js_args_keys)
             s = pkl.decode('ascii', errors='ignore')
             s = ' '.join(''.join(c if c.isprintable() else ' ' for c in s).split())
-            (len(pkl), s) | p
+            (f, func, len(pkl), s) | p
 
         enc = self.serializer.dumps(func_and_py_args_and_js_args_keys)
         if isinstance(enc, bytes):
@@ -88,7 +95,7 @@ class CallJS:
         newline = '\n'
         return f'call(//{debug}{newline}{call_args})'
 
-    def handle_call(self, enc: str, js_args_vals: list[Any]) -> None:
+    def handle_call(self, enc: str, js_args_vals: list[Any]) -> dict[str, Any] | None:
         func: Frozen
         py_args: dict[str | int, Any]
         js_args_keys: list[str | int]
@@ -106,7 +113,8 @@ class CallJS:
                 kwargs[k] = v
         args: list[Any] = [v for _, v in sorted(arg_dict.items(), key=lambda kv: kv[0])]
         f = thaw(func)
-        _ret = f(*args, **kwargs)
-        # could add support for return values, example: evaluate some JS to interface with 3rd party lib
-        return
-
+        ret = f(*args, **kwargs)
+        if isinstance(ret, Action):
+            return asdict_shallow(ret)
+        else:
+            return None

@@ -21,7 +21,7 @@ from . import protocol
 from . import estimates
 from . import moves
 
-from .commands import Program
+from .commands import Program, ProgramMetadata
 from . import execute
 from .log import ExperimentMetadata, Log
 from .moves import movelists
@@ -168,19 +168,24 @@ def main_with_args(args: Args, parser: argparse.ArgumentParser | None=None):
 
     elif args.run_program_in_log_filename:
         with DB.open(args.run_program_in_log_filename) as db:
-            execute.execute_simulated_program(config, db, db.get(ExperimentMetadata).one_or(em))
+            execute.execute_simulated_program(config, db, [
+                db.get(ExperimentMetadata).one_or(em),
+                db.get(ProgramMetadata).one_or(
+                    ProgramMetadata(protocol=f'{args.run_program_in_log_filename=}')
+                ),
+            ])
 
     elif p := args_to_program(args):
         if config.name != 'simulate' and p.doc and not args.yes:
             confirm(p.doc)
 
         if not args.log_filename:
-            metadata = {
-                'start_time': pbutils.now_str_for_filename(),
-                **p.metadata,
-                'config_name': config.name,
-            }
-            log_filename = ' '.join(metadata.values())
+            filename_parts = [
+                pbutils.now_str_for_filename(),
+                p.metadata.protocol,
+                config.name,
+            ]
+            log_filename = ' '.join(filename_parts)
             log_filename = 'logs/' + log_filename.replace(' ', '_') + '.db'
             config = config.replace(log_filename=log_filename)
 
@@ -193,8 +198,8 @@ def main_with_args(args: Args, parser: argparse.ArgumentParser | None=None):
                 with pbutils.timeit(f'saving {args.protocol_dir} protocol files'):
                     protocol_paths.add_protocol_dir_as_sqlar(log_filename, args.protocol_dir)
 
-        execute.execute_program(config, p, em, sim_delays=parse_sim_delays(args))
-        # if re.match('time.bioteks', p.metadata.get('program', '')) and config.name == 'live':
+        execute.execute_program(config, p, [em, p.metadata], sim_delays=parse_sim_delays(args))
+        # if p.metadata.program == 'time-bioteks' and config.name == 'live':
         #     estimates.add_estimates_from('estimates.json', log)
 
     elif args.robotarm_send:
@@ -245,10 +250,6 @@ def args_to_program(args: Args) -> Program | None:
                 batch_sizes=batch_sizes,
                 protocol_config=protocol_config,
             )
-            program = program.replace(metadata=program.metadata | {
-                'program': 'cell_paint',
-                'batch_sizes': ','.join(str(bs) for bs in batch_sizes),
-            })
 
     elif args.small_protocol:
         name = args.small_protocol.replace('-', '_')
@@ -260,7 +261,13 @@ def args_to_program(args: Args) -> Program | None:
                 protocol_dir = args.protocol_dir,
             )
             program = p.make(small_args)
-            program = program.replace(metadata={'program': p.name}, doc=p.doc)
+            program = program.replace(
+                metadata=ProgramMetadata(
+                    protocol=args.small_protocol,
+                    num_plates=args.num_plates,
+                ),
+                doc=p.doc
+            )
         else:
             raise ValueError(f'Unknown protocol: {name} (available: {", ".join(small_protocols_dict.keys())})')
 

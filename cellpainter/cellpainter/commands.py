@@ -472,8 +472,16 @@ def IncuFork(
 class Program(DBMixin):
     command: Command = field(default_factory=lambda: Seq())
     world0: World | None = None
-    metadata: dict[str, Any] = field(default_factory=dict)
+    metadata: ProgramMetadata = field(default_factory=lambda: ProgramMetadata())
     doc: str = ''
+    id: int = -1
+
+@dataclass(frozen=True)
+class ProgramMetadata(DBMixin):
+    protocol: str = ''
+    num_plates: int = 0
+    batch_sizes: list[int] = field(default_factory=list)
+    from_stage: str | None = None
     id: int = -1
 
 pbutils.serializer.register(globals())

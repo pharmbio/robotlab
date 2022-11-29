@@ -49,7 +49,7 @@ class Node(abc.ABC):
         return self.to_str()
 
     def to_str(self, indent: int=2) -> str:
-        sep = '' if indent == 0 else '\n'
+        sep = '' # '\n' # '' if indent == 0 else '\n'
         return sep.join(self.to_strs(indent=indent))
 
 css_props = {
@@ -113,6 +113,8 @@ for m, margin in {'m': 'margin', 'p': 'padding', 'b': 'border'}.items():
 css_props['d'] = ['display']
 css_props['bg'] = ['background']
 
+Child = TypeVar('Child', Node, str, dict[str, AttrValue])
+
 class Tag(Node):
     _attributes_ = {'children', 'attrs', 'inline_css', 'inline_sheet'}
     def __init__(self, *children: Node | str | dict[str, AttrValue], **attrs: AttrValue):
@@ -122,6 +124,10 @@ class Tag(Node):
         self.inline_sheet: list[str] = []
         self.append(*children)
         self.extend(attrs)
+
+    def add(self, child: Child) -> Child:
+        self.append(child)
+        return child
 
     def append(self, *children: Node | str | dict[str, AttrValue], **kws: AttrValue) -> tx.Self:
         self.children += [
