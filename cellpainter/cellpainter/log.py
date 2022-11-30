@@ -18,7 +18,6 @@ import platform
 @dataclass(frozen=False)
 class RuntimeMetadata(DBMixin):
     start_time:   datetime
-    num_plates:   int # to be removed
     config_name:  str
     log_filename: str
     pid: int      = field(default_factory=lambda: os.getpid())
@@ -29,7 +28,7 @@ class RuntimeMetadata(DBMixin):
 
 @dataclass(frozen=False)
 class ExperimentMetadata(DBMixin):
-    project_id: str = ''
+    desc: str = ''
     operators: str = ''
     id: int = -1
 
@@ -187,6 +186,7 @@ class Log:
 
     def time_end(self):
         q = self.gui_query()
+        q = q.where(CommandState.state == 'completed')
         q = q.order(CommandState.t, 'desc').limit(1)
         q = q.select(CommandState.t)
         for t in q:
@@ -308,5 +308,9 @@ class Log:
 
     def program_metadata(self) -> ProgramMetadata | None:
         return self.db.get(ProgramMetadata).one_or(None)
+
+    def notes(self, order: Literal['asc', 'desc']='asc') -> list[Note]:
+        return self.db.get(Note).order(Note.time, order).list()
+
 
 pbutils.serializer.register(globals())

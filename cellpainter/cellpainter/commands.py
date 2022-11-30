@@ -480,7 +480,7 @@ class Program(DBMixin):
 class ProgramMetadata(DBMixin):
     protocol: str = ''
     num_plates: int = 0
-    batch_sizes: list[int] = field(default_factory=list)
+    batch_sizes: str = ''
     from_stage: str | None = None
     id: int = -1
 

@@ -80,7 +80,7 @@ class Args:
     yes:                       bool = arg(help='Assume yes in confirmation questions')
     make_uml:                  str  = arg(help='Write uml in dot format to the given path and exit')
 
-    project_id: str = arg(help='Experiment metadata, example: "specs935-v1"')
+    desc: str = arg(help='Experiment description metadata, example: "specs935-v1"')
     operators:  str = arg(help='Experiment metadata, example: "Amelie and Christa"')
 
 def main():
@@ -112,7 +112,7 @@ def main_with_args(args: Args, parser: argparse.ArgumentParser | None=None):
     print('config =', show(config))
     print('args =', show(args))
 
-    em = ExperimentMetadata(project_id=args.project_id, operators=args.operators)
+    em = ExperimentMetadata(desc=args.desc, operators=args.operators)
 
     if args.timing_matrix:
         out: list[list[Any]] = []

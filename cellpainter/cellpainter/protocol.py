@@ -757,6 +757,6 @@ def cell_paint_program(batch_sizes: list[int], protocol_config: ProtocolConfig, 
         metadata=ProgramMetadata(
             protocol='cell-paint',
             num_plates=sum(batch_sizes),
-            batch_sizes=batch_sizes,
+            batch_sizes=','.join(map(str, batch_sizes)),
         )
     )

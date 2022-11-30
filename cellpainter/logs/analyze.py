@@ -271,7 +271,7 @@ for path in paths:
         ProgramMetadata(
             protocol='cell-paint',
             num_plates=num_plates,
-            batch_sizes=batch_sizes,
+            batch_sizes=','.join(map(str, batch_sizes)),
         ),
     ]
     pp(meta)

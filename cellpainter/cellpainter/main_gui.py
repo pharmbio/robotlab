@@ -120,8 +120,13 @@ def start(args: Args, simulate: bool, push_state: bool=True):
     else:
         program_name = 'cell-paint' if args.cell_paint else args.small_protocol
         program_name = program_name.replace('_', '-')
-        if args.project_id:
-            log_filename = f'logs/{args.project_id}-{now_str}-{program_name}-{config_name}.db'
+        desc = re.sub(r'[ ,\.]', '-', args.desc)
+        desc = re.sub(r'-{2,}', '-', desc)
+        desc = desc.strip('-')
+        if not re.match(r'^[_\w\d\-]*$', desc):
+            desc = ''
+        if desc:
+            log_filename = f'logs/{now_str}-{program_name}-{desc}-{config_name}-from-gui.db'
         else:
             log_filename = f'logs/{now_str}-{program_name}-{config_name}-from-gui.db'
     args = replace(
@@ -214,6 +219,7 @@ class AnalyzeResult:
     t_now: float
     runtime_metadata: RuntimeMetadata
     experiment_metadata: ExperimentMetadata
+    program_metadata: ProgramMetadata
     completed: bool
     running_state: list[CommandState]
     errors: list[Message]
@@ -255,9 +261,10 @@ class AnalyzeResult:
             t_now = drop_after
 
         running_state = m.running(t=drop_after)
-        num_plates = runtime_metadata.num_plates
         world = m.world(t=drop_after)
         sections = m.section_starts_with_endpoints()
+        program_metadata = m.program_metadata() or ProgramMetadata()
+        num_plates = program_metadata.num_plates
 
         return AnalyzeResult(
             zero_time=zero_time,
@@ -265,6 +272,7 @@ class AnalyzeResult:
             completed=completed,
             runtime_metadata=runtime_metadata,
             experiment_metadata=m.experiment_metadata() or ExperimentMetadata(),
+            program_metadata=program_metadata,
             running_state=running_state,
             errors=errors,
             world=world,
@@ -715,7 +723,7 @@ def start_form():
     protocol = store.str(default='cell-paint', options=tuple(options.keys()))
     store.assign_names(locals())
 
-    project_id = store.str(name='project id', desc='Example: "specs395-v1"')
+    desc = store.str(name='project id', desc='Example: "specs395-v1"')
     operators = store.str(name='operators', desc='Example: "Amelie and Christa"')
     incu = store.str(name='incubation times', default='20:00', desc='The incubation times in seconds or minutes:seconds, separated by comma. If too few values are specified, the last value is repeated. Example: 21:00,20:00')
     batch_sizes = store.str(default='6', name='batch sizes', desc='The number of plates per batch, separated by comma. Example: 6,6')
@@ -731,7 +739,7 @@ def start_form():
     form_fields: list[Str | Bool] = []
     if protocol.value == 'cell-paint':
         form_fields = [
-            project_id,
+            desc,
             operators,
             batch_sizes,
             incu,
@@ -762,7 +770,7 @@ def start_form():
             two_final_washes=two_final_washes,
             lockstep=lockstep,
             protocol_dir=protocol_dir.value,
-            project_id=project_id.value,
+            desc=desc.value,
             operators=operators.value,
         )
     elif isinstance(small_data, SmallProtocolData):
@@ -784,7 +792,7 @@ def start_form():
 
     if args:
         try:
-            stages = cli.args_to_stages(args)
+            stages = cli.args_to_stages(replace(args, desc='', operators=''))
         except:
             stages = []
         if stages:
@@ -827,7 +835,7 @@ def start_form():
     if 'required' in doc_full.lower():
         confirm = doc_full
     if not confirm and args and args.cell_paint:
-        if not args.project_id:
+        if not args.desc:
             confirm += 'Not specified: project id.\n'
         if not args.operators:
             confirm += 'Not specified: operators.\n'
@@ -943,18 +951,19 @@ def alert(s: str):
     return V.Action(f'alert({json.dumps(s)})')
 
 def notes_div(path: str):
+    return div() # notes are inactivated for now
     def alert_notes():
         datetime.now().time
         res = [
             note.time.strftime('%H:%M') + ': ' + note.note
-            for note in path_to_log(path).db.get(Note).order(Note.time, 'desc')
+            for note in path_to_log(path).notes('desc')
         ]
         res = '\n'.join(res)
         if not res:
             res = 'no notes'
         return alert(res)
 
-    num_notes = len(path_to_log(path).db.get(Note).select(Note.id).list())
+    num_notes = len(path_to_log(path).notes())
     num_notes_str = f'({num_notes})' if num_notes else ''
 
     return div(
@@ -1007,31 +1016,35 @@ class dotdict(Generic[A, B], dict[A, B]):
 
 from pbutils import p
 
-def escape(s: str):
-    if not s or s.strip('''"' \t\n\r''') != s:
-        return repr(s)
-    else:
-        return s
+tab_indexes: dict[str, int] = {}
 
-def edit(db_path: str | Path, obj: DBMixin, field: str, conv: Callable[[str], Any] = str):
-    value = str(getattr(obj, field))
+def edit(db_path: str | Path, obj: DBMixin, field: str, from_str: Callable[[str], Any] = str):
+    if field not in tab_indexes:
+        tab_indexes[field] = len(tab_indexes) + 1
+    value = getattr(obj, field)
     do_edit = store.bool(name='edit')
     if not do_edit.value:
-        return div(escape(value))
+        if value:
+            return div(str(value))
+        else:
+            return div()
     def update(next: str):
-        next_conv = conv(next)
+        next_conv = from_str(next)
         with DB.open(db_path) as db:
             ob = obj.reload(db)
             ob = ob.replace(**{field: next_conv}) # type: ignore
             ob.save(db)
     return div(
         div(
-            escape(value),
-            px=5,
+            repr(value),
+            px=0,
         ),
         V.input(
-            value=value,
-            oninput=call(update, js('this.value'))
+            padding_left='7.5px',
+            value=str(value),
+            oninput=call(update, js('this.value')),
+            tabindex=str(tab_indexes.get(field, 0)),
+            width='100%',
         )
     )
 
@@ -1039,34 +1052,58 @@ def show_logs() -> Iterator[Tag | V.Node | dict[str, str]]:
     do_edit = store.bool(name='edit')
     logs: list[dict[str, Any]] = []
     for log in sorted(Path('logs').glob('*.db')):
+        if 'simulate' in str(log):
+            continue
         row: dict[str, Any] = dotdict()
         g = Log.open(log)
         pm = g.program_metadata() or ProgramMetadata().save(g.db)
         em = g.experiment_metadata() or ExperimentMetadata().save(g.db)
         try:
             if (rt := g.runtime_metadata()):
-                row.day = (rt.start_time.strftime('%a'))
-                row.start_time = (rt.start_time.strftime('%Y-%m-%d %H:%M'))
-                row.end = ((rt.start_time + timedelta(seconds=g.time_end())).strftime('%H:%M'))
-                row.project = edit(log, em, 'project_id')
+                row.wkd = rt.start_time.strftime('%a')
+                row.datetime = rt.start_time.strftime('%Y-%m-%d %H:%M') + '-' + (rt.start_time + timedelta(seconds=g.time_end())).strftime('%H:%M')
+                row.desc = edit(log, em, 'desc')
                 row.operators = edit(log, em, 'operators')
-                row.config_name = rt.config_name
-                row.num_plates = pm.num_plates or rt.num_plates
                 # row.plates = edit(log, pm, 'num_plates', int)
+                row.batch_sizes = edit(log, pm, 'batch_sizes').extend(css='' if do_edit.value else 'text-align: right')
+                if rt.config_name != 'live':
+                    row.live = rt.config_name
+                if pm.protocol != 'cell-paint':
+                    row.protocol = edit(log, pm, 'protocol')
+                row.from_stage = edit(log, pm, 'from_stage', lambda x: x or None)
+                # notes = g.notes()
+                # row.notes = div(str(len(notes)), title='\n'.join(note.note for note in notes))
+                row.open = V.a('open', href='', onclick='event.preventDefault();' + call(path_var_assign, str(log)))
         except BaseException as e:
             row.err = repr(e)
         else:
-            row.err = ''
-        # row.path = pre(str(log))
-        row.mtime = pre(
-            str(datetime.fromtimestamp(log.stat().st_mtime).replace(microsecond=0)),
-            title=str(log),
-        )
+            pass
+            # row.err = ''
+        if 0:
+            row.path = pre(
+                str(log),
+                onclick=call(path_var_assign, str(log)),
+                title=
+                    '\n'.join([
+                        sql
+                        for sql, in g.db.con.execute('select sql from sqlite_master').fetchall()
+                    ] +
+                    [
+                        table_name + ': ' + str(g.db.con.execute(f'select * from {table_name}').fetchone())
+                        for table_name, in g.db.con.execute('select name from sqlite_master').fetchall()
+                    ])
+            )
+        if 0:
+            row.mtime = pre(
+                str(datetime.fromtimestamp(log.stat().st_mtime).replace(microsecond=0)),
+                title=str(log),
+            )
         if 'id' in row:
             del row.id
         logs += [row]
-    logs = sorted(logs, key=lambda g: g.get('start_time', '1999'), reverse=True)
-    yield make_table(logs).extend(
+    logs = sorted(logs, key=lambda g: g.get('start_time', '1999'), reverse=False)
+    yield div(
+        make_table(logs),
         grid_area='info',
         css='''
             & input {
@@ -1080,7 +1117,7 @@ def show_logs() -> Iterator[Tag | V.Node | dict[str, str]]:
         '''
     )
     yield div(
-        label(do_edit.input().extend(transform='translateY(3px)'), 'enable editing'),
+        label(do_edit.input().extend(transform='translateY(3px)'), 'enable edit'),
         grid_area='form',
         place_self='center',
         css=inverted_inputs_css,
@@ -1348,19 +1385,19 @@ def index(path_from_route: str | None = None) -> Iterator[Tag | V.Node | dict[st
                     # skip showing buttons for endpoint /latest
                     info += notes_div(path)
 
-        project_id = ar.experiment_metadata.project_id
-        if project_id:
-            project_id = f'{project_id}, '
+        desc = ar.experiment_metadata.desc
+        if desc:
+            desc = f'{desc}, '
         if ar.completed:
-            text = project_id.strip(', ')
+            text = desc.strip(', ')
             if t_end_form:
                 yield t_end_form.extend(
                     grid_area='info-foot',
                 )
         elif ar.process_is_alive and ar.runtime_metadata:
-            text = f'{project_id}pid: {ar.runtime_metadata.pid} on {platform.node()} with config {config.name}'
+            text = f'{desc}pid: {ar.runtime_metadata.pid} on {platform.node()} with config {config.name}'
         else:
-            text = f'{project_id}pid: - on {platform.node()} with config {config.name}'
+            text = f'{desc}pid: - on {platform.node()} with config {config.name}'
         if text:
             yield V.pre(text,
                 grid_area='info-foot',
@@ -1371,7 +1408,7 @@ def index(path_from_route: str | None = None) -> Iterator[Tag | V.Node | dict[st
             )
         if ar.completed and not ar.has_error():
             confirm = ''
-            if not ar.experiment_metadata.project_id:
+            if not ar.experiment_metadata.desc:
                 confirm += 'Not specified: project id.\n'
             if not ar.experiment_metadata.operators:
                 confirm += 'Not specified: operators.\n'
@@ -1494,16 +1531,45 @@ def index(path_from_route: str | None = None) -> Iterator[Tag | V.Node | dict[st
                 button('open gripper', onclick=call(robotarm_open_gripper, )),
                 button('set robot in freedrive', onclick=call(robotarm_freedrive, )),
                 grid_area='stop',
-                css=form_css,
-                css_='& button { grid-column: 1 / span 2 }',
+                css_='''
+                    && button {
+                        padding: 10px 25px;
+                        margin: 10px;
+                        margin-right: 0;
+                        border-radius: 4px;
+                        outline-color: var(--fg);
+                        color: var(--fg);
+                        border-color: var(--fg);
+                        outline-width: 2px;
+                        outline-offset: -1px;
+                        border-width: 1px;
+                    }
+                    & button:hover {
+                        opacity: 1.0;
+                    }
+                    & button:focus {
+                        outline-style: solid;
+                    }
+                    & {
+                        text-align: center;
+                        padding: 0;
+                        margin: 0;
+                    }
+                ''',
             )
 
     yield vis.extend(grid_area='vis')
 
     if path and not (ar and ar.completed):
-        yield V.queue_refresh(100)
+        if ar and ar.completed:
+            pass
+        elif ar and not ar.process_is_alive:
+            pass
+        else:
+            # new events can still happen
+            yield V.queue_refresh(100)
     elif path_is_latest:
-        # simulation finished or error, start a slower poll
+        # simulation finished: start a slower poll
         yield V.queue_refresh(1000)
 
 def form(*vs: Int | Str | Bool):
