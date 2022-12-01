@@ -206,7 +206,6 @@ class AnalyzeResult:
     running_state: list[CommandState]
     errors: list[Message]
     world: dict[str, str]
-    num_plates: int
     process_is_alive: bool
     sections: dict[str, float]
     time_end: float
@@ -246,7 +245,6 @@ class AnalyzeResult:
         world = m.world(t=drop_after)
         sections = m.section_starts_with_endpoints()
         program_metadata = m.program_metadata() or ProgramMetadata()
-        num_plates = program_metadata.num_plates
 
         return AnalyzeResult(
             zero_time=zero_time,
@@ -258,7 +256,6 @@ class AnalyzeResult:
             running_state=running_state,
             errors=errors,
             world=world,
-            num_plates=num_plates,
             process_is_alive=alive,
             sections=sections,
             time_end=m.time_end(),
@@ -557,26 +554,21 @@ sheet = '''
         letter-spacing: inherit;
     }
     table {
-        background: #0005;
+        background: #d3d0c866;
     }
     table td, table th, table tr, table {
         border: none;
     }
     table td, table th {
-        padding: 2px 8px;
+        padding: 2px 8px 0px;
         margin: 1px 2px;
-        background: var(--bg-bright);
+        background: var(--bg);
         min-width: 70px;
     }
-    table:not(.even) tbody tr:nth-child(odd) td,
-    table:not(.even) tbody tr:nth-child(odd) th
+    table thead td,
+    table thead th
     {
-        background: var(--bg-brown);
-    }
-    table.even tbody tr:nth-child(even) td,
-    table.even tbody tr:nth-child(even) th
-    {
-        background: var(--bg-brown);
+        background: var(--bg-bright);
     }
     table {
         border-spacing: 1px;
@@ -1039,7 +1031,10 @@ def show_logs() -> Iterator[Tag | V.Node | dict[str, str]]:
                 margin-bottom: 1px;
                 border-radius: 2px;
             }
-            & * { white-space: pre; min-width: unset }
+            & * {
+                white-space: pre;
+                min-width: unset;
+            }
         '''
     )
     yield div(
@@ -1240,6 +1235,7 @@ def index(path_from_route: str | None = None) -> Iterator[Tag | V.Node | dict[st
             css='''
                 & {
                     display: flex;
+                    column-gap: 18px;
                 }
                 & > * {
                     margin: auto;
@@ -1348,6 +1344,27 @@ def index(path_from_route: str | None = None) -> Iterator[Tag | V.Node | dict[st
                 padding='22px',
                 border_radius='2px',
             )
+            if log and simulation_completed:
+                if 0:
+                    info += make_table([
+                      dict(event=event) | {str(i): t for i, t in enumerate(times)}
+                      for event, times in log.group_durations().items()
+                      if 'lid' not in event
+                      if 'transfer' not in event
+                    ])
+                if 0:
+                    info += div(
+                        pre(
+                            '\n'.join(
+                                line
+                                for line in log.group_durations_for_display()
+                                if 'lid' not in line
+                                if 'transfer' not in line
+                            ),
+                            margin='auto',
+                        ),
+                        display='flex',
+                    )
         elif path_is_latest:
             # skip showing buttons for endpoint /latest
             pass
