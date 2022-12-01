@@ -33,7 +33,7 @@ from .commands import IncuCmd, BiotekCmd, ProgramMetadata
 from . import moves
 from . import runtime
 import pbutils
-from .log import CommandState, Message, VisRow, Metadata, RuntimeMetadata, Error, countdown, Note
+from .log import CommandState, Message, VisRow, Metadata, RuntimeMetadata, Error, countdown
 from .moves import RawCode, Move
 from .protocol import Locations
 from .small_protocols import small_protocols_dict, SmallProtocolData
@@ -935,60 +935,6 @@ def start_form():
 def alert(s: str):
     return V.Action(f'alert({json.dumps(s)})')
 
-def notes_div(path: str):
-    return div() # notes are inactivated for now
-    def alert_notes():
-        datetime.now().time
-        res = [
-            note.time.strftime('%H:%M') + ': ' + note.note
-            for note in path_to_log(path).notes('desc')
-        ]
-        res = '\n'.join(res)
-        if not res:
-            res = 'no notes'
-        return alert(res)
-
-    num_notes = len(path_to_log(path).notes())
-    num_notes_str = f'({num_notes})' if num_notes else ''
-
-    return div(
-        button('add note',
-            onclick=call(lambda note:
-                Note(note=note).save(path_to_log(path).db)
-                if isinstance(note, str) and note else
-                None,
-                js('window.prompt("note:")')
-            )
-        ),
-        button(f'see notes {num_notes_str}'.strip(), onclick=call(alert_notes)),
-        css='''
-            && button {
-                padding: 10px;
-                margin: 10px;
-                margin-right: 0;
-                min-width: 100px;
-                border-radius: 4px;
-                outline-color: var(--fg);
-                color: var(--fg);
-                border-color: var(--fg);
-                opacity: 0.85;
-                outline-width: 2px;
-                outline-offset: -1px;
-            }
-            & button:hover {
-                opacity: 1.0;
-            }
-            & button:focus {
-                outline-style: solid;
-            }
-            & {
-                text-align: center;
-                padding: 0;
-                margin: 0;
-            }
-        ''',
-    )
-
 def show_timings() -> Iterator[Tag | V.Node | dict[str, str]]:
     yield div('timings TODO')
 
@@ -1056,8 +1002,6 @@ def show_logs() -> Iterator[Tag | V.Node | dict[str, str]]:
                 if pm.protocol != 'cell-paint':
                     row.protocol = edit(log, pm, 'protocol')
                 row.from_stage = edit(log, pm, 'from_stage', lambda x: x or None)
-                # notes = g.notes()
-                # row.notes = div(str(len(notes)), title='\n'.join(note.note for note in notes))
                 row.open = V.a('open', href='', onclick='event.preventDefault();' + call(path_var_assign, str(log)))
         except BaseException as e:
             row.err = repr(e)
@@ -1330,11 +1274,6 @@ def index(path_from_route: str | None = None) -> Iterator[Tag | V.Node | dict[st
             if not ar.process_is_alive:
                 box += pre('Controller process has terminated.')
             info += box
-            if path and not simulation:
-                if not path_is_latest:
-                    # skip showing buttons for endpoint /latest
-                    info += notes_div(path)
-
         desc = ar.experiment_metadata.desc
         if len(desc) > 120:
             desc = desc[:120] + '...'
@@ -1412,17 +1351,12 @@ def index(path_from_route: str | None = None) -> Iterator[Tag | V.Node | dict[st
                 padding='22px',
                 border_radius='2px',
             )
-            if path and not simulation_completed:
-                if not path_is_latest:
-                    # skip showing buttons for endpoint /latest
-                    info += notes_div(path)
         elif path_is_latest:
             # skip showing buttons for endpoint /latest
             pass
         elif ar.process_is_alive:
             yield div(
                 div(
-                    path and notes_div(path).extend(display='inline-block', mr='10px') or {},
                     'robotarm speed: ',
                     *[
                         button(name, title=f'{pct}%', onclick=call(robotarm_set_speed, pct))

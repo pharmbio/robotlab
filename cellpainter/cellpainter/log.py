@@ -44,12 +44,6 @@ class Message(DBMixin):
     id: int = -1
 
 @dataclass(frozen=True)
-class Note(DBMixin):
-    note: str = ''
-    time: datetime = field(default_factory=lambda: datetime.now())
-    id: int = -1
-
-@dataclass(frozen=True)
 class CommandWithMetadata:
     cmd: Command
     metadata: Metadata
@@ -318,8 +312,5 @@ class Log:
 
     def program(self) -> Program | None:
         return self.db.get(Program).one_or(None)
-
-    def notes(self, order: Literal['asc', 'desc']='asc') -> Any:
-        raise ValueError('Remove notes')
 
 pbutils.serializer.register(globals())
