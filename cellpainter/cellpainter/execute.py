@@ -310,7 +310,6 @@ def execute_simulated_program(config: RuntimeConfig, sim_db: DB, metadata: list[
 
         runtime_metadata = RuntimeMetadata(
             start_time     = runtime.start_time,
-            num_plates     = program_num_plates(program),
             config_name    = config.name,
             log_filename   = config.log_filename or ':memory:',
         )

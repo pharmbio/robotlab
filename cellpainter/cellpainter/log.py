@@ -4,10 +4,11 @@ from typing import *
 
 import math
 from datetime import datetime, timedelta
+from contextlib import contextmanager
 from pathlib import Path
 
 import pbutils
-from .commands import Metadata, Command, Checkpoint, BiotekCmd, Duration, Info, IncuCmd, RobotarmCmd, ProgramMetadata
+from .commands import Metadata, Command, Checkpoint, BiotekCmd, Duration, Info, IncuCmd, RobotarmCmd, ProgramMetadata, Program
 from .moves import World
 
 from pbutils.mixins import DB, DBMixin
@@ -132,8 +133,14 @@ class Log:
     db: DB
 
     @staticmethod
-    def open(filename: str | Path):
+    def connect(filename: str | Path):
         return Log(DB.connect(filename))
+
+    @staticmethod
+    @contextmanager
+    def open(filename: str | Path):
+        with DB.open(filename) as db:
+            yield Log(db)
 
     def command_states(self):
         q = self.db.get(CommandState)
@@ -309,8 +316,10 @@ class Log:
     def program_metadata(self) -> ProgramMetadata | None:
         return self.db.get(ProgramMetadata).one_or(None)
 
-    def notes(self, order: Literal['asc', 'desc']='asc') -> list[Note]:
-        return self.db.get(Note).order(Note.time, order).list()
+    def program(self) -> Program | None:
+        return self.db.get(Program).one_or(None)
 
+    def notes(self, order: Literal['asc', 'desc']='asc') -> Any:
+        raise ValueError('Remove notes')
 
 pbutils.serializer.register(globals())

@@ -12,7 +12,6 @@ from .commands import (
     Program,
     Command,
     Fork,
-    Info,
     Metadata,
     Checkpoint,
     Duration,
@@ -421,10 +420,6 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
     batch_index = first_plate.batch_index
     first_batch = batch_index == 0
 
-    # def Section(section: str) -> Command:
-    #     section = f'{section} {batch_index}'
-    #     return Info(section).add(Metadata(section=section, plate_id=''))
-
     if not first_batch:
         prep_cmds += [
             WaitForCheckpoint(f'batch {batch_index-1}') + Symbolic.var('batch sep'),
@@ -596,14 +591,6 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                 RobotarmCmd('disp get transfer'),
                 RobotarmCmd('disp get return'),
             ]
-
-            # section_info_by_incu: Command = Idle()
-            # section_info_by_wash: Command = Idle()
-            # if plate is first_plate and step_index != 0:
-            #     if p.lockstep:
-            #         section_info_by_wash = Section(step)
-            #     else:
-            #         section_info_by_incu = Section(step)
 
             chunks[plate.id, step, 'incu -> B21' ] = [*incu_delay, *incu_get]
             chunks[plate.id, step,  'B21 -> wash'] = [*wash]

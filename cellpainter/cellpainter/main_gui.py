@@ -113,22 +113,7 @@ def as_stderr(log_path: str):
 
 def start(args: Args, simulate: bool, push_state: bool=True):
     config_name = 'simulate' if simulate else config.name
-    now_str = pbutils.now_str_for_filename()
-    if args.run_program_in_log_filename:
-        log_filename = re.sub(r'\d{4}[\d_:\.\-]*', now_str + '-', args.run_program_in_log_filename)
-        log_filename = log_filename.replace('simulate', config_name)
-    else:
-        program_name = 'cell-paint' if args.cell_paint else args.small_protocol
-        program_name = program_name.replace('_', '-')
-        desc = re.sub(r'[ ,\.]', '-', args.desc)
-        desc = re.sub(r'-{2,}', '-', desc)
-        desc = desc.strip('-')
-        if not re.match(r'^[_\w\d\-]*$', desc):
-            desc = ''
-        if desc:
-            log_filename = f'logs/{now_str}-{program_name}-{desc}-{config_name}-from-gui.db'
-        else:
-            log_filename = f'logs/{now_str}-{program_name}-{config_name}-from-gui.db'
+    log_filename = cli.args_to_filename(replace(args, config_name=config_name))
     args = replace(
         args,
         config_name=config_name,
@@ -152,7 +137,7 @@ def start(args: Args, simulate: bool, push_state: bool=True):
 
 def path_to_log(path: str) -> Log | None:
     try:
-        return Log.open(path)
+        return Log.connect(path)
     except:
         return None
 
@@ -723,7 +708,7 @@ def start_form():
     protocol = store.str(default='cell-paint', options=tuple(options.keys()))
     store.assign_names(locals())
 
-    desc = store.str(name='project id', desc='Example: "specs395-v1"')
+    desc = store.str(name='description', desc='Example: "specs395-v1"')
     operators = store.str(name='operators', desc='Example: "Amelie and Christa"')
     incu = store.str(name='incubation times', default='20:00', desc='The incubation times in seconds or minutes:seconds, separated by comma. If too few values are specified, the last value is repeated. Example: 21:00,20:00')
     batch_sizes = store.str(default='6', name='batch sizes', desc='The number of plates per batch, separated by comma. Example: 6,6')
@@ -792,7 +777,7 @@ def start_form():
 
     if args:
         try:
-            stages = cli.args_to_stages(replace(args, desc='', operators=''))
+            stages = cli.args_to_stages(args)
         except:
             stages = []
         if stages:
@@ -836,7 +821,7 @@ def start_form():
         confirm = doc_full
     if not confirm and args and args.cell_paint:
         if not args.desc:
-            confirm += 'Not specified: project id.\n'
+            confirm += 'Not specified: description.\n'
         if not args.operators:
             confirm += 'Not specified: operators.\n'
         if confirm:
@@ -1055,7 +1040,7 @@ def show_logs() -> Iterator[Tag | V.Node | dict[str, str]]:
         if 'simulate' in str(log):
             continue
         row: dict[str, Any] = dotdict()
-        g = Log.open(log)
+        g = Log.connect(log)
         pm = g.program_metadata() or ProgramMetadata().save(g.db)
         em = g.experiment_metadata() or ExperimentMetadata().save(g.db)
         try:
@@ -1386,6 +1371,8 @@ def index(path_from_route: str | None = None) -> Iterator[Tag | V.Node | dict[st
                     info += notes_div(path)
 
         desc = ar.experiment_metadata.desc
+        if len(desc) > 120:
+            desc = desc[:120] + '...'
         if desc:
             desc = f'{desc}, '
         if ar.completed:
@@ -1409,7 +1396,7 @@ def index(path_from_route: str | None = None) -> Iterator[Tag | V.Node | dict[st
         if ar.completed and not ar.has_error():
             confirm = ''
             if not ar.experiment_metadata.desc:
-                confirm += 'Not specified: project id.\n'
+                confirm += 'Not specified: description.\n'
             if not ar.experiment_metadata.operators:
                 confirm += 'Not specified: operators.\n'
             if confirm:

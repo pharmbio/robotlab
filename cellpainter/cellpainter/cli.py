@@ -156,7 +156,7 @@ def main_with_args(args: Args, parser: argparse.ArgumentParser | None=None):
             args, _ = arg.parse_args(Args, args=[cmdname, *shlex.split(cmdline)], exit_on_error=False)
             pbutils.pr(args)
             if args.log_file_for_visualize:
-                return Log.open(args.log_file_for_visualize)
+                return Log.connect(args.log_file_for_visualize)
             else:
                 p = args_to_program(args)
                 assert p, 'no program from these arguments!'
@@ -230,7 +230,34 @@ def main_with_args(args: Args, parser: argparse.ArgumentParser | None=None):
         print('Guessed these times:')
         pbutils.pr(estimates.guesses)
 
-@pbutils.cache_by(lambda args: str(args))
+def args_to_filename(args: Args) -> str:
+    pm: ProgramMetadata
+    if args.run_program_in_log_filename:
+        with Log.open(args.run_program_in_log_filename) as g:
+            if (p := g.program()):
+                pm = p.metadata
+            else:
+                pm = g.program_metadata() or ProgramMetadata()
+            if (em := g.experiment_metadata()):
+                desc = em.desc
+            else:
+                desc = args.desc
+    elif (p := args_to_program(args)):
+        pm = p.metadata
+        desc = args.desc
+    else:
+        pm = ProgramMetadata()
+        desc = args.desc
+    now_str = pbutils.now_str_for_filename()
+    program_name = pm.protocol
+    desc = re.sub(r'[^\w\d\-]', '_', desc)
+    config_name = args.config_name
+    log_filename = f'logs/{now_str}-{program_name}-{desc}-{config_name}.db'
+    log_filename = re.sub(r'_{2,}', '_', log_filename)
+    log_filename = re.sub(r'-{2,}', '-', log_filename)
+    return log_filename
+
+@pbutils.cache_by(lambda args: str(replace(args, desc='', operators='')))
 def args_to_stages(args: Args) -> list[str] | None:
     p = args_to_program(args)
     if p:
@@ -238,8 +265,9 @@ def args_to_stages(args: Args) -> list[str] | None:
     else:
         return None
 
+@pbutils.cache_by(lambda args: str(replace(args, desc='', operators='')))
 def args_to_program(args: Args) -> Program | None:
-    paths =  protocol_paths.get_protocol_paths()[args.protocol_dir]
+    paths = protocol_paths.get_protocol_paths()[args.protocol_dir]
     protocol_config = protocol.make_protocol_config(paths, args)
 
     program: Program | None = None
