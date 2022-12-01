@@ -1143,12 +1143,13 @@ def index(path_from_route: str | None = None) -> Iterator[Tag | V.Node | dict[st
     info = div(
         grid_area='info',
         css='''
-            & *+* {
-                margin-top: 18px;
+            & > * {
+                margin-bottom: 18px;
                 margin-left: auto;
                 margin-right: auto;
             }
-        ''')
+        '''
+    )
     yield info
     log: Log | None = None
     stderr: str = ''
@@ -1251,6 +1252,8 @@ def index(path_from_route: str | None = None) -> Iterator[Tag | V.Node | dict[st
             box += pre(stderr)
             info += box
     elif ar is not None:
+        vis = ar.make_vis(t_end)
+
         info += div(
             make_table(ar.running()),
             css='''
@@ -1267,79 +1270,41 @@ def index(path_from_route: str | None = None) -> Iterator[Tag | V.Node | dict[st
                 }
             '''
         )
-        info += sections(ar)
-        if 1:
-            vis = ar.make_vis(t_end)
-        if 1:
-            world = ar.world
-            world = {k: v if 'lid' in v else 'plate ' + v for k, v in world.items()}
-            incu_table = [
-                {
-                    'location': k,
-                    'incu': world.get(k),
+        def world_key(d: dict[str, str]):
+            loc = d.get('loc', '')
+            s = ''.join(re.findall(r'\D', loc))
+            i = int(''.join(re.findall(r'\d', loc)) or '0')
+            return not s, s.isupper(), s, -i
+        world = [
+            dict(
+                loc=loc,
+                plate=plate,
+            )
+            for loc, plate in ar.world.items()
+        ]
+        lids = len([row for row in world if 'lid' in row['plate']])
+        if lids == 0:
+            world += [{}, {}]
+        elif lids == 1:
+            world += [{}]
+        world_table = make_table(
+            sorted(
+                world,
+                key=world_key
+            )
+        ).extend(css='& tbody td { text-align: right }')
+        info += div(
+            world_table,
+            sections(ar),
+            css='''
+                & {
+                    display: flex;
                 }
-                for k in Locations.Incu[:ar.num_plates][::-1]
-            ]
-            rest_table = [
-                {
-                    k: world.get(k)
-                    for k in 'incu wash disp'.split()
+                & > * {
+                    margin: auto;
                 }
-            ]
-            ABC_table = [
-                {
-                    'z': int(a.strip('A')),
-                    'A': world.get(a),
-                    'B': world.get(b),
-                    'C': world.get(c),
-                }
-                for a, b, c in zip(Locations.A, Locations.B, Locations.C)
-            ]
-
-            if ar.num_plates >= 14:
-                grid = '''
-                    "incu rest" 1fr
-                    "incu ABC"  auto
-                  / auto auto
-                '''
-            else:
-                grid = '''
-                    "incu ABC"  auto
-                    "rest rest" auto
-                  / auto auto
-                '''
-            info += div(
-                css='display: grid; place-items: center'
-            ).append(div(
-                make_table(incu_table).extend(id='incu', class_='even' if ar.num_plates % 2 == 0 else None),
-                make_table(ABC_table).extend(id='ABC'),
-                make_table(rest_table).extend(id='rest'),
-                css='''
-                    & {
-                        display: grid;
-                        grid: ''' + grid + ''';
-                        gap: 10px;
-                    }
-                    & #incu { grid-area: incu;  }
-                    & #ABC { grid-area: ABC;  }
-                    & #rest { grid-area: rest; }
-                    & table {
-                        margin-top: auto;
-                    }
-                    & td, & th {
-                        text-align: center
-                    }
-                    & th {
-                        min-width: 50px;
-                    }
-                    & :where(#incu, #ABC) th:first-child {
-                        text-align: right
-                    }
-                    & td {
-                        min-width: 90px;
-                    }
-                '''
-            ))
+            '''
+        )
         if ar.has_error():
             box = div(
                 border='2px var(--red) solid',

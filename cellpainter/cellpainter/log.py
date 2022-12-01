@@ -197,7 +197,7 @@ class Log:
         q = q.order(CommandState.t, 'desc').limit(1)
         q = q.select(CommandState.t)
         for t in q:
-            return t
+            return t + 10.0
         else:
             return 0.0
         # return self.gui_query().max(CommandState.t) or 0.0
