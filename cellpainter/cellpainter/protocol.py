@@ -27,10 +27,9 @@ from .commands import (
     RobotarmCmd,
     WaitForCheckpoint,
     WaitForResource,
-    Meta,
     ProgramMetadata,
 )
-from .moves import movelists, effects, InitialWorld, World, MovePlate
+from .moves import movelists, World
 from .symbolic import Symbolic
 from .estimates import estimate
 from . import commands

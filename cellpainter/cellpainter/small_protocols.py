@@ -72,9 +72,6 @@ def protocol_args(small_protocol: SmallProtocol) -> set[str]:
     _ = small_protocol(intercepted_args)
     return out
 
-def Section(section: str) -> Command:
-    return Info(section).add(Metadata(section=section))
-
 @small_protocols.append
 def incu_load(args: SmallProtocolArgs):
     '''
@@ -215,52 +212,56 @@ def wash_plates_clean(args: SmallProtocolArgs):
         return Program()
     cmds: list[Command] = []
     [plates] = define_plates([N])
-    cmds += [Section('H₂O')]
+
+    section: list[Command]
+    section = []
     for plate in plates:
-        cmds += [*RobotarmCmds(plate.out_get)]
-        cmds += [*RobotarmCmds(plate.lid_put)]
-        cmds += [*RobotarmCmds('wash put')]
+        section += [*RobotarmCmds(plate.out_get)]
+        section += [*RobotarmCmds(plate.lid_put)]
+        section += [*RobotarmCmds('wash put')]
 
-        cmds += [Fork(WashCmd('wash-plates-clean/WD_3X_leaves80ul.LHC', 'Run'))]
-        cmds += [WaitForResource('wash')]
+        section += [Fork(WashCmd('wash-plates-clean/WD_3X_leaves80ul.LHC', 'Run'))]
+        section += [WaitForResource('wash')]
 
-        cmds += [*RobotarmCmds('wash get')]
-        cmds += [*RobotarmCmds(plate.lid_get)]
-        cmds += [*RobotarmCmds(plate.rt_put)]
+        section += [*RobotarmCmds('wash get')]
+        section += [*RobotarmCmds(plate.lid_get)]
+        section += [*RobotarmCmds(plate.rt_put)]
+    cmds += [Seq(*section).add_to_physical_commands(Metadata(section='H₂O'))]
 
-    cmds += [Section('EtOH')]
-    cmds += [Fork(WashCmd('wash-plates-clean/WC_PRIME.LHC', 'Run'))]
-    cmds += [WaitForResource('wash')]
-
+    section = []
+    section += [Fork(WashCmd('wash-plates-clean/WC_PRIME.LHC', 'Run'))]
+    section += [WaitForResource('wash')]
     for i, plate in enumerate(plates):
-        cmds += [*RobotarmCmds(plate.rt_get)]
-        cmds += [*RobotarmCmds(plate.lid_put)]
-        cmds += [*RobotarmCmds('wash put')]
+        section += [*RobotarmCmds(plate.rt_get)]
+        section += [*RobotarmCmds(plate.lid_put)]
+        section += [*RobotarmCmds('wash put')]
 
-        cmds += [Fork(WashCmd('wash-plates-clean/WC_1X_leaves80ul.LHC', 'Run'))]
-        cmds += [WaitForResource('wash')]
+        section += [Fork(WashCmd('wash-plates-clean/WC_1X_leaves80ul.LHC', 'Run'))]
+        section += [WaitForResource('wash')]
 
         if i == 0:
-            cmds += [Checkpoint('first wash')]
+            section += [Checkpoint('first wash')]
 
-        cmds += [*RobotarmCmds('wash get')]
-        cmds += [*RobotarmCmds(plate.lid_get)]
-        cmds += [*RobotarmCmds(plate.rt_put)]
+        section += [*RobotarmCmds('wash get')]
+        section += [*RobotarmCmds(plate.lid_get)]
+        section += [*RobotarmCmds(plate.rt_put)]
+    cmds += [Seq(*section).add_to_physical_commands(Metadata(section='EtOH'))]
 
     cmds += [WaitForCheckpoint('first wash', plus_secs=60 * 15, assume='nothing')]
-    cmds += [Section('H₂O 2')]
 
+    section = []
     for plate in plates:
-        cmds += [*RobotarmCmds(plate.rt_get)]
-        cmds += [*RobotarmCmds(plate.lid_put)]
-        cmds += [*RobotarmCmds('wash put')]
+        section += [*RobotarmCmds(plate.rt_get)]
+        section += [*RobotarmCmds(plate.lid_put)]
+        section += [*RobotarmCmds('wash put')]
 
-        cmds += [Fork(WashCmd('wash-plates-clean/WD_3X_leaves10ul.LHC', 'Run'))]
-        cmds += [WaitForResource('wash')]
+        section += [Fork(WashCmd('wash-plates-clean/WD_3X_leaves10ul.LHC', 'Run'))]
+        section += [WaitForResource('wash')]
 
-        cmds += [*RobotarmCmds('wash get')]
-        cmds += [*RobotarmCmds(plate.lid_get)]
-        cmds += [*RobotarmCmds(plate.out_put)]
+        section += [*RobotarmCmds('wash get')]
+        section += [*RobotarmCmds(plate.lid_get)]
+        section += [*RobotarmCmds(plate.out_put)]
+    cmds += [Seq(*section).add_to_physical_commands(Metadata(section='H₂O 2'))]
 
     world0 = World({plate.out_loc: plate.id for plate in plates})
     program = Seq(*cmds)

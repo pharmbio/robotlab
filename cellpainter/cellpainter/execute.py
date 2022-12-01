@@ -61,9 +61,6 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
             for c in cmd.commands:
                 execute(c, runtime, metadata)
 
-        case Info():
-            runtime.log(entry.message(cmd.msg))
-
         case Idle():
             secs = cmd.secs
             assert isinstance(secs, (float, int))
@@ -77,12 +74,10 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
         case WaitForCheckpoint():
             plus_secs = cmd.plus_secs
             assert isinstance(plus_secs, (float, int))
-            msg = f'{Symbolic.var(str(cmd.name)) + plus_secs}'
             t0 = runtime.wait_for_checkpoint(cmd.name)
             desired_point_in_time = t0 + plus_secs
             delay = desired_point_in_time - runtime.monotonic()
             entry = entry.merge(Metadata(est=round(delay, 3)))
-            runtime.log(entry.message(msg))
             if entry.metadata.id:
                 with runtime.timeit(entry):
                     runtime.sleep(delay, entry)
@@ -267,19 +262,6 @@ def simulate_program(program: Program, sim_delays: dict[int, float] = {}, log_fi
             check_correspondence(cmd, states, expected_ends)
 
     return runtime_est.log_db
-
-def program_num_plates(program: Program) -> int:
-    cmd = program.command
-    num_plates = max(
-        (
-            int(p)
-            for x in cmd.universe()
-            if isinstance(x, Meta)
-            if (p := x.metadata.plate_id)
-        ),
-        default=0
-    )
-    return num_plates
 
 def execute_simulated_program(config: RuntimeConfig, sim_db: DB, metadata: list[DBMixin]):
     programs = sim_db.get(Program).list()

@@ -22,8 +22,6 @@ import shlex
 import textwrap
 import subprocess
 
-from viable.call_js import asdict_shallow
-
 from .log import ExperimentMetadata, Log
 from .cli import Args
 from . import cli
@@ -35,7 +33,6 @@ from . import runtime
 import pbutils
 from .log import CommandState, Message, VisRow, Metadata, RuntimeMetadata, Error, countdown
 from .moves import RawCode, Move
-from .protocol import Locations
 from .small_protocols import small_protocols_dict, SmallProtocolData
 from .runtime import get_robotarm, RuntimeConfig
 

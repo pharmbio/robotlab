@@ -228,7 +228,7 @@ class Runtime:
             if not isinstance(e, SystemExit):
                 os.kill(os.getpid(), signal.SIGTERM)
 
-    def log(self, message: Message) -> Message: # entry: LogEntry, t0: float | None = None) -> LogEntry:
+    def log(self, message: Message) -> Message:
         with self.lock:
             t = round(self.monotonic(), 3)
             message = message.replace(t=t).save(self.log_db)
@@ -385,12 +385,12 @@ class Runtime:
     def sleep(self, secs: float, entry: CommandWithMetadata):
         secs = round(secs, 3)
         if abs(secs) < 0.1:
-            self.log(entry.message(f'on time {pp_secs(secs)}s'))
+            _msg = f'on time {pp_secs(secs)}s'
         elif secs < 0:
-            self.log(entry.message(f'behind time {pp_secs(secs)}s'))
+            _msg = f'behind time {pp_secs(secs)}s'
         else:
             to = self.pp_time_offset(self.monotonic() + secs)
-            self.log(entry.message(f'sleeping to {to} ({pp_secs(secs)}s)'))
+            _msg = f'sleeping to {to} ({pp_secs(secs)}s)'
             self.timelike.sleep(secs)
 
     def queue_get(self, queue: Queue[A]) -> A:
