@@ -992,7 +992,7 @@ def show_logs() -> Iterator[Tag | V.Node | dict[str, str]]:
         try:
             if (rt := g.runtime_metadata()):
                 row.wkd = rt.start_time.strftime('%a')
-                row.datetime = rt.start_time.strftime('%Y-%m-%d %H:%M') + '-' + (rt.start_time + timedelta(seconds=g.time_end())).strftime('%H:%M')
+                row.datetime = rt.start_time.strftime('%Y-%m-%d %H:%M') + '-' + (rt.start_time + timedelta(seconds=g.time_end(only_completed=True))).strftime('%H:%M')
                 row.desc = edit(log, em, 'desc')
                 row.operators = edit(log, em, 'operators')
                 # row.plates = edit(log, pm, 'num_plates', int)

@@ -185,9 +185,10 @@ class Log:
         #     for k, v in sorted(g.min(CommandState.t0).items(), key=lambda kv: kv[1])
         # }
 
-    def time_end(self):
+    def time_end(self, only_completed: bool=False):
         q = self.gui_query()
-        q = q.where(CommandState.state == 'completed')
+        if only_completed:
+            q = q.where(CommandState.state == 'completed')
         q = q.order(CommandState.t, 'desc').limit(1)
         q = q.select(CommandState.t)
         for t in q:
