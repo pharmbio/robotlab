@@ -554,7 +554,8 @@ sheet = '''
         letter-spacing: inherit;
     }
     table {
-        background: #d3d0c866;
+        -background: #d3d0c866;
+        background: #69c6;
     }
     table td, table th, table tr, table {
         border: none;
@@ -568,7 +569,8 @@ sheet = '''
     table thead td,
     table thead th
     {
-        background: var(--bg-bright);
+        background: #333c;
+        -background: var(--bg-bright);
     }
     table {
         border-spacing: 1px;
@@ -909,7 +911,7 @@ def start_form():
     info += div(
         'More:',
         V.ul(
-            V.li(V.a('show timings', href='/timings')),
+            # V.li(V.a('show timings', href='/timings')),
             V.li(V.a('show logs', href='/logs')),
         ),
     )
@@ -1079,13 +1081,17 @@ def index(path_from_route: str | None = None) -> Iterator[Tag | V.Node | dict[st
     info = div(
         grid_area='info',
         css='''
+            & {
+                display: flex;
+                flex-direction: column;
+                row-gap: 18px;
+            }
             & > * {
-                margin-bottom: 18px;
-                margin-left: auto;
-                margin-right: auto;
+                width: 100%;
             }
         '''
     )
+    error_box: None | Tag = None
     yield info
     log: Log | None = None
     stderr: str = ''
@@ -1266,7 +1272,7 @@ def index(path_from_route: str | None = None) -> Iterator[Tag | V.Node | dict[st
                 box += pre(f'{err.msg} {"(...)" if tb else ""}', title=tb)
             if not ar.process_is_alive:
                 box += pre('Controller process has terminated.')
-            info += box
+            error_box = box
         desc = ar.experiment_metadata.desc
         if len(desc) > 120:
             desc = desc[:120] + '...'
@@ -1329,6 +1335,13 @@ def index(path_from_route: str | None = None) -> Iterator[Tag | V.Node | dict[st
                 )
             else:
                 start_button = ''
+            if log and simulation_completed:
+                G = log.group_durations()
+                incubation = [times for event_name, times in G.items() if 'incubation' in event_name][0]
+                incu_table = make_table([
+                    dict(event='incubation times:') | {str(i): t for i, t in enumerate(incubation)}
+                ], header=False)
+                info += incu_table
             info += div(
                 div(
                     span(
@@ -1344,27 +1357,6 @@ def index(path_from_route: str | None = None) -> Iterator[Tag | V.Node | dict[st
                 padding='22px',
                 border_radius='2px',
             )
-            if log and simulation_completed:
-                if 0:
-                    info += make_table([
-                      dict(event=event) | {str(i): t for i, t in enumerate(times)}
-                      for event, times in log.group_durations().items()
-                      if 'lid' not in event
-                      if 'transfer' not in event
-                    ])
-                if 0:
-                    info += div(
-                        pre(
-                            '\n'.join(
-                                line
-                                for line in log.group_durations_for_display()
-                                if 'lid' not in line
-                                if 'transfer' not in line
-                            ),
-                            margin='auto',
-                        ),
-                        display='flex',
-                    )
         elif path_is_latest:
             # skip showing buttons for endpoint /latest
             pass
@@ -1382,15 +1374,18 @@ def index(path_from_route: str | None = None) -> Iterator[Tag | V.Node | dict[st
                     ],
                     css='''
                         & {
-                            -font-size: 18px;
+                            margin-top: 8px;
                         }
                         & button {
                             margin: 10px;
+                            margin-bottom: 18px;
                             margin-left: 0;
+                            margin-top: 0;
                             padding: 10px;
                             min-width: 78px;
-                            color:        var(--cyan);
-                            border-color: var(--cyan);
+                            outline-color: var(--fg);
+                            color:         var(--fg);
+                            border-color:  var(--fg);
                             border-radius: 4px;
                             opacity: 0.8;
                         }
@@ -1459,6 +1454,21 @@ def index(path_from_route: str | None = None) -> Iterator[Tag | V.Node | dict[st
             )
 
     yield vis.extend(grid_area='vis')
+
+    if ar and not simulation:
+        # TODO: hook this up with ExperimentMetadata.long_desc
+        long_desc = store.str(name='long_desc')
+        info += long_desc.textarea().extend(
+            flex_grow='1',
+            spellcheck="false",
+            css='''
+                outline: 0;
+            '''
+        )
+        print(long_desc.value)
+
+    if error_box is not None:
+        info += error_box
 
     if path and not (ar and ar.completed):
         if ar and ar.completed:
