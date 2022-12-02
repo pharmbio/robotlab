@@ -1337,11 +1337,13 @@ def index(path_from_route: str | None = None) -> Iterator[Tag | V.Node | dict[st
                 start_button = ''
             if log and simulation_completed:
                 G = log.group_durations()
-                incubation = [times for event_name, times in G.items() if 'incubation' in event_name][0]
-                incu_table = make_table([
-                    dict(event='incubation times:') | {str(i): t for i, t in enumerate(incubation)}
-                ], header=False)
-                info += incu_table
+                incubations = [times for event_name, times in G.items() if 'incubation' in event_name]
+                if incubations:
+                    incubation = incubations[0]
+                    incu_table = make_table([
+                        dict(event='incubation times:') | {str(i): t for i, t in enumerate(incubation)}
+                    ], header=False)
+                    info += incu_table
             info += div(
                 div(
                     span(
