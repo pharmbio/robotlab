@@ -31,6 +31,7 @@ class RuntimeMetadata(DBMixin):
 class ExperimentMetadata(DBMixin):
     desc: str = ''
     operators: str = ''
+    long_desc: str = ''
     id: int = -1
 
 @dataclass(frozen=True)

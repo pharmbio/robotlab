@@ -938,40 +938,84 @@ class dotdict(Generic[A, B], dict[A, B]):
 
 from pbutils import p
 
-tab_indexes: dict[str, int] = {}
+D = TypeVar('D')
+R = TypeVar('R')
+A = TypeVar('A')
 
-def edit(db_path: str | Path, obj: DBMixin, field: str, from_str: Callable[[str], Any] = str):
-    if field not in tab_indexes:
-        tab_indexes[field] = len(tab_indexes) + 1
-    value = getattr(obj, field)
-    do_edit = store.bool(name='edit')
-    if not do_edit.value:
-        if value:
-            return div(str(value))
+@dataclass
+class Intercept:
+    last_attr: None | str = None
+    def __getattr__(self, attr: str):
+        self.last_attr = attr
+        return self
+
+@dataclass(frozen=True)
+class Edit:
+    do_edit: bool = True
+    tab_indexes: dict[str, int] | None = field(default_factory=dict)
+
+    def __call__(self, db_path: str | Path, obj: D) -> EditProxy[D]:
+        return EditProxy(self, db_path, obj)
+
+@dataclass(frozen=True)
+class EditProxy(Generic[D]):
+    _edit: Edit
+    _db_path: str | Path
+    _obj: D
+
+    @property
+    def attr(self) -> D:
+        return Intercept() # type: ignore
+
+    def __call__(self, attr: A, from_str: Callable[[str], A] = str, textarea: bool=False) -> Tag:
+        edit = self._edit
+        assert isinstance(intercept := attr, Intercept)
+        field = intercept.last_attr
+        assert field is not None
+        if edit.tab_indexes:
+            if field not in edit.tab_indexes:
+                edit.tab_indexes[field] = len(edit.tab_indexes) + 1
+            tabindex = str(edit.tab_indexes.get(field, 0))
         else:
-            return div()
-    def update(next: str):
-        next_conv = from_str(next)
-        with DB.open(db_path) as db:
-            ob = obj.reload(db)
-            ob = ob.replace(**{field: next_conv}) # type: ignore
-            ob.save(db)
-    return div(
-        div(
-            repr(value),
-            px=0,
-        ),
-        V.input(
-            padding_left='7.5px',
-            value=str(value),
-            oninput=call(update, js('this.value')),
-            tabindex=str(tab_indexes.get(field, 0)),
-            width='100%',
-        )
-    )
+            tabindex = None
+        value = getattr(self._obj, field)
+        if not self._edit.do_edit:
+            if value:
+                return div(str(value))
+            else:
+                return div()
+        def update(next: str, db_path: str | Path =self._db_path, obj: D=self._obj):
+            next_conv = from_str(next)
+            with DB.open(db_path) as db:
+                ob = obj.reload(db)
+                ob = ob.replace(**{field: next_conv}) # type: ignore
+                ob.save(db)
+        if textarea:
+            return V.textarea(
+                str(value),
+                oninput=call(update, js('this.value')),
+                tabindex=tabindex,
+            )
+        else:
+            return div(
+                div(
+                    repr(value),
+                    px=0,
+                ),
+                V.input(
+                    padding_left='7.5px',
+                    value=str(value),
+                    oninput=call(update, js('this.value')),
+                    width='100%',
+                    spellcheck='false',
+                    tabindex=tabindex,
+                )
+            )
 
 def show_logs() -> Iterator[Tag | V.Node | dict[str, str]]:
     do_edit = store.bool(name='edit')
+    edit = Edit(do_edit.value)
+
     logs: list[dict[str, Any]] = []
     for log in sorted(Path('logs').glob('*.db')):
         if 'simulate' in str(log):
@@ -984,18 +1028,21 @@ def show_logs() -> Iterator[Tag | V.Node | dict[str, str]]:
             if (rt := g.runtime_metadata()):
                 row.wkd = rt.start_time.strftime('%a')
                 row.datetime = rt.start_time.strftime('%Y-%m-%d %H:%M') + '-' + (rt.start_time + timedelta(seconds=g.time_end(only_completed=True))).strftime('%H:%M')
-                row.desc = edit(log, em, 'desc')
-                row.operators = edit(log, em, 'operators')
-                # row.plates = edit(log, pm, 'num_plates', int)
-                row.batch_sizes = edit(log, pm, 'batch_sizes').extend(css='' if do_edit.value else 'text-align: right')
+                edit_em = edit(log, em)
+                edit_pm = edit(log, pm)
+                row.desc = edit_em(edit_em.attr.desc)
+                row.operators = edit_em(edit_em.attr.operators)
+                row.plates = edit_pm(edit_pm.attr.num_plates, int).extend(class_='right')
+                # row.batch_sizes = edit_pm(edit_pm.attr.batch_sizes, int).extend(class_='right')
                 if rt.config_name != 'live':
                     row.live = rt.config_name
                 if pm.protocol != 'cell-paint':
-                    row.protocol = edit(log, pm, 'protocol')
-                row.from_stage = edit(log, pm, 'from_stage', lambda x: x or None)
+                    row.protocol = edit_pm(edit_pm.attr.protocol)
+                row.from_stage = edit_pm(edit_pm.attr.from_stage, lambda x: x or None)
                 row.open = V.a('open', href='', onclick='event.preventDefault();' + call(path_var_assign, str(log)))
         except BaseException as e:
-            row.err = repr(e)
+            import traceback as tb
+            row.err = pre(repr(e), title=tb.format_exc())
         else:
             pass
             # row.err = ''
@@ -1037,7 +1084,11 @@ def show_logs() -> Iterator[Tag | V.Node | dict[str, str]]:
                 white-space: pre;
                 min-width: unset;
             }
-        '''
+        ''' + ('' if do_edit.value else '''
+            & .right {
+                text-align: right;
+            }
+        ''')
     )
     yield div(
         label(do_edit.input().extend(transform='translateY(3px)'), 'enable edit'),
@@ -1457,10 +1508,13 @@ def index(path_from_route: str | None = None) -> Iterator[Tag | V.Node | dict[st
 
     yield vis.extend(grid_area='vis')
 
-    if ar and not simulation:
-        # TODO: hook this up with ExperimentMetadata.long_desc
-        long_desc = store.str(name='long_desc')
-        info += long_desc.textarea().extend(
+    if ar and path and not simulation:
+        edit = Edit(do_edit=not path_is_latest)
+        edit_em = edit(path, ar.experiment_metadata)
+        desc = edit_em(edit_em.attr.desc)
+        info += desc
+        long_desc = edit_em(edit_em.attr.long_desc, textarea=True)
+        info += long_desc.extend(
             flex_grow='1',
             spellcheck="false",
             css='''
