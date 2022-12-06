@@ -950,86 +950,86 @@ class Intercept:
         return self
 
 @dataclass(frozen=True)
-class Edit:
-    do_edit: bool = True
-    tab_indexes: dict[str, int] | None = field(default_factory=dict)
-
-    def __call__(self, db_path: str | Path, obj: D) -> EditProxy[D]:
-        return EditProxy(self, db_path, obj)
-
-@dataclass(frozen=True)
-class EditProxy(Generic[D]):
-    _edit: Edit
-    _db_path: str | Path
-    _obj: D
+class Edit(Generic[D]):
+    db_path: str | Path
+    obj: D
+    tabindexes: dict[str, int] | None = None
+    enable_edit: bool = True
+    echo: bool = False
 
     @property
     def attr(self) -> D:
         return Intercept() # type: ignore
 
     def __call__(self, attr: A, from_str: Callable[[str], A] = str, textarea: bool=False) -> Tag:
-        edit = self._edit
         assert isinstance(intercept := attr, Intercept)
         field = intercept.last_attr
         assert field is not None
-        if edit.tab_indexes:
-            if field not in edit.tab_indexes:
-                edit.tab_indexes[field] = len(edit.tab_indexes) + 1
-            tabindex = str(edit.tab_indexes.get(field, 0))
+        if self.tabindexes is not None:
+            if field not in self.tabindexes:
+                self.tabindexes[field] = len(self.tabindexes) + 1
+            tabindex = str(self.tabindexes.get(field, 0))
         else:
             tabindex = None
-        value = getattr(self._obj, field)
-        if not self._edit.do_edit:
+        value = getattr(self.obj, field)
+        if not self.enable_edit:
             if value:
-                return div(str(value))
+                return div(
+                    str(value),
+                )
             else:
                 return div()
-        def update(next: str, db_path: str | Path =self._db_path, obj: D=self._obj):
+        def update(next: str=js('this.value'), db_path: str | Path =self.db_path, obj: D=self.obj):
             next_conv = from_str(next)
             with DB.open(db_path) as db:
                 ob = obj.reload(db)
                 ob = ob.replace(**{field: next_conv}) # type: ignore
                 ob.save(db)
         if textarea:
-            return V.textarea(
+            inp = V.textarea(
                 str(value),
-                oninput=call(update, js('this.value')),
+                oninput=call(update),
                 tabindex=tabindex,
             )
         else:
+            inp = V.input(
+                value=str(value),
+                oninput=call(update, js('this.value')),
+                width='100%',
+                spellcheck='false',
+                tabindex=tabindex,
+                min_width=f'{len(str(value)) + 3}ch',
+            )
+        if self.echo:
             return div(
                 div(
                     repr(value),
-                    px=0,
+                    class_='echo',
                 ),
-                V.input(
-                    padding_left='7.5px',
-                    value=str(value),
-                    oninput=call(update, js('this.value')),
-                    width='100%',
-                    spellcheck='false',
-                    tabindex=tabindex,
-                )
+                inp,
             )
+        else:
+            return inp
 
 def show_logs() -> Iterator[Tag | V.Node | dict[str, str]]:
-    do_edit = store.bool(name='edit')
-    edit = Edit(do_edit.value)
-
+    enable_edit = store.bool()
+    echo = store.bool(default=False)
+    store.assign_names(locals())
+    tabindexes: Any = {}
     logs: list[dict[str, Any]] = []
     for log in sorted(Path('logs').glob('*.db')):
-        if 'simulate' in str(log):
+        if 1 and 'simulate' in str(log):
             continue
         row: dict[str, Any] = dotdict()
-        g = Log.connect(log)
-        pm = g.program_metadata() or ProgramMetadata().save(g.db)
-        em = g.experiment_metadata() or ExperimentMetadata().save(g.db)
         try:
+            g = Log.connect(log)
+            pm = g.program_metadata() or ProgramMetadata().save(g.db)
+            em = g.experiment_metadata() or ExperimentMetadata().save(g.db)
+            edit_em = Edit(log, em, tabindexes=tabindexes, enable_edit=enable_edit.value, echo=echo.value)
+            edit_pm = Edit(log, pm, tabindexes=tabindexes, enable_edit=enable_edit.value, echo=echo.value)
             if (rt := g.runtime_metadata()):
                 row.wkd = rt.start_time.strftime('%a')
                 row.datetime = rt.start_time.strftime('%Y-%m-%d %H:%M') + '-' + (rt.start_time + timedelta(seconds=g.time_end(only_completed=True))).strftime('%H:%M')
-                edit_em = edit(log, em)
-                edit_pm = edit(log, pm)
                 row.desc = edit_em(edit_em.attr.desc)
                 row.operators = edit_em(edit_em.attr.operators)
                 row.plates = edit_pm(edit_pm.attr.num_plates, int).extend(class_='right')
@@ -1038,8 +1038,21 @@ def show_logs() -> Iterator[Tag | V.Node | dict[str, str]]:
                     row.live = rt.config_name
                 if pm.protocol != 'cell-paint':
                     row.protocol = edit_pm(edit_pm.attr.protocol)
-                row.from_stage = edit_pm(edit_pm.attr.from_stage, lambda x: x or None)
-                row.open = V.a('open', href='', onclick='event.preventDefault();' + call(path_var_assign, str(log)))
+                row.from_stage = edit_pm(edit_pm.attr.from_stage, lambda x: None if not x or x == 'None' else x)
+                row.notes = V.a(
+                    em.long_desc,
+                    href='', onclick='event.preventDefault();' + call(path_var_assign, str(log)),
+                    cursor='pointer',
+                    title=em.long_desc,
+                    white_space='nowrap',
+                    text_overflow='ellipsis',
+                    overflow='hidden',
+                    display='block',
+                    width='10ch',
+                )
+                row.open = V.a('open', href='', onclick='event.preventDefault();' + call(path_var_assign, str(log)), class_='center')
+            else:
+                row.err = pre(f'{log=}: no runtime metadata')
         except BaseException as e:
             import traceback as tb
             row.err = pre(repr(e), title=tb.format_exc())
@@ -1073,25 +1086,51 @@ def show_logs() -> Iterator[Tag | V.Node | dict[str, str]]:
         make_table(logs),
         grid_area='info',
         css='''
+            & {
+                margin-top: 3em;
+            }
             & input {
-                border-width: 1px;
-                padding: 4px;
-                padding-bottom: 2px;
-                margin-bottom: 1px;
-                border-radius: 2px;
+                border-width: 0px;
+                padding: 0 7px;
+                margin: 0px;
+                outline: 1px grey solid;
+            }
+            & input:focus {
+                outline-color: var(--blue);
+            }
+            & table td:first-child, & table th:first-child {
+                min-width: unset;
             }
             & * {
                 white-space: pre;
-                min-width: unset;
             }
-        ''' + ('' if do_edit.value else '''
-            & .right {
+            & .echo {
+                padding-inline: 0px;
+            }
+            & input[type=checkbox] {
+                outline: 0;
+            }
+            & .right, & .right * {
                 text-align: right;
             }
-        ''')
+            & .center {
+                display: block;
+                text-align: center;
+            }
+        '''
     )
     yield div(
-        label(do_edit.input().extend(transform='translateY(3px)'), 'enable edit'),
+        label(
+            enable_edit.input().extend(transform='translateY(3px)'),
+            'enable edit',
+            css='''
+                position: fixed;
+                right: 1em;
+                top: 1em;
+                user-select: none;
+            '''
+        ),
+        # label(echo.input().extend(transform='translateY(3px)'), 'enable echo'),
         grid_area='form',
         place_self='center',
         css=inverted_inputs_css,
@@ -1509,19 +1548,14 @@ def index(path_from_route: str | None = None) -> Iterator[Tag | V.Node | dict[st
     yield vis.extend(grid_area='vis')
 
     if ar and path and not simulation:
-        edit = Edit(do_edit=not path_is_latest)
-        edit_em = edit(path, ar.experiment_metadata)
-        desc = edit_em(edit_em.attr.desc)
-        info += desc
+        em = ar.experiment_metadata
+        edit_em = Edit(path, em, enable_edit=not path_is_latest)
         long_desc = edit_em(edit_em.attr.long_desc, textarea=True)
         info += long_desc.extend(
             flex_grow='1',
-            spellcheck="false",
-            css='''
-                outline: 0;
-            '''
+            spellcheck='false',
+            outline='0',
         )
-        print(long_desc.value)
 
     if error_box is not None:
         info += error_box
