@@ -3,6 +3,7 @@ from typing import *
 
 import labrobots
 from labrobots.dir_list import PathInfo
+from cellpainter.log import Log
 
 import pbutils
 import apsw
@@ -140,28 +141,8 @@ def add_protocol_dir_as_sqlar(db_path: str, protocol_dir: str):
     Add the LHC files in the protocol_dir as an SQLite Archive (sqlar) table (without compression for simplicity)
     '''
     files = labrobots.WindowsNUC().remote().dir_list.read_files(protocol_dir)
-    with apsw.Connection(db_path) as con:
-        con: Any = con # ignore types for now
-        con.execute(textwrap.dedent('''
-            CREATE TABLE IF NOT EXISTS sqlar(
-              name TEXT PRIMARY KEY,  -- name of the file
-              mode INT,               -- access permissions
-              mtime INT,              -- last modification time
-              sz INT,                 -- original file size
-              data BLOB               -- compressed content
-            );
-        ''')).fetchall()
-
-
-        with con:
+    with Log.open(db_path) as log:
+        with log.db.transaction:
             for f in files:
                 data: bytes = base64.b64decode(f['data_b64'])
-                con.execute('''
-                    INSERT INTO sqlar VALUES (?,?,?,?,?)
-                ''', [
-                    f['name'],
-                    0o100644, # S_IFREG 100000 Regular file type
-                    f['mtime'],
-                    len(data),
-                    data,
-                ]).fetchall()
+                log.sqlar_add(f['name'], f['mtime'], data)

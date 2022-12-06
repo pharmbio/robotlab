@@ -574,7 +574,7 @@ sheet = '''
     }
     table {
         border-spacing: 1px;
-        transform: translateY(-1px);
+        -transform: translateY(-1px);
     }
     body {
         display: grid;
@@ -961,7 +961,7 @@ class Edit(Generic[D]):
     def attr(self) -> D:
         return Intercept() # type: ignore
 
-    def __call__(self, attr: A, from_str: Callable[[str], A] = str, textarea: bool=False) -> Tag:
+    def __call__(self, attr: A, from_str: Callable[[str], A] = str, textarea: bool=False, enable_edit: bool = True) -> Tag:
         assert isinstance(intercept := attr, Intercept)
         field = intercept.last_attr
         assert field is not None
@@ -972,7 +972,7 @@ class Edit(Generic[D]):
         else:
             tabindex = None
         value = getattr(self.obj, field)
-        if not self.enable_edit:
+        if not self.enable_edit or not enable_edit:
             if value:
                 return div(
                     str(value),
@@ -1014,6 +1014,7 @@ class Edit(Generic[D]):
 def show_logs() -> Iterator[Tag | V.Node | dict[str, str]]:
     enable_edit = store.bool()
     echo = store.bool(default=False)
+    show_protocol_dir = store.str(default='')
     store.assign_names(locals())
     tabindexes: Any = {}
     logs: list[dict[str, Any]] = []
@@ -1023,8 +1024,10 @@ def show_logs() -> Iterator[Tag | V.Node | dict[str, str]]:
         row: dict[str, Any] = dotdict()
         try:
             g = Log.connect(log)
+            # g.make_zipfile()
             pm = g.program_metadata() or ProgramMetadata().save(g.db)
             em = g.experiment_metadata() or ExperimentMetadata().save(g.db)
+            edit_em = Edit(log, em, tabindexes=tabindexes, enable_edit=enable_edit.value, echo=echo.value)
             edit_em = Edit(log, em, tabindexes=tabindexes, enable_edit=enable_edit.value, echo=echo.value)
             edit_pm = Edit(log, pm, tabindexes=tabindexes, enable_edit=enable_edit.value, echo=echo.value)
             if (rt := g.runtime_metadata()):
@@ -1032,13 +1035,13 @@ def show_logs() -> Iterator[Tag | V.Node | dict[str, str]]:
                 row.datetime = rt.start_time.strftime('%Y-%m-%d %H:%M') + '-' + (rt.start_time + timedelta(seconds=g.time_end(only_completed=True))).strftime('%H:%M')
                 row.desc = edit_em(edit_em.attr.desc)
                 row.operators = edit_em(edit_em.attr.operators)
-                row.plates = edit_pm(edit_pm.attr.num_plates, int).extend(class_='right')
-                # row.batch_sizes = edit_pm(edit_pm.attr.batch_sizes, int).extend(class_='right')
+                row.plates = edit_pm(edit_pm.attr.num_plates, int, enable_edit=False).extend(class_='right')
+                # row.batch_sizes = edit_pm(edit_pm.attr.batch_sizes, int, enable_edit=False).extend(class_='right')
                 if rt.config_name != 'live':
                     row.live = rt.config_name
                 if pm.protocol != 'cell-paint':
-                    row.protocol = edit_pm(edit_pm.attr.protocol)
-                row.from_stage = edit_pm(edit_pm.attr.from_stage, lambda x: None if not x or x == 'None' else x)
+                    row.protocol = edit_pm(edit_pm.attr.protocol, enable_edit=False)
+                row.from_stage = edit_pm(edit_pm.attr.from_stage, lambda x: None if not x or x == 'None' else x, enable_edit=False)
                 row.notes = V.a(
                     em.long_desc,
                     href='', onclick='event.preventDefault();' + call(path_var_assign, str(log)),
@@ -1050,6 +1053,49 @@ def show_logs() -> Iterator[Tag | V.Node | dict[str, str]]:
                     display='block',
                     width='10ch',
                 )
+                try:
+                    name_times = g.sqlar_files(include_data=False)
+                except:
+                    name_times = []
+                if name_times:
+                    dir, _, _ = name_times[0][0].partition('/')
+                    show=show_protocol_dir.value == str(log)
+                    row.protocol_dir = div(
+                        dir,
+                        pre(
+                            '\n'.join([
+                                f'{time} {name}'
+                                for name, time, _ in name_times
+                            ]),
+                        ),
+                        show=show,
+                        css='''
+                            & {
+                                user-select: none;
+                                cursor: pointer;
+                            }
+                            &[show] {
+                                color: #eee;
+                            }
+                            & > pre {
+                                display: none;
+                            }
+                            &[show] > pre {
+                                display: block;
+                                position: fixed;
+                                bottom: 0;
+                                left: 50%;
+                                transform: translateX(-50%);
+                                width: fit-content;
+                                padding: 5px 9px;
+                                border: 2px #000a solid;
+                                color: var(--fg);
+                            }
+                        ''',
+                        onclick=show_protocol_dir.update('' if show else str(log)),
+                    )
+                else:
+                    row.protocol_dir= ''
                 row.open = V.a('open', href='', onclick='event.preventDefault();' + call(path_var_assign, str(log)), class_='center')
             else:
                 row.err = pre(f'{log=}: no runtime metadata')
@@ -1087,7 +1133,7 @@ def show_logs() -> Iterator[Tag | V.Node | dict[str, str]]:
         grid_area='info',
         css='''
             & {
-                margin-top: 3em;
+                margin-top: 3.5em;
             }
             & input {
                 border-width: 0px;

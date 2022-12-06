@@ -16,6 +16,9 @@ import pbutils.mixins
 import os
 import platform
 
+import zipfile
+import io
+
 @dataclass(frozen=False)
 class RuntimeMetadata(DBMixin):
     start_time:   datetime
@@ -314,5 +317,63 @@ class Log:
 
     def program(self) -> Program | None:
         return self.db.get(Program).one_or(None)
+
+    def make_zipfile(self):
+        bs = io.BytesIO()
+        with zipfile.ZipFile(bs, 'w') as z:
+            z.writestr('baap/boop.txt', 'boop')
+        Path('/tmp/test.zip').write_bytes(bs.getvalue())
+        # todo
+
+    def sqlar_add(
+        self,
+        name: str,
+        mtime: int,
+        data: bytes,
+        mode: int=0o100644 # S_IFREG 100000 Regular file type
+    ):
+        '''
+        Add files into the sqlar table (SQLite Archive) table (without compression for simplicity)
+        '''
+        con = self.db.con
+        con.execute(textwrap.dedent('''
+            CREATE TABLE IF NOT EXISTS sqlar(
+              name TEXT PRIMARY KEY,  -- name of the file
+              mode INT,               -- access permissions
+              mtime INT,              -- last modification time
+              sz INT,                 -- original file size
+              data BLOB               -- compressed content
+            );
+        '''))
+        con.execute('''
+            INSERT INTO sqlar VALUES (?,?,?,?,?)
+        ''', [
+            name,
+            mode,
+            mtime,
+            len(data),
+            data
+        ])
+
+    def sqlar_files(self, include_data: bool=True) -> list[tuple[str, datetime, bytes]]:
+        if include_data:
+            sql = '''
+                select name, mtime, data
+                from sqlar
+                where sz > 0
+                order by name
+            '''
+        else:
+            sql = '''
+                select name, mtime, zeroblob(0)
+                from sqlar
+                where sz > 0
+                order by name
+            '''
+        res: list[tuple[Any]] = self.db.con.execute(sql).fetchall()
+        return [
+            (name, datetime.fromtimestamp(mtime), data)
+            for name, mtime, data in res
+        ]
 
 pbutils.serializer.register(globals())
