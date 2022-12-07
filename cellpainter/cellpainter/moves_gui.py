@@ -138,22 +138,18 @@ def keydown(program_name: str, args: dict[str, Any]):
         'ArrowUp':    moves.MoveRel(xyz=[mm * cos(yaw),       mm * sin(yaw),       0], rpy=[0, 0, 0]),
         'ArrowLeft':  moves.MoveRel(xyz=[mm * cos(yaw + 90),  mm * sin(yaw + 90),  0], rpy=[0, 0, 0]),
         'ArrowRight': moves.MoveRel(xyz=[mm * cos(yaw - 90),  mm * sin(yaw - 90),  0], rpy=[0, 0, 0]),
-        # 'ArrowRight': moves.MoveRel(xyz=[ mm, 0, 0], rpy=[0, 0, 0]),
-        # 'ArrowLeft':  moves.MoveRel(xyz=[-mm, 0, 0], rpy=[0, 0, 0]),
-        # 'ArrowUp':    moves.MoveRel(xyz=[0,  mm, 0], rpy=[0, 0, 0]),
-        # 'ArrowDown':  moves.MoveRel(xyz=[0, -mm, 0], rpy=[0, 0, 0]),
         'PageUp':     moves.MoveRel(xyz=[0, 0,  mm], rpy=[0, 0, 0]),
         'PageDown':   moves.MoveRel(xyz=[0, 0, -mm], rpy=[0, 0, 0]),
-        'Home':       moves.MoveRel(xyz=[0, 0, 0], rpy=[0, 0, -deg]),
-        'End':        moves.MoveRel(xyz=[0, 0, 0], rpy=[0, 0,  deg]),
         '[':          moves.MoveRel(xyz=[0, 0, 0], rpy=[0, 0, -deg]),
         ']':          moves.MoveRel(xyz=[0, 0, 0], rpy=[0, 0,  deg]),
         ',':          moves.MoveRel(xyz=[0, 0, 0], rpy=[-deg, 0, 0]),
         '.':          moves.MoveRel(xyz=[0, 0, 0], rpy=[ deg, 0, 0]),
-        'Insert':     moves.MoveRel(xyz=[0, 0, 0], rpy=[0, -deg, 0]),
-        'Delete':     moves.MoveRel(xyz=[0, 0, 0], rpy=[0,  deg, 0]),
         '-':          moves.RawCode(f'GripperMove(read_output_integer_register(0) - {int(mm)})'),
         '+':          moves.RawCode(f'GripperMove(read_output_integer_register(0) + {int(mm)})'),
+        'Home':       moves.MoveRel(xyz=[0, 0, 0], rpy=[0, 0, -deg]),
+        'End':        moves.MoveRel(xyz=[0, 0, 0], rpy=[0, 0,  deg]),
+        'Insert':     moves.MoveRel(xyz=[0, 0, 0], rpy=[0, -deg, 0]),
+        'Delete':     moves.MoveRel(xyz=[0, 0, 0], rpy=[0,  deg, 0]),
     }
     def norm(k: str):
         tr: dict[str, str] = cast(Any, dict)(['[{', ']}', '+=', '-_', ',<', '.>'])
@@ -476,7 +472,6 @@ def index() -> Iterator[Tag | dict[str, str]]:
             css='margin: 0 10px; display: flex;',
         )
 
-
         row += button('update',
             tabindex='-1',
             style=f'grid-column: update',
@@ -608,9 +603,10 @@ def index() -> Iterator[Tag | dict[str, str]]:
     yield V.queue_refresh(150)
 
 def main():
-    host = '10.10.0.55'
     if config.name in ('simulate', 'forward'):
         host = 'localhost'
+    else:
+        host = '10.10.0.55'
     serve.run(
         port=5000,
         host=host,

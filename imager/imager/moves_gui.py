@@ -3,7 +3,6 @@ from typing import *
 
 from dataclasses import *
 
-from flask import request
 from pathlib import Path
 import math
 import json
@@ -14,20 +13,23 @@ from .robotarm import Robotarm
 
 import pbutils
 
-from viable import serve, button, pre, call, js
-from viable import Tag, div, input
+from viable import store, js, call, Serve, Flask, Int, Str, Bool
+from viable import Tag, div, span, label, button, pre, input
 import viable as V
 
 import sys
 
+simulate = any('--sim' in arg for arg in sys.argv)
+forward = any('--forward' in arg for arg in sys.argv)
+
+print(f'{simulate=} {forward=}')
+
+serve = Serve(Flask(__name__))
 serve.suppress_flask_logging()
+
 polled_info: dict[str, Any] = {}
 
-dry_run = any('--sim' in arg for arg in sys.argv)
-
-print(f'{dry_run=}')
-
-if not dry_run:
+if not simulate:
     @pbutils.spawn
     def poll() -> None:
         arm = Robotarm.init(port=10000, quiet=True)
@@ -53,7 +55,7 @@ def arm_set_speed(value: int) -> None:
 
 def edit_at(program_name: str, i: int, changes: dict[str, Any]):
     filename = get_programs()[program_name]
-    ml = MoveList.from_jsonl_file(filename)
+    ml = MoveList.read_jsonl(filename)
     m = ml[i]
     for k, v in changes.items():
         if k in 'yaw xyz joints name pos tag sections'.split():
@@ -75,7 +77,6 @@ def sin(deg: float) -> float:
 def keydown(program_name: str, args: dict[str, Any]):
     mm: float = 1.0
     deg: float = 1.0
-    yaw: float = polled_info.get('yaw', 0.0)
 
     Alt = bool(args.get('altKey'))
     Shift = bool(args.get('shiftKey'))
@@ -89,21 +90,19 @@ def keydown(program_name: str, args: dict[str, Any]):
         mm = 100.0
         deg = 90.0
     k = str(args['key'])
+    yaw: float = polled_info.get('yaw', 0.0)
+
     keymap = {
-        'Home':       moves.MoveC_Rel(xyz=[0,  mm, 0], yaw=0),
-        'End':        moves.MoveC_Rel(xyz=[0, -mm, 0], yaw=0),
-        'Insert':     moves.MoveC_Rel(xyz=[-mm, 0, 0], yaw=0),
-        'Delete':     moves.MoveC_Rel(xyz=[ mm, 0, 0], yaw=0),
         'ArrowDown':  moves.MoveC_Rel(xyz=[mm * cos(yaw + 180), mm * sin(yaw + 180), 0], yaw=0),
         'ArrowUp':    moves.MoveC_Rel(xyz=[mm * cos(yaw),       mm * sin(yaw),       0], yaw=0),
-        'ArrowLeft': moves.MoveC_Rel(xyz=[mm * cos(yaw + 90),  mm * sin(yaw + 90),  0], yaw=0),
-        'ArrowRight':  moves.MoveC_Rel(xyz=[mm * cos(yaw - 90),  mm * sin(yaw - 90),  0], yaw=0),
+        'ArrowLeft':  moves.MoveC_Rel(xyz=[mm * cos(yaw + 90),  mm * sin(yaw + 90),  0], yaw=0),
+        'ArrowRight': moves.MoveC_Rel(xyz=[mm * cos(yaw - 90),  mm * sin(yaw - 90),  0], yaw=0),
         'PageUp':     moves.MoveC_Rel(xyz=[0, 0,  mm], yaw=0),
         'PageDown':   moves.MoveC_Rel(xyz=[0, 0, -mm], yaw=0),
         '[':          moves.MoveC_Rel(xyz=[0, 0, 0], yaw=-deg),
         ']':          moves.MoveC_Rel(xyz=[0, 0, 0], yaw= deg),
-        '.':          moves.MoveC_Rel(xyz=[0, 0, 0], yaw=-deg),
-        ',':          moves.MoveC_Rel(xyz=[0, 0, 0], yaw= deg),
+        ',':          moves.MoveC_Rel(xyz=[0, 0, 0], yaw=-deg),
+        '.':          moves.MoveC_Rel(xyz=[0, 0, 0], yaw= deg),
         '-':          moves.RawCode(f'MoveJ_Rel 1 0 0 0 0 {-int(mm)}'),
         '+':          moves.RawCode(f'MoveJ_Rel 1 0 0 0 0 {int(mm)}'),
     }
@@ -116,12 +115,12 @@ def keydown(program_name: str, args: dict[str, Any]):
         print(m)
         arm_do(m)
 
-def update(program_name: str, i: int):
+def update(program_name: str, i: int, grouped: bool=False):
     if i is None:
         return
 
     filename = get_programs()[program_name]
-    ml = MoveList.from_jsonl_file(filename)
+    ml = MoveList.read_jsonl(filename)
     m = ml[i]
     if isinstance(m, (moves.MoveC, moves.MoveC_Rel)):
         v = asdict(m)
@@ -130,20 +129,28 @@ def update(program_name: str, i: int):
         v['yaw'] = pbutils.round_nnz(polled_info['yaw'], 3)
         ml = MoveList(ml)
         ml[i] = moves.MoveC(**v)
-        ml.write_jsonl(filename)
     elif isinstance(m, (moves.MoveGripper)):
         v = asdict(m)
         v['pos'] = pbutils.round_nnz(polled_info['q5'], 3)
         ml = MoveList(ml)
         ml[i] = moves.MoveGripper(**v)
-        ml.write_jsonl(filename)
     elif isinstance(m, (moves.MoveJ)):
         v = asdict(m)
         joints = [polled_info[k] for k in 'q1 q2 q3 q4'.split()]
         v['joints'] = [pbutils.round_nnz(v, 3) for v in joints]
         ml = MoveList(ml)
         ml[i] = moves.MoveJ(**v)
-        ml.write_jsonl(filename)
+    else:
+        return
+
+    if grouped:
+        for j, _ in enumerate(ml):
+            if j == i:
+                continue
+            if isinstance(ml[j], type(ml[i])) and ml[j].try_name() == ml[i].try_name():
+                print(i, j, ml[i], ml[j], ml[i].try_name(), ml[j].try_name())
+                ml[j] = ml[i]
+    ml.write_jsonl(filename)
 
 def get_programs() -> dict[str, Path]:
     return {
@@ -154,9 +161,11 @@ def get_programs() -> dict[str, Path]:
 @serve.route('/')
 def index() -> Iterator[Tag | dict[str, str]]:
     programs = get_programs()
-    program_name = request.args.get('program', list(programs.keys())[0])
-    section: tuple[str, ...] = tuple(request.args.get('section', "").split())
-    ml = MoveList.from_jsonl_file(programs[program_name])
+    program_var = store.query.str(name='program')
+    section_var = store.query.str(name='section')
+    program_name = program_var.value or list(programs.keys())[0]
+    section: tuple[str, ...] = tuple(section_var.value.split())
+    ml = MoveList.read_jsonl(programs[program_name])
 
     yield V.title(' '.join([program_name, *section]))
 
@@ -228,9 +237,10 @@ def index() -> Iterator[Tag | dict[str, str]]:
                     background: #ecf;
                 }
             ''',
-            onclick=f'''
-                set_query({{program: {name!r}}}); refresh()
-            ''')
+            onclick=call(lambda: [
+                program_var.assign(name),
+                section_var.assign(''),
+            ]))
     yield header
 
     info: dict[str, float] = {
@@ -242,6 +252,8 @@ def index() -> Iterator[Tag | dict[str, str]]:
     grid = div(css='''
         display: grid;
         grid-gap: 3px 0;
+        max-width: fit-content;
+        margin: 0 auto;
         grid-template-columns:
             [run] 130px
             [value] 1fr
@@ -314,7 +326,7 @@ def index() -> Iterator[Tag | dict[str, str]]:
                 seen += [s]
                 sect += button(s,
                     tabindex='-1',
-                    onclick=f"update_query({{ section: {' '.join(seen)!r} }})",
+                    onclick=call(section_var.assign, ' '.join(seen)),
                     style="cursor: pointer;"
                 )
             continue
@@ -373,7 +385,6 @@ def index() -> Iterator[Tag | dict[str, str]]:
                 '''
             )
 
-
         row += button('go',
             tabindex='-1',
             style=f'grid-column: go',
@@ -382,7 +393,7 @@ def index() -> Iterator[Tag | dict[str, str]]:
         )
 
         from_here = [m for _, m in visible_moves[row_index:] if not isinstance(m, moves.Section)]
-        to_here= [m for _, m in visible_moves[:row_index+1] if not isinstance(m, moves.Section)]
+        to_here = [m for _, m in visible_moves[:row_index+1] if not isinstance(m, moves.Section)]
 
         row += div(
             button('run from here',
@@ -398,14 +409,15 @@ def index() -> Iterator[Tag | dict[str, str]]:
                 title=', '.join(m.try_name() or m.__class__.__name__ for m in to_here)
             ),
             style=f'grid-column: run; display: flex; margin 0 10px;',
+            css='margin: 0 10px; display: flex;',
         )
-
 
         row += button('update',
             tabindex='-1',
             style=f'grid-column: update',
             css='margin: 0 10px;',
             onclick=call(update, program_name, i),
+            oncontextmenu='event.preventDefault();' + call(update, program_name, i, grouped=True),
         )
 
         row += input(
@@ -469,26 +481,26 @@ def index() -> Iterator[Tag | dict[str, str]]:
     ''')
     yield foot
 
+    btns = div(css="""
+        & {
+            display: flex;
+            flex-direction: column;
+        }
+        & > button {
+            display: block;
+            padding: 10px 20px;
+            margin: 5px 10px;
+            font-family: sans-serif;
+            text-align: left;
+        }
+    """)
     for deg in [0, 90, 180, 270]:
-        btns = div(css="""
-            & {
-                display: flex;
-                flex-direction: column;
-            }
-            & > button {
-                display: block;
-                padding: 10px 20px;
-                margin: 5px 10px;
-                font-family: sans-serif;
-                text-align: left;
-            }
-        """)
         btns += button(
             f'yaw -> {deg}°',
             tabindex='-1',
             onclick=call(arm_do, moves.MoveC_Rel([0,0,0], -polled_info.get('yaw', 0.0) + deg))
         )
-        foot += btns
+    foot += btns
 
     from pprint import pformat
 
@@ -521,7 +533,16 @@ def index() -> Iterator[Tag | dict[str, str]]:
     yield V.queue_refresh(150)
 
 def main():
-    serve.run()
+    if forward or simulate:
+        host = 'localhost'
+        port = 5000
+    else:
+        host = '10.10.0.55'
+        port = 5001
+    serve.run(
+        port=port,
+        host=host,
+    )
 
 if __name__ == '__main__':
     main()

@@ -134,7 +134,7 @@ class MoveList(list[Move]):
     '''
 
     @staticmethod
-    def from_jsonl_file(filename: str | Path) -> MoveList:
+    def read_jsonl(filename: str | Path) -> MoveList:
         return MoveList(pbutils.serializer.read_jsonl(filename))
 
     def write_jsonl(self, filename: str | Path) -> None:
@@ -226,7 +226,7 @@ class MoveList(list[Move]):
         ])
 
 def read_and_expand(filename: Path) -> dict[str, MoveList]:
-    ml = MoveList.from_jsonl_file(filename)
+    ml = MoveList.read_jsonl(filename)
     name = filename.stem
     expanded = ml.expand_sections(name, include_self=False)
     for k, v in list(expanded.items()):
