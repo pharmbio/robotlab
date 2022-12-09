@@ -1262,7 +1262,9 @@ def index(path_from_route: str | None = None) -> Iterator[Tag | V.Node | dict[st
             stderr = ''
         if log and (rt := log.runtime_metadata()) and rt.config_name == 'simulate':
             simulation = True
-            if not rt.completed:
+            if path_is_latest:
+                t_end = None # skip showing for /latest
+            elif not rt.completed:
                 t_high = 2**60
                 t_end = store.int(t_high, name='t_end')
                 if t_end.value != t_high:
@@ -1440,7 +1442,9 @@ def index(path_from_route: str | None = None) -> Iterator[Tag | V.Node | dict[st
                 confirm += 'Not specified: operators.\n'
             if confirm:
                 confirm += '\nStart anyway?'
-            if path:
+            if path_is_latest:
+                # skip showing buttons for endpoint /latest
+            elif path:
                 start_button = button(
                     V.raw(triangle.strip()), ' ', 'start',
                     data_confirm=confirm,
