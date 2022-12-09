@@ -1057,7 +1057,7 @@ def show_logs() -> Iterator[Tag | V.Node | dict[str, str]]:
                     name_times = g.sqlar_files(include_data=False)
                 except:
                     name_times = []
-                if name_times:
+                if name_times and pm.protocol == 'cell-paint':
                     dir, _, _ = name_times[0][0].partition('/')
                     show=show_protocol_dir.value == str(log)
                     row.protocol_dir = div(

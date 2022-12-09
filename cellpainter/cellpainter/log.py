@@ -18,6 +18,7 @@ import platform
 
 import zipfile
 import io
+import textwrap
 
 @dataclass(frozen=False)
 class RuntimeMetadata(DBMixin):
