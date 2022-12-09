@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import *
 
-from viable import serve, js, store
+from viable import Serve, js, store, Flask
 from viable import Tag, pre, div, span, label
 
 from .log import Log
@@ -82,6 +82,7 @@ from functools import lru_cache
 def start(cmdline0: str, cmdline_to_log: Callable[[str], Log]):
     cmdline_to_log = lru_cache(cmdline_to_log)
 
+    serve = Serve(app := Flask(__name__))
     @serve.one('/')
     def index() -> Iterator[Tag | dict[str, str]]:
 
@@ -122,7 +123,9 @@ def start(cmdline0: str, cmdline_to_log: Callable[[str], Log]):
         store.assign_names(locals())
         zoom = zoom_int.value / 100.0
         yield div(
-            label(span('cmdline: '), cmdline.input(iff='0').extend(onkeydown='event.key == "Enter" && ' + store.update(cmdline, js('this.value')).goto())),
+            label(span('cmdline: '), cmdline.input(iff='0').extend(
+                onkeydown='event.key == "Enter" && ' + cmdline.update(js('this.value'))
+            )),
             label(span('zoom: '), zoom_int.range(), span(str(zoom_int.value))),
             position='sticky',
             top=0,

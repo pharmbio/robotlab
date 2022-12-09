@@ -16,6 +16,8 @@ from .commands import (
     BiotekCmd,
     IncuCmd,
     WaitForCheckpoint,
+    Maximize,
+    Exactly,
 )
 
 def import_z3():
@@ -134,7 +136,7 @@ def optimal_env(cmd: Command, unsat_core: bool=False) -> OptimalResult:
         else:
             s.add(clause)
 
-    maximize_terms: list[tuple[float, Symbolic]] = []
+    maximize_terms: dict[int, list[tuple[float, Symbolic]]] = DefaultDict(list)
     ends: dict[int, Symbolic] = {}
 
     def run(cmd: Command, begin: Symbolic, *, is_main: bool) -> Symbolic:
@@ -176,10 +178,14 @@ def optimal_env(cmd: Command, unsat_core: bool=False) -> OptimalResult:
                 duration = Symbolic.var(ids.assign(cmd.name + ' duration '))
                 constrain(checkpoint + duration, '==', begin)
                 constrain(duration, '>=', 0)
-                if cmd.exactly is not None:
-                    constrain(duration, '==', cmd.exactly)
-                if cmd.opt_weight:
-                    maximize_terms.append((cmd.opt_weight, duration))
+                match cmd.constraint:
+                    case Exactly():
+                        constrain(duration, '==', cmd.constraint.exactly)
+                    case Maximize():
+                        maxi = cmd.constraint
+                        maximize_terms[maxi.priority].append((maxi.weight, duration))
+                    case None:
+                        pass
                 return begin
             case Seq_():
                 end = begin
@@ -203,10 +209,6 @@ def optimal_env(cmd: Command, unsat_core: bool=False) -> OptimalResult:
     # batch_sep = 180 # for specs jump
     # constrain('batch sep', '==', batch_sep * 60)
 
-    maximize = Sum(*[  # type: ignore
-        coeff * to_expr(v) for coeff, v in maximize_terms
-    ])
-
     if unsat_core:
         check = str(s.check())
         print(check)
@@ -217,16 +219,22 @@ def optimal_env(cmd: Command, unsat_core: bool=False) -> OptimalResult:
         else:
             raise ValueError('Optimization says unsat, but unsat core version says sat')
 
-    if isinstance(maximize, (int, float)):
-        pass
-    else:
-        s.maximize(maximize)
+    # add the constraints with most important first (lexicographic optimization order)
+    for _prio, terms in sorted(maximize_terms.items(), reverse=True):
+        maximize = Sum(*[  # type: ignore
+            coeff * to_expr(v) for coeff, v in terms
+        ])
+        if isinstance(maximize, (int, float)):
+            pass # nothing to do, these were already constants
+        else:
+            s.maximize(maximize)
 
     # print(s)
     check = str(s.check())
     if check == 'unsat':
-        print('Impossible to schedule, obtaining unsat core')
-        optimal_env(cmd, unsat_core=True)
+        if 0:
+            print('Impossible to schedule, obtaining unsat core')
+            optimal_env(cmd, unsat_core=True)
         raise ValueError(f'Impossible to schedule! (Number of missing time estimates: {len(estimates.guesses)}: {", ".join(str(g) for g in estimates.guesses.keys())}')
 
     M = s.model()

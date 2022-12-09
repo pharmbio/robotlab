@@ -28,6 +28,9 @@ from .commands import (
     WaitForCheckpoint,
     WaitForResource,
     ProgramMetadata,
+    Exactly,
+    Maximize,
+    Minimize,
 )
 from .moves import movelists, World
 from .symbolic import Symbolic
@@ -36,6 +39,13 @@ from . import commands
 from . import moves
 
 import pbutils
+
+class OptPrio:
+    wash_to_disp = Minimize(priority=4, weight=1)
+    # wash_to_disp = Exactly(estimate(RobotarmCmd('wash_to_disp transfer')))
+    without_lid  = Minimize(priority=3, weight=1)
+    batch_time   = Minimize(priority=2, weight=1)
+    inside_incu  = Maximize(priority=1, weight=1)
 
 @dataclass(frozen=True)
 class Plate:
@@ -429,7 +439,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
     ]
 
     post_cmds = [
-        Duration(f'batch {batch_index}', opt_weight=-1),
+        Duration(f'batch {batch_index}', OptPrio.batch_time),
     ]
 
     chunks: dict[Desc, Iterable[Command]] = {}
@@ -471,7 +481,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
             ]
 
             lid_on = [
-                *RobotarmCmds(plate_with_corrected_lid_pos.lid_get, after_drop=[Duration(f'{plate_desc} lid off {ix}', opt_weight=-1)]),
+                *RobotarmCmds(plate_with_corrected_lid_pos.lid_get, after_drop=[Duration(f'{plate_desc} lid off {ix}', OptPrio.without_lid)]),
             ]
 
             if step == 'Mito':
@@ -486,10 +496,10 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
             elif step == 'PFA':
                 incu_get = [
                     WaitForResource('incu', assume='nothing'),
+                    Duration(f'{plate_desc} 37C', OptPrio.inside_incu),
                     IncuFork('get', plate.incu_loc),
                     *RobotarmCmds('incu get', before_pick = [
                         WaitForResource('incu', assume='will wait'),
-                        Duration(f'{plate_desc} 37C', opt_weight=1),
                     ]),
                     *lid_off,
                 ]
@@ -555,7 +565,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                 Fork(
                     Seq(
                         *wash_delay,
-                        Duration(f'{plate_desc} incubation {ix-1}', exactly=p.incu[i-1]) if i > 0 else Idle(),
+                        Duration(f'{plate_desc} incubation {ix-1}', Exactly(p.incu[i-1])) if i > 0 else Idle(),
                         WashCmd(p.wash[i], cmd='RunValidated') if p.wash[i] else Idle(),
                         Checkpoint(f'{plate_desc} incubation {ix}')
                         if step == 'Wash 1' else
@@ -573,7 +583,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                 Idle() if pre_disp_is_long else disp_prep,
                 RobotarmCmd('wash_to_disp transfer'),
                 pre_disp_wait,
-                Duration(f'{plate_desc} transfer {ix}', exactly=estimate(RobotarmCmd('wash_to_disp transfer'))) if p.disp[i] else Idle(),
+                Duration(f'{plate_desc} transfer {ix}', OptPrio.wash_to_disp) if p.disp[i] else Idle(),
                 Fork(
                     Seq(
                         DispCmd(p.disp[i], cmd='RunValidated') if p.disp[i] else Idle(),
@@ -735,7 +745,7 @@ def cell_paint_program(batch_sizes: list[int], protocol_config: ProtocolConfig, 
         Checkpoint('run'),
         test_comm_program(),
         program,
-        Duration('run', opt_weight=-0.1)
+        Duration('run', OptPrio.batch_time)
     )
     return Program(
         command=program,

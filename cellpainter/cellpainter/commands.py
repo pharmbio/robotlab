@@ -343,9 +343,20 @@ class WaitForCheckpoint(Command):
 
 @dataclass(frozen=True)
 class Duration(Command):
-    name: str
-    opt_weight: float = 0.0
-    exactly: Symbolic | float | None = None
+    name: str # constraint since this reference checkpoint
+    constraint: None | Maximize | Exactly = None
+
+@dataclass(frozen=True)
+class Maximize:
+    priority: int
+    weight: float = 1
+
+def Minimize(priority: int, weight: float = 1):
+    return Maximize(priority, -weight)
+
+@dataclass(frozen=True)
+class Exactly:
+    exactly: Symbolic | float
 
 ForkAssumption = Literal['nothing', 'busy', 'idle']
 
