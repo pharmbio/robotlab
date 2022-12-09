@@ -99,10 +99,10 @@ def keydown(program_name: str, args: dict[str, Any]):
         'ArrowRight': moves.MoveC_Rel(xyz=[mm * cos(yaw - 90),  mm * sin(yaw - 90),  0], yaw=0),
         'PageUp':     moves.MoveC_Rel(xyz=[0, 0,  mm], yaw=0),
         'PageDown':   moves.MoveC_Rel(xyz=[0, 0, -mm], yaw=0),
-        '[':          moves.MoveC_Rel(xyz=[0, 0, 0], yaw=-deg),
-        ']':          moves.MoveC_Rel(xyz=[0, 0, 0], yaw= deg),
-        ',':          moves.MoveC_Rel(xyz=[0, 0, 0], yaw=-deg),
-        '.':          moves.MoveC_Rel(xyz=[0, 0, 0], yaw= deg),
+        '[':          moves.MoveC_Rel(xyz=[0, 0, 0], yaw= deg),
+        ']':          moves.MoveC_Rel(xyz=[0, 0, 0], yaw=-deg),
+        ',':          moves.MoveC_Rel(xyz=[0, 0, 0], yaw= deg),
+        '.':          moves.MoveC_Rel(xyz=[0, 0, 0], yaw=-deg),
         '-':          moves.RawCode(f'MoveJ_Rel 1 0 0 0 0 {-int(mm)}'),
         '+':          moves.RawCode(f'MoveJ_Rel 1 0 0 0 0 {int(mm)}'),
     }
@@ -255,7 +255,7 @@ def index() -> Iterator[Tag | dict[str, str]]:
         max-width: fit-content;
         margin: 0 auto;
         grid-template-columns:
-            [run] 130px
+            [run] max-content
             [value] 1fr
             [update] 90px
             [x] 100px

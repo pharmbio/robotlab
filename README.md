@@ -109,3 +109,16 @@ One way to run this locally is to use [`act`](https://github.com/nektos/act).
 
 The node names and IP-addresses are specified in [`labrobots/labrobots/__init__.py`](labrobots/labrobots/__init__.py).
 
+## Git diff of sqlite databases
+
+To enable showing diffs of sqlite databases when running git commands you can follow https://stackoverflow.com/questions/13271643/git-hook-for-diff-sqlite-table
+
+One way to ignore big blobs is adding this to git config:
+
+    [diff "sqlite3"]
+        binary = true
+        textconv = "dump(){ sqlite3 -batch \"$1\" .dump | sed \"s,X'\\([0-9a-f]\\{16\\}\\)[0-9a-f]*',X'\\1...',g\"; }; dump"
+
+You will need to add this to git attributes:
+
+    *.db diff=sqlite3
