@@ -28,9 +28,8 @@ from .commands import (
     WaitForCheckpoint,
     WaitForResource,
     ProgramMetadata,
-    Exactly,
-    Maximize,
-    Minimize,
+    Max,
+    Min,
 )
 from .moves import movelists, World
 from .symbolic import Symbolic
@@ -41,11 +40,12 @@ from . import moves
 import pbutils
 
 class OptPrio:
-    wash_to_disp = Minimize(priority=4, weight=1)
-    # wash_to_disp = Exactly(estimate(RobotarmCmd('wash_to_disp transfer')))
-    without_lid  = Minimize(priority=3, weight=1)
-    batch_time   = Minimize(priority=2, weight=1)
-    inside_incu  = Maximize(priority=1, weight=1)
+    wash_to_disp  = Min(priority=6, weight=1)
+    incu_slack    = Min(priority=5, weight=1)
+    without_lid   = Min(priority=4, weight=1)
+    batch_time    = Min(priority=3, weight=1)
+    inside_incu   = Max(priority=2, weight=0)
+    squeeze_steps = Min(priority=1, weight=1)
 
 @dataclass(frozen=True)
 class Plate:
@@ -89,8 +89,8 @@ class Locations:
     C: list[str] = [f'C{i}' for i in H]
 
     Incu:    list[str] = [f'L{i}' for i in I] + [f'R{i}' for i in I]
-    RT_few:  list[str] = C[:4] + A[:4]    # up to 8 plates
-    RT_many: list[str] = C[:5] + A[:5] + [B[4]]
+    RT_few:  list[str] = C[:4] + A[:4]                # up to 8 plates
+    RT_many: list[str] = C[:5] + A[:5] + [B[4], B[5]] # up to 12 plates
     Out:     list[str] = A[5:][::-1] + B[5:][::-1] + C[5:][::-1]
     Lid:     list[str] = [b for b in B if '19' in b or '17' in b]
 
@@ -471,9 +471,15 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                 incu_delay = [
                     WaitForCheckpoint(f'{first_plate_desc} incubation {ix-1}') + f'{plate_desc} incu delay {ix}'
                 ]
+                slack = (
+                    Symbolic.var(f'{plate_desc} incubation {ix-1} slack')
+                    + p.incu[i-1]
+                )
                 wash_delay = [
                     Early(2),
-                    WaitForCheckpoint(f'{plate_desc} incubation {ix-1}') + p.incu[i-1]
+                    WaitForCheckpoint(f'{plate_desc} incubation {ix-1}', assume='will wait') + p.incu[i-1],
+                    # WaitForCheckpoint(f'{plate_desc} incubation {ix-1}', assume='will wait') + slack,
+                    Duration(f'{plate_desc} incubation {ix-1}', OptPrio.incu_slack),
                 ]
 
             lid_off = [
@@ -565,7 +571,6 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                 Fork(
                     Seq(
                         *wash_delay,
-                        Duration(f'{plate_desc} incubation {ix-1}', Exactly(p.incu[i-1])) if i > 0 else Idle(),
                         WashCmd(p.wash[i], cmd='RunValidated') if p.wash[i] else Idle(),
                         Checkpoint(f'{plate_desc} incubation {ix}')
                         if step == 'Wash 1' else
@@ -699,20 +704,33 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
         'B15 -> out':   4,
     }
 
-    plate_cmds = [
-        command.add(Metadata(
-            step=step,
-            substep=substep,
-            plate_id=plate_id,
-            slot=slots[substep],
-            stage=f'{step}, plate {plate_id}',
-        )).add_to_physical_commands(Metadata(
-            section=f'{step} {batch_index}',
-        ))
-        for desc in linear
-        for plate_id, step, substep in [desc]
-        for command in chunks[desc]
-    ]
+    plate_cmds: list[Command] = []
+    for prev_descrs, descr, next_descrs in pbutils.iterate_with_full_context(linear):
+        plate_id, step, substep = descr
+        commands: list[Command] = []
+        for command in chunks[descr]:
+            command = command.add(Metadata(
+                step=step,
+                substep=substep,
+                plate_id=plate_id,
+                slot=slots[substep],
+                stage=f'{step}, plate {plate_id}',
+            ))
+            command = command.add_to_physical_commands(Metadata(
+                section=f'{step} {batch_index}',
+            ))
+            commands += [command]
+        command = Seq(*commands)
+        if 1:
+            first_of_step = not any(prev_step == step for _, prev_step, _ in prev_descrs)
+            last_of_step = not any(next_step == step for _, next_step, _ in next_descrs)
+            checkpoint_name = f'squeeze {step} {batch_index}'
+            if first_of_step:
+                command, ok = command.transform_first_physical_command(lambda c: Seq(Checkpoint(checkpoint_name), c))
+                assert ok
+            if last_of_step:
+                command = Seq(command, Duration(checkpoint_name, OptPrio.squeeze_steps))
+        plate_cmds += [command]
 
     for plate_id, step, _substep in linear:
         stage1 = f'{step}, plate {plate_id}'
@@ -721,7 +739,6 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
         stage1 = f'prep, batch {batch_index+1}'
 
     return Seq(
-        # Section(p.step_names[0]),
         Seq(*prep_cmds).add(Metadata(step='prep', stage=stage1)),
         *plate_cmds,
         Seq(*post_cmds)

@@ -317,8 +317,8 @@ def sleek_movements(
     rm: set[int] = set()
 
     for (i, a), (j, b) in zip(ms, ms[1:]):
-        a_first = a[0].try_name()
-        b_last = b[-1].try_name()
+        a_first = a[0].try_name().replace('drop', 'pick')
+        b_last = b[-1].try_name().replace('drop', 'pick')
         if a.has_gripper() or b.has_gripper():
             continue
         if a_first and a_first == b_last and pair_ok(xs[i], xs[j]):

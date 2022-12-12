@@ -65,6 +65,19 @@ class Command(abc.ABC):
                 return cmd
         return self.transform(Add)
 
+    def transform_first_physical_command(self, f: Callable[[Command], Command]) -> tuple[Command, bool]:
+        did_transform = False
+        def F(cmd: Command):
+            nonlocal did_transform
+            if did_transform:
+                return cmd
+            elif isinstance(cmd, BiotekCmd | RobotarmCmd | IncuCmd):
+                did_transform = True
+                return f(cmd)
+            else:
+                return cmd
+        return self.transform(F), did_transform
+
     def collect(self: Command) -> list[tuple[Command, Metadata]]:
         match self:
             case Seq_():
@@ -344,19 +357,15 @@ class WaitForCheckpoint(Command):
 @dataclass(frozen=True)
 class Duration(Command):
     name: str # constraint since this reference checkpoint
-    constraint: None | Maximize | Exactly = None
+    constraint: None | Max = None
 
 @dataclass(frozen=True)
-class Maximize:
+class Max:
     priority: int
     weight: float = 1
 
-def Minimize(priority: int, weight: float = 1):
-    return Maximize(priority, -weight)
-
-@dataclass(frozen=True)
-class Exactly:
-    exactly: Symbolic | float
+def Min(priority: int, weight: float = 1):
+    return Max(priority, -weight)
 
 ForkAssumption = Literal['nothing', 'busy', 'idle']
 

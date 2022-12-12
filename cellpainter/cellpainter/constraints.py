@@ -16,8 +16,7 @@ from .commands import (
     BiotekCmd,
     IncuCmd,
     WaitForCheckpoint,
-    Maximize,
-    Exactly,
+    Max,
 )
 
 def import_z3():
@@ -79,27 +78,29 @@ def optimal_env(cmd: Command, unsat_core: bool=False) -> OptimalResult:
     Factor = 10 ** Resolution
     use_ints = False
 
-    def to_expr(x: Symbolic | float | int | str) -> Any:
-        x = Symbolic.wrap(x)
-        if use_ints:
-            s: Any = Sum(*[Int(v) for v in x.var_names]) # type: ignore
-        else:
-            s: Any = Sum(*[Real(v) for v in x.var_names]) # type: ignore
-        if x.offset:
-            if use_ints:
-                offset = round(float(x.offset) * Factor)
-            else:
-                offset = round(float(x.offset), Resolution)
-            return Sum(offset, s) # type: ignore
-        else:
-            return s
-
     if unsat_core:
         s: Any = Solver()
     else:
         s: Any = Optimize()
 
-    def Max(a: Symbolic | float | int, b: Symbolic | float | int):
+    def to_expr(x: Symbolic | float | int | str) -> Any:
+        x = Symbolic.wrap(x)
+        if use_ints:
+            res = round(float(x.offset) * Factor)
+            for v in x.var_names:
+                vv = Int(v)
+                s.add(vv >= 0)
+                res += vv
+            return res
+        else:
+            res = round(float(x.offset), Resolution)
+            for v in x.var_names:
+                vv = Real(v)
+                s.add(vv >= 0.0)
+                res += vv
+            return res
+
+    def max_symbolic(a: Symbolic | float | int, b: Symbolic | float | int):
         m = Symbolic.var(ids.assign('max'))
         max_a_b, a, b = map(to_expr, (m, a, b))
         if unsat_core:
@@ -165,12 +166,15 @@ def optimal_env(cmd: Command, unsat_core: bool=False) -> OptimalResult:
                 if cmd.assume == 'will wait':
                     constrain(point, '>=', begin)
                     return point
+                elif cmd.assume == 'exactly':
+                    constrain(point, '==', begin)
+                    return point
                 elif cmd.assume == 'no wait':
                     constrain(begin, '>=', point)
                     return begin
                 else:
                     wait_to = Symbolic.var(ids.assign('wait_to'))
-                    constrain(wait_to, '==', Max(point, begin))
+                    constrain(wait_to, '==', max_symbolic(point, begin))
                     return wait_to
             case Duration():
                 checkpoint = Symbolic.var(cmd.name)
@@ -179,9 +183,7 @@ def optimal_env(cmd: Command, unsat_core: bool=False) -> OptimalResult:
                 constrain(checkpoint + duration, '==', begin)
                 constrain(duration, '>=', 0)
                 match cmd.constraint:
-                    case Exactly():
-                        constrain(duration, '==', cmd.constraint.exactly)
-                    case Maximize():
+                    case Max():
                         maxi = cmd.constraint
                         maximize_terms[maxi.priority].append((maxi.weight, duration))
                     case None:
@@ -258,6 +260,8 @@ def optimal_env(cmd: Command, unsat_core: bool=False) -> OptimalResult:
         a: model_value(a)
         for a in sorted(variables)
     }
+
+    pbutils.pr(env)
 
     expected_ends = {
         i: model_value(e)

@@ -176,12 +176,9 @@ def check_correspondence(program: Command, states: list[CommandState], expected_
 
 def remove_stages(program: Program, until_stage: str) -> Program:
     cmd = program.command
-    with pbutils.timeit('scheduling for removing stages'):
-        opt_res = constraints.optimal_env(cmd.make_resource_checkpoints())
-    cmd = cmd.resolve(opt_res.env)
-
     stages = cmd.stages()
     until_index = stages.index(until_stage)
+
     effects: list[moves.Effect] = []
     def FilterStage(cmd: Command):
         if isinstance(cmd, Meta) and (stage := cmd.metadata.stage):
@@ -207,10 +204,11 @@ def remove_stages(program: Program, until_stage: str) -> Program:
         nonlocal i
         if isinstance(cmd, WaitForCheckpoint | Duration) and cmd.name not in checkpoints:
             i += 1
-            dangling.add(cmd.name)
-            replacement = WaitForCheckpoint(cmd.name, assume='nothing') + f'wiggle {i}'
+            name = f'[partial] {cmd.name}'
+            dangling.add(name)
+            replacement = WaitForCheckpoint(name, assume='nothing') + f'wiggle {i}'
             if isinstance(cmd, Duration):
-                replacement = Seq(replacement, Duration(cmd.name))
+                replacement = Seq(replacement, Duration(name))
             return replacement
         else:
             return cmd

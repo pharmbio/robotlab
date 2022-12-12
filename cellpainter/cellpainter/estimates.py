@@ -68,6 +68,8 @@ estimates = {
     **estimates
 }
 
+import re
+
 def estimate(cmd: EstCmd) -> float:
     assert isinstance(cmd, EstCmd)
     cmd = normalize(cmd)
@@ -85,6 +87,14 @@ def estimate(cmd: EstCmd) -> float:
                 guess = 100.0
             case BiotekCmd(machine='disp'):
                 guess = 30.0
+            case RobotarmCmd():
+                test = cmd.program_name
+                test = re.sub(r'A\d+', 'C21', test)
+                test = re.sub(r'\d+', '21', test)
+                if test != cmd.program_name:
+                    guess = estimate(RobotarmCmd(test))
+                else:
+                    guess = 2.5
             case _:
                 guess = 2.5
         guesses[cmd] = estimates[cmd] = guess
