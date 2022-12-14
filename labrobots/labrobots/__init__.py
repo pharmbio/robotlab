@@ -26,7 +26,7 @@ class WindowsGBG(Machines):
     ip = '10.10.0.97'
     node_name = 'WINDOWS-GBG'
     fridge: STX = STX()
-    barcode: BarcodeReader = BarcodeReader()
+    barcode: BarcodeReader = BarcodeReader('COM3')
     imx: IMX = IMX()
 
 @dataclass

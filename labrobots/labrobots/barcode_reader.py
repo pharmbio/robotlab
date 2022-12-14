@@ -1,7 +1,6 @@
 from typing import *
 from dataclasses import *
 
-import os
 import traceback
 
 from threading import Thread
@@ -13,6 +12,8 @@ from .machine import Machine
 
 @dataclass(frozen=True)
 class BarcodeReader(Machine):
+    com_port: str
+
     last_seen: Dict[str, Union[str, List[str]]] = field(default_factory=lambda: {
         'barcode': '',
         'date': '',
@@ -22,9 +23,8 @@ class BarcodeReader(Machine):
         Thread(target=self._scanner_thread, daemon=True).start()
 
     def _scanner_thread(self):
-        COM_PORT: str = os.environ.get('BARCODE_COM_PORT', 'COM3')
-        print('barcode_reader: Using BARCODE_COM_PORT', COM_PORT)
-        scanner: Any = Serial(COM_PORT, timeout=60)
+        print('barcode_reader: Using com_ port', self.com_port)
+        scanner: Any = Serial(self.com_port, timeout=60)
         while True:
             try:
                 b: bytes = scanner.read_until(b'\r')

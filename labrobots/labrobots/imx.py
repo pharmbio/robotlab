@@ -1,5 +1,4 @@
 from typing import *
-import os
 from serial import Serial # type: ignore
 from .machine import Machine
 from dataclasses import *
@@ -33,14 +32,14 @@ ErrorCodes = {
     '23': 'Failed to Find A01 Centerpoint for Round Bottom Plates (MetaXpress version 6.6 and above)',
 }
 
-@dataclass(frozen=True)
+@dataclass(unsafe_hash=True)
 class IMX(Machine):
-    imx: Any = None
+    com_port: str = 'COM4'
+    com: Any = None # Serial
 
     def init(self):
-        COM_PORT = os.environ.get('IMX_COM_PORT', 'COM4')
-        print('imx: Using IMX_COM_PORT', COM_PORT)
-        setattr(self, 'imx', Serial(COM_PORT, timeout=5))
+        print('imx: Using com_port', self.com_port)
+        self.com = Serial(self.com_port, timeout=5)
 
     def send(self, cmd: str, *args: str):
         msg_str = ','.join(['1', cmd, *args])
@@ -48,9 +47,9 @@ class IMX(Machine):
         assert b'\n' not in msg
         assert b'\r' not in msg
         msg = msg + b'\r\n'
-        n = self.imx.write(msg)
+        n = self.com.write(msg)
         print('message sent', n, 'bytes:', repr(msg))
-        reply_bytes: bytes = self.imx.readline()
+        reply_bytes: bytes = self.com.readline()
         print('message reply', repr(reply_bytes))
         reply = reply_bytes.decode().strip()
         parts = reply.split(',')
