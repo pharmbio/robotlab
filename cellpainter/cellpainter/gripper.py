@@ -1,58 +1,115 @@
-gripper_code = str('''
-  global gripper_init = False
+gripper_code = str(f'''
 
-  def GripperSend(s, expect=""):
-    sock = "1"
-    if not gripper_init:
-      socket_open("127.0.0.1", 54321, sock)
-      gripper_init = True
-    end
-    retries = 0
-    while retries < 10:
-      textmsg("log gripper send ", s)
-      socket_send_line(s, sock)
-      sleep(0.1)
-      while True:
-        res = socket_read_line(sock)
-        textmsg("log gripper recv ", res)
-        if res != "startup":
-          break
+    StatusMoving = 3
+    StatusReachedPortrait = 2
+    StatusReachedLandscape = 1
+    StatusErrorOrPowerOff = 0
+
+    def log_status(code):
+        if code == StatusMoving:
+            textmsg("log (1 1) status: moving")
+        elif code == StatusReachedPortrait:
+            textmsg("log (1 0) status: reached portrait")
+        elif code == StatusReachedLandscape:
+            textmsg("log (0 1) status: reached landscape")
+        elif code == StatusErrorOrPowerOff:
+            textmsg("log (0 0) status: error or powered off")
         end
-      end
-      if expect == "":
-        return res
-      elif res == expect:
-        return res
-      else:
-        textmsg("log retrying", s)
-        retries = retries + 1
-      end
     end
-    msg = str_cat("Gripper error on ", s) + str_cat(": ", res)
-    textmsg("fatal: ", msg)
-    popup(msg, "fatal", error=False, blocking=True)
-  end
 
-  def GripperPos():
-    msg_mm = GripperSend("~g_pos")
-    mm_idx = str_find(msg_mm, "mm")
-    # textmsg("log mm_idx: ", mm_idx)
-    if mm_idx > 0:
-      current_mm = to_num(str_sub(msg_mm, 0, mm_idx))
-      textmsg("log current_mm: ", current_mm)
-      write_output_integer_register(0, current_mm)  # save gripper position for pharmbio GUI
-      return current_mm
-    else:
-      return -1
+    def log_output():
+        t0 = 0
+        t1 = 0
+        if get_tool_digital_out(0):
+            t0 = 1
+        end
+        if get_tool_digital_out(1):
+            t1 = 1
+        end
+        if t0 == 1 and t1 == 1:
+            textmsg("log (1 1) output: home / close")
+        elif t0 == 1 and t1 == 0:
+            textmsg("log (1 0) output: open portrait")
+        elif t0 == 0 and t1 == 1:
+            textmsg("log (0 1) output: open landscape")
+        elif t0 == 0 and t1 == 0:
+            textmsg("log (0 0) output: power off")
+        else:
+            textmsg("log (? ?) unknown status")
+        end
     end
-  end
+    def status():
+        t0 = 0
+        t1 = 0
+        if get_tool_digital_in(0):
+            t0 = 1
+        end
+        if get_tool_digital_in(1):
+            t1 = 1
+        end
+        if t0 == 1 and t1 == 1:
+            code = 3
+        elif t0 == 1 and t1 == 0:
+            code = 2
+        elif t0 == 0 and t1 == 1:
+            code = 1
+        elif t0 == 0 and t1 == 0:
+            code = 0
+        end
+        log_status(code)
+        return code
+    end
+    def set(t0, t1):
+        b0 = False
+        b1 = False
+        if t0 != 0:
+            b0 = True
+        end
+        if t1 != 0:
+            b1 = True
+        end
+        set_tool_digital_out(0, b0)
+        set_tool_digital_out(1, b1)
+        status()
+        log_output()
+        status()
+        sleep(0.1)
+        status()
+        sleep(0.1)
+    end
+    def home():
+        # To start a reference run, set first TO[0] and TO[1] both to
+        # logical 0 (0,0) for 2 seconds. Afterwards set TO[0] and TO[1]
+        # to (1,1). Keep the status (1,1) as long as the reference
+        # run is performed. In case the reference run is interrupted,
+        # it has to be started again.
+        set(0, 0)
+        sleep(2.5)
+        set(1, 1)
+        sleep(2.0)
+        open()
+    end
+    def power_off():
+        set(0, 0)
+    end
+    def open_landscape():
+        set(0, 1)
+    end
+    def open():
+        set(1, 0)
+    end
+    def close():
+        set(1, 1)
+    end
 
   def GripperInit():
-    GripperSend("~home", "Parameter successfully set")
-    sleep(1.5)
-    GripperSend("~s_p_op 97", "Parameter successfully set")
-    GripperSend("~s_force 30", "Parameter successfully set")
-    sleep(0.1)
+    set_tool_communication(False, 9600, 0, 1, 1.0, 0.0)
+    set_tool_voltage(24)
+    set_tool_digital_out(0, False)
+    set_tool_digital_out(1, False)
+    set_tool_digital_output_mode(0, 2) ## 1: Sinking NPN, 2: Sourcing PNP
+    set_tool_digital_output_mode(1, 2) ## 1: Sinking NPN, 2: Sourcing PNP
+    set_tool_output_mode(0) ## 0: digital output mode (1: dual pin)
   end
 
   def GripperMove(pos, soft=False):
@@ -64,47 +121,25 @@ gripper_code = str('''
     close = pos == 255
     if close:
       if soft:
-        GripperSend("~stop", "Parameter successfully set")
+        power_off()
+        sleep(0.7)
+        return 0
       else:
-        GripperSend("~m_close", "Parameter successfully set")
+        close()
       end
     else:
-      GripperSend("~m_p_op", "Parameter successfully set")
+      open()
     end
 
-    # wait for stabilization
     while 1:
-      p = GripperPos()
-      if close and p <= 90:
-        if 0:
-          sleep(0.15)
-          p = GripperPos()
-          if p <= 80:
-            msg = str_cat("Gripper closed more than expected: ", p) + "mm"
-            textmsg("fatal: ", msg)
-            popup(msg, "fatal", error=False, blocking=True)
-          end
-        end
-        break
+      code = status()
+      if code != StatusMoving:
+        return 0
+      # elif code == StatusErrorOrPowerOff:
+      #   textmsg("fatal: code == StatusErrorOrPowerOff")
+      # "allowance" is set too small... sigh
       end
-      if not close and p >= 97:
-        break
-      end
-    end
-  end
-
-  def GripperMoveTo(pos_mm, soft=False):
-    # this makes the gripper start to wobble
-    if pos_mm > 140:
-      pos_mm = 140
-    elif pos_mm < 70:
-      pos_mm = 70
-    end
-
-    GripperSend(str_cat("~m_pos ", pos_mm), "Parameter successfully set")
-
-    while GripperPos() != pos_mm:
-      sync()
+      sleep(0.1)
     end
   end
 ''')

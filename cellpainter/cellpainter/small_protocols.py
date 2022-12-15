@@ -363,44 +363,35 @@ def robotarm(args: SmallProtocolArgs):
         ]
     return Program(Seq(*cmds))
 
-# @small_protocols.append
-def time_arm_incu(_: SmallProtocolArgs):
+@small_protocols.append
+def time_robotarm(_: SmallProtocolArgs):
     '''
-    Timing for robotarm and incubator.
+    Timing for robotarm.
 
     Required lab prerequisites:
         1. incubator transfer door: one plate with lid
-        2. hotel B21:               one plate with lid
-        3. hotel B1-19:             empty!
+        3. hotel B:                 empty!
         4. hotel A:                 empty!
         5. hotel C:                 empty!
         6. biotek washer:           empty!
         7. biotek dispenser:        empty!
         8. robotarm:                in neutral position by B hotel
     '''
-    IncuLocs = 16
-    N = 8
-    incu: list[Command] = []
-    for loc in Locations.Incu[:IncuLocs]:
-        incu += [
-            commands.IncuCmd('put', loc),
-            commands.IncuCmd('get', loc),
-        ]
     arm: list[Command] = []
     plate = Plate('', '', '', '', '', 1)
-    for lid_loc in Locations.Lid[:N]:
+    for lid_loc in Locations.Lid[:2]:
         plate = replace(plate, lid_loc=lid_loc)
         arm += [
             *RobotarmCmds(plate.lid_put),
             *RobotarmCmds(plate.lid_get),
         ]
-    for rt_loc in Locations.RT_many[:N]:
+    for rt_loc in Locations.RT_many:
         plate = replace(plate, rt_loc=rt_loc)
         arm += [
             *RobotarmCmds(plate.rt_put),
             *RobotarmCmds(plate.rt_get),
         ]
-    for out_loc in Locations.Out[:N]:
+    for out_loc in Locations.Out:
         plate = replace(plate, out_loc=out_loc)
         arm += [
             *RobotarmCmds(plate.out_put),
@@ -425,11 +416,13 @@ def time_arm_incu(_: SmallProtocolArgs):
         *RobotarmCmds(plate.rt_get),
     ]
     cmds: list[Command] = [
-        Fork(Seq(*incu)),
+        *RobotarmCmds('incu get'),
+        # Fork(Seq(*incu)),
         *arm,
-        WaitForResource('incu'),
-        sleek_program(Seq(*arm2)),
-        *arm2,
+        # WaitForResource('incu'),
+        # sleek_program(Seq(*arm2)),
+        # *arm2,
+        *RobotarmCmds('incu put'),
     ]
     program = Seq(*cmds)
     return Program(program)

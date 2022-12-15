@@ -1443,6 +1443,7 @@ def index(path_from_route: str | None = None) -> Iterator[Tag | V.Node | dict[st
             if confirm:
                 confirm += '\nStart anyway?'
             if path_is_latest:
+                start_button = ''
                 # skip showing buttons for endpoint /latest
             elif path:
                 start_button = button(

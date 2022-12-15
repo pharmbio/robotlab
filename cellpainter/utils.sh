@@ -308,23 +308,23 @@ note '
     8-bot reference run
 '
 function analog-to-gripper {
-    o11='"log (1 1) home / close"'
-    o10='"log (1 0) open portrait"'
-    o01='"log (0 1) open landscape"'
-    o00='"log (0 0) power off"'
-    s11='"log (1 1) moving"'
-    s10='"log (1 0) reached portrait"'
-    s01='"log (0 1) reached landscape"'
-    s00='"log (0 0) error or powered off"'
+    o11='"log (1 1) output: home / close"'
+    o10='"log (1 0) output: open portrait"'
+    o01='"log (0 1) output: open landscape"'
+    o00='"log (0 0) output: power off"'
+    s11='"log (1 1) status: moving"'
+    s10='"log (1 0) status: reached portrait"'
+    s01='"log (0 1) status: reached landscape"'
+    s00='"log (0 0) status: error or powered off"'
     unk='"log (? ?) unknown status"'
     send "
         def gripper():
             set_tool_communication(False, 9600, 0, 1, 1.0, 0.0)
             set_tool_voltage(24)
-            set_tool_digital_out(0, True)
-            set_tool_digital_out(1, True)
-            set_tool_digital_output_mode(0, 1) ## 1: Sinking NPN
-            set_tool_digital_output_mode(1, 1) ## 1: Sinking NPN
+            set_tool_digital_out(0, False)
+            set_tool_digital_out(1, False)
+            set_tool_digital_output_mode(0, 2) ## 1: Sinking NPN, 2: Sourcing PNP
+            set_tool_digital_output_mode(1, 2) ## 1: Sinking NPN, 2: Sourcing PNP
             set_tool_output_mode(0) ## 0: digital output mode (1: dual pin)
             def outputting():
                 t0 = 0
@@ -379,12 +379,23 @@ function analog-to-gripper {
                 if t1 != 0:
                     b1 = True
                 end
-                outputting()
                 set_tool_digital_out(0, b0)
                 set_tool_digital_out(1, b1)
+                status()
                 outputting()
+                status()
                 sleep(0.1)
-                outputting()
+                status()
+                sleep(0.1)
+                status()
+                sleep(0.1)
+                status()
+                sleep(0.1)
+                status()
+                sleep(0.1)
+                status()
+                sleep(0.1)
+                status()
             end
             def home():
                 # To start a reference run, set first TO[0] and TO[1] both to
@@ -405,6 +416,9 @@ function analog-to-gripper {
             def open_portrait():
                 set(1, 0)
             end
+            def open():
+                set(1, 0)
+            end
             def close():
                 set(1, 1)
             end
@@ -417,42 +431,42 @@ note '
     gripper status
 '
 function analog-gripper-status {
-    to-gripper 'status()'
+    analog-to-gripper 'status()'
 }
 
 note '
     gripper open wide (landscape)
 '
 function analog-gripper-open-wide {
-    to-gripper 'open_landscape()'
+    analog-to-gripper 'open_landscape()'
 }
 
 note '
     gripper open (portrait)
 '
 function analog-gripper-open {
-    to-gripper 'open_portrait()'
+    analog-to-gripper 'open_portrait()'
 }
 
 note '
     gripper close
 '
 function analog-gripper-close {
-    to-gripper 'close()'
+    analog-to-gripper 'close()'
 }
 
 note '
     gripper landscape
 '
 function analog-gripper-power-off {
-    to-gripper 'power_off()'
+    analog-to-gripper 'power_off()'
 }
 
 note '
     gripper home (reference run)
 '
 function analog-gripper-home {
-    to-gripper 'home()'
+    analog-to-gripper 'home()'
 }
 
 main () {
