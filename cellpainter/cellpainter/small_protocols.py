@@ -364,6 +364,30 @@ def robotarm(args: SmallProtocolArgs):
     return Program(Seq(*cmds))
 
 @small_protocols.append
+def robotarm_small_cycle(args: SmallProtocolArgs):
+    '''
+    Small stress test on robotarm. num plates = num cycles
+
+    Required lab prerequisites:
+        B21: plate with lid
+        B19: empty
+    '''
+    N = args.num_plates or 4
+    cmds = [
+        RobotarmCmd('gripper init and check'),
+    ]
+    for _i in range(N):
+        cmds += [
+            *RobotarmCmds('B19 put'),
+            *RobotarmCmds('B19 get'),
+            *RobotarmCmds('lid_B19 put'),
+            *RobotarmCmds('lid_B19 get'),
+        ]
+    program = Seq(*cmds)
+    program = sleek_program(program)
+    return Program(program)
+
+@small_protocols.append
 def time_robotarm(_: SmallProtocolArgs):
     '''
     Timing for robotarm.
@@ -417,11 +441,10 @@ def time_robotarm(_: SmallProtocolArgs):
     ]
     cmds: list[Command] = [
         *RobotarmCmds('incu get'),
-        # Fork(Seq(*incu)),
         *arm,
-        # WaitForResource('incu'),
-        # sleek_program(Seq(*arm2)),
-        # *arm2,
+        WaitForResource('incu'),
+        sleek_program(Seq(*arm2)),
+        *arm2,
         *RobotarmCmds('incu put'),
     ]
     program = Seq(*cmds)
