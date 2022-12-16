@@ -156,7 +156,7 @@ class BlueWash(Machine):
     def run_servprog(self, index: int):
         with self.connect() as con:
             con.write(f'$runservprog {index}')
-            con.read_until_prog_end()
+            return con.read_until_prog_end()
 
     def run_prog(self, filename: str):
         with self.connect() as con:
@@ -164,14 +164,14 @@ class BlueWash(Machine):
             path = root / Path(filename)
             lines = path.read_text().splitlines(keepends=False)
             con.write('$deleteprog 99')
-            code, _ = con.read_until_code()
+            code, lines = con.read_until_code()
             con.check_code(code, HTI_NoError, HTI_ERR_FILE_NOT_FOUND)
             con.write('$Copyprog 99 _' + path.name)
             for line in lines:
                 con.write('$& ' + line)
             con.write('$%')
             con.write('$runprog 99')
-            con.read_until_prog_end()
+            return lines + con.read_until_prog_end()
 
     def run_test_prog(self):
         return self.run_prog('MagBeadSpinWash-2X-80ul-Blue-no-decant.prog')
