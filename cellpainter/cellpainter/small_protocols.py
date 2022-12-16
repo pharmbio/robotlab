@@ -366,7 +366,7 @@ def robotarm(args: SmallProtocolArgs):
 @small_protocols.append
 def robotarm_small_cycle(args: SmallProtocolArgs):
     '''
-    Small stress test on robotarm. num plates = num cycles
+    Small stress test on robotarm on B21 and B19. Set number of cycles with num_plates.
 
     Required lab prerequisites:
         B21: plate with lid
