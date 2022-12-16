@@ -5,6 +5,7 @@ from .imx import IMX
 from .dir_list import DirList
 from .biotek import Biotek
 from .squid import Squid
+from .bluewash import BlueWash
 
 from dataclasses import *
 
@@ -20,6 +21,7 @@ class WindowsNUC(Machines):
     wash: Biotek = Biotek('wash', [LHC_CALLER_CLI_PATH, "405 TS/LS", "USB 405 TS/LS sn:191107F", LHC_PROTOCOLS_ROOT])
     disp: Biotek = Biotek('disp', [LHC_CALLER_CLI_PATH, "MultiFloFX", "USB MultiFloFX sn:19041612", LHC_PROTOCOLS_ROOT])
     dir_list: DirList = DirList(root_dir=LHC_PROTOCOLS_ROOT, ext='LHC')
+    blue: BlueWash = BlueWash('COM6')
 
 @dataclass
 class WindowsGBG(Machines):

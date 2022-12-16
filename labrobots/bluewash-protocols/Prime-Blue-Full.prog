@@ -1,0 +1,10 @@
+#/ ====================BlueWasher GUI generated Content===================
+#/<?xml version="1.0" encoding="utf-8"?>
+#/<BWMasterElement Name="Prime-Blue-Full" BWType="Custom" Category="Locked" Description=" Prime s
+#/elected Channel with:
+#/ - Full volume = 40ml, choose if external tube dry
+#/ - Internal volume =10ml, choose when switching inputs (and external tube already primed)
+#/ - AirPurge = 120ml, choose to air-dry tubes" Application="" Danger="" Warning="" Caution="" Hi
+#/nt="" Active="true" RunTimeinSec="0" LastChange="2022-12-15 12:57:56Z"> </BWMasterElement>
+#/ =======================================================================
+prime 40 0 1 0 5
