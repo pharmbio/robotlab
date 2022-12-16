@@ -80,6 +80,16 @@ class ConnectedBlueWash:
             if reply.startswith('Err='):
                 return int(reply[len('Err='):]), out
 
+    def read_until_prog_end(self) -> List[str]:
+        # Err=00 is OK, read until Err=21
+        out: list[str] = []
+        while True:
+            code, reply = self.read_until_code()
+            out += reply
+            self.check_code(code, HTI_NoError, HTI_ProgEnd)
+            if code == HTI_ProgEnd:
+                return out
+
     def check_code(self, code: int, *ok_codes: int) -> None:
         if code not in ok_codes:
             raise ValueError(f'Unexpected reply from BlueWash: {code=} {Errors.get(code, "unknown error")}')
@@ -105,7 +115,7 @@ class BlueWash(Machine):
         Initializes linear drive, rotor, inputs, outputs, motors, valves .
         Presents working carrier (= top side of rotor) to RACKOUT.
         '''
-        return self.run('$runservprog 01')
+        return self.run_servprog(1)
 
     def get_balance_plate(self):
         '''
@@ -113,7 +123,7 @@ class BlueWash(Machine):
 
         Check whether working or balance carrier present  with rotorgetpos
         '''
-        return self.run('$runservprog 02')
+        return self.run_servprog(2)
 
     def get_working_plate(self):
         '''
@@ -121,7 +131,7 @@ class BlueWash(Machine):
 
         Check whether working or balance carrier present  with rotorgetpos
         '''
-        return self.run('$runservprog 03')
+        return self.run_servprog(3)
 
     def rackgetoutsensor(self):
         '''
@@ -132,14 +142,19 @@ class BlueWash(Machine):
 
         Note: rackgetoutsensor can be used to confirm BlueWasher has been initialized prior to running a method.   If Err=33 received, run initialization routine runservprog
         '''
-        return self.run('$rackgetoutsensor')
+        return self.run_cmd('$rackgetoutsensor')
 
-    def run(self, cmd: str) -> List[str]:
+    def run_cmd(self, cmd: str) -> List[str]:
         with self.connect() as con:
             con.write(cmd)
             code, lines = con.read_until_code()
             con.check_code(code, HTI_NoError)
             return lines
+
+    def run_servprog(self, index: int):
+        with self.connect() as con:
+            con.write(f'$runservprog {int}')
+            con.read_until_prog_end()
 
     def run_prog(self, filename: str):
         with self.connect() as con:
@@ -154,12 +169,7 @@ class BlueWash(Machine):
                 con.write('$& ' + line)
             con.write('$%')
             con.write('$runprog 99')
-            while True:
-                # Err=00 is OK, read until Err=21
-                code, _ = con.read_until_code()
-                con.check_code(code, HTI_NoError, HTI_ProgEnd)
-                if code == HTI_ProgEnd:
-                    break
+            con.read_until_prog_end()
 
     def run_test_prog(self):
         return self.run_prog('MagBeadSpinWash-2X-80ul-Blue-no-decant.prog')
