@@ -121,17 +121,13 @@ class BlueWash(Machine):
 
     def get_balance_plate(self):
         '''
-        Presents balance carrier (= bottom side of rotor) to RACKOUT
-
-        Check whether working or balance carrier present  with rotorgetpos
+        Presents balance carrier (= bottom side of rotor) to RACKOUT.  Check whether working or balance carrier present with rotorgetpos
         '''
         return self.run_servprog(2)
 
     def get_working_plate(self):
         '''
-        Presents working carrier (= top side of rotor) to RACKOUT
-
-        Check whether working or balance carrier present  with rotorgetpos
+        Presents working carrier (= top side of rotor) to RACKOUT.  Check whether working or balance carrier present with rotorgetpos
         '''
         return self.run_servprog(3)
 
@@ -140,9 +136,9 @@ class BlueWash(Machine):
         Returns “1” if rack is in RACKOUT position (plate pick- up/ drop-off), else “0”.
         If Blue® Washer has not been initialized prior to issuing  this command, Blue® Washer will respond with Err=33
 
-        Note: Confirm carrier presence in RACKOUT position prior to automated plate drop-off/ pick-up.
+        Note: Confirm carrier presence in RACKOUT position prior to automated plate drop-off/pick-up.
 
-        Note: rackgetoutsensor can be used to confirm BlueWasher has been initialized prior to running a method.   If Err=33 received, run initialization routine runservprog
+        Note: rackgetoutsensor can be used to confirm BlueWasher has been initialized prior to running a method. If Err=33 received, run initialization routine runservprog
         '''
         return self.run_cmd('$rackgetoutsensor')
 
@@ -164,14 +160,14 @@ class BlueWash(Machine):
             path = root / Path(filename)
             lines = path.read_text().splitlines(keepends=False)
             con.write('$deleteprog 99')
-            code, lines = con.read_until_code()
+            code, deleteprog_lines = con.read_until_code()
             con.check_code(code, HTI_NoError, HTI_ERR_FILE_NOT_FOUND)
             con.write('$Copyprog 99 _' + path.name)
             for line in lines:
                 con.write('$& ' + line)
             con.write('$%')
             con.write('$runprog 99')
-            return lines + con.read_until_prog_end()
+            return deleteprog_lines + con.read_until_prog_end()
 
     def run_test_prog(self):
         return self.run_prog('MagBeadSpinWash-2X-80ul-Blue-no-decant.prog')
