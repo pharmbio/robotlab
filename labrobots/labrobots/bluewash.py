@@ -184,8 +184,9 @@ class BlueWash(Machine):
                 con.write('$%')
                 code, copyprog_lines = con.read_until_code()
                 con.check_code(code, HTI_NoError)
-            con.write('$runprog 99')
-            return deleteprog_lines + copyprog_lines + con.read_until_prog_end()
+            with timeit('runprog'):
+                con.write('$runprog 99')
+                return deleteprog_lines + copyprog_lines + con.read_until_prog_end()
 
     def run_test_prog(self):
         return self.run_prog('MagBeadSpinWash-2X-80ul-Blue.prog')
