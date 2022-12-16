@@ -4,6 +4,19 @@ from .machine import Machine
 from dataclasses import *
 from pathlib import Path
 import contextlib
+import time
+
+def timeit(desc: str=''):
+    # The inferred type for the decorated function is wrong hence this wrapper to get the correct type
+
+    @contextlib.contextmanager
+    def worker():
+        t0 = time.monotonic_ns()
+        yield
+        T = time.monotonic_ns() - t0
+        print(f'{T/1e6:.1f}ms {desc}')
+
+    return worker()
 
 NoReply = -1
 HTI_NoError = 0
@@ -78,7 +91,8 @@ class ConnectedBlueWash:
         out: list[str] = []
         while True:
             reply = self.read()
-            out += [reply]
+            if reply:
+                out += [reply]
             if reply.startswith('Err='):
                 return int(reply[len('Err='):]), out
 
@@ -103,13 +117,14 @@ class BlueWash(Machine):
     @contextlib.contextmanager
     def connect(self):
         print('bluewash: Using com_port', self.com_port)
-        com = Serial(
-            self.com_port,
-            timeout=1,
-            baudrate=115200
-        )
-        yield ConnectedBlueWash(com)
-        com.close()
+        with timeit('connect'):
+            com = Serial(
+                self.com_port,
+                timeout=15,
+                baudrate=115200
+            )
+            yield ConnectedBlueWash(com)
+            com.close()
 
     def init_all(self):
         '''
@@ -162,12 +177,15 @@ class BlueWash(Machine):
             con.write('$deleteprog 99')
             code, deleteprog_lines = con.read_until_code()
             con.check_code(code, HTI_NoError, HTI_ERR_FILE_NOT_FOUND)
-            con.write('$Copyprog 99 _' + path.name)
-            for line in lines:
-                con.write('$& ' + line)
-            con.write('$%')
+            with timeit('copyprog'):
+                con.write('$Copyprog 99 _' + path.name)
+                for line in lines:
+                    con.write('$& ' + line)
+                con.write('$%')
+                code, copyprog_lines = con.read_until_code()
+                con.check_code(code, HTI_NoError)
             con.write('$runprog 99')
-            return deleteprog_lines + con.read_until_prog_end()
+            return deleteprog_lines + copyprog_lines + con.read_until_prog_end()
 
     def run_test_prog(self):
         return self.run_prog('MagBeadSpinWash-2X-80ul-Blue-no-decant.prog')
