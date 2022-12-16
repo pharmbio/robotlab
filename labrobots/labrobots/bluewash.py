@@ -64,7 +64,7 @@ class ConnectedBlueWash:
     com: Any # Serial
 
     def write(self, line: str):
-        self.com.write(line.strip().encode())
+        self.com.write(line.strip().encode() + b'\n\r')
 
     def read(self) -> str:
         reply_bytes: bytes = self.com.readline()
@@ -93,7 +93,7 @@ class BlueWash(Machine):
         print('bluewash: Using com_port', self.com_port)
         com = Serial(
             self.com_port,
-            timeout=5,
+            timeout=1,
             baudrate=115200
         )
         yield ConnectedBlueWash(com)
