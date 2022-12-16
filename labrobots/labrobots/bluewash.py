@@ -106,6 +106,19 @@ class ConnectedBlueWash:
             if code == HTI_ProgEnd:
                 return out
 
+    def write_prog(self, program_code: str, index: int, program_name: str=''):
+            lines = program_code.splitlines(keepends=False)
+            self.write('$deleteprog 99')
+            code, deleteprog_lines = self.read_until_code()
+            self.check_code(code, HTI_NoError, HTI_ERR_FILE_NOT_FOUND)
+            self.write(f'$Copyprog {index:02} _' + program_name.strip().replace(' ', '_'))
+            for line in lines:
+                self.write('$& ' + line)
+            self.write('$%')
+            code, copyprog_lines = self.read_until_code()
+            self.check_code(code, HTI_NoError)
+            return deleteprog_lines + copyprog_lines
+
     def check_code(self, code: int, *ok_codes: int) -> None:
         if code not in ok_codes:
             raise ValueError(f'Unexpected reply from BlueWash: {code=} {Errors.get(code, "unknown error")}')
@@ -166,27 +179,28 @@ class BlueWash(Machine):
 
     def run_servprog(self, index: int):
         with self.connect() as con:
-            con.write(f'$runservprog {index}')
-            return con.read_until_prog_end()
+            with timeit('runservprog'):
+                con.write(f'$runservprog {index}')
+                return con.read_until_prog_end()
 
-    def run_prog(self, filename: str):
+    def run_prog(self, index: int):
         with self.connect() as con:
-            root = Path('bluewash-protocols')
-            path = root / Path(filename)
-            lines = path.read_text().splitlines(keepends=False)
-            con.write('$deleteprog 99')
-            code, deleteprog_lines = con.read_until_code()
-            con.check_code(code, HTI_NoError, HTI_ERR_FILE_NOT_FOUND)
-            with timeit('copyprog'):
-                con.write('$Copyprog 99 _' + path.name)
-                for line in lines:
-                    con.write('$& ' + line)
-                con.write('$%')
-                code, copyprog_lines = con.read_until_code()
-                con.check_code(code, HTI_NoError)
             with timeit('runprog'):
-                con.write('$runprog 99')
-                return deleteprog_lines + copyprog_lines + con.read_until_prog_end()
+                con.write(f'$runprog {index}')
+                return con.read_until_prog_end()
+
+    def write_prog(self, filename: str, index: int):
+        with self.connect() as con:
+            with timeit('copyprog'):
+                root = Path('bluewash-protocols')
+                path = root / Path(filename)
+                return con.write_prog(path.read_text(), index, program_name=filename)
+
+    def write_and_run_prog(self, filename: str, index: int=99):
+        return [
+            *self.write_prog(filename, index),
+            *self.run_prog(index),
+        ]
 
     def run_test_prog(self):
-        return self.run_prog('MagBeadSpinWash-2X-80ul-Blue.prog')
+        return self.write_and_run_prog('MagBeadSpinWash-2X-80ul-Blue.prog')
