@@ -64,11 +64,13 @@ class ConnectedBlueWash:
     com: Any # Serial
 
     def write(self, line: str):
-        self.com.write(line.strip().encode() + b'\n\r')
+        msg = line.strip().encode() + b'\n\r'
+        print(f'bluewash.write({msg!r})')
+        self.com.write(msg)
 
     def read(self) -> str:
         reply_bytes: bytes = self.com.readline()
-        print('message reply', repr(reply_bytes))
+        print(f'bluewash.read() = {reply_bytes!r}')
         reply = reply_bytes.decode().strip()
         return reply
 
@@ -153,7 +155,7 @@ class BlueWash(Machine):
 
     def run_servprog(self, index: int):
         with self.connect() as con:
-            con.write(f'$runservprog {int}')
+            con.write(f'$runservprog {index}')
             con.read_until_prog_end()
 
     def run_prog(self, filename: str):
