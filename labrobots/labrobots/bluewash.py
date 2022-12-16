@@ -188,4 +188,4 @@ class BlueWash(Machine):
             return deleteprog_lines + copyprog_lines + con.read_until_prog_end()
 
     def run_test_prog(self):
-        return self.run_prog('MagBeadSpinWash-2X-80ul-Blue-no-decant.prog')
+        return self.run_prog('MagBeadSpinWash-2X-80ul-Blue.prog')

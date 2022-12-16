@@ -1,12 +1,12 @@
 #/ ====================BlueWasher GUI generated Content===================
 #/<?xml version="1.0" encoding="utf-8"?>
-#/<BWMasterElement Name="MagBeadSpinWash-2X-80ul-Blue-1" BWType="Custom" Category="Locked" Descri
-#/ption=" Use to combine Evacuate and Dispense steps into Wash methods; starts with filled plate,
-#/ ends with empty or filled plate, depending on selection in 'Dispense post wash' pull-down. (Ch
-#/oose settings in the File/ Configure BlueWasher menu.)
+#/<BWMasterElement Name="MagBeadSpinWash-2X-Blue-80ul" BWType="Custom" Category="Locked" Descript
+#/ion=" Use to combine Evacuate and Dispense steps into Wash methods; starts with filled plate, e
+#/nds with empty or filled plate, depending on selection in 'Dispense post wash' pull-down. (Choo
+#/se settings in the File/ Configure BlueWasher menu.)
 #/ For 'how to use' advice for evacuation and dispense parameters, refer to corresponding Evacuat
 #/e and Dispense methods." Application="" Danger="" Warning="" Caution="" Hint="" Active="true" R
-#/unTimeinSec="0" LastChange="2022-12-15 13:03:18Z"> </BWMasterElement>
+#/unTimeinSec="0" LastChange="2022-12-16 13:30:13Z"> </BWMasterElement>
 #/ =======================================================================
 # -------------------------------------------------------------------------
 # 1. Empty plate with MagBeadSpin
@@ -18,25 +18,6 @@ suctionpumpon
 rackhome
 rackwaitready
 doorclose
-# active suction rotor
-setsuctionrotor
-# open suction
-suctionpumpon
-# Plate drives inside
-rackhome
-rackwaitready
-doorclose
-# Decanting 12 to 12 o'clock
-# Setting Decant intensity
-rotormoverelfull -1 3500 1500 600 600
-rotorwaitforpos
-# Decanting 6000 for 3x revolutions repetition 5x
-loop 1
-rotorshake -6000
-endloop
-# Setting parameter returns back and homing
-rotormoverelfull -1 100 1000 600 600
-rotorhome
 # Spin 800 RPM, 5000 ms
 rotormoveendless 800 1000 600 600 1
 wait 5000
@@ -45,7 +26,7 @@ stopcentrifugation
 # 2. cycles wash with wash buffer and MagBeadSpin
 # Cycle begins
 loop 1
-dispense 80 2 0 1 1 0 0 3 1 500 100 1 5
+dispense 80 2 0 1.2 1 0 0 3 1 500 100 1 5
 # active suction rotor
 setsuctionrotor
 # open suction
@@ -54,25 +35,6 @@ suctionpumpon
 rackhome
 rackwaitready
 doorclose
-# active suction rotor
-setsuctionrotor
-# open suction
-suctionpumpon
-# Plate drives inside
-rackhome
-rackwaitready
-doorclose
-# Decanting 12 to 12 o'clock
-# Setting Decant intensity
-rotormoverelfull -1 3500 1500 600 600
-rotorwaitforpos
-# Decanting 6000 for 3x revolutions repetition 5x
-loop 1
-rotorshake -6000
-endloop
-# Setting parameter returns back and homing
-rotormoverelfull -1 100 1000 600 600
-rotorhome
 # Spin 800 RPM, 5000 ms
 rotormoveendless 800 1000 600 600 1
 wait 5000
