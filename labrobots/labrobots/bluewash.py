@@ -149,24 +149,25 @@ class BlueWash(Machine):
 
     def get_balance_plate(self):
         '''
-        Presents balance carrier (= bottom side of rotor) to RACKOUT.  Check whether working or balance carrier present with rotorgetpos
+        Presents balance carrier (= bottom side of rotor) to RACKOUT.
+        Check whether working or balance carrier present with rotorgetpos
         '''
         return self.run_servprog(2)
 
     def get_working_plate(self):
         '''
-        Presents working carrier (= top side of rotor) to RACKOUT.  Check whether working or balance carrier present with rotorgetpos
+        Presents working carrier (= top side of rotor) to RACKOUT.
+        Check whether working or balance carrier present with rotorgetpos
         '''
         return self.run_servprog(3)
 
     def rackgetoutsensor(self):
         '''
         Returns “1” if rack is in RACKOUT position (plate pick- up/ drop-off), else “0”.
-        If Blue® Washer has not been initialized prior to issuing  this command, Blue® Washer will respond with Err=33
+        If BlueWasher has not been initialized prior to issuing  this command, BlueWasher will respond with Err=33.
+        This can be used to confirm BlueWasher has been initialized prior to running a method. If Err=33 received, run initialization routine $runservprog 01, see init_all()
 
         Note: Confirm carrier presence in RACKOUT position prior to automated plate drop-off/pick-up.
-
-        Note: rackgetoutsensor can be used to confirm BlueWasher has been initialized prior to running a method. If Err=33 received, run initialization routine runservprog
         '''
         return self.run_cmd('$rackgetoutsensor')
 
@@ -177,30 +178,30 @@ class BlueWash(Machine):
             con.check_code(code, HTI_NoError)
             return lines
 
-    def run_servprog(self, index: int):
+    def run_servprog(self, index: int) -> List[str]:
         with self.connect() as con:
             with timeit('runservprog'):
                 con.write(f'$runservprog {index}')
                 return con.read_until_prog_end()
 
-    def run_prog(self, index: int):
+    def run_prog(self, index: int) -> List[str]:
         with self.connect() as con:
             with timeit('runprog'):
                 con.write(f'$runprog {index}')
                 return con.read_until_prog_end()
 
-    def write_prog(self, filename: str, index: int):
+    def write_prog(self, filename: str, index: int) -> List[str]:
         with self.connect() as con:
             with timeit('copyprog'):
                 root = Path('bluewash-protocols')
                 path = root / Path(filename)
                 return con.write_prog(path.read_text(), index, program_name=filename)
 
-    def write_and_run_prog(self, filename: str, index: int=99):
+    def write_and_run_prog(self, filename: str, index: int=99) -> List[str]:
         return [
             *self.write_prog(filename, index),
             *self.run_prog(index),
         ]
 
-    def run_test_prog(self):
+    def run_test_prog(self) -> List[str]:
         return self.write_and_run_prog('MagBeadSpinWash-2X-80ul-Blue.prog')
