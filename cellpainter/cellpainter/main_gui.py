@@ -1435,27 +1435,20 @@ def index(path_from_route: str | None = None) -> Iterator[Tag | V.Node | dict[st
                 background='none',
             )
         if ar.completed and not ar.has_error():
-            confirm = ''
-            if not ar.experiment_metadata.desc:
-                confirm += 'Not specified: description.\n'
-            if not ar.experiment_metadata.operators:
-                confirm += 'Not specified: operators.\n'
-            if confirm:
-                confirm += '\nStart anyway?'
+            # confirm = ''
+            # if not ar.experiment_metadata.desc:
+            #     confirm += 'Not specified: description.\n'
+            # if not ar.experiment_metadata.operators:
+            #     confirm += 'Not specified: operators.\n'
+            # if confirm:
+            #     confirm += '\nStart anyway?'
             if path_is_latest:
                 start_button = ''
                 # skip showing buttons for endpoint /latest
             elif path:
                 start_button = button(
                     V.raw(triangle.strip()), ' ', 'start',
-                    data_confirm=confirm,
                     onclick=
-                        (
-                            'confirm(this.dataset.confirm) && '
-                            if confirm
-                            else ''
-                        )
-                        +
                         call(
                             start,
                             args=Args(run_program_in_log_filename=path),
