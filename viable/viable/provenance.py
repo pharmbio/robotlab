@@ -4,23 +4,19 @@ from dataclasses import *
 
 from flask import (
     after_this_request,  # type: ignore
-    jsonify,
     request,
     g,
 )
-from flask.wrappers import Response
 from werkzeug.local import LocalProxy
 import abc
 import functools
 import json
 
-from .tags import Tags, Node
-from .call_js import CallJS, js, JS
-from pbutils import check, p
+from .tags import Tags
+from .call_js import js, JS
 
 @dataclass
 class ViableRequestData:
-    call_js: CallJS
     session_provided: bool
     initial_values: dict[tuple[str, str], Any]
     written_values: dict[tuple[str, str], Any] = field(default_factory=dict)
@@ -50,7 +46,7 @@ class ViableRequestData:
     def did_request_session(self) -> bool:
         return any(v.provenance == 'session' for v in self.created_vars)
 
-def add_request_data(call_js: CallJS):
+def add_request_data():
     query: dict[str, Any] = dict(request.args)
     session: dict[str, Any]
     if (body := request.get_json(force=True, silent=True)) is not None:
@@ -63,13 +59,14 @@ def add_request_data(call_js: CallJS):
     initial_values |= {('query', k): v for k, v in query.items()}
     initial_values |= {('session', k): v for k, v in session.items()}
     g.viable_request_data = this = ViableRequestData(
-        call_js=call_js,
         session_provided=session_provided,
         initial_values=initial_values
     )
     return this
 
 def request_data() -> ViableRequestData:
+    if not g.get('viable_request_data'):
+        g.viable_request_data = add_request_data()
     return g.viable_request_data
 
 def get_store() -> Store:
@@ -78,11 +75,6 @@ def get_store() -> Store:
     return g.viable_stores[-1]
 
 store: Store = LocalProxy(get_store) # type: ignore
-
-def get_call():
-    return request_data().call_js.store_call
-
-call = LocalProxy(get_call)
 
 A = TypeVar('A')
 B = TypeVar('B')
@@ -110,6 +102,9 @@ class Var(Generic[A], abc.ABC):
     @abc.abstractmethod
     def from_str(self, s: str | Any) -> A:
         raise NotImplementedError
+
+    def to_str(self, value: A) -> str:
+        return str(value)
 
     def set_store(self, store: Store):
         if self._did_set_store:
@@ -156,9 +151,9 @@ class Var(Generic[A], abc.ABC):
         if isinstance(value, JS):
             rhs = value.fragment
         else:
-            rhs = json.dumps(value)
+            rhs = self.to_str(value)
         q = quiet_repr
-        next = {q(self.provenance): {self.full_name: q(rhs)}}
+        next = {q(self.provenance): {self.full_name: rhs}}
         if push:
             next = {**next, q('push'): q('true')}
         return f'update({next})'
@@ -170,7 +165,7 @@ class Var(Generic[A], abc.ABC):
         full_name = self.full_name
         def set(next: A, provenance_int: int=provenance_int, full_name: str=full_name):
             provenance = 'query session'.split()[provenance_int]
-            request_data().set(provenance, full_name, next)
+            request_data().set(provenance, full_name, self.to_str(next))
         return set
 
     def push(self, next: A):
@@ -194,6 +189,9 @@ class List(Var[list[A]]):
     def from_str(self, s: str | Any) -> list[A]:
         return [self.options[i] for i in self._indicies(s)]
 
+    def to_str(self, value: list[A]) -> str:
+        return json.dumps([self.options.index(v) for v in value])
+
     def _indicies(self, s: str |  Any) -> list[int]:
         try:
             ixs = json.loads(s)
@@ -204,21 +202,11 @@ class List(Var[list[A]]):
         else:
             return []
 
-    def selected_indicies(self):
-        return self._indicies(self.value)
-
-    def select_options(self) -> list[tuple[A, Tags.option]]:
-        ixs = self.selected_indicies()
-        return [
-            (a, Tags.option(value=str(i), selected=i in ixs))
-            for i, a in enumerate(self.options)
-        ]
-
     def select(self, options: list[Tags.option]):
         return Tags.select(
             *options,
             multiple=True,
-            onchange=call(self.assign, js('JSON.stringify([...this.selectedOptions].map(o => o.value))')),
+            onchange=self.update(js('JSON.stringify([...this.selectedOptions].map(o => o.value))')),
         )
 
 @dataclass
@@ -268,6 +256,9 @@ class Bool(Var[bool]):
             return s
         else:
             return is_true(s)
+
+    def to_str(self, value: bool):
+        return json.dumps(value)
 
     def input(self):
         return Tags.input(
@@ -347,6 +338,10 @@ class Store:
     str: ClassVar = wrap_set_store(Str)
     bool: ClassVar = wrap_set_store(Bool)
 
+    def var(self, v: SomeVar) -> SomeVar:
+        v.set_store(self)
+        return v
+
     @property
     def session(self):
         return self.at('session')
@@ -379,60 +374,72 @@ class Store:
             if isinst and v.name.startswith('_'):
                 v.rename(k)
 
-'''
-@check.test
-def test():
-    s = Store()
-    set = s.int()
-    sx = s[set]
-    check(sx.provenance == 'cookie')
-    check(sx.name == '_0')
-    s.assign_names(globals() | locals())
-    sx = s[set]
-    check(sx.provenance == 'cookie')
-    check(sx.name == 'set')
+import pytest
 
-    y = s.query.bool()
-    check(s[y].provenance == 'query')
-
-@check.test
-def test_app():
+@pytest.fixture
+def with_store():
     from flask import Flask
     app = Flask(__name__)
     with app.test_request_context(path='http://localhost:5050?a_y=ayay'):
-        set = store.cookie.str(default='xoxo')
+        add_request_data()
+        yield
 
-        with store.query:
-            with store.sub('a'):
-                y = store.str(name='y', default='ynone')
+def test_int(with_store: ...):
+    x = store.int()
+    assert x.provenance == 'session'
+    assert x.name == '_0'
+    store.assign_names(globals() | locals())
+    assert x.provenance == 'session'
+    assert x.name == 'x'
 
-        with store.query.sub('b').sub('c'):
-            z = store.sub('d').str(name='z')
+    assert x.value == 0
+    assert x.update(1) == '''update({session: {'x': '1'}})'''
+    x.value = 2
+    assert x.value == 2
+    assert request_data().updates() == {'session': {'x': '2'}}
 
-        store.assign_names(locals())
+def test_bool(with_store: ...):
+    y = store.query.bool(name='y')
+    assert y.provenance == 'query'
 
-        check(store[set].provenance == 'cookie')
-        check(store[y].provenance == 'query')
-        check(store[z].provenance == 'query')
-        check(store[set].full_name == 'set')
-        check(store[y].full_name == 'a_y')
-        check(store[z].full_name == 'b_c_d_z')
-        check(set.value == 'xoxo')
-        check(y.value == 'ayay')
-        check(store[y].default_value == 'ynone')
-        check(store[y].initial_value == 'ayay')
-        check(store[y].goto_value is None)
-        check(store.update(y, 'yaya')[y].goto_value == 'yaya')
-        check(store.goto() == '')
-        check(store.update(y, 'yaya').goto() == 'update_query({a_y:"yaya"})')
+    assert y.value == False
+    assert y.update(True) == '''update({query: {'y': 'true'}})'''
+    y.value = True
+    assert y.value == True
+    assert request_data().updates() == {'query': {'y': 'true'}}
 
-@check.test
-def test_List():
-    from flask import Flask
-    app = Flask(__name__)
-    with app.test_request_context(path='http://localhost:5050?xs=[1,2]'):
-        xs = store.query.init_var(List(options=['a', 'b', 'c']))
-        store.assign_names(locals())
-        check(xs.selected_indicies() == [1, 2])
-        check(xs.value == ['b', 'c'])
-'''
+def test_app(with_store: ...):
+    x = store.session.str(default='xoxo')
+
+    with store.query:
+        with store.sub('a'):
+            y = store.str(name='y', default='ynone')
+
+    with store.query.sub('b').sub('c'):
+        z = store.sub('d').str(name='z')
+
+    store.assign_names(locals())
+
+    assert x.provenance == 'session'
+    assert y.provenance == 'query'
+    assert z.provenance == 'query'
+    assert x.full_name == 'x'
+    assert y.full_name == 'a_y'
+    assert z.full_name == 'b_c_d_z'
+    assert x.value == 'xoxo'
+    assert y.value == 'ayay'
+    assert y.default == 'ynone'
+
+    assert y.update('yaya') == "update({query: {'a_y': 'yaya'}})"
+
+    y.assign('yaya')
+    assert request_data().updates() == {'query': {'a_y': 'yaya'}}
+
+def test_List(with_store: ...):
+    xs = store.var(List(options=['a', 'b', 'c']))
+    store.assign_names(locals())
+    assert xs.value == []
+    assert xs.update(['a']) == '''update({session: {'xs': '[0]'}})'''
+    xs.value = ['b', 'c']
+    assert xs.value == ['b', 'c']
+    assert request_data().updates() == {'session': {'xs': '[1, 2]'}}

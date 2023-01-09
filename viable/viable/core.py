@@ -11,19 +11,18 @@ import traceback
 import time
 import functools
 import json
-import base64
-from pathlib import Path
 
 from flask import request, jsonify, make_response, Flask
 from flask.wrappers import Response
 from itsdangerous import Serializer, URLSafeSerializer
 
-from pbutils import TODO
+from flask import g
+from werkzeug.local import LocalProxy
 
 from .tags import Node, Tag, Tags, raw
 from .minifier import minify
 from .call_js import CallJS
-from .provenance import add_request_data, request_data
+from .provenance import request_data
 
 def is_true(x: str | bool | int | None):
     return str(x).lower() in 'true y yes 1'.split()
@@ -52,6 +51,12 @@ def serializer_factory() -> Serializer:
 P = ParamSpec('P')
 R = TypeVar('R')
 
+def get_call():
+    call_js: CallJS = g.call_js # type: ignore
+    return call_js.store_call
+
+call = LocalProxy(get_call)
+
 @dataclass
 class Serve:
     app: Flask
@@ -68,7 +73,7 @@ class Serve:
             assert request.json is not None
             body = request.json
             enc, *js_args_vals = body['args']
-            add_request_data(self._call_js)
+            self.add_call_js()
             try:
                 res = self._call_js.handle_call(enc, js_args_vals) or {}
                 return jsonify({**request_data().updates(), **res})
@@ -105,9 +110,12 @@ class Serve:
             self.run(host, port)
         return inner
 
+    def add_call_js(self):
+        g.call_js = self._call_js
+
     def view(self, f: Callable[..., Iterable[Node | str | dict[str, str]]], *args: Any, **kws: Any) -> Response:
 
-        add_request_data(self._call_js)
+        self.add_call_js()
 
         try:
             parts = f(*args, **kws)

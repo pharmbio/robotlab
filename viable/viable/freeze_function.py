@@ -4,7 +4,7 @@ from typing import *
 from types import FunctionType, CellType, MethodType, CodeType
 import pickle
 
-from pbutils import check, p
+from pbutils import p
 
 P = ParamSpec('P')
 R = TypeVar('R')
@@ -137,8 +137,9 @@ def G1(i: int):
 def G2(i: int):
     return i + 1 + __test
 
-@check.test
-def tests():
+import pytest
+
+def test_freeze():
     import pickle
     global __test
 
@@ -217,12 +218,12 @@ def tests():
         b = pickle.dumps(f_frozen)
         # b | p
         f_copy = thaw(pickle.loads(b))
-        check(f.__name__ == f_copy.__name__)
-        check(getattr(f, '__module__', None) == getattr(f_copy, '__module__' , None))
-        check(f(1) == f_copy(1))
+        assert f.__name__ == f_copy.__name__
+        assert getattr(f, '__module__', None) == getattr(f_copy, '__module__' , None)
+        assert f(1) == f_copy(1)
         __test += 1
         # t.value += 1
-        check(f(1) == f_copy(1))
+        assert f(1) == f_copy(1)
 
     def G():
         def f(i: int) -> int:
@@ -230,5 +231,7 @@ def tests():
         return f
 
     f_err = G()
-    with check.expect_exception():
+    with pytest.raises(ValueError) as exc:
         freeze(f_err)
+
+    assert 'recursive' in exc.value.args[0]

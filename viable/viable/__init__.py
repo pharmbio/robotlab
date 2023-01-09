@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from .core import (
     Serve,   # type: ignore
+    call,    # type: ignore
 )
 from .call_js import (
     JS,      # type: ignore
@@ -10,7 +11,6 @@ from .call_js import (
 )
 from .provenance import (
     store, # type: ignore
-    call,  # type: ignore
     Var,   # type: ignore
     Int,   # type: ignore
     Str,   # type: ignore

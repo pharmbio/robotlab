@@ -10,8 +10,8 @@ if test "$#" = 0; then
 fi
 set -eu
 packages='
-    viable
     pbutils
+    viable
     labrobots
     imager
     cellpainter

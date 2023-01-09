@@ -147,7 +147,7 @@ def test_circuit(_: SmallProtocolArgs):
             cmd.add(metadata)
             for cmd, metadata in program.collect()
             if isinstance(cmd, RobotarmCmd)
-            if metadata.step not in {'Triton', 'Stains'}
+            # if metadata.step not in {'Triton', 'Stains'}
         ],
         *RobotarmCmds(plate.out_get),
         *RobotarmCmds('incu put'),

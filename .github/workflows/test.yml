@@ -11,7 +11,7 @@ jobs:
     strategy:
       matrix:
         pip_install:
-          - "pip install"
+          # - "pip install"
           - "pip install --editable"
     name: main ${{ matrix.pip_install }}
     steps:
@@ -20,8 +20,10 @@ jobs:
         with:
           python-version: '3.10'
       - run: pip install pip --upgrade
-      - run: pip install pyright
+      - run: pip install pyright pytest
       - run: ./foreach.sh ${{ matrix.pip_install }} .
+      - run: cd pbutils; pytest
+      - run: cd viable; pytest
       - run: python gui-tests.py
       - run: cd labrobots; python test.py
       - run: cd cellpainter; set -o pipefail; cellpainter --cell-paint 6,6,6 | tail

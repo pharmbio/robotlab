@@ -13,7 +13,6 @@ from .nub import nub # type: ignore
 from .pp import show, pr, Color # type: ignore
 from .profiling import timeit, memit # type: ignore
 from .args import doc_header # type: ignore
-from .check import check
 
 import json
 from urllib.request import urlopen, Request
@@ -49,7 +48,6 @@ def cache_by(key: Callable[[A], Any]) -> Callable[[Callable[[A], R]], Callable[[
         return F
     return inner
 
-@check.test
 def test_cache_by():
     log: list[Any] = []
     @cache_by(lambda x: str(x))
@@ -57,11 +55,11 @@ def test_cache_by():
         log.append(x)
         return x + 1
 
-    check(log == [])
-    check(fn(1) == 2)
-    check(log == [1])
-    check(fn(1) == 2)
-    check(log == [1])
+    assert log == []
+    assert fn(1) == 2
+    assert log == [1]
+    assert fn(1) == 2
+    assert log == [1]
 
 def curl(url: str) -> Any:
     ten_minutes = 60 * 10
@@ -141,21 +139,21 @@ def iterate_with_prev(xs: Iterable[A]) -> list[tuple[A | None, A]]:
         for prev, x, _ in iterate_with_context(xs)
     ]
 
-@check.test
-def iterate_tests():
-    check(iterate_with_full_context([1,2,3,4]) == [
+def test_iterate():
+    assert iterate_with_full_context([1,2,3,4]) == [
         ([], 1, [2, 3, 4]),
         ([1], 2, [3, 4]),
         ([1, 2], 3, [4]),
         ([1, 2, 3], 4, []),
-    ])
+    ]
 
-    check(iterate_with_context([1,2,3,4]) == [
+    assert iterate_with_context([1,2,3,4]) == [
         (None, 1, 2),
         (1, 2, 3),
         (2, 3, 4),
         (3, 4, None)
-    ])
+    ]
+
 
 def git_HEAD() -> str | None:
     from subprocess import run
@@ -237,7 +235,24 @@ def zip_sub(xs: list[float], ys: list[float], ndigits: int=1) -> list[float]:
 def zip_add(xs: list[float], ys: list[float], ndigits: int=1) -> list[float]:
     return zip_with(lambda a, b: a + b, xs, ys, ndigits=ndigits)
 
+@dataclass(frozen=True)
 class PP:
+    show: Literal['data', 'methods', 'dir', 'self'] = 'self'
+
+    hooks: list[Callable[[Any], bool]] = field(default_factory=list)
+
+    @property
+    def dir(self):
+        return replace(self, show='dir')
+
+    @property
+    def methods(self):
+        return replace(self, show='methods')
+
+    @property
+    def data(self):
+        return replace(self, show='data')
+
     def __call__(self, thing: A) -> A:
         from pprint import pformat
         import executing
@@ -254,7 +269,25 @@ class PP:
         src: str = executing.Source.executing(fr.frame).text() # type: ignore
         src = re.sub(r'\s*\|\s*p\s*$', '', src, flags=re.MULTILINE)
         src = re.sub(r'^\s*p\s*\|\s*', '', src, flags=re.MULTILINE)
-        fmt = pformat(thing)
+        x = thing
+        if self.show != 'self':
+            x = {
+                k: (
+                    catch(lambda: f'{inspect.signature(v)}\n', '') + (v.__doc__ or '').strip().split('\n\n')[0]
+                    if self.show == 'methods' else
+                    v
+                )
+                for k in dir(x)
+                if k != '__dict__'
+                for v in [getattr(x, k)]
+                if self.show == 'dir'
+                or self.show == 'methods' and callable(v)
+                or self.show == 'data' and not callable(v)
+            }
+        for hook in self.hooks:
+            if hook(x):
+                return thing
+        fmt = pformat(x)
         try:
             filename = Path(fr.filename).relative_to(Path.cwd())
         except:

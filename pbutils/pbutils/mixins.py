@@ -729,7 +729,7 @@ class DataClassDesc:
             setattr(dc, k, getattr(scoped.var(), k))
         return scoped
 
-from pbutils import p
+# from pbutils import p
 
 def desc(dc: Type[Any], default: Any=None) -> DataClassDesc | Converters:
     if not is_dataclass(dc) or dc.__subclasses__():
@@ -783,7 +783,7 @@ def type_as_sql(t: SQLType | Converter[Any, Any] | Converters) -> str:
     else:
         raise ValueError(t)
 
-def test():
+def te_st():
     '''
     python -m imager.utils.mixins
     '''

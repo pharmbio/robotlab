@@ -3,6 +3,7 @@ from setuptools import setup
 requirements = '''
     apsw>=3.39.3
     executing
+    asttokens
 '''
 
 console_scripts = '''

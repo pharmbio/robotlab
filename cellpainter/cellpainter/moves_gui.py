@@ -607,6 +607,7 @@ def main():
         host = 'localhost'
     else:
         host = '10.10.0.55'
+        host = 'localhost'
     serve.run(
         port=5000,
         host=host,
