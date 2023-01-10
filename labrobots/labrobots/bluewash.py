@@ -108,18 +108,37 @@ class ConnectedBlueWash:
             if code == HTI_ProgEnd:
                 return out
 
+    def get_progs(self) -> Tuple[Set[int], List[str]]:
+        self.write(f'$getprogs')
+        code, lines = self.read_until_code()
+        self.check_code(code, HTI_NoError)
+        res = {
+            int(line.split()[0])
+            for line in lines
+            if line and line[0].isdigit()
+        }
+        return res, lines
+
+    def delete_prog(self, index: int) -> List[str]:
+        progs, lines = self.get_progs()
+        if index in progs:
+            self.write(f'$deleteprog {index:02}')
+            code, deleteprog_lines = self.read_until_code()
+            self.check_code(code, HTI_NoError, HTI_ERR_FILE_NOT_FOUND)
+            return lines + deleteprog_lines
+        else:
+            return lines
+
     def write_prog(self, program_code: str, index: int, program_name: str=''):
+        delete_lines = self.delete_prog(index)
         lines = program_code.splitlines(keepends=False)
-        self.write(f'$deleteprog {index:02}')
-        code, deleteprog_lines = self.read_until_code()
-        self.check_code(code, HTI_NoError, HTI_ERR_FILE_NOT_FOUND)
         self.write(f'$Copyprog {index:02} _{index:02}.prog')
         for line in lines:
             self.write('$& ' + line)
         self.write('$%')
         code, copyprog_lines = self.read_until_code()
         self.check_code(code, HTI_NoError)
-        return deleteprog_lines + copyprog_lines
+        return delete_lines + copyprog_lines
 
     def check_code(self, code: int, *ok_codes: int) -> None:
         if code not in ok_codes:
