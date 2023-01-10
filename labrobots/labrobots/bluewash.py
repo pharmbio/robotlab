@@ -5,6 +5,7 @@ from dataclasses import *
 from pathlib import Path
 import contextlib
 import time
+import textwrap
 
 def timeit(desc: str=''):
     # The inferred type for the decorated function is wrong hence this wrapper to get the correct type
@@ -130,7 +131,7 @@ class BlueWash(Machine):
     @contextlib.contextmanager
     def connect(self):
         print('bluewash: Using com_port', self.com_port)
-        with timeit('connect'):
+        with timeit('connection'):
             com = Serial(
                 self.com_port,
                 timeout=15,
@@ -189,6 +190,18 @@ class BlueWash(Machine):
             with timeit('runprog'):
                 con.write(f'$runprog {index}')
                 return con.read_until_prog_end()
+
+    def get_info(self, index: int=98, program_name: str='get_info') -> List[str]:
+        with self.connect() as con:
+            program: str = '''
+                $getfirmware
+                $getipadr
+            '''
+            program = textwrap.dedent(program).strip()
+            return [
+                *con.write_prog(program, index, program_name=program_name),
+                *self.run_prog(index),
+            ]
 
     def write_prog(self, filename: str, index: int) -> List[str]:
         with self.connect() as con:
