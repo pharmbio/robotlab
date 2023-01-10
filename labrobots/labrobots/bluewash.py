@@ -194,14 +194,16 @@ class BlueWash(Machine):
     def get_info(self, index: int=98, program_name: str='get_info') -> List[str]:
         with self.connect() as con:
             program: str = '''
+                $getserial
                 $getfirmware
                 $getipadr
             '''
             program = textwrap.dedent(program).strip()
-            return [
-                *con.write_prog(program, index, program_name=program_name),
-                *self.run_prog(index),
-            ]
+            xs = con.write_prog(program, index, program_name=program_name)
+        return [
+            *xs,
+            *self.run_prog(index),
+        ]
 
     def write_prog(self, filename: str, index: int) -> List[str]:
         with self.connect() as con:
