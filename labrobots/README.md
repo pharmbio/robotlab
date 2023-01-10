@@ -1,7 +1,7 @@
 # labrobots
 
 Web server to our LiCONiC incubator, LiCONiC fridge, and BioTek washer,
-BioTek dispenser, ImageXpress microscope, and Honeywell barcode scanner.
+BioTek dispenser, ImageXpress microscope, BlueCatBio BlueWash and Honeywell barcode scanner.
 
 This is used by the robot cellpainter and the robot imager.
 This is part of the AROS system, Open Automated Robotic System for Biological Laboratories,
@@ -218,3 +218,46 @@ The error message you would get is:
 
 > Test Communications error. Error code: 6061 Port is no longer available.
 
+## BlueWash
+
+Communication should look like this:
+
+```
+dan@devserver:~$ curl windows-nuc:5050/blue/get_info
+{
+  "value": [
+    "Err=00",
+    "writing copyprog data please wait ...",
+    "Err=00",
+    "Err=00",
+    "57724-012",
+    "BW_1.51",
+    "inet Adresse:192.168.1.192  Bcast:192.168.1.255  Maske:255.255.255.0",
+    "Err=21"
+  ]
+}
+dan@devserver:~$ curl windows-nuc:5050/blue/init_all
+{
+  "value": [
+    "Err=00",
+    "Err=21"
+  ]
+}
+dan@devserver:~$ curl windows-nuc:5050/blue/rackgetoutsensor
+{
+  "value": [
+    "Reed sensor value out = (1)",
+    "Err=00"
+  ]
+}
+dan@devserver:~$ curl windows-nuc:5050/blue/run_cmd/getprogs
+{
+  "value": [
+    "98 _get_info.prog",
+    "97 _get_info.prog",
+    "02 _silly.prog",
+    "01 _cp-test.prog",
+    "Err=00"
+  ]
+}
+```
