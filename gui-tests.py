@@ -20,9 +20,9 @@ def main():
         test('cellpainter --cell-paint 2 --visualize', 'http://localhost:5000',                        'plate  1 incubation')
         test('cellpainter --cell-paint 2 --visualize', 'http://localhost:5000?cmdline=--cell-paint+3', 'plate  3 incubation')
 
-    if 0:
-        with chdir('imager'):
-            test('pf-moves --simulate', 'http://localhost:5000',             'fridge-to-H12')
+    with chdir('imager'):
+        test('pf-moves --simulate', 'http://localhost:5000',             'fridge-to-H12')
+        if 0:
             test('imager-gui',         'http://localhost:5051?page=system', 'test-comm:')
 
     test('labrobots --test', 'http://localhost:5050/echo/echo?apa=1.2&bepa=true&cepa=[3,4]',
