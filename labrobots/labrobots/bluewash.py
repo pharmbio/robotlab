@@ -132,7 +132,7 @@ class ConnectedBlueWash:
     def write_prog(self, program_code: str, index: int, program_name: str=''):
         delete_lines = self.delete_prog(index)
         lines = program_code.splitlines(keepends=False)
-        self.write(f'$Copyprog {index:02} _{index:02}.prog')
+        self.write(f'$Copyprog {index:02}')
         for line in lines:
             self.write('$& ' + line)
         self.write('$%')
