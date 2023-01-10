@@ -126,6 +126,7 @@ class ConnectedBlueWash:
 
 @dataclass(frozen=True)
 class BlueWash(Machine):
+    root_dir: str
     com_port: str = 'COM6'
 
     @contextlib.contextmanager
@@ -191,16 +192,16 @@ class BlueWash(Machine):
                 con.write(f'$runprog {index}')
                 return con.read_until_prog_end()
 
-    def write_prog(self, filename: str, index: int) -> List[str]:
+    def write_prog(self, *filename_parts: str, index: int=99) -> List[str]:
+        filename = '/'.join(filename_parts)
         with self.connect() as con:
             with timeit('copyprog'):
-                root = Path('bluewash-protocols')
-                path = root / Path(filename)
+                path = Path(self.root_dir) / filename
                 return con.write_prog(path.read_text(), index, program_name=filename)
 
-    def write_and_run_prog(self, filename: str, index: int=99) -> List[str]:
+    def write_and_run_prog(self, *filename_parts: str, index: int=99) -> List[str]:
         return [
-            *self.write_prog(filename, index),
+            *self.write_prog(*filename_parts, index=index),
             *self.run_prog(index),
         ]
 
