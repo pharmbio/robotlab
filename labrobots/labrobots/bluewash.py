@@ -6,6 +6,7 @@ from pathlib import Path
 import contextlib
 import time
 import textwrap
+import re
 
 def timeit(desc: str=''):
     # The inferred type for the decorated function is wrong hence this wrapper to get the correct type
@@ -64,7 +65,7 @@ Errors = {
     36: "HTI_ERR_TURNTABLE_TIMEOUT Not applicable",
     37: "HTI_ERR_TURNTABLE_COLLISION Not applicable",
     38: "HTI_ERR_PROGRAM_IS_RUNNING Illegal command issued while other command running. Does not cause interruption of running command. Example for legal parallel command: getstatus",
-    39: "HTI_ERR_DOOR_OPEN (or Copyprog on existing file?) Issued when door opens while centrifuge runs, e.g., when door is forced open, or a sensor malfunction indicates that door is open. Centrifuge enters emergency stop.",
+    39: "HTI_ERR_DOOR_OPEN (or Copyprog on existing file? or IO error such as invalid filename?) Issued when door opens while centrifuge runs, e.g., when door is forced open, or a sensor malfunction indicates that door is open. Centrifuge enters emergency stop.",
     40: "HTI_ERR_INVALID_PARAMETER_COMBINATION From dispense: Staccato volume error; dispense volume too low for staccato mode From setpwmfrequence: wrong parameter combination, issue setpwm 1",
     41: "HTI_ERR_FILE_EXISTS From copyprog: cannot copy prog because 2- digit index already exists on Blue® Washer",
     42: "HTI_ERR_TOO_MANY_LINES From readprog, runprog or runservprog: Prog or servprog has more than 160 lines",
@@ -112,7 +113,8 @@ class ConnectedBlueWash:
         self.write(f'$deleteprog {index:02}')
         code, deleteprog_lines = self.read_until_code()
         self.check_code(code, HTI_NoError, HTI_ERR_FILE_NOT_FOUND)
-        self.write(f'$Copyprog {index:02} _' + program_name.strip().replace(' ', '_'))
+        name = re.sub(r'[^\w\d_]', '_', program_name.strip())
+        self.write(f'$Copyprog {index:02} _' + name)
         for line in lines:
             self.write('$& ' + line)
         self.write('$%')
@@ -206,7 +208,7 @@ class BlueWash(Machine):
         ]
 
     def run_test_prog(self) -> List[str]:
-        return self.write_and_run_prog('MagBeadSpinWash-2X-80ul-Blue.prog')
+        return self.write_and_run_prog('bluewash-protocols/MagBeadSpinWash-2X-80ul-Blue.prog')
 
     def get_info(self, index: int=98, program_name: str='get_info') -> List[str]:
         program: str = '''
