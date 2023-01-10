@@ -191,20 +191,6 @@ class BlueWash(Machine):
                 con.write(f'$runprog {index}')
                 return con.read_until_prog_end()
 
-    def get_info(self, index: int=98, program_name: str='get_info') -> List[str]:
-        with self.connect() as con:
-            program: str = '''
-                $getserial
-                $getfirmware
-                $getipadr
-            '''
-            program = textwrap.dedent(program).strip()
-            xs = con.write_prog(program, index, program_name=program_name)
-        return [
-            *xs,
-            *self.run_prog(index),
-        ]
-
     def write_prog(self, filename: str, index: int) -> List[str]:
         with self.connect() as con:
             with timeit('copyprog'):
@@ -220,3 +206,18 @@ class BlueWash(Machine):
 
     def run_test_prog(self) -> List[str]:
         return self.write_and_run_prog('MagBeadSpinWash-2X-80ul-Blue.prog')
+
+    def get_info(self, index: int=98, program_name: str='get_info') -> List[str]:
+        program: str = '''
+            $getserial
+            $getfirmware
+            $getipadr
+        '''
+        program = textwrap.dedent(program).strip()
+        with self.connect() as con:
+            xs = con.write_prog(program, index, program_name=program_name)
+        return [
+            *xs,
+            *self.run_prog(index),
+        ]
+
