@@ -550,7 +550,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                             WaitForCheckpoint(f'{plate_desc} incubation {ix-1}' if step_index > 0 else f'batch {batch_index}') + f'{plate_desc} pre disp {ix} delay',
                             BiotekValidateThenRun('disp', disp_prime).add(Metadata(plate_id='')) if disp_prime else Idle(),
                             BiotekValidateThenRun('disp', p.disp_prep[i]).add(Metadata(predispense=True)) if p.disp_prep[i] else Idle(),
-                            DispCmd(p.disp[i], cmd='Validate') if p.disp[i] else Idle(),
+                            DispCmd('Validate', p.disp[i]) if p.disp[i] else Idle(),
                             Early(2),
                             Checkpoint(f'{plate_desc} pre disp done {ix}'),
                         ).add(Metadata(slot=3)),
@@ -571,7 +571,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                 Fork(
                     Seq(
                         *wash_delay,
-                        WashCmd(p.wash[i], cmd='RunValidated') if p.wash[i] else Idle(),
+                        WashCmd('RunValidated', p.wash[i]) if p.wash[i] else Idle(),
                         Checkpoint(f'{plate_desc} incubation {ix}')
                         if step == 'Wash 1' else
                         Checkpoint(f'{plate_desc} transfer {ix}'),
@@ -591,7 +591,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                 Duration(f'{plate_desc} transfer {ix}', OptPrio.wash_to_disp) if p.disp[i] else Idle(),
                 Fork(
                     Seq(
-                        DispCmd(p.disp[i], cmd='RunValidated') if p.disp[i] else Idle(),
+                        DispCmd('RunValidated', p.disp[i]) if p.disp[i] else Idle(),
                         Checkpoint(f'{plate_desc} disp {ix} done'),
                         Checkpoint(f'{plate_desc} incubation {ix}'),
                     ),

@@ -272,12 +272,13 @@ def execute_simulated_program(config: RuntimeConfig, sim_db: DB, metadata: list[
     cmd = program.command
 
     if program.metadata.protocol == 'cell-paint':
-        missing: list[str] = []
+        missing: list[BiotekCmd] = []
         for k, _v in estimates.guesses.items():
             if isinstance(k, BiotekCmd) and k.protocol_path:
-                missing += [k.protocol_path]
+                missing += [k]
         if missing:
-            raise ValueError('Missing timings for the following biotek paths:', ', '.join(sorted(set(missing))))
+            from pprint import pformat
+            raise ValueError('Missing timings for the following biotek commands:\n' + pformat(missing))
 
     with make_runtime(config, program) as runtime:
         states = sim_db.get(CommandState).list()

@@ -206,7 +206,7 @@ class BlueWash(Machine):
                 con.write(f'$runservprog {index}')
                 return con.read_until_prog_end()
 
-    def run_prog(self, index: int) -> List[str]:
+    def run_prog(self, index: int=99) -> List[str]:
         with self.connect() as con:
             with timeit('runprog'):
                 con.write(f'$runprog {index}')

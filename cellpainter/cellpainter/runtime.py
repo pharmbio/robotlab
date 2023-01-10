@@ -15,25 +15,25 @@ from datetime import datetime, timedelta
 from queue import Queue
 from threading import RLock
 
-from .robotarm import Robotarm
 import pbutils
+
 from pbutils import pp_secs, p
 from pbutils.mixins import DB
 
+from .robotarm import Robotarm
 from .timelike import Timelike, WallTime, SimulatedTime
 from .moves import World, Effect
-
 from .log import Message, CommandState, CommandWithMetadata, Metadata, Error, Log, RuntimeMetadata
 
-from labrobots import WindowsNUC, Biotek, STX
+from labrobots import WindowsNUC, Biotek, STX, BlueWash
 
 import contextlib
 
 @dataclass(frozen=True)
 class RobotarmEnv:
-    mode: Literal['noop', 'execute', 'execute no gripper', ]
-    host: str # = 'http://[100::]' # RFC 6666: A Discard Prefix for IPv6
-    port: int # = 30001
+    mode: Literal['noop', 'execute', 'execute no gripper']
+    host: str
+    port: int
 
 class RobotarmEnvs:
     live      = RobotarmEnv('execute', '10.10.0.112', 30001)
@@ -87,11 +87,11 @@ class RuntimeConfig:
 
 configs: list[RuntimeConfig]
 configs = [
-    RuntimeConfig('live',         WallTime,      robotarm_env=RobotarmEnvs.live,      run_incu_wash_disp=True,),
-    RuntimeConfig('ur-simulator', WallTime,      robotarm_env=RobotarmEnvs.simulator, run_incu_wash_disp=False),
-    RuntimeConfig('forward',      WallTime,      robotarm_env=RobotarmEnvs.forward,   run_incu_wash_disp=False),
-    RuntimeConfig('simulate-wall',     WallTime,      robotarm_env=RobotarmEnvs.dry,       run_incu_wash_disp=False),
-    RuntimeConfig('simulate',          SimulatedTime, robotarm_env=RobotarmEnvs.dry,       run_incu_wash_disp=False),
+    RuntimeConfig('live',           WallTime,      robotarm_env=RobotarmEnvs.live,      run_incu_wash_disp=True,),
+    RuntimeConfig('ur-simulator',   WallTime,      robotarm_env=RobotarmEnvs.simulator, run_incu_wash_disp=False),
+    RuntimeConfig('forward',        WallTime,      robotarm_env=RobotarmEnvs.forward,   run_incu_wash_disp=False),
+    RuntimeConfig('simulate-wall',  WallTime,      robotarm_env=RobotarmEnvs.dry,       run_incu_wash_disp=False),
+    RuntimeConfig('simulate',       SimulatedTime, robotarm_env=RobotarmEnvs.dry,       run_incu_wash_disp=False),
 ]
 
 def config_lookup(name: str) -> RuntimeConfig:
@@ -102,18 +102,6 @@ def config_lookup(name: str) -> RuntimeConfig:
 
 simulate = config_lookup('simulate')
 
-def trim_LHC_filenames(s: str) -> str:
-    if '.LHC' in s:
-        parts = s.split(' ')
-        return ' '.join(
-            part.split('/')[-1]
-            if part.endswith('.LHC') else
-            part
-            for part in parts
-        )
-    else:
-        return s
-
 def get_robotarm(config: RuntimeConfig, quiet: bool = False, include_gripper: bool = True) -> Robotarm:
     if config.robotarm_env.mode == 'noop':
         return Robotarm.init_noop(with_gripper=include_gripper, quiet=quiet)
@@ -122,10 +110,6 @@ def get_robotarm(config: RuntimeConfig, quiet: bool = False, include_gripper: bo
     if not include_gripper:
         with_gripper = False
     return Robotarm.init(config.robotarm_env.host, config.robotarm_env.port, with_gripper, quiet=quiet)
-
-import typing
-class CheckpointLike(typing.Protocol):
-    name: str
 
 A = TypeVar('A')
 
@@ -136,9 +120,10 @@ class Runtime:
 
     log_db: DB = field(default_factory=lambda: DB.connect(':memory:'))
 
-    incu: STX    | None = None
-    wash: Biotek | None = None
-    disp: Biotek | None = None
+    incu: STX      | None = None
+    wash: Biotek   | None = None
+    disp: Biotek   | None = None
+    blue: BlueWash | None = None
 
     lock: RLock = field(default_factory=RLock)
 
@@ -180,6 +165,7 @@ class Runtime:
             self.incu = nuc.incu
             self.wash = nuc.wash
             self.disp = nuc.disp
+            self.blue = nuc.blue
 
         self.set_robotarm_speed(self.config.robotarm_speed)
 

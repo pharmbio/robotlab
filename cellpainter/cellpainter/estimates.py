@@ -69,16 +69,26 @@ estimates = {
 }
 
 for k, v in list(estimates.items()):
-    name = k.program_name if isinstance(k, RobotarmCmd) else ''
-    if 'wash' in name or 'disp' in name:
-        if 'prep' in name or 'return' in name:
-            v2 = 2.5
-        elif 'wash_to_disp' not in name:
-            v2 = 6.0
-        else:
-            v2 = round(v, 1)
-        # print(v, '-> ' + str(v2), k, sep='\t')
-        # estimates[k] = v2
+    if isinstance(k, BiotekCmd) and k.action =='Run':
+        kv = k.replace(action='Validate')
+        kr = k.replace(action='RunValidated')
+        if kv not in estimates and kr not in estimates:
+            estimates[kv] = 4.0 if k.machine == 'disp' else 1.5
+            estimates[kr] = v - estimates[kv]
+
+
+if 0:
+    for k, v in list(estimates.items()):
+        name = k.program_name if isinstance(k, RobotarmCmd) else ''
+        if 'wash' in name or 'disp' in name:
+            if 'prep' in name or 'return' in name:
+                v2 = 2.5
+            elif 'wash_to_disp' not in name:
+                v2 = 6.0
+            else:
+                v2 = round(v, 1)
+            # print(v, '-> ' + str(v2), k, sep='\t')
+            # estimates[k] = v2
 
 import re
 

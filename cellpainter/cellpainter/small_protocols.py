@@ -3,6 +3,7 @@ from typing import *
 from dataclasses import *
 
 from .commands import (
+    BlueFork,
     Program,               # type: ignore
     Command,               # type: ignore
     Fork,                  # type: ignore
@@ -24,9 +25,8 @@ from .commands import (
     WaitForCheckpoint,     # type: ignore
     WaitForResource,       # type: ignore
 )
-from . import commands
 
-from .moves import InitialWorld, World
+from .moves import World
 
 import pbutils
 from .log import Metadata
@@ -220,7 +220,7 @@ def wash_plates_clean(args: SmallProtocolArgs):
         section += [*RobotarmCmds(plate.lid_put)]
         section += [*RobotarmCmds('wash put')]
 
-        section += [Fork(WashCmd('wash-plates-clean/WD_3X_leaves80ul.LHC', 'Run'))]
+        section += [Fork(WashCmd('Run', 'wash-plates-clean/WD_3X_leaves80ul.LHC'))]
         section += [WaitForResource('wash')]
 
         section += [*RobotarmCmds('wash get')]
@@ -229,14 +229,14 @@ def wash_plates_clean(args: SmallProtocolArgs):
     cmds += [Seq(*section).add_to_physical_commands(Metadata(section='H₂O'))]
 
     section = []
-    section += [Fork(WashCmd('wash-plates-clean/WC_PRIME.LHC', 'Run'))]
+    section += [Fork(WashCmd('Run', 'wash-plates-clean/WC_PRIME.LHC'))]
     section += [WaitForResource('wash')]
     for i, plate in enumerate(plates):
         section += [*RobotarmCmds(plate.rt_get)]
         section += [*RobotarmCmds(plate.lid_put)]
         section += [*RobotarmCmds('wash put')]
 
-        section += [Fork(WashCmd('wash-plates-clean/WC_1X_leaves80ul.LHC', 'Run'))]
+        section += [Fork(WashCmd('Run', 'wash-plates-clean/WC_1X_leaves80ul.LHC'))]
         section += [WaitForResource('wash')]
 
         if i == 0:
@@ -255,7 +255,7 @@ def wash_plates_clean(args: SmallProtocolArgs):
         section += [*RobotarmCmds(plate.lid_put)]
         section += [*RobotarmCmds('wash put')]
 
-        section += [Fork(WashCmd('wash-plates-clean/WD_3X_leaves10ul.LHC', 'Run'))]
+        section += [Fork(WashCmd('Run', 'wash-plates-clean/WD_3X_leaves10ul.LHC'))]
         section += [WaitForResource('wash')]
 
         section += [*RobotarmCmds('wash get')]
@@ -275,11 +275,11 @@ def validate_all_protocols(args: SmallProtocolArgs):
     '''
     paths = protocol_paths.get_protocol_paths()[args.protocol_dir]
     wash = [
-        WashCmd(p, cmd='Validate')
+        WashCmd('Validate', p)
         for p in paths.all_wash_paths()
     ]
     disp = [
-        DispCmd(p, cmd='Validate')
+        DispCmd('Validate', p)
         for p in paths.all_disp_paths()
     ]
     program = Seq(
@@ -579,6 +579,15 @@ def time_bioteks(args: SmallProtocolArgs):
         WaitForResource('disp'),
     )
     return Program(program)
+
+@small_protocols.append
+def bluewash_init_all(args: SmallProtocolArgs):
+    '''
+    Required to run before using BlueWasher:
+    Initializes linear drive, rotor, inputs, outputs, motors, valves.
+    Presents working carrier (= top side of rotor) to RACKOUT.
+    '''
+    return Program(BlueFork('init_all'))
 
 @dataclass(frozen=True)
 class SmallProtocolData:

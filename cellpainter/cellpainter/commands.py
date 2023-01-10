@@ -48,7 +48,7 @@ class Command(abc.ABC):
     def type(self) -> str:
         return self.__class__.__name__
 
-    def required_resource(self) -> Literal['robotarm', 'incu', 'wash', 'disp'] | None:
+    def required_resource(self) -> Literal['robotarm', 'incu', 'wash', 'disp', 'blue'] | None:
         return None
 
     def add(self, m: Metadata):
@@ -429,8 +429,8 @@ BiotekAction = Literal[
 @dataclass(frozen=True)
 class BiotekCmd(Command):
     machine: Literal['wash', 'disp']
-    protocol_path: str | None
     action: BiotekAction
+    protocol_path: str | None = None
 
     def required_resource(self):
         return self.machine
@@ -439,24 +439,24 @@ class BiotekCmd(Command):
         return replace(self, action=action)
 
 def WashCmd(
-    protocol_path: str | None,
     cmd: BiotekAction,
+    protocol_path: str | None,
 ):
-    return BiotekCmd('wash', protocol_path, cmd)
+    return BiotekCmd('wash', cmd, protocol_path)
 
 def DispCmd(
-    protocol_path: str | None,
     cmd: BiotekAction,
+    protocol_path: str | None,
 ):
-    return BiotekCmd('disp', protocol_path, cmd)
+    return BiotekCmd('disp', cmd, protocol_path)
 
 def BiotekValidateThenRun(
     machine: Literal['wash', 'disp'],
     protocol_path: str,
 ) -> Command:
     return Seq(
-        BiotekCmd(machine, protocol_path, 'Validate'),
-        BiotekCmd(machine, protocol_path, 'RunValidated'),
+        BiotekCmd(machine, 'Validate',     protocol_path),
+        BiotekCmd(machine, 'RunValidated', protocol_path),
     )
 
 def WashFork(
@@ -464,14 +464,46 @@ def WashFork(
     cmd: BiotekAction,
     assume: ForkAssumption = 'nothing',
 ):
-    return Fork(WashCmd(protocol_path, cmd), assume=assume)
+    return Fork(WashCmd(cmd, protocol_path), assume=assume)
 
 def DispFork(
     protocol_path: str | None,
     cmd: BiotekAction,
     assume: ForkAssumption = 'nothing',
 ):
-    return Fork(DispCmd(protocol_path, cmd), assume=assume)
+    return Fork(DispCmd(cmd, protocol_path), assume=assume)
+
+BlueWashAction = Literal[
+    'run_prog',
+    'write_prog',
+    'init_all',
+    'get_balance_plate',
+    'get_working_plate',
+    'get_info',
+]
+
+@dataclass(frozen=True)
+class BlueCmd(Command):
+    action: BlueWashAction
+    protocol_path: str | None = None
+
+    def required_resource(self):
+        return 'blue'
+
+def BlueFork(
+    action: BlueWashAction,
+    protocol_path: str | None = None,
+    assume: ForkAssumption = 'nothing',
+):
+    return Fork(BlueCmd(action, protocol_path), assume=assume)
+
+def BlueWriteThenRun(
+    protocol_path: str,
+) -> Command:
+    return Seq(
+        BlueCmd('write_prog', protocol_path),
+        BlueCmd('run_prog', protocol_path),
+    )
 
 @dataclass(frozen=True)
 class IncuCmd(Command):

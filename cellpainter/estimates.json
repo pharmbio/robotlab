@@ -847,7 +847,7 @@
     "cmd": {
       "type": "BiotekCmd",
       "machine": "disp",
-      "protocol_path": "automation_v4.0/8.1_D_P2_purge_then_predispense.LHC",
+      "protocol_path": "automation_v4.0/8.0b_D_P2_purge_then_predispense.LHC",
       "action": "Run"
     },
     "times": {
@@ -864,7 +864,7 @@
     "cmd": {
       "type": "BiotekCmd",
       "machine": "disp",
-      "protocol_path": "automation_v4.0/8.2_D_P2_20ul_stains.LHC",
+      "protocol_path": "automation_v4.0/8.1_D_P2_20ul_stains.LHC",
       "action": "RunValidated"
     },
     "times": {
@@ -881,7 +881,7 @@
     "cmd": {
       "type": "BiotekCmd",
       "machine": "disp",
-      "protocol_path": "automation_v4.0/8.2_D_P2_20ul_stains.LHC",
+      "protocol_path": "automation_v4.0/8.1_D_P2_20ul_stains.LHC",
       "action": "Validate"
     },
     "times": {
