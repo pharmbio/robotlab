@@ -64,7 +64,7 @@ Errors = {
     36: "HTI_ERR_TURNTABLE_TIMEOUT Not applicable",
     37: "HTI_ERR_TURNTABLE_COLLISION Not applicable",
     38: "HTI_ERR_PROGRAM_IS_RUNNING Illegal command issued while other command running. Does not cause interruption of running command. Example for legal parallel command: getstatus",
-    39: "HTI_ERR_DOOR_OPEN Issued when door opens while centrifuge runs, e.g., when door is forced open, or a sensor malfunction indicates that door is open. Centrifuge enters emergency stop.",
+    39: "HTI_ERR_DOOR_OPEN (or Copyprog on existing file?) Issued when door opens while centrifuge runs, e.g., when door is forced open, or a sensor malfunction indicates that door is open. Centrifuge enters emergency stop.",
     40: "HTI_ERR_INVALID_PARAMETER_COMBINATION From dispense: Staccato volume error; dispense volume too low for staccato mode From setpwmfrequence: wrong parameter combination, issue setpwm 1",
     41: "HTI_ERR_FILE_EXISTS From copyprog: cannot copy prog because 2- digit index already exists on Blue® Washer",
     42: "HTI_ERR_TOO_MANY_LINES From readprog, runprog or runservprog: Prog or servprog has more than 160 lines",
@@ -108,17 +108,17 @@ class ConnectedBlueWash:
                 return out
 
     def write_prog(self, program_code: str, index: int, program_name: str=''):
-            lines = program_code.splitlines(keepends=False)
-            self.write('$deleteprog 99')
-            code, deleteprog_lines = self.read_until_code()
-            self.check_code(code, HTI_NoError, HTI_ERR_FILE_NOT_FOUND)
-            self.write(f'$Copyprog {index:02} _' + program_name.strip().replace(' ', '_'))
-            for line in lines:
-                self.write('$& ' + line)
-            self.write('$%')
-            code, copyprog_lines = self.read_until_code()
-            self.check_code(code, HTI_NoError)
-            return deleteprog_lines + copyprog_lines
+        lines = program_code.splitlines(keepends=False)
+        self.write(f'$deleteprog {index:02}')
+        code, deleteprog_lines = self.read_until_code()
+        self.check_code(code, HTI_NoError, HTI_ERR_FILE_NOT_FOUND)
+        self.write(f'$Copyprog {index:02} _' + program_name.strip().replace(' ', '_'))
+        for line in lines:
+            self.write('$& ' + line)
+        self.write('$%')
+        code, copyprog_lines = self.read_until_code()
+        self.check_code(code, HTI_NoError)
+        return deleteprog_lines + copyprog_lines
 
     def check_code(self, code: int, *ok_codes: int) -> None:
         if code not in ok_codes:
