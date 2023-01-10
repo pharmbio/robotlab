@@ -97,7 +97,7 @@ class Machine:
                     return {'value': value}
             except Exception as e:
                 return {
-                    'error': str(e),
+                    'error': repr(e),
                     'traceback': tb.format_exc(),
                     'traceback_lines': tb.format_exc().splitlines()
                 }
