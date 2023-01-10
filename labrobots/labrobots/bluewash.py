@@ -79,7 +79,7 @@ class ConnectedBlueWash:
     com: Any # Serial
 
     def write(self, line: str):
-        msg = line.strip().encode() + b'\n\r'
+        msg = line.strip().encode() + b'\r\n'
         print(f'bluewash.write({msg!r})')
         self.com.write(msg)
 
@@ -113,8 +113,7 @@ class ConnectedBlueWash:
         self.write(f'$deleteprog {index:02}')
         code, deleteprog_lines = self.read_until_code()
         self.check_code(code, HTI_NoError, HTI_ERR_FILE_NOT_FOUND)
-        name = re.sub(r'[^\w\d_]', '_', program_name.strip())
-        self.write(f'$Copyprog {index:02} _' + name)
+        self.write(f'$Copyprog {index:02} _{index:02}.prog')
         for line in lines:
             self.write('$& ' + line)
         self.write('$%')
