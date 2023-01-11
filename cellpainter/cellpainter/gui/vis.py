@@ -236,7 +236,7 @@ class AnalyzeResult:
         '''
 
         max_length = max([
-            row.t - row.t0
+            row.section_t_with_overflow - row.section_t0
             for row in self.vis
         ], default=1.0)
 
@@ -325,7 +325,6 @@ class AnalyzeResult:
                 css_=f'''
                     width: {width * my_width - 2}px;
                 ''',
-                # onclick=None if t_end is None else call(t_end.assign, int(row.t0 + 1)),
                 css__='cursor: pointer' if t_end is not None else '',
                 data_t0=str(row.t0),
                 data_t=str(row.t),

@@ -122,6 +122,7 @@ class VisRow:
     section: str
     section_column: int = -1
     section_t0: float = 0
+    section_t_with_overflow: float = 0
     state: CommandState | None = None
     now: bool = False
     bg: bool = False
@@ -190,6 +191,18 @@ class Log:
         #     for k, v in sorted(g.min(CommandState.t0).items(), key=lambda kv: kv[1])
         # }
 
+    def section_ends(self) -> dict[str, float]:
+        q = self.gui_query()
+        out: dict[str, float] = {}
+        for k in q.select(CommandState.metadata.section):
+            if k in out:
+                continue
+            out[k] = q.select(CommandState.t0).order(CommandState.t0, dir='desc').where(CommandState.metadata.section == k).one()
+        if out:
+            *_, last = out.keys()
+            out[last] = self.time_end()
+        return out
+
     def time_end(self, only_completed: bool=False):
         q = self.gui_query()
         if only_completed:
@@ -211,17 +224,12 @@ class Log:
 
     def vis(self, t: float | None = None) -> list[VisRow]:
         section_starts = self.section_starts()
+        section_ends = self.section_ends()
         if not section_starts:
             return []
         first_section, *_ = section_starts.keys()
         section_starts[first_section] = 0.0
         section_columns = {section: i for i, section in enumerate(section_starts.keys())}
-
-        def time_to_section(t: float):
-            for section, t0 in reversed(section_starts.items()):
-                if t >= t0:
-                    return section
-            return 'before time'
 
         rows: list[VisRow] = []
         for (section_name, section_t0), next in pbutils.iterate_with_next(section_starts.items()):
@@ -258,6 +266,17 @@ class Log:
             )
             rows += [row]
 
+        def time_to_section(t: float):
+            for section, t0 in reversed(section_starts.items()):
+                if t >= t0:
+                    return section
+            return 'before time'
+
+        def time_to_section_rev(t: float):
+            for section, t_end in sorted(section_ends.items(), key=lambda kv: kv[1]):
+                if t < t_end + 2:
+                    return section
+
         if t is not None:
             now_row = VisRow(
                 t0 = t,
@@ -266,12 +285,25 @@ class Log:
                 now = True,
             )
             rows += [now_row]
+            section_rev = time_to_section_rev(t)
+            if section_rev and section_rev != now_row.section:
+                # sections with overflow makes the time sometimes appear in two places
+                now_row2 = VisRow(
+                    t0 = t,
+                    t = t,
+                    section = section_rev,
+                    now = True,
+                )
+                rows += [now_row2]
+
+        section_ends = self.section_ends()
 
         for row in rows:
             if row.section == '':
                 row.section = time_to_section(row.t)
             row.section_column = section_columns[row.section]
             row.section_t0 = section_starts[row.section]
+            row.section_t_with_overflow = section_ends[row.section]
 
         return rows
 
