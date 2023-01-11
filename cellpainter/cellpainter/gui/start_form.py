@@ -70,6 +70,12 @@ form_css = '''
         background: var(--bg);
         color: var(--fg);
     }
+    & select.two {
+        padding: 0;
+    }
+    & select.two option {
+        padding-left: 8px;
+    }
     & select {
         width: 100%;
         padding-left: 4px;
@@ -119,7 +125,7 @@ def start_form(*, config: RuntimeConfig):
     incu = store.str(name='incubation times', default='20:00', desc='The incubation times in seconds or minutes:seconds, separated by comma. If too few values are specified, the last value is repeated. Example: 21:00,20:00')
     batch_sizes = store.str(default='6', name='batch sizes', desc='The number of plates per batch, separated by comma. Example: 6,6')
     protocol_dir = store.str(default='automation_v5.0', name='protocol dir', desc='Directory on the windows computer to read biotek LHC files from')
-    final_washes = store.str(name='final wash rounds', options=['auto', 'one', 'two'], desc='Number of final wash rounds. Either run 9_W_*.LHC once or run 9_10_W_*.LHC twice.')
+    final_washes = store.str(name='final wash rounds', options=['one', 'two'], desc='Number of final wash rounds. Either run 9_W_*.LHC once or run 9_10_W_*.LHC twice.')
 
     num_plates = store.str(name='plates', desc='The number of plates')
     params = store.str(name='params', desc=f'Additional parameters to protocol "{protocol.value}"')
@@ -183,7 +189,7 @@ def start_form(*, config: RuntimeConfig):
 
     if args:
         try:
-            stages = cli.args_to_stages(args)
+            stages = cli.args_to_stages(replace(args, incu='x'))
         except:
             stages = []
         if stages:
@@ -242,7 +248,7 @@ def start_form(*, config: RuntimeConfig):
             grid_row='-1',
         ) if args else '',
         button(
-            common.triangle, ' ', 'start',
+            common.triangle(), ' ', 'start',
             data_doc=doc_full,
             data_confirm=confirm,
             onclick=
@@ -281,7 +287,7 @@ def start_form(*, config: RuntimeConfig):
     for pid in x.strip().split('\n'):
         try:
             pid = int(pid)
-            args = get_json_arg_from_argv(pid)
+            args = common.get_json_arg_from_argv(pid)
             if isinstance(v := args.get("log_filename"), str):
                 pbutils.pr(args)
                 running_processes += [(pid, v)]

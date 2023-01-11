@@ -90,6 +90,10 @@ sheet = '''
         font-family: Consolas, monospace;
         letter-spacing: -0.025em;
     }
+    option:checked {
+        color: var(--bg);
+        background-color: var(--blue);
+    }
     * {
         color: inherit;
         background: inherit;
@@ -408,7 +412,7 @@ def index(path_from_route: str | None = None) -> Iterator[Tag | V.Node | dict[st
                 start_button = ''
             elif path:
                 start_button = button(
-                    common.triangle, ' ', 'start',
+                    common.triangle(), ' ', 'start',
                     onclick=
                         call(
                             start,

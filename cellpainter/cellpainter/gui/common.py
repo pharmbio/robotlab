@@ -91,9 +91,17 @@ def make_table(rows: list[dict[str, Any]], header: bool=True):
 
 def form(*vs: Int | Str | Bool):
     for v in vs:
+        inp = v.input()
+        inp.extend(id_=v.name, spellcheck="false", autocomplete="off")
+        if len(getattr(v, 'options', []) or []) == 2:
+            inp.extend(
+                class_='two',
+                size='2',
+                overflow='hidden'
+            )
         yield label(
             span(f"{v.name or ''}:"),
-            v.input().extend(id_=v.name, spellcheck="false", autocomplete="off"),
+            inp,
             title=v.desc,
         )
 
@@ -131,18 +139,19 @@ inverted_inputs_css = '''
     }
 '''
 
-triangle: V.tag = V.svg(
-    V.raw('<polygon points="1,1 1,14 14,7"/>'),
-    css='''
-        & {
-            margin-right: 6px;
-            width: 16px;
-            height: 16px;
-            transform: translateY(4px);
-        }
-        & polygon {
-            fill: var(--green);
-        }
-    '''
-)
+def triangle() -> V.tag:
+    return V.svg(
+        V.raw('<polygon points="1,1 1,14 14,7"/>'),
+        css='''
+            & {
+                margin-right: 6px;
+                width: 16px;
+                height: 16px;
+                transform: translateY(4px);
+            }
+            & polygon {
+                fill: var(--green);
+            }
+        '''
+    )
 
