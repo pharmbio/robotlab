@@ -23,6 +23,8 @@ from ..runtime import RuntimeConfig
 
 from . import common
 
+from urllib.parse import quote_plus
+
 def start(args: Args, simulate: bool, config: RuntimeConfig, push_state: bool=True):
     config_name = 'simulate' if simulate else config.name
     log_filename = cli.args_to_filename(replace(args, config_name=config_name))
@@ -144,28 +146,13 @@ def start_form(*, config: RuntimeConfig):
             final_washes,
         ]
         bs = batch_sizes.value
-        N = pbutils.catch(lambda: max(pbutils.read_commasep(bs.strip(' ,'), int)), 0)
-        interleave = N >= 7
-        if final_washes.value == 'one':
-            two_final_washes = False
-        elif final_washes.value == 'two':
-            two_final_washes = True
-        else:
-            two_final_washes = N >= 8
-        lockstep = N >= 10
         incu_csv = incu.value
-        if incu_csv == '':
-            incu_csv = '1200'
-        if incu_csv in ('1200', '20:00') and N >= 8:
-            incu_csv = '1200,1200,1200,1200,X'
-            if N == 10:
-                incu_csv = '1235,1230,1230,1235,1260'
         args = Args(
             cell_paint=bs,
             incu=incu_csv,
-            interleave=interleave,
-            two_final_washes=two_final_washes,
-            lockstep=lockstep,
+            interleave=True,
+            two_final_washes=final_washes.value == 'two',
+            lockstep_threshold=10,
             protocol_dir=protocol_dir.value,
             desc=desc.value,
             operators=operators.value,
@@ -287,8 +274,8 @@ def start_form(*, config: RuntimeConfig):
     for pid in x.strip().split('\n'):
         try:
             pid = int(pid)
-            args = common.get_json_arg_from_argv(pid)
-            if isinstance(v := args.get("log_filename"), str):
+            process_args = common.get_json_arg_from_argv(pid)
+            if isinstance(v := process_args.get("log_filename"), str):
                 pbutils.pr(args)
                 running_processes += [(pid, v)]
         except:
@@ -329,11 +316,15 @@ def start_form(*, config: RuntimeConfig):
                 ),
             )
         info += div('Running processes:', ul)
+    vis = '/vis'
+    if args:
+        vis = '/vis?cmdline=' + quote_plus(cli.args_to_str(args))
     info += div(
         'More:',
         V.ul(
             # V.li(V.a('show timings', href='/timings')),
             V.li(V.a('show logs', href='/logs')),
+            V.li(V.a('show in visualizer', href=vis)),
         ),
     )
     yield info
@@ -343,4 +334,3 @@ def start_form(*, config: RuntimeConfig):
         opacity='0.85',
         margin='0 auto',
     )
-

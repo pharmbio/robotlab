@@ -269,17 +269,17 @@ Interleavings = dict(
 )
 
 class ProtocolArgsInterface(typing.Protocol):
-    incu:             str
-    interleave:       bool
-    two_final_washes: bool
-    lockstep:         bool
+    incu:               str
+    interleave:         bool
+    two_final_washes:   bool
+    lockstep_threshold: int
 
 @dataclass(frozen=True)
 class ProtocolArgs:
-    incu:             str  = '1200'
-    interleave:       bool = False
-    two_final_washes: bool = False
-    lockstep:         bool = False
+    incu:               str  = '1200'
+    interleave:         bool = False
+    two_final_washes:   bool = False
+    lockstep_threshold: int  = 10
 
 if typing.TYPE_CHECKING:
     _: ProtocolArgsInterface = ProtocolArgs()
@@ -295,7 +295,7 @@ class ProtocolConfig:
     incu:          list[Symbolic]
     interleavings: list[str]
     interleave:    bool
-    lockstep:      bool
+    lockstep_threshold: int
     def __post_init__(self):
         d: dict[str, list[Any]] = {}
         for field in fields(self):
@@ -360,7 +360,7 @@ def make_protocol_config(paths: ProtocolPaths, args: ProtocolArgsInterface = Pro
         disp_prime     = resize(paths.disp_prime),
         disp_prep      = resize(paths.disp_prep),
         disp           = resize(paths.disp_main),
-        lockstep       = args.lockstep,
+        lockstep_threshold = args.lockstep_threshold,
         incu           = incu,
         interleave     = args.interleave,
         interleavings  = interleavings,
@@ -373,12 +373,12 @@ def test_make_protocol_config():
             incu = incu,
             two_final_washes = two_final_washes,
             interleave = interleave,
-            lockstep = lockstep,
+            lockstep_threshold = lockstep_threshold,
         )
         for incu in ['i1, i2, i3', '21:00,20:00', '1200']
         for two_final_washes in [True, False]
         for interleave in [True, False]
-        for lockstep in [False]
+        for lockstep_threshold in [9, 10]
     ]
     for args in argss:
         make_protocol_config(paths_v5(), args)
@@ -632,7 +632,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
         else:
             return p.id, step, substep
 
-    if p.lockstep:
+    if len(batch) >= p.lockstep_threshold:
         for i, (step, next_step) in enumerate(pbutils.iterate_with_next(p.step_names)):
             if next_step:
                 ilv = Interleavings[p.interleavings[i]]

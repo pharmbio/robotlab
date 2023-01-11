@@ -7,8 +7,6 @@ from viable import Tag, pre, div, span, label
 from .log import Log
 from . import commands
 
-
-
 import pbutils
 
 colors = dict(
@@ -81,9 +79,13 @@ from functools import lru_cache
 
 def start(cmdline0: str, cmdline_to_log: Callable[[str], Log]):
     cmdline_to_log = lru_cache(cmdline_to_log)
+    serve = Serve(_app := Flask(__name__))
+    add_to_serve(serve, cmdline0, cmdline_to_log)
+    serve.run()
 
-    serve = Serve(app := Flask(__name__))
-    @serve.one('/')
+def add_to_serve(serve: Serve, cmdline0: str, cmdline_to_log: Callable[[str], Log], route: str='/'):
+
+    @serve.route(route)
     def index() -> Iterator[Tag | dict[str, str]]:
 
         yield {

@@ -15,6 +15,8 @@ import re
 
 from ..log import ExperimentMetadata, Log
 from ..cli import Args
+from .. import cli
+from .. import protocol_vis
 
 from .. import moves
 from .. import runtime
@@ -40,6 +42,8 @@ print(f'Running with {config.name=}')
 
 serve = Serve(Flask(__name__))
 serve.suppress_flask_logging()
+
+protocol_vis.add_to_serve(serve, '', cli.cmdline_to_log, route='/vis')
 
 def robotarm_do(ms: list[Move]):
     arm = get_robotarm(config, quiet=False, include_gripper=True)

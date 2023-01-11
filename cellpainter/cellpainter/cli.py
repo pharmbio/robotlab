@@ -42,7 +42,7 @@ class Args:
     incu:                      str  = arg(default='1200,1200,1200,1200,1200', help='Incubation times in seconds, separated by comma')
     interleave:                bool = arg(help='Interleave plates, required for 7 plate batches')
     two_final_washes:          bool = arg(help='Use two shorter final washes in the end, required for big batch sizes, required for 8 plate batches')
-    lockstep:                  bool = arg(help='Allow steps to overlap: first plate PFA starts before last plate Mito finished and so on, required for 10 plate batches')
+    lockstep_threshold:        int  = arg(default=10, help='Allow steps to overlap: first plate PFA starts before last plate Mito finished and so on, required for 10 plate batches')
     log_filename:              str  = arg(help='Manually set the log filename instead of having a generated name based on date')
     protocol_dir:              str  = arg(default='automation_v5.0', help='Directory to read biotek .LHC files from on the windows server (relative to the protocol root).')
     force_update_protocol_dir: bool = arg(help='Update the protcol dir based on the windows server even if config is not --live.')
@@ -83,11 +83,39 @@ class Args:
     desc: str = arg(help='Experiment description metadata, example: "specs935-v1"')
     operators:  str = arg(help='Experiment metadata, example: "Amelie and Christa"')
 
+def args_to_str(args: Args):
+    parts: list[str] = []
+    for f in fields(args):
+        k = f.name
+        d = f.default_factory() if callable(f.default_factory) else f.default
+        v = getattr(args, k)
+        k = k.replace('_', '-')
+        if v != d:
+            if isinstance(v, list):
+                parts += [f'--{k}', *v]
+            elif isinstance(v, bool):
+                if v:
+                    parts += [f'--{k}']
+            else:
+                parts += [f'--{k}', v]
+    return shlex.join(parts)
+
 def main():
     args, parser = arg.parse_args(Args, description='Make the lab robots do things.')
     if args.json_arg:
         args = Args(**json.loads(args.json_arg))
     return main_with_args(args, parser)
+
+def cmdline_to_log(cmdline: str):
+    cmdname = 'cellpainter'
+    args, _ = arg.parse_args(Args, args=[cmdname, *shlex.split(cmdline)], exit_on_error=False)
+    pbutils.pr(args)
+    if args.log_file_for_visualize:
+        return Log.connect(args.log_file_for_visualize)
+    else:
+        p = args_to_program(args)
+        assert p, 'no program from these arguments!'
+        return Log(execute.simulate_program(p, sim_delays=parse_sim_delays(args)))
 
 def main_with_args(args: Args, parser: argparse.ArgumentParser | None=None):
 
@@ -147,20 +175,13 @@ def main_with_args(args: Args, parser: argparse.ArgumentParser | None=None):
 
     if args.visualize:
         from . import protocol_vis as pv
-        cmdname, *argv = [arg for arg in sys.argv if not arg.startswith('--vi')]
+
+        _cmdname, *argv = [arg for arg in sys.argv if not arg.startswith('--vi')]
         if args.init_cmd_for_visualize:
             cmdline0 = args.init_cmd_for_visualize
         else:
             cmdline0 = shlex.join(argv)
-        def cmdline_to_log(cmdline: str):
-            args, _ = arg.parse_args(Args, args=[cmdname, *shlex.split(cmdline)], exit_on_error=False)
-            pbutils.pr(args)
-            if args.log_file_for_visualize:
-                return Log.connect(args.log_file_for_visualize)
-            else:
-                p = args_to_program(args)
-                assert p, 'no program from these arguments!'
-                return Log(execute.simulate_program(p, sim_delays=parse_sim_delays(args)))
+
         pv.start(cmdline0, cmdline_to_log)
 
     elif args.list_stages:
