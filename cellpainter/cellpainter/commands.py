@@ -412,9 +412,6 @@ class WaitForResource(Command):
 @dataclass(frozen=True)
 class RobotarmCmd(Command):
     program_name: str
-    def __post_init__(self):
-        assert self.program_name in movelists
-
 
     def required_resource(self):
         return 'robotarm'

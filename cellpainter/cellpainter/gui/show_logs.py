@@ -50,6 +50,7 @@ def show_logs() -> Iterator[Tag | V.Node | dict[str, str]]:
                 # row.batch_sizes = edit_pm(edit_pm.attr.batch_sizes, int, enable_edit=False).extend(class_='right')
                 if rt.config_name != 'live':
                     row.live = rt.config_name
+                    continue
                 if pm.protocol != 'cell-paint':
                     row.protocol = edit_pm(edit_pm.attr.protocol, enable_edit=False)
                 row.from_stage = edit_pm(edit_pm.attr.from_stage, lambda x: None if not x or x == 'None' else x, enable_edit=False)
