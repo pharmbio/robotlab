@@ -3,7 +3,7 @@ from typing import *
 import typing
 from dataclasses import *
 
-from collections import defaultdict, Counter
+
 
 import graphlib
 import re
@@ -618,7 +618,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
             chunks[plate.id, step,  'B21 -> incu'] = B21_to_incu
             chunks[plate.id, step,  'B21 -> out' ] = [*RobotarmCmds(plate.out_put)]
 
-    adjacent: dict[Desc, set[Desc]] = defaultdict(set)
+    adjacent: dict[Desc, set[Desc]] = DefaultDict(set)
 
     def seq(descs: list[Desc | None]):
         filtered: list[Desc] = [ desc for desc in descs if desc ]
@@ -669,7 +669,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                 if i + offset < len(batch)
             ])
 
-    deps: dict[Desc, set[Desc]] = defaultdict(set)
+    deps: dict[Desc, set[Desc]] = DefaultDict(set)
     for node, nexts in adjacent.items():
         for next in nexts:
             deps[next] |= {node}

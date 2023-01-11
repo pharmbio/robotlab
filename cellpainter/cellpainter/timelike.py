@@ -42,7 +42,7 @@ class Timelike(abc.ABC):
         pass
 
 from threading import Thread
-from collections import defaultdict
+
 
 @dataclass
 class ThreadData:
@@ -54,10 +54,10 @@ class ThreadData:
 
 @dataclass
 class SimulatedTime(Timelike):
-    threads: dict[Thread, ThreadData] = field(default_factory=lambda: defaultdict[Thread, ThreadData](ThreadData))
+    threads: dict[Thread, ThreadData] = field(default_factory=lambda: DefaultDict[Thread, ThreadData](ThreadData))
     skipped_time: float = 0.0
     lock: Lock = field(default_factory=Lock)
-    qsize: dict[int, int] = field(default_factory=lambda: defaultdict[int, int](int))
+    qsize: dict[int, int] = field(default_factory=lambda: DefaultDict[int, int](int))
 
     def log(self):
         return

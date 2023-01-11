@@ -7,7 +7,7 @@ from viable import Tag, pre, div, span, label
 from .log import Log
 from . import commands
 
-from collections import *
+
 
 import pbutils
 

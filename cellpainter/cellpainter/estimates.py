@@ -5,7 +5,7 @@ from typing import *
 import pbutils
 from .log import Log
 
-from collections import defaultdict
+
 
 from .commands import (
     RobotarmCmd,
@@ -38,7 +38,7 @@ def estimates_from(path: str) -> dict[EstCmd, float]:
 
 def add_estimates_from(path: str, log_or_log_path: str | Log):
     entries: list[EstEntry] = cast(Any, pbutils.serializer.read_json(path))
-    ests: dict[EstCmd, dict[str, float]] = defaultdict(dict)
+    ests: dict[EstCmd, dict[str, float]] = DefaultDict(dict)
     for e in entries:
         cmd = normalize(e['cmd'])
         ests[cmd] = e['times']

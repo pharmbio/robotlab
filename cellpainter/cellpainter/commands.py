@@ -2,7 +2,7 @@ from __future__ import annotations
 from dataclasses import *
 from typing import *
 
-from collections import defaultdict
+
 
 import abc
 
@@ -160,7 +160,7 @@ class Command(abc.ABC):
         This removes all WaitForResource by turning them into WaitForCheckpoint
         plus makes the required Checkpoints.
         '''
-        counts: dict[str, int] = defaultdict(int)
+        counts: dict[str, int] = DefaultDict(int)
         taken = self.checkpoints()
         def F(cmd: Command) -> Command:
             match cmd:

@@ -148,11 +148,11 @@ class Var(Generic[A], abc.ABC):
         self.assign(value)
 
     def update(self, value: A, push: bool=False) -> str:
+        q = quiet_repr
         if isinstance(value, JS):
-            rhs = value.fragment
+            rhs = q(value.fragment)
         else:
             rhs = self.to_str(value)
-        q = quiet_repr
         next = {q(self.provenance): {self.full_name: rhs}}
         if push:
             next = {**next, q('push'): q('true')}

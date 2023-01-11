@@ -41,7 +41,7 @@ import_z3()
 
 from z3 import Sum, If, Optimize, Solver, Real, Int, And, Or # type: ignore
 
-from collections import defaultdict
+
 
 from . import estimates
 from .estimates import estimate
@@ -56,7 +56,7 @@ def optimize(cmd: Command) -> tuple[Command, dict[int, float]]:
 
 @dataclass(frozen=True)
 class Ids:
-    counts: dict[str, int] = field(default_factory=lambda: defaultdict[str, int](int))
+    counts: dict[str, int] = field(default_factory=lambda: DefaultDict[str, int](int))
 
     def assign(self, prefix: str = ''):
         self.counts[prefix] += 1

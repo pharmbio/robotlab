@@ -410,6 +410,10 @@ class var(Tag): pass
 class video(Tag): pass
 class wbr(Tag): pass
 
+def svg(*children: Node | str, **attrs: AttrValue):
+    attrs = {'xmlns': "http://www.w3.org/2000/svg", **attrs}
+    return tag('svg', *children, **attrs)
+
 class Tags:
     a          = a
     abbr       = abbr
@@ -519,3 +523,4 @@ class Tags:
     var        = var
     video      = video
     wbr        = wbr
+    svg        = svg

@@ -9,7 +9,7 @@ import sys
 import threading
 import traceback
 
-from collections import defaultdict
+
 from contextlib import contextmanager
 from datetime import datetime, timedelta
 from queue import Queue
@@ -131,7 +131,7 @@ class Runtime:
 
     checkpoint_times: dict[str, float] = field(default_factory=dict)
     checkpoint_waits: dict[str, list[Queue[None]]] = field(default_factory=
-        lambda: defaultdict[str, list[Queue[None]]](list)
+        lambda: DefaultDict[str, list[Queue[None]]](list)
     )
 
     world: World | None = None
