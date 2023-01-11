@@ -97,7 +97,7 @@ def args_to_str(args: Args):
                 if v:
                     parts += [f'--{k}']
             else:
-                parts += [f'--{k}', v]
+                parts += [f'--{k}', str(v)]
     return shlex.join(parts)
 
 def main():
