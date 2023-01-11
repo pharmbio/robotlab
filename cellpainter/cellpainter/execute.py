@@ -204,7 +204,7 @@ def remove_stages(program: Program, until_stage: str) -> Program:
         nonlocal i
         if isinstance(cmd, WaitForCheckpoint | Duration) and cmd.name not in checkpoints:
             i += 1
-            name = f'[partial] {cmd.name}'
+            name = f'(partial) {cmd.name}'
             dangling.add(name)
             replacement = WaitForCheckpoint(name, assume='nothing') + f'wiggle {i}'
             if isinstance(cmd, Duration):
