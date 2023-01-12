@@ -141,7 +141,8 @@ class RawCode(Move):
     def is_open(self) -> bool: raise ValueError
     def is_close(self) -> bool: raise ValueError
 
-HotelLocs = [1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21]
+HotelLocs = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21]
+HotelLocs_B_C = [x for x in HotelLocs if x % 2 == 1]
 
 class MoveList(list[Move]):
     '''
@@ -187,12 +188,13 @@ class MoveList(list[Move]):
         '''
         hotel_dist: float = 70.94
         out: dict[str, MoveList] = {}
+        hotel_locs = HotelLocs if 'A' in name else HotelLocs_B_C
         for tag in set(self.tags()):
             if m := re.match(r'(\d+)/21$', tag):
                 ref_h = int(m.group(1))
                 assert str(ref_h) in name
-                assert ref_h in HotelLocs
-                for h in HotelLocs:
+                assert ref_h in hotel_locs
+                for h in hotel_locs:
                     dz = (h - ref_h) / 2 * hotel_dist
                     name_h = name.replace(str(ref_h), str(h), 1)
                     out[name_h] = self.adjust_tagged(tag, dname=str(h), dz=dz)

@@ -46,6 +46,7 @@ def add_estimates_from(path: str, log_or_log_path: str | Log):
         log = log_or_log_path
     else:
         log = Log.read_jsonl(log_or_log_path)
+    # todo
     for e in log:
         cmd = e.cmd
         if isinstance(cmd, EstCmd) and e.duration is not None:

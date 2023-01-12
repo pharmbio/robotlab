@@ -80,12 +80,14 @@ def incu_load(args: SmallProtocolArgs):
     Required lab prerequisites:
         1. incubator transfer door: empty!
         2. incubator L1, ...:       empty!
-        3. hotel A1, A3, ...:       plates with lid
+        3. hotel A1, A2, ...:       plates with lid
         4. robotarm:                in neutral position by B hotel
     '''
     num_plates = args.num_plates
     cmds: list[Command] = []
     world0: dict[str, str] = {}
+    assert num_plates <= len(Locations.A)
+    assert num_plates <= len(Locations.Incu)
     for i, (incu_loc, a_loc) in enumerate(zip(Locations.Incu, Locations.A[::-1]), start=1):
         if i > num_plates:
             break
@@ -403,25 +405,25 @@ def time_robotarm(_: SmallProtocolArgs):
     '''
     arm: list[Command] = []
     plate = Plate('', '', '', '', '', 1)
-    for lid_loc in Locations.Lid[:2]:
-        plate = replace(plate, lid_loc=lid_loc)
-        arm += [
-            *RobotarmCmds(plate.lid_put),
-            *RobotarmCmds(plate.lid_get),
-        ]
-    for rt_loc in Locations.RT_many:
-        plate = replace(plate, rt_loc=rt_loc)
-        arm += [
-            *RobotarmCmds(plate.rt_put),
-            *RobotarmCmds(plate.rt_get),
-        ]
     for out_loc in Locations.Out:
         plate = replace(plate, out_loc=out_loc)
         arm += [
             *RobotarmCmds(plate.out_put),
             *RobotarmCmds(plate.out_get),
         ]
-    plate = replace(plate, lid_loc=Locations.Lid[0], rt_loc=Locations.RT_many[0])
+    for rt_loc in reversed(Locations.RT):
+        plate = replace(plate, rt_loc=rt_loc)
+        arm += [
+            *RobotarmCmds(plate.rt_put),
+            *RobotarmCmds(plate.rt_get),
+        ]
+    for lid_loc in Locations.Lid[:2]:
+        plate = replace(plate, lid_loc=lid_loc)
+        arm += [
+            *RobotarmCmds(plate.lid_put),
+            *RobotarmCmds(plate.lid_get),
+        ]
+    plate = replace(plate, lid_loc=Locations.Lid[0], rt_loc=Locations.RT[0])
     arm2: list[Command] = [
         *RobotarmCmds(plate.rt_put),
         *RobotarmCmds('incu get'),
@@ -442,7 +444,6 @@ def time_robotarm(_: SmallProtocolArgs):
     cmds: list[Command] = [
         *RobotarmCmds('incu get'),
         *arm,
-        WaitForResource('incu'),
         sleek_program(Seq(*arm2)),
         *arm2,
         *RobotarmCmds('incu put'),

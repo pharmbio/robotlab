@@ -81,18 +81,19 @@ class Plate:
         return f'{self.out_loc} get'
 
 class Locations:
-    H = [21, 19, 17, 15, 13, 11, 9, 7, 5, 3, 1]
+    HA = [21, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1]
+    HB = [21, 19, 17, 15, 13, 11, 9, 7, 5, 3, 1]
+    HC = [21, 19, 17, 15, 13, 11, 9, 7, 5, 3, 1]
     I = [i+1 for i in range(22)]
 
-    A: list[str] = [f'A{i}' for i in H]
-    B: list[str] = [f'B{i}' for i in H]
-    C: list[str] = [f'C{i}' for i in H]
+    A: list[str] = [f'A{i}' for i in HA]
+    B: list[str] = [f'B{i}' for i in HB]
+    C: list[str] = [f'C{i}' for i in HC]
 
-    Incu:    list[str] = [f'L{i}' for i in I] + [f'R{i}' for i in I]
-    RT_few:  list[str] = C[:4] + A[:4]                # up to 8 plates
-    RT_many: list[str] = C[:5] + A[:5] + [B[4], B[5]] # up to 12 plates
-    Out:     list[str] = A[5:][::-1] + B[5:][::-1] + C[5:][::-1]
-    Lid:     list[str] = [b for b in B if '19' in b or '17' in b]
+    Incu: list[str] = [f'L{i}' for i in I] + [f'R{i}' for i in I]
+    RT:   list[str] = C[:5] + A[:9] + [B[4], B[5]]
+    Out:  list[str] = A[9:][::-1] + B[5:][::-1] + C[5:][::-1]
+    Lid:  list[str] = [b for b in B if '19' in b or '17' in b]
 
 def sleek_program(program: Command) -> Command:
     def get_movelist(cmd_and_metadata: tuple[Command, Metadata]) -> moves.MoveList | None:
@@ -124,7 +125,7 @@ def define_plates(batch_sizes: list[int]) -> list[list[Plate]]:
     index = 0
     for batch_index, batch_size in enumerate(batch_sizes):
         batch: list[Plate] = []
-        rt = Locations.RT_many if batch_size > len(Locations.RT_few) else Locations.RT_few
+        rt = Locations.RT
         for index_in_batch in range(batch_size):
             batch += [Plate(
                 id=f'{index+1}',
