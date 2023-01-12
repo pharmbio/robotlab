@@ -403,8 +403,16 @@ def time_robotarm(_: SmallProtocolArgs):
         7. biotek dispenser:        empty!
         8. robotarm:                in neutral position by B hotel
     '''
-    arm: list[Command] = []
+    arm: list[Command] = [
+        *RobotarmCmds('incu get'),
+    ]
     plate = Plate('', '', '', '', '', 1)
+    for lid_loc in Locations.Lid[:2]:
+        plate = replace(plate, lid_loc=lid_loc)
+        arm += [
+            *RobotarmCmds(plate.lid_put),
+            *RobotarmCmds(plate.lid_get),
+        ]
     for out_loc in Locations.Out:
         plate = replace(plate, out_loc=out_loc)
         arm += [
@@ -417,16 +425,8 @@ def time_robotarm(_: SmallProtocolArgs):
             *RobotarmCmds(plate.rt_put),
             *RobotarmCmds(plate.rt_get),
         ]
-    for lid_loc in Locations.Lid[:2]:
-        plate = replace(plate, lid_loc=lid_loc)
-        arm += [
-            *RobotarmCmds(plate.lid_put),
-            *RobotarmCmds(plate.lid_get),
-        ]
     plate = replace(plate, lid_loc=Locations.Lid[0], rt_loc=Locations.RT[0])
-    arm2: list[Command] = [
-        *RobotarmCmds(plate.rt_put),
-        *RobotarmCmds('incu get'),
+    arm += [
         *RobotarmCmds(plate.lid_put),
         *RobotarmCmds('wash put'),
         *RobotarmCmds('wash_to_disp'),
@@ -439,17 +439,9 @@ def time_robotarm(_: SmallProtocolArgs):
         *RobotarmCmds('B15 get'),
         *RobotarmCmds(plate.lid_get),
         *RobotarmCmds('incu put'),
-        *RobotarmCmds(plate.rt_get),
     ]
-    cmds: list[Command] = [
-        *RobotarmCmds('incu get'),
-        *arm,
-        sleek_program(Seq(*arm2)),
-        *arm2,
-        *RobotarmCmds('incu put'),
-    ]
-    program = Seq(*cmds)
-    return Program(program)
+    program = Seq(*arm)
+    return Program(program, world0=World({'incu': '1'}))
 
 # @small_protocols.append
 def lid_stress_test(_: SmallProtocolArgs):
