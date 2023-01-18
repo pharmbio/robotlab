@@ -8,6 +8,10 @@ import viable as V
 
 from datetime import datetime, timedelta
 from pathlib import Path
+from subprocess import run, STDOUT, PIPE
+
+import shlex
+import json
 
 from ..log import ExperimentMetadata, Log
 from ..commands import ProgramMetadata
@@ -134,6 +138,8 @@ def show_logs() -> Iterator[Tag | V.Node | dict[str, str]]:
                         }
                     '''
                 )
+                git_status = run(['git', 'status', '--untracked-files', '--porcelain', '--ignored', str(log)], capture_output=True, encoding='utf-8')
+                row.git = div(git_status.stdout.strip()[:2], align='center')
             else:
                 row.err = pre(f'{log=}: no runtime metadata')
         except BaseException as e:
@@ -208,7 +214,7 @@ def show_logs() -> Iterator[Tag | V.Node | dict[str, str]]:
     buttons = span(
         span('with selection:'),
         V.button(
-            'add to git',
+            'git add',
             onclick=call(git_add, selected),
         ),
         V.button(
@@ -235,11 +241,11 @@ def show_logs() -> Iterator[Tag | V.Node | dict[str, str]]:
     yield div(
         buttons,
         label(
-            show_all.input().extend(transform='translateY(3px)'),
+            show_all.input().extend(transform='translate(6px, 3px)', height='14px', width='14px'),
             'show all',
         ),
         label(
-            enable_edit.input().extend(transform='translateY(3px)'),
+            enable_edit.input().extend(transform='translate(6px, 3px)', height='14px', width='14px'),
             'enable edit',
         ),
         css='''
@@ -256,9 +262,6 @@ def show_logs() -> Iterator[Tag | V.Node | dict[str, str]]:
         css_=common.inverted_inputs_css,
     )
 
-import shlex
-import json
-
 def confirm(s: str, next: str):
     return V.Action(f'confirm({json.dumps(s)}) && ({next})')
 
@@ -271,8 +274,7 @@ def confirm_execute(script: str | list[str]):
     )
 
 def execute(script: str):
-    from subprocess import run, STDOUT, PIPE
-    out = run(['sh', '-c', script], encoding='utf-8', stdout=PIPE, stderr=STDOUT)
+    out = run(['sh', '-euo', 'pipefail', '-c', script], encoding='utf-8', stdout=PIPE, stderr=STDOUT)
     print(out)
     res = out.stdout or ''
     return common.alert(res)
@@ -291,10 +293,14 @@ def add_timings(selected: list[Path]):
     return confirm_execute(lines)
 
 def git_add(selected: list[Path]):
-    lines: list[str] = []
-    for s in selected:
-        lines += ['git add --verbose --force ' + shlex.quote(str(s))]
-    lines += ['git commit --message ' + shlex.quote("Add log files")]
-    lines += ['git push']
-    return confirm_execute(lines)
+    def part_two(message: str | None):
+        if message is None:
+            return
+        lines: list[str] = []
+        for s in selected:
+            lines += ['git add --verbose --force ' + shlex.quote(str(s))]
+        lines += ['git commit --message ' + shlex.quote(message)]
+        lines += ['git push']
+        return confirm_execute(lines)
+    return V.Action(call(part_two, js('prompt("commit message:", "Add log files")')))
 
