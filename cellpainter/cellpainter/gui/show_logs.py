@@ -127,7 +127,7 @@ def show_logs() -> Iterator[Tag | V.Node | dict[str, str]]:
                 if select.value:
                     selected += [log]
                 row.select = label(
-                    select.input(),
+                    select.input().extend(display='block', margin='auto'),
                     width='100%',
                     display='block',
                     cursor='pointer',
@@ -274,7 +274,7 @@ def confirm_execute(script: str | list[str]):
     )
 
 def execute(script: str):
-    out = run(['sh', '-euo', 'pipefail', '-c', script], encoding='utf-8', stdout=PIPE, stderr=STDOUT)
+    out = run(['sh', '-eu', '-c', script], encoding='utf-8', stdout=PIPE, stderr=STDOUT)
     print(out)
     res = out.stdout or ''
     return common.alert(res)
