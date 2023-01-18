@@ -122,6 +122,7 @@ def path_var_assign(path: str, push_state: bool=True):
 def alert(s: str):
     return V.Action(f'alert({json.dumps(s)})')
 
+
 inverted_inputs_css = '''
     & input[type=range] {
         transform: translateY(3px);
@@ -130,12 +131,8 @@ inverted_inputs_css = '''
     }
     & input[type=checkbox] {
         filter: invert(83%) hue-rotate(180deg);
+        transform: translateY(2px);
         cursor: pointer;
-        width: 36px;
-        height: 16px;
-        margin-top: 8px;
-        margin-bottom: 8px;
-        margin-right: auto;
     }
 '''
 
