@@ -4005,10 +4005,52 @@
   {
     "cmd": {
       "type": "RobotarmCmd",
+      "program_name": "A1 get prep"
+    },
+    "times": {
+      "2023-01-12 13:55:16": 4.817,
+      "2023-01-12 14:31:25": 4.819
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A1 get return"
+    },
+    "times": {
+      "2023-01-12 13:55:26": 1.405,
+      "2023-01-12 14:31:35": 1.204
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A1 get transfer"
+    },
+    "times": {
+      "2023-01-12 13:55:25": 9.135,
+      "2023-01-12 14:31:34": 9.433
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A1 put prep"
+    },
+    "times": {
+      "2023-01-12 13:54:58": 1.504,
+      "2023-01-12 14:31:07": 1.506
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
       "program_name": "A1 put return"
     },
     "times": {
-      "2022-11-15 09:38:42": 4.515
+      "2022-11-15 09:38:42": 4.515,
+      "2023-01-12 13:55:11": 4.516,
+      "2023-01-12 14:31:20": 4.516
     }
   },
   {
@@ -4017,7 +4059,775 @@
       "program_name": "A1 put transfer"
     },
     "times": {
-      "2022-11-15 09:38:37": 9.838
+      "2022-11-15 09:38:37": 9.838,
+      "2023-01-12 13:55:07": 8.834,
+      "2023-01-12 14:31:15": 8.835
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A10 get prep"
+    },
+    "times": {
+      "2023-01-12 13:59:19": 3.412,
+      "2023-01-12 14:35:30": 3.41
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A10 get return"
+    },
+    "times": {
+      "2023-01-12 13:59:28": 1.105,
+      "2023-01-12 14:35:39": 1.204
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A10 get transfer"
+    },
+    "times": {
+      "2023-01-12 13:59:27": 7.83,
+      "2023-01-12 14:35:38": 7.828
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A10 put prep"
+    },
+    "times": {
+      "2023-01-12 13:59:05": 1.404,
+      "2023-01-12 14:35:15": 1.404
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A10 put return"
+    },
+    "times": {
+      "2023-01-12 13:59:16": 3.212,
+      "2023-01-12 14:35:26": 3.21
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A10 put transfer"
+    },
+    "times": {
+      "2023-01-12 13:59:13": 7.73,
+      "2023-01-12 14:35:23": 7.729
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A11 get prep"
+    },
+    "times": {
+      "2023-01-12 13:59:44": 3.412,
+      "2023-01-12 14:35:54": 3.41
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A11 get return"
+    },
+    "times": {
+      "2023-01-12 13:59:53": 1.203,
+      "2023-01-12 14:36:03": 1.206
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A11 get transfer"
+    },
+    "times": {
+      "2023-01-12 13:59:52": 7.931,
+      "2023-01-12 14:36:02": 7.927
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A11 put prep"
+    },
+    "times": {
+      "2023-01-12 13:59:30": 1.405,
+      "2023-01-12 14:35:40": 1.304
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A11 put return"
+    },
+    "times": {
+      "2023-01-12 13:59:40": 3.413,
+      "2023-01-12 14:35:51": 3.112
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A11 put transfer"
+    },
+    "times": {
+      "2023-01-12 13:59:37": 7.33,
+      "2023-01-12 14:35:48": 7.628
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A12 get prep"
+    },
+    "times": {
+      "2023-01-12 14:00:07": 2.71,
+      "2023-01-12 14:36:18": 2.709
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A12 get return"
+    },
+    "times": {
+      "2023-01-12 14:00:15": 0.903,
+      "2023-01-12 14:36:27": 1.404
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A12 get transfer"
+    },
+    "times": {
+      "2023-01-12 14:00:14": 6.928,
+      "2023-01-12 14:36:25": 7.224
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A12 put prep"
+    },
+    "times": {
+      "2023-01-12 13:59:54": 1.304,
+      "2023-01-12 14:36:05": 1.305
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A12 put return"
+    },
+    "times": {
+      "2023-01-12 14:00:05": 3.01,
+      "2023-01-12 14:36:15": 3.311
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A12 put transfer"
+    },
+    "times": {
+      "2023-01-12 14:00:02": 7.628,
+      "2023-01-12 14:36:12": 7.328
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A13 get prep"
+    },
+    "times": {
+      "2023-01-12 14:06:43": 2.71
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A13 get return"
+    },
+    "times": {
+      "2023-01-12 14:06:51": 1.505
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A13 get transfer"
+    },
+    "times": {
+      "2023-01-12 14:06:50": 7.126
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A13 put prep"
+    },
+    "times": {
+      "2023-01-12 14:06:29": 1.305
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A13 put return"
+    },
+    "times": {
+      "2023-01-12 14:06:40": 3.111
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A13 put transfer"
+    },
+    "times": {
+      "2023-01-12 14:06:37": 7.428
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A14 get prep"
+    },
+    "times": {
+      "2023-01-12 14:07:06": 2.71
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A14 get return"
+    },
+    "times": {
+      "2023-01-12 14:07:14": 0.903
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A14 get transfer"
+    },
+    "times": {
+      "2023-01-12 14:07:13": 7.125
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A14 put prep"
+    },
+    "times": {
+      "2023-01-12 14:06:52": 1.305
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A14 put return"
+    },
+    "times": {
+      "2023-01-12 14:07:03": 3.111
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A14 put transfer"
+    },
+    "times": {
+      "2023-01-12 14:07:00": 7.328
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A15 get prep"
+    },
+    "times": {
+      "2023-01-12 14:07:27": 2.81
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A15 get return"
+    },
+    "times": {
+      "2023-01-12 14:07:36": 1.306
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A15 get transfer"
+    },
+    "times": {
+      "2023-01-12 14:07:34": 6.928
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A15 put prep"
+    },
+    "times": {
+      "2023-01-12 14:07:15": 1.404
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A15 put return"
+    },
+    "times": {
+      "2023-01-12 14:07:25": 2.308
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A15 put transfer"
+    },
+    "times": {
+      "2023-01-12 14:07:22": 7.227
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A16 get prep"
+    },
+    "times": {
+      "2023-01-12 14:07:49": 2.81
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A16 get return"
+    },
+    "times": {
+      "2023-01-12 14:07:57": 1.104
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A16 get transfer"
+    },
+    "times": {
+      "2023-01-12 14:07:56": 7.126
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A16 put prep"
+    },
+    "times": {
+      "2023-01-12 14:07:37": 1.305
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A16 put return"
+    },
+    "times": {
+      "2023-01-12 14:07:46": 2.308
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A16 put transfer"
+    },
+    "times": {
+      "2023-01-12 14:07:44": 7.129
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A17 get prep"
+    },
+    "times": {
+      "2023-01-12 14:08:11": 2.71
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A17 get return"
+    },
+    "times": {
+      "2023-01-12 14:08:19": 1.505
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A17 get transfer"
+    },
+    "times": {
+      "2023-01-12 14:08:18": 6.926
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A17 put prep"
+    },
+    "times": {
+      "2023-01-12 14:07:59": 1.405
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A17 put return"
+    },
+    "times": {
+      "2023-01-12 14:08:08": 2.308
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A17 put transfer"
+    },
+    "times": {
+      "2023-01-12 14:08:06": 7.029
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A18 get prep"
+    },
+    "times": {
+      "2023-01-12 14:08:33": 2.709
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A18 get return"
+    },
+    "times": {
+      "2023-01-12 14:08:41": 1.203
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A18 get transfer"
+    },
+    "times": {
+      "2023-01-12 14:08:40": 7.227
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A18 put prep"
+    },
+    "times": {
+      "2023-01-12 14:08:21": 1.305
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A18 put return"
+    },
+    "times": {
+      "2023-01-12 14:08:30": 2.508
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A18 put transfer"
+    },
+    "times": {
+      "2023-01-12 14:08:27": 6.826
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A19 get prep"
+    },
+    "times": {
+      "2023-01-12 14:08:54": 2.71
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A19 get return"
+    },
+    "times": {
+      "2023-01-12 14:09:03": 1.305
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A19 get transfer"
+    },
+    "times": {
+      "2023-01-12 14:09:02": 7.231
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A19 put prep"
+    },
+    "times": {
+      "2023-01-12 14:08:42": 1.407
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A19 put return"
+    },
+    "times": {
+      "2023-01-12 14:08:52": 2.308
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A19 put transfer"
+    },
+    "times": {
+      "2023-01-12 14:08:49": 6.925
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A2 get prep"
+    },
+    "times": {
+      "2023-01-12 13:55:45": 4.115,
+      "2023-01-12 14:31:54": 4.115
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A2 get return"
+    },
+    "times": {
+      "2023-01-12 13:55:55": 1.405,
+      "2023-01-12 14:32:04": 1.408
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A2 get transfer"
+    },
+    "times": {
+      "2023-01-12 13:55:54": 8.632,
+      "2023-01-12 14:32:03": 8.638
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A2 put prep"
+    },
+    "times": {
+      "2023-01-12 13:55:28": 1.404,
+      "2023-01-12 14:31:37": 1.305
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A2 put return"
+    },
+    "times": {
+      "2023-01-12 13:55:41": 4.515,
+      "2023-01-12 14:31:50": 4.52
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A2 put transfer"
+    },
+    "times": {
+      "2023-01-12 13:55:37": 8.833,
+      "2023-01-12 14:31:45": 8.833
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A20 get prep"
+    },
+    "times": {
+      "2023-01-12 14:09:16": 2.007
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A20 get return"
+    },
+    "times": {
+      "2023-01-12 14:09:23": 1.505
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A20 get transfer"
+    },
+    "times": {
+      "2023-01-12 14:09:22": 6.424
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A20 put prep"
+    },
+    "times": {
+      "2023-01-12 14:09:04": 1.304
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A20 put return"
+    },
+    "times": {
+      "2023-01-12 14:09:13": 2.508
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A20 put transfer"
+    },
+    "times": {
+      "2023-01-12 14:09:11": 6.724
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A21 get prep"
+    },
+    "times": {
+      "2023-01-12 14:09:36": 2.008
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A21 get return"
+    },
+    "times": {
+      "2023-01-12 14:09:44": 1.505
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A21 get transfer"
+    },
+    "times": {
+      "2023-01-12 14:09:42": 6.425
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A21 put prep"
+    },
+    "times": {
+      "2023-01-12 14:09:25": 1.304
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A21 put return"
+    },
+    "times": {
+      "2023-01-12 14:09:34": 2.509
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A21 put transfer"
+    },
+    "times": {
+      "2023-01-12 14:09:31": 6.727
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A3 get prep"
+    },
+    "times": {
+      "2023-01-12 13:56:14": 4.115,
+      "2023-01-12 14:32:23": 4.12
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A3 get return"
+    },
+    "times": {
+      "2023-01-12 13:56:24": 1.404,
+      "2023-01-12 14:32:33": 1.505
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A3 get transfer"
+    },
+    "times": {
+      "2023-01-12 13:56:23": 8.732,
+      "2023-01-12 14:32:31": 8.637
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A3 put prep"
+    },
+    "times": {
+      "2023-01-12 13:55:57": 1.304,
+      "2023-01-12 14:32:05": 1.304
     }
   },
   {
@@ -4026,7 +4836,9 @@
       "program_name": "A3 put return"
     },
     "times": {
-      "2022-11-15 09:40:14": 3.813
+      "2022-11-15 09:40:14": 3.813,
+      "2023-01-12 13:56:10": 4.415,
+      "2023-01-12 14:32:19": 4.519
     }
   },
   {
@@ -4035,7 +4847,109 @@
       "program_name": "A3 put transfer"
     },
     "times": {
-      "2022-11-15 09:40:11": 9.135
+      "2022-11-15 09:40:11": 9.135,
+      "2023-01-12 13:56:05": 8.835,
+      "2023-01-12 14:32:14": 8.735
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A4 get prep"
+    },
+    "times": {
+      "2023-01-12 13:56:42": 4.114,
+      "2023-01-12 14:32:53": 4.221
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A4 get return"
+    },
+    "times": {
+      "2023-01-12 13:56:52": 0.904,
+      "2023-01-12 14:33:03": 1.103
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A4 get transfer"
+    },
+    "times": {
+      "2023-01-12 13:56:51": 8.632,
+      "2023-01-12 14:33:01": 8.441
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A4 put prep"
+    },
+    "times": {
+      "2023-01-12 13:56:26": 1.405,
+      "2023-01-12 14:32:34": 1.305
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A4 put return"
+    },
+    "times": {
+      "2023-01-12 13:56:38": 3.815,
+      "2023-01-12 14:32:49": 3.918
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A4 put transfer"
+    },
+    "times": {
+      "2023-01-12 13:56:34": 8.533,
+      "2023-01-12 14:32:45": 10.541
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A5 get prep"
+    },
+    "times": {
+      "2023-01-12 13:57:09": 4.214,
+      "2023-01-12 14:33:20": 4.214
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A5 get return"
+    },
+    "times": {
+      "2023-01-12 13:57:19": 1.104,
+      "2023-01-12 14:33:30": 1.204
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A5 get transfer"
+    },
+    "times": {
+      "2023-01-12 13:57:18": 8.53,
+      "2023-01-12 14:33:29": 8.443
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A5 put prep"
+    },
+    "times": {
+      "2023-01-12 13:56:53": 1.404,
+      "2023-01-12 14:33:04": 1.305
     }
   },
   {
@@ -4044,7 +4958,9 @@
       "program_name": "A5 put return"
     },
     "times": {
-      "2022-11-15 09:41:04": 3.914
+      "2022-11-15 09:41:04": 3.914,
+      "2023-01-12 13:57:05": 3.913,
+      "2023-01-12 14:33:16": 3.816
     }
   },
   {
@@ -4053,7 +4969,423 @@
       "program_name": "A5 put transfer"
     },
     "times": {
-      "2022-11-15 09:41:00": 9.333
+      "2022-11-15 09:41:00": 9.333,
+      "2023-01-12 13:57:01": 8.331,
+      "2023-01-12 14:33:12": 8.435
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A6 get prep"
+    },
+    "times": {
+      "2023-01-12 13:57:36": 3.512,
+      "2023-01-12 14:33:48": 4.218
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A6 get return"
+    },
+    "times": {
+      "2023-01-12 13:57:46": 1.205,
+      "2023-01-12 14:33:57": 1.306
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A6 get transfer"
+    },
+    "times": {
+      "2023-01-12 13:57:45": 8.732,
+      "2023-01-12 14:33:56": 8.536
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A6 put prep"
+    },
+    "times": {
+      "2023-01-12 13:57:20": 1.404,
+      "2023-01-12 14:33:31": 1.407
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A6 put return"
+    },
+    "times": {
+      "2023-01-12 13:57:32": 3.914,
+      "2023-01-12 14:33:43": 3.815
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A6 put transfer"
+    },
+    "times": {
+      "2023-01-12 13:57:29": 8.131,
+      "2023-01-12 14:33:40": 8.231
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A7 get prep"
+    },
+    "times": {
+      "2023-01-12 13:58:02": 3.515,
+      "2023-01-12 14:34:14": 3.415
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A7 get return"
+    },
+    "times": {
+      "2023-01-12 13:58:11": 1.405,
+      "2023-01-12 14:34:23": 1.405
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A7 get transfer"
+    },
+    "times": {
+      "2023-01-12 13:58:10": 7.93,
+      "2023-01-12 14:34:22": 7.934
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A7 put prep"
+    },
+    "times": {
+      "2023-01-12 13:57:47": 1.304,
+      "2023-01-12 14:33:59": 1.304
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A7 put return"
+    },
+    "times": {
+      "2023-01-12 13:57:58": 3.314,
+      "2023-01-12 14:34:11": 3.714
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A7 put transfer"
+    },
+    "times": {
+      "2023-01-12 13:57:55": 7.931,
+      "2023-01-12 14:34:07": 8.242
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A8 get prep"
+    },
+    "times": {
+      "2023-01-12 13:58:29": 3.513,
+      "2023-01-12 14:34:40": 3.417
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A8 get return"
+    },
+    "times": {
+      "2023-01-12 13:58:39": 1.606,
+      "2023-01-12 14:34:50": 1.405
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A8 get transfer"
+    },
+    "times": {
+      "2023-01-12 13:58:37": 7.83,
+      "2023-01-12 14:34:48": 8.029
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A8 put prep"
+    },
+    "times": {
+      "2023-01-12 13:58:13": 1.304,
+      "2023-01-12 14:34:25": 1.306
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A8 put return"
+    },
+    "times": {
+      "2023-01-12 13:58:26": 3.211,
+      "2023-01-12 14:34:37": 3.817
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A8 put transfer"
+    },
+    "times": {
+      "2023-01-12 13:58:23": 10.039,
+      "2023-01-12 14:34:33": 8.036
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A9 get prep"
+    },
+    "times": {
+      "2023-01-12 13:58:55": 3.411,
+      "2023-01-12 14:35:05": 3.512
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A9 get return"
+    },
+    "times": {
+      "2023-01-12 13:59:03": 0.904,
+      "2023-01-12 14:35:14": 0.903
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A9 get transfer"
+    },
+    "times": {
+      "2023-01-12 13:59:03": 7.929,
+      "2023-01-12 14:35:13": 7.825
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A9 put prep"
+    },
+    "times": {
+      "2023-01-12 13:58:40": 1.304,
+      "2023-01-12 14:34:51": 1.305
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A9 put return"
+    },
+    "times": {
+      "2023-01-12 13:58:51": 3.414,
+      "2023-01-12 14:35:02": 3.111
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "A9 put transfer"
+    },
+    "times": {
+      "2023-01-12 13:58:48": 7.63,
+      "2023-01-12 14:34:59": 7.93
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "B1 get prep"
+    },
+    "times": {
+      "2023-01-12 14:00:34": 4.116,
+      "2023-01-12 14:36:48": 4.014
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "B1 get return"
+    },
+    "times": {
+      "2023-01-12 14:00:44": 1.204,
+      "2023-01-12 14:36:58": 1.202
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "B1 get transfer"
+    },
+    "times": {
+      "2023-01-12 14:00:43": 8.834,
+      "2023-01-12 14:36:56": 8.934
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "B1 put prep"
+    },
+    "times": {
+      "2023-01-12 14:00:17": 1.405,
+      "2023-01-12 14:36:28": 1.305
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "B1 put return"
+    },
+    "times": {
+      "2023-01-12 14:00:30": 4.217,
+      "2023-01-12 14:36:44": 4.314
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "B1 put transfer"
+    },
+    "times": {
+      "2023-01-12 14:00:26": 9.137,
+      "2023-01-12 14:36:39": 11.14
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "B11 get prep"
+    },
+    "times": {
+      "2023-01-12 14:02:49": 2.609,
+      "2023-01-12 14:05:56": 2.609
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "B11 get return"
+    },
+    "times": {
+      "2023-01-12 14:02:57": 1.204,
+      "2023-01-12 14:06:05": 1.103
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "B11 get transfer"
+    },
+    "times": {
+      "2023-01-12 14:02:56": 7.529,
+      "2023-01-12 14:06:04": 7.632
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "B11 put prep"
+    },
+    "times": {
+      "2023-01-12 14:02:33": 1.305,
+      "2023-01-12 14:05:41": 1.405
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "B11 put return"
+    },
+    "times": {
+      "2023-01-12 14:02:46": 2.91,
+      "2023-01-12 14:05:53": 2.91
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "B11 put transfer"
+    },
+    "times": {
+      "2023-01-12 14:02:43": 9.738,
+      "2023-01-12 14:05:50": 9.737
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "B13 get prep"
+    },
+    "times": {
+      "2023-01-12 14:06:19": 2.711
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "B13 get return"
+    },
+    "times": {
+      "2023-01-12 14:06:28": 1.605
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "B13 get transfer"
+    },
+    "times": {
+      "2023-01-12 14:06:26": 7.381
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "B13 put prep"
+    },
+    "times": {
+      "2023-01-12 14:06:06": 1.404
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "B13 put return"
+    },
+    "times": {
+      "2023-01-12 14:06:16": 2.809
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "B13 put transfer"
+    },
+    "times": {
+      "2023-01-12 14:06:13": 7.327
     }
   },
   {
@@ -4079,7 +5411,8 @@
       "2022-11-15 09:36:08": 0.902,
       "2022-11-15 09:38:19": 1.505,
       "2022-11-15 09:39:53": 1.004,
-      "2022-11-15 09:40:42": 1.004
+      "2022-11-15 09:40:42": 1.004,
+      "2023-01-12 14:14:29": 1.405
     }
   },
   {
@@ -4093,7 +5426,460 @@
       "2022-11-15 09:36:07": 7.326,
       "2022-11-15 09:38:17": 8.935,
       "2022-11-15 09:39:52": 7.229,
-      "2022-11-15 09:40:41": 6.925
+      "2022-11-15 09:40:41": 6.925,
+      "2023-01-12 14:14:27": 7.729
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "B15 put transfer"
+    },
+    "times": {
+      "2023-01-12 14:13:54": 7.228
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "B3 get prep"
+    },
+    "times": {
+      "2023-01-12 14:01:03": 4.116,
+      "2023-01-12 14:37:15": 4.118
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "B3 get return"
+    },
+    "times": {
+      "2023-01-12 14:01:13": 1.404,
+      "2023-01-12 14:37:26": 1.505
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "B3 get transfer"
+    },
+    "times": {
+      "2023-01-12 14:01:12": 8.934,
+      "2023-01-12 14:37:24": 8.934
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "B3 put prep"
+    },
+    "times": {
+      "2023-01-12 14:00:46": 1.405,
+      "2023-01-12 14:36:59": 1.404
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "B3 put return"
+    },
+    "times": {
+      "2023-01-12 14:00:59": 4.216,
+      "2023-01-12 14:37:11": 3.712
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "B3 put transfer"
+    },
+    "times": {
+      "2023-01-12 14:00:54": 8.834,
+      "2023-01-12 14:37:08": 8.535
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "B5 get prep"
+    },
+    "times": {
+      "2023-01-12 14:01:30": 3.413,
+      "2023-01-12 14:37:43": 3.417
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "B5 get return"
+    },
+    "times": {
+      "2023-01-12 14:01:39": 1.505
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "B5 get transfer"
+    },
+    "times": {
+      "2023-01-12 14:01:38": 7.828,
+      "2023-01-12 14:37:51": 8.238
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "B5 put prep"
+    },
+    "times": {
+      "2023-01-12 14:01:14": 1.304,
+      "2023-01-12 14:37:27": 1.304
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "B5 put return"
+    },
+    "times": {
+      "2023-01-12 14:01:26": 3.613,
+      "2023-01-12 14:37:39": 3.513
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "B5 put transfer"
+    },
+    "times": {
+      "2023-01-12 14:01:23": 8.43,
+      "2023-01-12 14:37:36": 8.534
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "B7 get prep"
+    },
+    "times": {
+      "2023-01-12 14:01:56": 3.412
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "B7 get return"
+    },
+    "times": {
+      "2023-01-12 14:02:05": 1.404
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "B7 get transfer"
+    },
+    "times": {
+      "2023-01-12 14:02:04": 8.131
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "B7 put prep"
+    },
+    "times": {
+      "2023-01-12 14:01:41": 1.304
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "B7 put return"
+    },
+    "times": {
+      "2023-01-12 14:01:52": 3.613
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "B7 put transfer"
+    },
+    "times": {
+      "2023-01-12 14:01:49": 8.133
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "B9 get prep"
+    },
+    "times": {
+      "2023-01-12 14:02:23": 3.512
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "B9 get return"
+    },
+    "times": {
+      "2023-01-12 14:02:32": 1.105
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "B9 get transfer"
+    },
+    "times": {
+      "2023-01-12 14:02:31": 8.031
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "B9 put prep"
+    },
+    "times": {
+      "2023-01-12 14:02:07": 1.405
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "B9 put return"
+    },
+    "times": {
+      "2023-01-12 14:02:19": 2.811
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "B9 put transfer"
+    },
+    "times": {
+      "2023-01-12 14:02:17": 9.939
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "C1 get prep"
+    },
+    "times": {
+      "2023-01-12 14:03:16": 4.115
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "C1 get return"
+    },
+    "times": {
+      "2023-01-12 14:03:26": 1.104
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "C1 get transfer"
+    },
+    "times": {
+      "2023-01-12 14:03:25": 8.936
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "C1 put prep"
+    },
+    "times": {
+      "2023-01-12 14:02:59": 1.304
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "C1 put return"
+    },
+    "times": {
+      "2023-01-12 14:03:12": 4.316
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "C1 put transfer"
+    },
+    "times": {
+      "2023-01-12 14:03:08": 9.134
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "C11 get prep"
+    },
+    "times": {
+      "2023-01-12 14:05:30": 2.811
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "C11 get return"
+    },
+    "times": {
+      "2023-01-12 14:05:39": 1.004
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "C11 get transfer"
+    },
+    "times": {
+      "2023-01-12 14:05:38": 8.1
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "C11 put prep"
+    },
+    "times": {
+      "2023-01-12 14:05:17": 1.304
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "C11 put return"
+    },
+    "times": {
+      "2023-01-12 14:05:27": 2.811
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "C11 put transfer"
+    },
+    "times": {
+      "2023-01-12 14:05:25": 7.832
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "C13 get prep"
+    },
+    "times": {
+      "2023-01-12 14:09:58": 2.81
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "C13 get return"
+    },
+    "times": {
+      "2023-01-12 14:10:07": 1.103
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "C13 get transfer"
+    },
+    "times": {
+      "2023-01-12 14:10:06": 7.529
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "C13 put prep"
+    },
+    "times": {
+      "2023-01-12 14:09:45": 1.305
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "C13 put return"
+    },
+    "times": {
+      "2023-01-12 14:09:56": 2.61
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "C13 put transfer"
+    },
+    "times": {
+      "2023-01-12 14:09:53": 7.832
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "C15 get prep"
+    },
+    "times": {
+      "2023-01-12 14:10:21": 2.811
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "C15 get return"
+    },
+    "times": {
+      "2023-01-12 14:10:30": 1.506
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "C15 get transfer"
+    },
+    "times": {
+      "2023-01-12 14:10:28": 7.431
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "C15 put prep"
+    },
+    "times": {
+      "2023-01-12 14:10:09": 1.404
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "C15 put return"
+    },
+    "times": {
+      "2023-01-12 14:10:18": 2.309
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "C15 put transfer"
+    },
+    "times": {
+      "2023-01-12 14:10:16": 7.23
     }
   },
   {
@@ -4105,7 +5891,17 @@
       "2022-11-15 09:24:42": 2.309,
       "2022-11-15 09:29:31": 2.207,
       "2022-11-15 09:34:10": 2.208,
-      "2022-11-15 09:38:44": 2.107
+      "2022-11-15 09:38:44": 2.107,
+      "2023-01-12 14:10:43": 2.709
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "C17 get return"
+    },
+    "times": {
+      "2023-01-12 14:10:52": 0.903
     }
   },
   {
@@ -4117,7 +5913,17 @@
       "2022-11-15 09:24:50": 7.326,
       "2022-11-15 09:29:39": 7.424,
       "2022-11-15 09:34:17": 7.428,
-      "2022-11-15 09:38:51": 7.529
+      "2022-11-15 09:38:51": 7.529,
+      "2023-01-12 14:10:51": 7.527
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "C17 put prep"
+    },
+    "times": {
+      "2023-01-12 14:10:31": 1.306
     }
   },
   {
@@ -4129,7 +5935,8 @@
       "2022-11-15 09:22:20": 2.608,
       "2022-11-15 09:27:09": 2.509,
       "2022-11-15 09:31:59": 2.408,
-      "2022-11-15 09:36:26": 2.408
+      "2022-11-15 09:36:26": 2.408,
+      "2023-01-12 14:10:40": 2.207
     }
   },
   {
@@ -4141,7 +5948,8 @@
       "2022-11-15 09:22:17": 7.225,
       "2022-11-15 09:27:07": 7.428,
       "2022-11-15 09:31:57": 7.928,
-      "2022-11-15 09:36:24": 7.529
+      "2022-11-15 09:36:24": 7.529,
+      "2023-01-12 14:10:38": 7.129
     }
   },
   {
@@ -4153,7 +5961,17 @@
       "2022-11-15 09:23:02": 2.808,
       "2022-11-15 09:27:52": 2.81,
       "2022-11-15 09:32:40": 2.809,
-      "2022-11-15 09:37:07": 2.809
+      "2022-11-15 09:37:07": 2.809,
+      "2023-01-12 14:11:04": 2.107
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "C19 get return"
+    },
+    "times": {
+      "2023-01-12 14:11:12": 1.304
     }
   },
   {
@@ -4165,7 +5983,17 @@
       "2022-11-15 09:23:10": 7.225,
       "2022-11-15 09:27:59": 7.124,
       "2022-11-15 09:32:47": 7.226,
-      "2022-11-15 09:37:14": 7.226
+      "2022-11-15 09:37:14": 7.226,
+      "2023-01-12 14:11:11": 6.624
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "C19 put prep"
+    },
+    "times": {
+      "2023-01-12 14:10:53": 1.405
     }
   },
   {
@@ -4177,7 +6005,8 @@
       "2022-11-15 09:21:29": 2.61,
       "2022-11-15 09:26:19": 2.608,
       "2022-11-15 09:31:08": 2.607,
-      "2022-11-15 09:35:40": 2.609
+      "2022-11-15 09:35:40": 2.609,
+      "2023-01-12 14:11:02": 2.208
     }
   },
   {
@@ -4189,7 +6018,8 @@
       "2022-11-15 09:21:26": 7.126,
       "2022-11-15 09:26:16": 7.027,
       "2022-11-15 09:31:05": 7.227,
-      "2022-11-15 09:35:37": 7.63
+      "2022-11-15 09:35:37": 7.63,
+      "2023-01-12 14:11:00": 7.026
     }
   },
   {
@@ -4201,7 +6031,19 @@
       "2022-11-15 09:22:22": 2.508,
       "2022-11-15 09:27:12": 2.61,
       "2022-11-15 09:32:02": 2.611,
-      "2022-11-15 09:36:29": 2.609
+      "2022-11-15 09:36:29": 2.609,
+      "2023-01-12 14:11:25": 2.007,
+      "2023-01-12 14:14:55": 2.509
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "C21 get return"
+    },
+    "times": {
+      "2023-01-12 14:11:33": 1.505,
+      "2023-01-12 14:15:04": 1.204
     }
   },
   {
@@ -4213,7 +6055,23 @@
       "2022-11-15 09:22:31": 8.53,
       "2022-11-15 09:27:20": 8.433,
       "2022-11-15 09:32:09": 6.726,
-      "2022-11-15 09:36:35": 6.725
+      "2022-11-15 09:36:35": 6.725,
+      "2023-01-12 14:11:31": 6.426,
+      "2023-01-12 14:15:03": 7.33,
+      "2023-01-12 14:27:49": 7.328,
+      "2023-01-12 14:28:58": 7.329,
+      "2023-01-12 14:30:09": 7.327
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "C21 put prep"
+    },
+    "times": {
+      "2023-01-12 14:11:14": 1.304,
+      "2023-01-12 14:12:14": 1.706,
+      "2023-01-12 14:15:05": 1.305
     }
   },
   {
@@ -4225,7 +6083,10 @@
       "2022-11-15 09:19:31": 2.506,
       "2022-11-15 09:24:40": 2.008,
       "2022-11-15 09:29:29": 2.507,
-      "2022-11-15 09:34:08": 2.51
+      "2022-11-15 09:34:08": 2.51,
+      "2023-01-12 14:11:23": 2.109,
+      "2023-01-12 14:12:23": 2.208,
+      "2023-01-12 14:15:14": 2.107
     }
   },
   {
@@ -4237,7 +6098,229 @@
       "2022-11-15 09:19:29": 7.625,
       "2022-11-15 09:24:38": 9.135,
       "2022-11-15 09:29:27": 7.626,
-      "2022-11-15 09:34:05": 7.228
+      "2022-11-15 09:34:05": 7.228,
+      "2023-01-12 14:11:21": 7.025,
+      "2023-01-12 14:12:21": 6.726,
+      "2023-01-12 14:15:12": 7.027,
+      "2023-01-12 14:27:41": 7.427,
+      "2023-01-12 14:28:50": 7.327,
+      "2023-01-12 14:30:02": 7.528
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "C3 get prep"
+    },
+    "times": {
+      "2023-01-12 14:03:45": 4.114
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "C3 get return"
+    },
+    "times": {
+      "2023-01-12 14:03:55": 1.404
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "C3 get transfer"
+    },
+    "times": {
+      "2023-01-12 14:03:54": 8.835
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "C3 put prep"
+    },
+    "times": {
+      "2023-01-12 14:03:28": 1.304
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "C3 put return"
+    },
+    "times": {
+      "2023-01-12 14:03:41": 4.316
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "C3 put transfer"
+    },
+    "times": {
+      "2023-01-12 14:03:36": 8.834
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "C5 get prep"
+    },
+    "times": {
+      "2023-01-12 14:04:13": 4.114
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "C5 get return"
+    },
+    "times": {
+      "2023-01-12 14:04:23": 0.903
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "C5 get transfer"
+    },
+    "times": {
+      "2023-01-12 14:04:22": 8.836
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "C5 put prep"
+    },
+    "times": {
+      "2023-01-12 14:03:56": 1.404
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "C5 put return"
+    },
+    "times": {
+      "2023-01-12 14:04:09": 4.114
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "C5 put transfer"
+    },
+    "times": {
+      "2023-01-12 14:04:05": 8.733
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "C7 get prep"
+    },
+    "times": {
+      "2023-01-12 14:04:40": 3.411
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "C7 get return"
+    },
+    "times": {
+      "2023-01-12 14:04:49": 1.204
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "C7 get transfer"
+    },
+    "times": {
+      "2023-01-12 14:04:48": 8.133
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "C7 put prep"
+    },
+    "times": {
+      "2023-01-12 14:04:25": 1.406
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "C7 put return"
+    },
+    "times": {
+      "2023-01-12 14:04:37": 3.613
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "C7 put transfer"
+    },
+    "times": {
+      "2023-01-12 14:04:33": 8.331
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "C9 get prep"
+    },
+    "times": {
+      "2023-01-12 14:05:06": 3.414
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "C9 get return"
+    },
+    "times": {
+      "2023-01-12 14:05:15": 1.404
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "C9 get transfer"
+    },
+    "times": {
+      "2023-01-12 14:05:14": 8.233
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "C9 put prep"
+    },
+    "times": {
+      "2023-01-12 14:04:51": 1.404
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "C9 put return"
+    },
+    "times": {
+      "2023-01-12 14:05:02": 3.412
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "C9 put transfer"
+    },
+    "times": {
+      "2023-01-12 14:04:59": 8.234
     }
   },
   {
@@ -4273,7 +6356,11 @@
       "2022-11-15 09:26:51": 1.305,
       "2022-11-15 09:29:10": 1.505,
       "2022-11-15 09:30:50": 1.504,
-      "2022-11-15 09:31:40": 1.305
+      "2022-11-15 09:31:40": 1.305,
+      "2023-01-12 14:26:11": 1.004,
+      "2023-01-12 14:27:25": 1.304,
+      "2023-01-12 14:28:35": 1.306,
+      "2023-01-12 14:29:45": 1.204
     }
   },
   {
@@ -4293,7 +6380,12 @@
       "2022-11-15 09:26:50": 9.836,
       "2022-11-15 09:29:09": 9.433,
       "2022-11-15 09:30:48": 9.435,
-      "2022-11-15 09:31:39": 9.845
+      "2022-11-15 09:31:39": 9.845,
+      "2023-01-12 14:13:22": 9.84,
+      "2023-01-12 14:26:10": 10.238,
+      "2023-01-12 14:27:24": 9.836,
+      "2023-01-12 14:28:34": 9.838,
+      "2023-01-12 14:29:43": 9.838
     }
   },
   {
@@ -4302,7 +6394,8 @@
       "program_name": "gripper init and check"
     },
     "times": {
-      "2022-11-15 09:10:05": 4.486
+      "2022-11-15 09:10:05": 4.486,
+      "2023-01-12 14:25:10": 4.73
     }
   },
   {
@@ -4316,7 +6409,23 @@
       "2022-11-15 09:13:26": 5.178,
       "2022-11-15 09:16:39": 4.981,
       "2022-11-15 09:17:37": 5.218,
-      "2022-11-15 09:19:36": 4.614
+      "2022-11-15 09:19:36": 4.614,
+      "2023-01-12 13:54:45": 5.079,
+      "2023-01-12 14:12:27": 4.616,
+      "2023-01-12 14:15:19": 4.619,
+      "2023-01-12 14:25:15": 4.916,
+      "2023-01-12 14:30:54": 5.557
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "incu get return"
+    },
+    "times": {
+      "2023-01-12 13:54:56": 1.504,
+      "2023-01-12 14:15:30": 1.104,
+      "2023-01-12 14:31:05": 1.304
     }
   },
   {
@@ -4330,7 +6439,13 @@
       "2022-11-15 09:13:51": 9.503,
       "2022-11-15 09:17:03": 9.246,
       "2022-11-15 09:18:01": 9.195,
-      "2022-11-15 09:20:00": 9.394
+      "2022-11-15 09:20:00": 9.394,
+      "2023-01-12 13:54:55": 9.435,
+      "2023-01-12 14:12:37": 9.737,
+      "2023-01-12 14:15:29": 9.839,
+      "2023-01-12 14:25:25": 9.536,
+      "2023-01-12 14:26:39": 9.435,
+      "2023-01-12 14:31:04": 9.604
     }
   },
   {
@@ -4341,7 +6456,8 @@
     "times": {
       "2022-11-15 09:13:08": 4.613,
       "2022-11-15 09:15:25": 4.512,
-      "2022-11-15 09:16:20": 4.412
+      "2022-11-15 09:16:20": 4.412,
+      "2023-01-12 14:14:53": 4.917
     }
   },
   {
@@ -4352,7 +6468,9 @@
     "times": {
       "2022-11-15 09:13:03": 9.736,
       "2022-11-15 09:15:21": 10.24,
-      "2022-11-15 09:16:16": 9.935
+      "2022-11-15 09:16:16": 9.935,
+      "2023-01-12 14:14:48": 10.339,
+      "2023-01-12 14:26:29": 9.736
     }
   },
   {
@@ -4495,7 +6613,19 @@
       "2022-11-15 09:31:43": 2.309,
       "2022-11-15 09:35:23": 2.308,
       "2022-11-15 09:38:21": 2.309,
-      "2022-11-15 09:40:44": 2.407
+      "2022-11-15 09:40:44": 2.407,
+      "2023-01-12 14:12:04": 2.106,
+      "2023-01-12 14:27:27": 2.308,
+      "2023-01-12 14:29:47": 2.409
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "lid_B17 get return"
+    },
+    "times": {
+      "2023-01-12 14:12:12": 1.103
     }
   },
   {
@@ -4512,7 +6642,19 @@
       "2022-11-15 09:31:49": 6.324,
       "2022-11-15 09:35:29": 6.325,
       "2022-11-15 09:38:27": 6.426,
-      "2022-11-15 09:40:51": 6.326
+      "2022-11-15 09:40:51": 6.326,
+      "2023-01-12 14:12:11": 6.929,
+      "2023-01-12 14:27:34": 6.627,
+      "2023-01-12 14:29:54": 7.025
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "lid_B17 put prep"
+    },
+    "times": {
+      "2023-01-12 14:11:53": 1.404
     }
   },
   {
@@ -4529,7 +6671,10 @@
       "2022-11-15 09:29:48": 1.906,
       "2022-11-15 09:32:56": 2.006,
       "2022-11-15 09:36:44": 2.008,
-      "2022-11-15 09:39:00": 1.908
+      "2022-11-15 09:39:00": 1.908,
+      "2023-01-12 14:12:02": 1.907,
+      "2023-01-12 14:26:48": 1.906,
+      "2023-01-12 14:29:07": 2.308
     }
   },
   {
@@ -4546,7 +6691,10 @@
       "2022-11-15 09:29:46": 6.823,
       "2022-11-15 09:32:54": 6.723,
       "2022-11-15 09:36:42": 6.928,
-      "2022-11-15 09:38:58": 6.726
+      "2022-11-15 09:38:58": 6.726,
+      "2023-01-12 14:12:00": 7.027,
+      "2023-01-12 14:26:46": 7.128,
+      "2023-01-12 14:29:05": 7.126
     }
   },
   {
@@ -4563,7 +6711,20 @@
       "2022-11-15 09:30:52": 2.107,
       "2022-11-15 09:33:52": 2.006,
       "2022-11-15 09:36:10": 2.208,
-      "2022-11-15 09:39:55": 2.108
+      "2022-11-15 09:39:55": 2.108,
+      "2023-01-12 14:11:44": 2.007,
+      "2023-01-12 14:14:31": 2.008,
+      "2023-01-12 14:26:13": 2.107,
+      "2023-01-12 14:28:37": 2.008
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "lid_B19 get return"
+    },
+    "times": {
+      "2023-01-12 14:11:52": 1.104
     }
   },
   {
@@ -4580,7 +6741,21 @@
       "2022-11-15 09:30:58": 6.225,
       "2022-11-15 09:33:58": 6.327,
       "2022-11-15 09:36:16": 6.223,
-      "2022-11-15 09:40:02": 6.324
+      "2022-11-15 09:40:02": 6.324,
+      "2023-01-12 14:11:51": 6.525,
+      "2023-01-12 14:14:37": 6.725,
+      "2023-01-12 14:26:20": 6.324,
+      "2023-01-12 14:28:43": 6.224
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "lid_B19 put prep"
+    },
+    "times": {
+      "2023-01-12 14:11:34": 1.605,
+      "2023-01-12 14:15:31": 1.605
     }
   },
   {
@@ -4597,7 +6772,12 @@
       "2022-11-15 09:28:08": 2.005,
       "2022-11-15 09:32:17": 2.005,
       "2022-11-15 09:34:26": 1.906,
-      "2022-11-15 09:37:23": 2.006
+      "2022-11-15 09:37:23": 2.006,
+      "2023-01-12 14:11:42": 1.606,
+      "2023-01-12 14:12:46": 1.605,
+      "2023-01-12 14:15:40": 1.907,
+      "2023-01-12 14:25:33": 2.006,
+      "2023-01-12 14:27:57": 2.008
     }
   },
   {
@@ -4614,7 +6794,21 @@
       "2022-11-15 09:28:06": 6.525,
       "2022-11-15 09:32:15": 6.622,
       "2022-11-15 09:34:24": 6.426,
-      "2022-11-15 09:37:21": 6.424
+      "2022-11-15 09:37:21": 6.424,
+      "2023-01-12 14:11:40": 6.124,
+      "2023-01-12 14:12:44": 6.927,
+      "2023-01-12 14:15:38": 6.427,
+      "2023-01-12 14:25:31": 6.724,
+      "2023-01-12 14:27:55": 6.424
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "wash get transfer"
+    },
+    "times": {
+      "2023-01-12 14:13:46": 11.947
     }
   },
   {
@@ -4640,7 +6834,13 @@
       "2022-11-15 09:34:51": 1.003,
       "2022-11-15 09:36:46": 1.505,
       "2022-11-15 09:37:47": 1.705,
-      "2022-11-15 09:39:24": 1.704
+      "2022-11-15 09:39:24": 1.704,
+      "2023-01-12 14:12:47": 1.806,
+      "2023-01-12 14:15:42": 1.805,
+      "2023-01-12 14:25:35": 1.806,
+      "2023-01-12 14:26:49": 1.505,
+      "2023-01-12 14:27:59": 1.806,
+      "2023-01-12 14:29:09": 1.505
     }
   },
   {
@@ -4666,7 +6866,8 @@
       "2022-11-15 09:35:09": 6.424,
       "2022-11-15 09:37:04": 6.423,
       "2022-11-15 09:38:05": 6.325,
-      "2022-11-15 09:39:42": 6.422
+      "2022-11-15 09:39:42": 6.422,
+      "2023-01-12 14:16:00": 6.726
     }
   },
   {
@@ -4692,7 +6893,14 @@
       "2022-11-15 09:35:03": 12.047,
       "2022-11-15 09:36:58": 11.843,
       "2022-11-15 09:37:59": 12.046,
-      "2022-11-15 09:39:36": 12.045
+      "2022-11-15 09:39:36": 12.045,
+      "2023-01-12 14:12:59": 11.743,
+      "2023-01-12 14:13:34": 12.145,
+      "2023-01-12 14:15:54": 12.249,
+      "2023-01-12 14:25:47": 11.843,
+      "2023-01-12 14:27:01": 11.844,
+      "2023-01-12 14:28:11": 11.846,
+      "2023-01-12 14:29:21": 11.845
     }
   },
   {
@@ -4732,7 +6940,17 @@
       "2022-11-15 09:35:59": 13.15,
       "2022-11-15 09:37:43": 12.846,
       "2022-11-15 09:39:20": 12.749,
-      "2022-11-15 09:40:34": 12.65
+      "2022-11-15 09:40:34": 12.65,
+      "2023-01-12 14:14:20": 12.75
+    }
+  },
+  {
+    "cmd": {
+      "type": "RobotarmCmd",
+      "program_name": "wash15 put transfer"
+    },
+    "times": {
+      "2023-01-12 14:14:07": 13.25
     }
   },
   {
@@ -4752,7 +6970,8 @@
       "2022-11-15 09:26:27": 8.23,
       "2022-11-15 09:28:17": 8.829,
       "2022-11-15 09:29:56": 8.539,
-      "2022-11-15 09:31:16": 8.334
+      "2022-11-15 09:31:16": 8.334,
+      "2023-01-12 14:16:09": 8.732
     }
   },
   {
@@ -4788,7 +7007,13 @@
       "2022-11-15 09:26:40": 12.849,
       "2022-11-15 09:28:30": 12.955,
       "2022-11-15 09:30:09": 12.756,
-      "2022-11-15 09:31:29": 12.852
+      "2022-11-15 09:31:29": 12.852,
+      "2023-01-12 14:13:12": 13.247,
+      "2023-01-12 14:16:22": 13.254,
+      "2023-01-12 14:26:00": 12.749,
+      "2023-01-12 14:27:14": 12.847,
+      "2023-01-12 14:28:24": 12.848,
+      "2023-01-12 14:29:34": 12.95
     }
   }
 ]

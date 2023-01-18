@@ -54,12 +54,13 @@ def add_estimates_from(log_path: str, *, path: str=estimates_json_path):
             rt = log.runtime_metadata()
             assert rt
             for e in log.command_states():
-                cmd = e.cmd
-                if isinstance(cmd, EstCmd) and e.duration is not None:
-                    cmd = normalize(cmd)
-                    t_datetime = rt.start_time + timedelta(seconds=e.t)
-                    t_str = t_datetime.replace(microsecond=0).isoformat(sep=' ')
-                    ests[cmd][t_str] = e.duration
+                if e.state == 'completed':
+                    cmd = e.cmd
+                    if isinstance(cmd, EstCmd) and e.duration is not None:
+                        cmd = normalize(cmd)
+                        t_datetime = rt.start_time + timedelta(seconds=e.t)
+                        t_str = t_datetime.replace(microsecond=0).isoformat(sep=' ')
+                        ests[cmd][t_str] = e.duration
     m = [
         {
             'cmd': cmd,
