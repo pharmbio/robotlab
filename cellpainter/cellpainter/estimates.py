@@ -11,9 +11,10 @@ from .commands import (
     RobotarmCmd,
     IncuCmd,
     BiotekCmd,
+    BlueCmd,
 )
 
-EstCmd = RobotarmCmd | IncuCmd | BiotekCmd
+EstCmd = RobotarmCmd | IncuCmd | BiotekCmd | BlueCmd
 
 def normalize(cmd: EstCmd) -> EstCmd:
     if isinstance(cmd, IncuCmd):
@@ -29,29 +30,36 @@ def avg(xs: Iterable[float]) -> float:
     xs = list(xs)
     return sum(xs) / len(xs)
 
-def estimates_from(path: str) -> dict[EstCmd, float]:
-    entries: list[EstEntry] = cast(Any, pbutils.serializer.read_json(path))
+estimates_json_path = 'estimates.json'
+
+def read_estimates(path: str=estimates_json_path) -> dict[EstCmd, float]:
+    entries: list[EstEntry] = pbutils.serializer.read_json(path)
     return {
         e['cmd']: round(avg(e['times'].values()), 3)
         for e in entries
     }
 
-def add_estimates_from(path: str, log_or_log_path: str | Log):
-    entries: list[EstEntry] = cast(Any, pbutils.serializer.read_json(path))
+from datetime import timedelta
+
+def add_estimates_from(log_path: str, *, path: str=estimates_json_path):
+    entries: list[EstEntry] = pbutils.serializer.read_json(path)
     ests: dict[EstCmd, dict[str, float]] = DefaultDict(dict)
     for e in entries:
         cmd = normalize(e['cmd'])
         ests[cmd] = e['times']
-    if isinstance(log_or_log_path, Log):
-        log = log_or_log_path
+    if log_path == 'normalize':
+        pass
     else:
-        log = Log.read_jsonl(log_or_log_path)
-    # todo
-    for e in log:
-        cmd = e.cmd
-        if isinstance(cmd, EstCmd) and e.duration is not None:
-            cmd = normalize(cmd)
-            ests[cmd][e.log_time[:len('YYYY-MM-DD HH:MM:SS')]] = e.duration
+        with Log.open(log_path) as log:
+            rt = log.runtime_metadata()
+            assert rt
+            for e in log.command_states():
+                cmd = e.cmd
+                if isinstance(cmd, EstCmd) and e.duration is not None:
+                    cmd = normalize(cmd)
+                    t_datetime = rt.start_time + timedelta(seconds=e.t)
+                    t_str = t_datetime.replace(microsecond=0).isoformat(sep=' ')
+                    ests[cmd][t_str] = e.duration
     m = [
         {
             'cmd': cmd,
@@ -61,7 +69,7 @@ def add_estimates_from(path: str, log_or_log_path: str | Log):
     ]
     pbutils.serializer.write_json(m, path, indent=2)
 
-estimates = estimates_from('estimates.json')
+estimates = read_estimates('estimates.json')
 guesses: dict[EstCmd, float] = {}
 
 estimates = {

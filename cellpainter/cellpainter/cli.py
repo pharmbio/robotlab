@@ -241,7 +241,7 @@ def main_with_args(args: Args, parser: argparse.ArgumentParser | None=None):
                 print(k + ':\n' + textwrap.indent(v.describe(), '  '))
 
     elif args.add_estimates_from:
-        estimates.add_estimates_from('estimates.json', args.add_estimates_from)
+        estimates.add_estimates_from(args.add_estimates_from)
 
     else:
         assert parser

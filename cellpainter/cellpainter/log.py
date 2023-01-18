@@ -71,7 +71,7 @@ class CommandState(DBMixin):
     # generated for the UI from cmd and metadata:
     cmd_type: str = ''
     gui_boring: bool = False
-    resource: Literal['robotarm', 'incu', 'disp', 'wash'] | None = None
+    resource: Literal['robotarm', 'incu', 'disp', 'wash', 'blue'] | None = None
 
     # views={'duration': 'round(t - t0, 3)'},
 
