@@ -44,11 +44,22 @@ from datetime import timedelta
 def add_estimates_from(log_path: str, *, path: str=estimates_json_path):
     entries: list[EstEntry] = pbutils.serializer.read_json(path)
     ests: dict[EstCmd, dict[str, float]] = DefaultDict(dict)
+
+    def size(x: Dict[Any, dict[Any, Any]]) -> int:
+        return sum(
+            1
+            for _, d in x.items()
+            for _, _ in d.items()
+        )
+
     for e in entries:
         cmd = normalize(e['cmd'])
         ests[cmd] = e['times']
+
+    size_0 = size(ests)
+
     if log_path == 'normalize':
-        pass
+        print(f'normalize: Adding no new entries, only normalizing the estimates file.')
     else:
         with Log.open(log_path) as log:
             rt = log.runtime_metadata()
@@ -61,6 +72,9 @@ def add_estimates_from(log_path: str, *, path: str=estimates_json_path):
                         t_datetime = rt.start_time + timedelta(seconds=e.t)
                         t_str = t_datetime.replace(microsecond=0).isoformat(sep=' ')
                         ests[cmd][t_str] = e.duration
+
+    size_after = size(ests)
+
     m = [
         {
             'cmd': cmd,
@@ -69,6 +83,7 @@ def add_estimates_from(log_path: str, *, path: str=estimates_json_path):
         for cmd, times in sorted(ests.items(), key=str)
     ]
     pbutils.serializer.write_json(m, path, indent=2)
+    print(f'Wrote {size_after - size_0} new estimates to {path} from {log_path}.')
 
 estimates = read_estimates('estimates.json')
 guesses: dict[EstCmd, float] = {}

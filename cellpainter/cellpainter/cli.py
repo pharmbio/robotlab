@@ -71,6 +71,7 @@ class Args:
     list_imports:              bool = arg(help='Print the imported python modules for type checking.')
 
     add_estimates_from:        str  = arg(help='Add timing estimates from a log file')
+    add_estimates_dest:        str  = arg(default='estimates.json', help='Add timing estimates to this file (default: estimates.json)')
 
     list_robotarm_programs:    bool = arg(help='List the robot arm programs')
     inspect_robotarm_programs: bool = arg(help='Inspect steps of robotarm programs')
@@ -129,6 +130,10 @@ def main_with_args(args: Args, parser: argparse.ArgumentParser | None=None):
             path = getattr(m, '__file__', None)
             if path and path.startswith(my_dir):
                 print(path)
+        sys.exit(0)
+
+    if args.add_estimates_from:
+        estimates.add_estimates_from(args.add_estimates_from, path=args.add_estimates_dest)
         sys.exit(0)
 
     config: RuntimeConfig = config_lookup(args.config_name)
@@ -239,9 +244,6 @@ def main_with_args(args: Args, parser: argparse.ArgumentParser | None=None):
             if not m or m.group(0) in {"19", "21"}:
                 print()
                 print(k + ':\n' + textwrap.indent(v.describe(), '  '))
-
-    elif args.add_estimates_from:
-        estimates.add_estimates_from(args.add_estimates_from)
 
     else:
         assert parser
