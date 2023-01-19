@@ -1,9 +1,6 @@
-# Standard operating procedure for robot-cellpainter
+# Standard operating procedure for robot cellpainter
 
-For dry runs.
-
-For actual cell painting the protocol is similar but preparation and post-work
-for washer, dispenser and incubator are more involved.
+Standard operating procedure for robot cellpainter.
 
 ## Access gui on http://10.10.0.55:5000
 
@@ -280,16 +277,6 @@ touched by hand without gloves they are not considered clean any more and must n
 2.4 Attach washer waste bottle, preferably an empty one or one just used with water and ethanol
 
 3. Use the gui on the windows computer at http://10.10.0.55:5000, select `wash-plates-clean` and enter the number of plates. Press start!
-
-    <details>
-    <summary>Alternative: use the command line</summary>
-
-    Use `pharmbio@NUC-robotlab` in the directory for the repo, `~/robot-cellpainter/`.
-
-    ```
-    cellpainter --wash-plates-clean --num-plates $NUM_PLATES --live
-    ```
-    </summary>
 
 4. After wash-plates-clean:
 
