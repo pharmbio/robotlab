@@ -26,5 +26,5 @@ jobs:
       - run: cd viable; pytest
       - run: python gui-tests.py
       - run: cd labrobots; python test.py
-      - run: cd cellpainter; ./cli-tests.sh
+      - run: cd cellpainter; ./cli-tests.bash
       - run: cd cellpainter; set -o pipefail; cellpainter --list-imports | tee /dev/stderr | xargs pyright
