@@ -55,7 +55,7 @@ def popen(cmd: Union[str, list[str]]):
         def kill_p():
             p.kill()
             p.wait()
-        t = Timer(5, lambda: [print('timeout, killing process...'), kill_p(), print('process killed.')])
+        t = Timer(10, lambda: [print('timeout, killing process...'), kill_p(), print('process killed.')])
         t.start()
         yield p
     finally:
