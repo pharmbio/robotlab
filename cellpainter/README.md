@@ -6,7 +6,7 @@ optional dev dependencies: pyright, entr
 
 ## Standard operating procedure
 
-See [sop.md](https://github.com/pharmbio/robot-cellpainter/blob/main/sop.md).
+See [sop.md](./sop.md).
 
 ## Installation
 
