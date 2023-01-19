@@ -20,8 +20,8 @@ def main():
         res = ex.echo.error('1', '2', three=4)
         raise ValueError(f'{res = !r} but expected error')
     except Exception as e:
-        print(f'{e = !r}')
-        assert repr(e) == '''ValueError("error ('1', '2') {'three': 4}")'''
+        print(f'{e = }')
+        assert str(e) == '''ValueError("error ('1', '2') {'three': 4}")'''
     print('success!')
 
 if __name__ == '__main__':
