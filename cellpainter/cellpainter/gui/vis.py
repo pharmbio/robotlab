@@ -82,7 +82,7 @@ class AnalyzeResult:
             process_is_alive=alive,
             sections=sections,
             time_end=m.time_end(),
-            vis=m.vis(t_now),
+            vis=m.vis(t_now if not errors else None),
         )
 
     def entry_desc_for_hover(self, e: CommandState):

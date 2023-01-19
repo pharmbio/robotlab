@@ -569,6 +569,8 @@ def index(path_from_route: str | None = None) -> Iterator[Tag | V.Node | dict[st
             flex_grow='1',
             spellcheck='false',
             outline='0',
+            white_space='pre-wrap',
+            overflow_y='auto',
         )
 
     if error_box is not None:

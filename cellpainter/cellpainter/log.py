@@ -251,13 +251,15 @@ class Log:
             # show incu if no bioteks (for incu load)
             states = q.where_some(CommandState.resource == 'incu')
         for state in states:
-            if t is not None:
-                if state.t0 > t:
-                    state.state = 'planned'
-                elif state.t < t:
-                    state.state = 'completed'
-                else:
-                    state.state = 'running'
+            if 0:
+                # this cannot be right, the runtime should update the states
+                if t is not None:
+                    if state.t0 > t:
+                        state.state = 'planned'
+                    elif state.t < t:
+                        state.state = 'completed'
+                    else:
+                        state.state = 'running'
             row = VisRow(
                 t0 = state.t0,
                 t = state.t,
@@ -296,6 +298,7 @@ class Log:
                 )
                 rows += [now_row2]
 
+
         section_ends = self.section_ends()
 
         for row in rows:
@@ -303,7 +306,7 @@ class Log:
                 row.section = time_to_section(row.t)
             row.section_column = section_columns[row.section]
             row.section_t0 = section_starts[row.section]
-            row.section_t_with_overflow = section_ends[row.section]
+            row.section_t_with_overflow = max(row.t, section_ends[row.section])
 
         return rows
 
