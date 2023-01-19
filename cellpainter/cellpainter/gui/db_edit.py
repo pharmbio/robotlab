@@ -2,13 +2,12 @@ from __future__ import annotations
 from typing import *
 from dataclasses import *
 
-from viable import store, js, call, Serve, Flask, Int, Str, Bool
-from viable import Tag, div, span, label, button, pre
+from viable import js, call, Tag, div
 import viable as V
 
 from pathlib import Path
 
-from pbutils.mixins import DB, DBMixin
+from pbutils.mixins import DB
 
 D = TypeVar('D')
 R = TypeVar('R')
@@ -54,9 +53,9 @@ class Edit(Generic[D]):
         def update(next: str=js('this.value'), db_path: str | Path =self.db_path, obj: D=self.obj):
             next_conv = from_str(next)
             with DB.open(db_path) as db:
-                ob = obj.reload(db)
+                ob = obj.reload(db) # type: ignore
                 ob = ob.replace(**{field: next_conv}) # type: ignore
-                ob.save(db)
+                ob.save(db) # type: ignore
         if textarea:
             inp = V.textarea(
                 str(value),

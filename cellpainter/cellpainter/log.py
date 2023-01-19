@@ -3,12 +3,12 @@ from dataclasses import *
 from typing import *
 
 import math
-from datetime import datetime, timedelta
+from datetime import datetime
 from contextlib import contextmanager
 from pathlib import Path
 
 import pbutils
-from .commands import Metadata, Command, Checkpoint, BiotekCmd, Duration, Info, IncuCmd, RobotarmCmd, ProgramMetadata, Program
+from .commands import Metadata, Command, BiotekCmd, Duration, IncuCmd, ProgramMetadata, Program
 from .moves import World
 
 from pbutils.mixins import DB, DBMixin
@@ -405,7 +405,11 @@ class Log:
             '''
         res: list[tuple[Any]] = self.db.con.execute(sql).fetchall()
         return [
-            (name, datetime.fromtimestamp(mtime), data)
+            (
+                cast(str, name),
+                datetime.fromtimestamp(cast(float, mtime)),
+                cast(bytes, data),
+            )
             for name, mtime, data in res
         ]
 

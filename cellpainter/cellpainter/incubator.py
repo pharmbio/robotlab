@@ -3,7 +3,7 @@ from dataclasses import *
 from typing import *
 
 from .runtime import Runtime
-from .log import Metadata, CommandWithMetadata, Error
+from .log import Metadata, CommandWithMetadata
 
 def execute(
     runtime: Runtime,

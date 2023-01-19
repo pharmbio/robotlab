@@ -11,7 +11,6 @@ import re
 from pathlib import Path
 
 from dataclasses import *
-from labrobots import Example
 
 from pbutils import show
 import pbutils

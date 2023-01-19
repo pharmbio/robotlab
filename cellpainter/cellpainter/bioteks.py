@@ -4,7 +4,7 @@ from typing import *
 
 from .runtime import Runtime
 
-from .log import CommandWithMetadata, Metadata, Error
+from .log import CommandWithMetadata, Metadata
 from .commands import BiotekAction
 
 def execute(

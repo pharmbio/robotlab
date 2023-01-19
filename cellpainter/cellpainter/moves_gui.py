@@ -15,8 +15,8 @@ from . import robotarm
 from . import runtime
 import pbutils
 
-from viable import store, js, call, Serve, Flask, Int, Str, Bool
-from viable import Tag, div, span, label, button, pre, input
+from viable import store, js, call, Serve, Flask
+from viable import Tag, div, button, pre, input
 import viable as V
 
 import sys
@@ -36,7 +36,7 @@ serve.suppress_flask_logging()
 
 polled_info: dict[str, list[float]] = {}
 
-from datetime import datetime, timedelta
+from datetime import datetime
 server_start = datetime.now()
 
 @pbutils.spawn
@@ -77,7 +77,6 @@ def poll() -> None:
             if m := re.search(rb'poll (.*\}) eom', b):
                 try:
                     v = m.group(1).decode(errors='replace')
-                    prev = polled_info.copy()
                     polled_info.update(ast.literal_eval(v))
                 except:
                     import traceback as tb
@@ -388,8 +387,8 @@ def index() -> Iterator[Tag | dict[str, str]]:
             continue
 
         if isinstance(m, moves.MoveLin) and (xyz := info.get("xyz")) and (rpy := info.get("rpy")):
-            dx, dy, dz = dxyz = pbutils.zip_sub(m.xyz, xyz, ndigits=6)
-            dR, dP, dY = drpy = pbutils.zip_sub(m.rpy, rpy, ndigits=6)
+            dx, dy,  dz =  dxyz = pbutils.zip_sub(m.xyz, xyz, ndigits=6)
+            dR, dP, _dY = _drpy = pbutils.zip_sub(m.rpy, rpy, ndigits=6)
             dist = math.sqrt(sum(c*c for c in dxyz))
             buttons = [
                 ('x', f'{dx: 6.1f}', moves.MoveRel(xyz=[dx, 0, 0], rpy=[0, 0, 0])),
@@ -441,9 +440,6 @@ def index() -> Iterator[Tag | dict[str, str]]:
                     font-style: italic;
                 '''
             )
-
-
-        show_go_btn = not isinstance(m, moves.Section)
 
         row += button('go',
             tabindex='-1',

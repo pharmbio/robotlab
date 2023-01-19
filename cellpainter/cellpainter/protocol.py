@@ -33,7 +33,6 @@ from .commands import (
 )
 from .moves import movelists, World
 from .symbolic import Symbolic
-from .estimates import estimate
 from . import commands
 from . import moves
 
@@ -472,7 +471,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                 incu_delay = [
                     WaitForCheckpoint(f'{first_plate_desc} incubation {ix-1}') + f'{plate_desc} incu delay {ix}'
                 ]
-                slack = (
+                _slack = (
                     Symbolic.var(f'{plate_desc} incubation {ix-1} slack')
                     + p.incu[i-1]
                 )

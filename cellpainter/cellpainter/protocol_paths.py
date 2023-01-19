@@ -6,8 +6,6 @@ from labrobots.dir_list import PathInfo
 from cellpainter.log import Log
 
 import pbutils
-import apsw
-import textwrap
 import base64
 
 def nonempty(*xs: str) -> list[str]:

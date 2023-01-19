@@ -166,9 +166,6 @@ def optimal_env(cmd: Command, unsat_core: bool=False) -> OptimalResult:
                 if cmd.assume == 'will wait':
                     constrain(point, '>=', begin)
                     return point
-                elif cmd.assume == 'exactly':
-                    constrain(point, '==', begin)
-                    return point
                 elif cmd.assume == 'no wait':
                     constrain(begin, '>=', point)
                     return begin

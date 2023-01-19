@@ -3,7 +3,6 @@ from dataclasses import *
 from typing import *
 
 import os
-import re
 import signal
 import sys
 import threading
@@ -17,13 +16,13 @@ from threading import RLock
 
 import pbutils
 
-from pbutils import pp_secs, p
+from pbutils import pp_secs
 from pbutils.mixins import DB
 
 from .robotarm import Robotarm
 from .timelike import Timelike, WallTime, SimulatedTime
 from .moves import World, Effect
-from .log import Message, CommandState, CommandWithMetadata, Metadata, Error, Log, RuntimeMetadata
+from .log import Message, CommandState, CommandWithMetadata, Log
 
 from labrobots import WindowsNUC, Biotek, STX, BlueWash
 

@@ -2,11 +2,10 @@ from __future__ import annotations
 from typing import *
 from dataclasses import *
 
-from viable import store, js, call, Serve, Flask, Int, Str, Bool
-from viable import Tag, div, span, label, button, pre
+from viable import store, js, call, Tag, div, span, label, pre
 import viable as V
 
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 from subprocess import run, STDOUT, PIPE
 
@@ -152,15 +151,15 @@ def show_logs() -> Iterator[Tag | V.Node | dict[str, str]]:
             row.path = pre(
                 str(log),
                 onclick=call(common.path_var_assign, str(log)),
-                title=
-                    '\n'.join([
-                        sql
-                        for sql, in g.db.con.execute('select sql from sqlite_master').fetchall()
-                    ] +
-                    [
-                        table_name + ': ' + str(g.db.con.execute(f'select * from {table_name}').fetchone())
-                        for table_name, in g.db.con.execute('select name from sqlite_master').fetchall()
-                    ])
+                title=                                                                                      # type: ignore
+                    '\n'.join([                                                                             # type: ignore
+                        sql                                                                                 # type: ignore
+                        for sql, in g.db.con.execute('select sql from sqlite_master').fetchall()            # type: ignore
+                    ] +                                                                                     # type: ignore
+                    [                                                                                       # type: ignore
+                        table_name + ': ' + str(g.db.con.execute(f'select * from {table_name}').fetchone()) # type: ignore
+                        for table_name, in g.db.con.execute('select name from sqlite_master').fetchall()    # type: ignore
+                    ])                                                                                      # type: ignore
             )
         if 0:
             row.mtime = pre(
