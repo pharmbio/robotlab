@@ -167,10 +167,10 @@ def index(path_from_route: str | None = None) -> Iterator[Tag | V.Node | dict[st
     path = common.path_var_value() or path_from_route
     if path == 'latest':
         logs = [
-            (log, log.stat().st_mtime)
-            for log in Path('logs').glob('*.db')
+            log
+            for log in Path('logs').glob('20*.db')
         ]
-        logfile, _ = max(logs, key=lambda ab: ab[1], default=(None, None))
+        logfile = max(logs, default=None)
         if logfile:
             path_is_latest = True
             path = str(logfile)
