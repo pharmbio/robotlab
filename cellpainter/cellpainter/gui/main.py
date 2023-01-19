@@ -168,7 +168,7 @@ def index(path_from_route: str | None = None) -> Iterator[Tag | V.Node | dict[st
     if path == 'latest':
         logs = [
             log
-            for log in Path('logs').glob('20*.db')
+            for log in Path('logs').glob('20*live*.db')
         ]
         logfile = max(logs, default=None)
         if logfile:
