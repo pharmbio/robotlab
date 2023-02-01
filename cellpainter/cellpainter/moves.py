@@ -485,11 +485,11 @@ movelists = read_movelists()
 B21 = 'B21'
 effects: dict[str, Effect] = {}
 
-for m in 'incu disp wash'.split():
-    effects[m + ' put'] = MovePlate(source=B21, target=m)
-    effects[m + ' get'] = MovePlate(source=m, target=B21)
-
-effects['wash_to_disp'] = MovePlate(source='wash', target='disp')
+for k, v in movelists.items():
+    m = re.match(r'(\w+)-to-(\w+)$', k)
+    if m:
+        source, target = m.groups()
+        effects[k] = MovePlate(source=source, target=target)
 
 for i in HotelLocs:
     Ai = f'A{i}'
@@ -507,17 +507,10 @@ for i in HotelLocs:
     effects[lid_Bi + ' get'] = PutLidOn(source=Bi, target=B21)
     effects[lid_Bi + ' put'] = TakeLidOff(source=B21, target=Bi)
 
-    effects[f'incu_{Ai} put'] = MovePlate(source=Ai, target='incu')
-    effects[f'incu_{Ai} get'] = MovePlate(source='incu', target=Ai)
-
-    wash_i = f'wash{i}'
-    effects[wash_i + ' put'] = MovePlate(source=Bi, target='wash')
-    effects[wash_i + ' get'] = MovePlate(source='wash', target=Bi)
-
 for k in list(effects.keys()):
     effects[k + ' transfer'] = effects[k]
 
 for i in HotelLocs:
     Ai = f'A{i}'
-    effects[f'incu_{Ai} put transfer from drop neu'] = MovePlate(source=Ai, target='incu')
+    effects[f'{Ai}-to-incu transfer from drop neu'] = MovePlate(source=Ai, target='incu')
 
