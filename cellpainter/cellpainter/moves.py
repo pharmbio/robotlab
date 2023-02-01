@@ -124,9 +124,9 @@ class GripperInitAndCheck(Move):
 
 @dataclass(frozen=True)
 class Section(Move):
-    sections: list[str]
+    section: str
     def to_script(self) -> str:
-        return textwrap.indent(', '.join(self.sections), '# ')
+        return f'# {self.section}'
 
 @dataclass(frozen=True)
 class RawCode(Move):
@@ -200,35 +200,38 @@ class MoveList(list[Move]):
                     out[name_h] = self.adjust_tagged(tag, dname=str(h), dz=dz)
         return out
 
-    def with_sections(self, include_Section: bool=False) -> list[tuple[tuple[str, ...], Move]]:
-        out: list[tuple[tuple[str, ...], Move]] = []
-        active: tuple[str, ...] = tuple()
+    def with_sections(self, include_Section: bool=False) -> list[tuple[str, Move]]:
+        out: list[tuple[str, Move]] = []
+        active: str = ''
         for _i, move in enumerate(self):
             if isinstance(move, Section):
-                active = tuple(move.sections)
+                active = move.section
                 if include_Section:
                     out += [(active, move)]
             else:
                 out += [(active, move)]
         return out
 
-    def expand_sections(self, base_name: str, include_self: bool=True) -> dict[str, MoveList]:
+    def expand_sections(self) -> dict[str, MoveList]:
         with_section = self.with_sections()
-        sections: set[tuple[str, ...]] = {
-            sect
-            for sect, _move in with_section
-            if sect
+        sections: set[str] = {
+            section
+            for section, _move in with_section
+            if section
         }
 
+        for section, move in with_section:
+            if not section:
+                raise ValueError(f'Move {move} not in a section {self}')
+
+
         out: dict[str, MoveList] = {}
-        if include_self:
-            out[base_name] = self
         for section in sections:
             pos = {i for i, (active, _) in enumerate(with_section) if section == active[:len(section)]}
             maxi = max(pos)
             assert all(i == maxi or i + 1 in pos for i in pos), f'section {section} not contiguous'
 
-            name = ' '.join([base_name, *section])
+            name = section
             out[name] = MoveList(m for active, m in with_section if section == active[:len(section)])
 
         return out
@@ -353,7 +356,7 @@ class NamedMoveList:
 def read_and_expand(filename: Path) -> dict[str, MoveList]:
     ml = MoveList.read_jsonl(filename)
     name = filename.stem
-    expanded = ml.expand_sections(name, include_self=name == 'wash_to_disp')
+    expanded = ml.expand_sections()
     for k, v in list(expanded.items()):
         expanded |= v.expand_hotels(k)
     return expanded
@@ -377,8 +380,8 @@ def read_movelists() -> dict[str, MoveList]:
 
     out: list[NamedMoveList] = []
     for base, v in expanded.items():
-        if 'put-prep' in base or 'put-return' in base:
-            assert 'incu_A21' in base # these are used to put arm in A-neutral start position
+        if '-prep' in base or '-return' in base:
+            assert 'A21-to-incu' in base # these are used to put arm in A-neutral start position
             out += [NamedMoveList(base, 'full', v)]
             continue
         if 'calib' in base:
@@ -393,7 +396,7 @@ def read_movelists() -> dict[str, MoveList]:
             ret,
             transfer,
         ]
-        if 'incu_A' in base and 'put' in base:
+        if 'A21-to-incu' in base:
             # special handling for quick incubator load which has a neutral somewhere around A5
             to_neu, neu, after_neu = parts.transfer.split_on(lambda m: m.try_name().endswith('drop neu'))
             assert to_neu.has_close() and not to_neu.has_open()
@@ -410,7 +413,7 @@ def read_movelists() -> dict[str, MoveList]:
         NamedMoveList('gripper init and check', 'full', MoveList([GripperInitAndCheck()])),
     ]
 
-    to_neu = {v.name: v for v in out}['lid_B19 put prep'].movelist[0]
+    to_neu = {v.name: v for v in out}['lid-B19 put prep'].movelist[0]
     assert isinstance(to_neu, MoveJoint)
     assert to_neu.name == 'B neu'
     to_neu_slow = replace(to_neu, slow=True)

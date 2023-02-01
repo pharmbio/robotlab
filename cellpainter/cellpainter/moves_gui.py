@@ -3,6 +3,9 @@ from typing import *
 
 from dataclasses import *
 
+from rich.traceback import install
+install(show_locals=True)
+
 from pathlib import Path
 import ast
 import math
@@ -98,7 +101,7 @@ def edit_at(program_name: str, i: int, changes: dict[str, Any]):
     ml = MoveList.read_jsonl(filename)
     m = ml[i]
     for k, v in changes.items():
-        if k in 'rpy xyz joints name slow pos tag sections'.split():
+        if k in 'rpy xyz joints name slow pos tag section'.split():
             m = replace(m, **{k: v})
         else:
             raise ValueError(k)
@@ -209,10 +212,10 @@ def index() -> Iterator[Tag | dict[str, str]]:
     program_var = store.query.str(name='program')
     section_var = store.query.str(name='section')
     program_name = program_var.value or list(programs.keys())[0]
-    section: tuple[str, ...] = tuple(section_var.value.split())
+    section: str = section_var.value
     ml = MoveList.read_jsonl(programs[program_name])
 
-    yield V.title(' '.join([program_name, *section]))
+    yield V.title(program_name + ' ' + section)
 
     yield dict(
         onkeydown='''
@@ -324,7 +327,7 @@ def index() -> Iterator[Tag | dict[str, str]]:
 
     visible_moves: list[tuple[int, Move]] = []
     for i, (m_section, m) in enumerate(ml.with_sections(include_Section=True)):
-        if section != m_section[:len(section)]:
+        if section and section != m_section[:len(section)]:
             continue
         visible_moves += [(i, m)]
 
@@ -371,19 +374,11 @@ def index() -> Iterator[Tag | dict[str, str]]:
                 """
             )
             row += sect
-            sect += button(program_name,
+            sect += button(m.section,
                 tabindex='-1',
-                onclick=call(section_var.assign, ''),
+                onclick=call(section_var.assign, m.section),
                 style="cursor: pointer;"
             )
-            seen: list[str] = []
-            for s in m.sections:
-                seen += [s]
-                sect += button(s,
-                    tabindex='-1',
-                    onclick=call(section_var.assign, ' '.join(seen)),
-                    style="cursor: pointer;"
-                )
             continue
 
         if isinstance(m, moves.MoveLin) and (xyz := info.get("xyz")) and (rpy := info.get("rpy")):
@@ -511,9 +506,12 @@ def index() -> Iterator[Tag | dict[str, str]]:
                     m.rpy[0]:5.1f},{
                     m.rpy[1]:5.1f},{
                     m.rpy[2]:6.1f})'''
+                if m.tag:
+                    script += '*'
             row += V.pre(script,
                 style=f'grid-column: value',
                 css='margin: unset',
+                title=repr(m),
             )
 
     yield div(

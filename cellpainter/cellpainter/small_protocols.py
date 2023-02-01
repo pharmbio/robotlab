@@ -104,18 +104,18 @@ def incu_load(args: SmallProtocolArgs):
         pos = p.out_loc.removeprefix('A')
         cmds += [
             Seq(
-                RobotarmCmd(f'incu_A{pos} put prep'),
-                RobotarmCmd(f'incu_A{pos} put transfer to drop neu'),
+                RobotarmCmd(f'A{pos}-to-incu prep'),
+                RobotarmCmd(f'A{pos}-to-incu transfer to drop neu'),
                 WaitForResource('incu'),
-                RobotarmCmd(f'incu_A{pos} put transfer from drop neu'),
+                RobotarmCmd(f'A{pos}-to-incu transfer from drop neu'),
                 IncuFork('put', p.incu_loc),
-                RobotarmCmd(f'incu_A{pos} put return'),
+                RobotarmCmd(f'A{pos}-to-incu return'),
             ).add(Metadata(plate_id=p.id, stage=f'plate from A{pos} to {p.incu_loc}'))
         ]
     program = Seq(*[
-        RobotarmCmd('incu_A21 put-prep'),
+        RobotarmCmd('A21-to-incu prep'),
         *cmds,
-        RobotarmCmd('incu_A21 put-return'),
+        RobotarmCmd('A21-to-incu return'),
         WaitForResource('incu'),
     ])
     return Program(program, World(world0))
@@ -152,7 +152,7 @@ def test_circuit(_: SmallProtocolArgs):
             # if metadata.step not in {'Triton', 'Stains'}
         ],
         *RobotarmCmds(plate.out_get),
-        *RobotarmCmds('incu put'),
+        *RobotarmCmds('B21-to-incu'),
     )
     program = sleek_program(program)
     return Program(program, World({'incu': plate.id}))
@@ -220,12 +220,12 @@ def wash_plates_clean(args: SmallProtocolArgs):
     for plate in plates:
         section += [*RobotarmCmds(plate.out_get)]
         section += [*RobotarmCmds(plate.lid_put)]
-        section += [*RobotarmCmds('wash put')]
+        section += [*RobotarmCmds('B21-to-wash')]
 
         section += [Fork(WashCmd('Run', 'wash-plates-clean/WD_3X_leaves80ul.LHC'))]
         section += [WaitForResource('wash')]
 
-        section += [*RobotarmCmds('wash get')]
+        section += [*RobotarmCmds('wash-to-B21')]
         section += [*RobotarmCmds(plate.lid_get)]
         section += [*RobotarmCmds(plate.rt_put)]
     cmds += [Seq(*section).add_to_physical_commands(Metadata(section='H₂O'))]
@@ -236,7 +236,7 @@ def wash_plates_clean(args: SmallProtocolArgs):
     for i, plate in enumerate(plates):
         section += [*RobotarmCmds(plate.rt_get)]
         section += [*RobotarmCmds(plate.lid_put)]
-        section += [*RobotarmCmds('wash put')]
+        section += [*RobotarmCmds('B21-to-wash')]
 
         section += [Fork(WashCmd('Run', 'wash-plates-clean/WC_1X_leaves80ul.LHC'))]
         section += [WaitForResource('wash')]
@@ -244,7 +244,7 @@ def wash_plates_clean(args: SmallProtocolArgs):
         if i == 0:
             section += [Checkpoint('first wash')]
 
-        section += [*RobotarmCmds('wash get')]
+        section += [*RobotarmCmds('wash-to-B21')]
         section += [*RobotarmCmds(plate.lid_get)]
         section += [*RobotarmCmds(plate.rt_put)]
     cmds += [Seq(*section).add_to_physical_commands(Metadata(section='EtOH'))]
@@ -255,12 +255,12 @@ def wash_plates_clean(args: SmallProtocolArgs):
     for plate in plates:
         section += [*RobotarmCmds(plate.rt_get)]
         section += [*RobotarmCmds(plate.lid_put)]
-        section += [*RobotarmCmds('wash put')]
+        section += [*RobotarmCmds('B21-to-wash')]
 
         section += [Fork(WashCmd('Run', 'wash-plates-clean/WD_3X_leaves10ul.LHC'))]
         section += [WaitForResource('wash')]
 
-        section += [*RobotarmCmds('wash get')]
+        section += [*RobotarmCmds('wash-to-B21')]
         section += [*RobotarmCmds(plate.lid_get)]
         section += [*RobotarmCmds(plate.out_put)]
     cmds += [Seq(*section).add_to_physical_commands(Metadata(section='H₂O 2'))]
@@ -356,7 +356,7 @@ def robotarm(args: SmallProtocolArgs):
     '''
     Run robotarm programs.
 
-    Example arguments: wash-put-prep, 'wash put prep'
+    Example arguments: wash-put-prep, 'B21-to-wash prep'
     '''
     cmds: list[Command] = []
     for x in args.params:
@@ -382,8 +382,8 @@ def robotarm_small_cycle(args: SmallProtocolArgs):
         cmds += [
             *RobotarmCmds('B19 put'),
             *RobotarmCmds('B19 get'),
-            *RobotarmCmds('lid_B19 put'),
-            *RobotarmCmds('lid_B19 get'),
+            *RobotarmCmds('lid-B19 put'),
+            *RobotarmCmds('lid-B19 get'),
         ]
     program = Seq(*cmds)
     program = sleek_program(program)
@@ -404,7 +404,7 @@ def time_robotarm(_: SmallProtocolArgs):
         8. robotarm:                in neutral position by B hotel
     '''
     arm: list[Command] = [
-        *RobotarmCmds('incu get'),
+        *RobotarmCmds('incu-to-B21'),
     ]
     plate = Plate('', '', '', '', '', 1)
     for lid_loc in Locations.Lid[:2]:
@@ -428,17 +428,17 @@ def time_robotarm(_: SmallProtocolArgs):
     plate = replace(plate, lid_loc=Locations.Lid[0], rt_loc=Locations.RT[0])
     arm += [
         *RobotarmCmds(plate.lid_put),
-        *RobotarmCmds('wash put'),
-        *RobotarmCmds('wash_to_disp'),
-        *RobotarmCmds('disp get'),
-        *RobotarmCmds('wash put'),
-        *RobotarmCmds('wash get'),
+        *RobotarmCmds('B21-to-wash'),
+        *RobotarmCmds('wash-to-disp'),
+        *RobotarmCmds('disp-to-B21'),
+        *RobotarmCmds('B21-to-wash'),
+        *RobotarmCmds('wash-to-B21'),
         *RobotarmCmds('B15 put'),
-        *RobotarmCmds('wash15 put'),
-        *RobotarmCmds('wash15 get'),
+        *RobotarmCmds('B15-to-wash'),
+        *RobotarmCmds('wash-to-B15'),
         *RobotarmCmds('B15 get'),
         *RobotarmCmds(plate.lid_get),
-        *RobotarmCmds('incu put'),
+        *RobotarmCmds('B21-to-incu'),
     ]
     program = Seq(*arm)
     return Program(program, world0=World({'incu': '1'}))
@@ -502,10 +502,10 @@ def incu_unload(args: SmallProtocolArgs):
         pos = p.out_loc.removeprefix('A')
         cmds += [
             IncuFork('put', p.incu_loc),
-            RobotarmCmd(f'incu_A{pos} get prep'),
+            RobotarmCmd(f'incu-to-A{pos} prep'),
             WaitForResource('incu'),
-            RobotarmCmd(f'incu_A{pos} get transfer'),
-            RobotarmCmd(f'incu_A{pos} get return'),
+            RobotarmCmd(f'incu-to-A{pos} transfer'),
+            RobotarmCmd(f'incu-to-A{pos} return'),
         ]
     return Program(Seq(*cmds))
 

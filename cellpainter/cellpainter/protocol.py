@@ -57,11 +57,11 @@ class Plate:
 
     @property
     def lid_put(self):
-        return f'lid_{self.lid_loc} put'
+        return f'lid-{self.lid_loc} put'
 
     @property
     def lid_get(self):
-        return f'lid_{self.lid_loc} get'
+        return f'lid-{self.lid_loc} get'
 
     @property
     def rt_put(self):
@@ -494,7 +494,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                 incu_get = [
                     WaitForResource('incu', assume='nothing'),
                     IncuFork('get', plate.incu_loc),
-                    *RobotarmCmds('incu get', before_pick = [
+                    *RobotarmCmds('incu-to-B21', before_pick = [
                         WaitForResource('incu', assume='will wait'),
                     ]),
                     *lid_off,
@@ -504,7 +504,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                     WaitForResource('incu', assume='nothing'),
                     Duration(f'{plate_desc} 37C', OptPrio.inside_incu),
                     IncuFork('get', plate.incu_loc),
-                    *RobotarmCmds('incu get', before_pick = [
+                    *RobotarmCmds('incu-to-B21', before_pick = [
                         WaitForResource('incu', assume='will wait'),
                     ]),
                     *lid_off,
@@ -517,7 +517,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
 
             if step == 'Mito':
                 B21_to_incu = [
-                    *RobotarmCmds('incu put',
+                    *RobotarmCmds('B21-to-incu',
                         before_pick = [
                             WaitForResource('incu', assume='nothing'),
                         ],
@@ -564,9 +564,9 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                 pre_disp_wait = Idle()
 
             wash = [
-                RobotarmCmd('wash put prep'),
+                RobotarmCmd('B21-to-wash prep'),
                 WashFork(p.wash[i], cmd='Validate', assume='idle').delay(1) if plate is first_plate and p.wash[i] else Idle(),
-                RobotarmCmd('wash put transfer'),
+                RobotarmCmd('B21-to-wash transfer'),
                 disp_prep if pre_disp_is_long else Idle(),
                 Fork(
                     Seq(
@@ -578,15 +578,15 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                     ),
                     assume='nothing',
                 ),
-                RobotarmCmd('wash put return'),
+                RobotarmCmd('B21-to-wash return'),
             ]
 
             disp = [
-                RobotarmCmd('wash_to_disp prep'),
+                RobotarmCmd('wash-to-disp prep'),
                 Early(1),
                 WaitForResource('wash', assume='nothing'),
                 Idle() if pre_disp_is_long else disp_prep,
-                RobotarmCmd('wash_to_disp transfer'),
+                RobotarmCmd('wash-to-disp transfer'),
                 pre_disp_wait,
                 Duration(f'{plate_desc} transfer {ix}', OptPrio.wash_to_disp) if p.disp[i] else Idle(),
                 Fork(
@@ -596,14 +596,14 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                         Checkpoint(f'{plate_desc} incubation {ix}'),
                     ),
                 ),
-                RobotarmCmd('wash_to_disp return'),
+                RobotarmCmd('wash-to-disp return'),
             ]
 
             disp_to_B21 = [
-                RobotarmCmd('disp get prep'),
+                RobotarmCmd('disp-to-B21 prep'),
                 WaitForCheckpoint(f'{plate_desc} disp {ix} done', assume='nothing'),
-                RobotarmCmd('disp get transfer'),
-                RobotarmCmd('disp get return'),
+                RobotarmCmd('disp-to-B21 transfer'),
+                RobotarmCmd('disp-to-B21 return'),
             ]
 
             chunks[plate.id, step, 'incu -> B21' ] = [*incu_delay, *incu_get]
@@ -611,8 +611,8 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
             chunks[plate.id, step, 'wash -> disp'] = disp
             chunks[plate.id, step, 'disp -> B21' ] = [*disp_to_B21, *lid_on]
 
-            chunks[plate.id, step, 'wash -> B21' ] = [*RobotarmCmds('wash get', before_pick=[WaitForResource('wash')]), *lid_on]
-            chunks[plate.id, step, 'wash -> B15' ] = RobotarmCmds('wash15 get', before_pick=[WaitForResource('wash')])
+            chunks[plate.id, step, 'wash -> B21' ] = [*RobotarmCmds('wash-to-B21', before_pick=[WaitForResource('wash')]), *lid_on]
+            chunks[plate.id, step, 'wash -> B15' ] = RobotarmCmds('wash-to-B15', before_pick=[WaitForResource('wash')])
             chunks[plate.id, step,  'B15 -> B21' ] = [*RobotarmCmds('B15 get'), *lid_on]
 
             chunks[plate.id, step,  'B21 -> incu'] = B21_to_incu

@@ -1,4 +1,4 @@
-{"type":"Section","sections":["put"]}
+{"type":"Section","section":"A21 put"}
 {"type":"MoveJoint","joints":[94.1,-109.3,89.9,18.3,94,179.8],"name":"B neu"}
 {"type":"MoveLin","xyz":[197.6,-603.5,831.2],"rpy":[0.0,1.1,90.1],"name":"B21 neu"}
 {"type":"MoveLin","xyz":[197.7,-603.5,811.2],"rpy":[0.0,1.1,90.1],"name":"B21 pick"}
@@ -12,7 +12,7 @@
 {"type":"MoveLin","xyz":[392.4,-603.4,816.9],"rpy":[0.0,1.1,90.1],"tag":"21/21","name":"A21 neu"}
 {"type":"MoveLin","xyz":[392.4,-441,816.9],"rpy":[0.0,1.1,90.1],"tag":"21/21","name":"A21 entrance"}
 {"type":"MoveLin","xyz":[197.6,-441.3,831.3],"rpy":[0.0,1.1,90.1],"name":"B neu"}
-{"type":"Section","sections":["get"]}
+{"type":"Section","section":"A21 get"}
 {"type":"MoveJoint","joints":[94.1,-109.3,89.9,18.3,94,179.8],"name":"B neu"}
 {"type":"MoveLin","xyz":[392.4,-441,816.9],"rpy":[0.0,1.1,90.1],"tag":"21/21","name":"A21 entrance"}
 {"type":"MoveLin","xyz":[392.4,-603.4,816.9],"rpy":[0.0,1.1,90.1],"tag":"21/21","name":"A21 neu"}

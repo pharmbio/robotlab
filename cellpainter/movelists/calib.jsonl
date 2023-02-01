@@ -1,11 +1,11 @@
-{"type":"Section","sections":["goto"]}
+{"type":"Section","section":"calib goto"}
 {"type":"MoveJoint","joints":[94,-110.9,90.5,19.5,93.5,179.9],"name":"B neu"}
 {"type":"MoveLin","xyz":[196.6,-421.8,834.1],"rpy":[0.0,0.8,90.5],"name":"B neu"}
 {"type":"MoveLin","xyz":[457.3,-372.3,284],"rpy":[0.0,0.8,-179.9],"name":"station neu"}
 {"type":"MoveLin","xyz":[657.4,-372.4,108.2],"rpy":[0.0,0.8,-179.9],"name":"station above"}
 {"type":"GripperMove","pos":89}
 {"type":"MoveLin","xyz":[657.4,-372.4,88.2],"rpy":[0.0,0.8,-179.9],"name":"station","slow":true}
-{"type":"Section","sections":["return"]}
+{"type":"Section","section":"calib return"}
 {"type":"MoveLin","xyz":[657.4,-372.4,88.2],"rpy":[0.0,0.8,-179.9],"name":"station","slow":true}
 {"type":"MoveLin","xyz":[657.4,-372.4,108.2],"rpy":[0.0,0.8,-179.9],"name":"station above"}
 {"type":"MoveLin","xyz":[457.3,-372.3,284],"rpy":[0.0,0.8,-179.9],"name":"station neu"}

@@ -1,4 +1,4 @@
-{"type":"Section","sections":["put"]}
+{"type":"Section","section":"B21-to-blue"}
 {"type":"MoveLin","xyz":[198.4,-421.8,827.1],"rpy":[0.0,0.0,90],"name":"B neu"}
 {"type":"MoveLin","xyz":[198.4,-421.8,827.2],"rpy":[0.0,0.0,90],"tag":"21/21","name":"B21 entrance"}
 {"type":"MoveLin","xyz":[198.4,-603.2,827.2],"rpy":[0.0,0.0,90],"tag":"21/21","name":"B21 neu"}
@@ -20,7 +20,7 @@
 {"type":"MoveLin","xyz":[-396,202.1,640],"rpy":[0.0,0.7,0.0],"name":"wash by window"}
 {"type":"MoveLin","xyz":[-298,-400.9,674.8],"rpy":[0.0,0.7,-2.3],"name":"B safe"}
 {"type":"MoveJoint","joints":[94.5,-110.9,91.2,18.9,94.5,179.8],"name":"B neu"}
-{"type":"Section","sections":["get"]}
+{"type":"Section","section":"blue-to-B21"}
 {"type":"MoveJoint","joints":[94.5,-110.9,91.2,18.9,94.5,179.8],"name":"B neu"}
 {"type":"MoveLin","xyz":[-298,-400.9,674.8],"rpy":[0.0,0.7,-2.3],"name":"B safe"}
 {"type":"MoveLin","xyz":[-396,202.1,640],"rpy":[0.0,0.7,0.0],"name":"wash by window"}

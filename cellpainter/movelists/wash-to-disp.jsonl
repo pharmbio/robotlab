@@ -1,3 +1,4 @@
+{"type":"Section","section":"wash-to-disp"}
 {"type":"MoveJoint","joints":[94.6,-110.9,91.5,19.3,94.6,179.9],"name":"B neu"}
 {"type":"MoveLin","xyz":[-298,-400.9,674.8],"rpy":[0.0,0.7,-2.3],"name":"B safe"}
 {"type":"MoveLin","xyz":[-327.1,-319.4,527.1],"rpy":[0.0,1.6,-29.9],"name":"new wash above"}

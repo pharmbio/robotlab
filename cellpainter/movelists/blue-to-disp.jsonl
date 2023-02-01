@@ -1,4 +1,4 @@
-{"type":"Section","sections":["get"]}
+{"type":"Section","section":"blue-to-disp"}
 {"type":"MoveJoint","joints":[94.5,-110.9,91.2,18.9,94.5,179.8],"name":"B neu"}
 {"type":"MoveLin","xyz":[-298,-400.9,674.8],"rpy":[0.0,0.7,-2.3],"name":"B safe"}
 {"type":"MoveLin","xyz":[-396,202.1,640],"rpy":[0.0,0.7,0.0],"name":"wash by window"}
