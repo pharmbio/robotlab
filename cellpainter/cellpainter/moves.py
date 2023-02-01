@@ -292,6 +292,13 @@ class MoveListParts:
         *to_pick_neu, pick_neu, pick_pos = before_pick
         drop_neu, *from_drop_neu = after_drop
 
+        # neu
+        # pick
+        # [gripper close]
+        # ... anything ...
+        # [gripper open]
+        # neu
+
         # assert pick_neu.try_name().endswith("neu"),  f'{pick_neu.try_name()} needs a neu before pick'
         # assert pick_pos.try_name().endswith("pick"), f'{pick_pos.try_name()} needs a pick move before gripper pick close'
         # assert drop_neu.try_name().endswith("neu"),  f'{drop_neu.try_name()} needs a neu after drop'
