@@ -96,7 +96,7 @@ def arm_set_speed(value: int) -> None:
     arm.set_speed(value)
     arm.close()
 
-def edit_at(program_name: str, i: int, changes: dict[str, Any]):
+def edit_at(program_name: str, i: int, changes: dict[str, Any], action: None | Literal['duplicate', 'delete']=None):
     filename = get_programs()[program_name]
     ml = MoveList.read_jsonl(filename)
     m = ml[i]
@@ -108,6 +108,10 @@ def edit_at(program_name: str, i: int, changes: dict[str, Any]):
 
     ml = MoveList(ml)
     ml[i] = m
+    if action == 'delete':
+        ml = MoveList(ml[:i] + ml[i+1:])
+    if action == 'duplicate':
+        ml = MoveList(ml[:i] + [m] + ml[i:])
     ml.write_jsonl(filename)
     return {'refresh': True}
 
@@ -512,6 +516,8 @@ def index() -> Iterator[Tag | dict[str, str]]:
                 style=f'grid-column: value',
                 css='margin: unset',
                 title=repr(m),
+                onclick=call(edit_at, program_name, i, {}, action='duplicate'),
+                oncontextmenu='event.preventDefault();confirm("Delete?")&&' + call(edit_at, program_name, i, {}, action='delete')
             )
 
     yield div(
