@@ -1,9 +1,11 @@
 {"type":"Section","section":"B21-to-disp"}
 {"type":"MoveJoint","joints":[94,-110.9,90.5,19.5,93.5,179.9],"name":"B neu"}
-{"type":"MoveLin","xyz":[196.3,-590.3,834],"rpy":[0.0,0.0,90.5],"name":"B21 neu"}
-{"type":"MoveLin","xyz":[196.3,-590.3,821.1],"rpy":[0.0,0.0,90.5],"name":"B21 pick"}
+{"type":"MoveLin","xyz":[198.4,-421.8,827.1],"rpy":[0.0,0.8,90],"name":"B21 entrance","tag":"21/21"}
+{"type":"MoveLin","xyz":[196.3,-590.3,834],"rpy":[0.0,0.0,90.5],"name":"B21 neu","tag":"21/21"}
+{"type":"MoveLin","xyz":[196.3,-590.3,821.1],"rpy":[0.0,0.0,90.5],"name":"B21 pick","tag":"21/21"}
 {"type":"GripperMove","pos":255}
-{"type":"MoveLin","xyz":[196.3,-590.3,834],"rpy":[0.0,0.0,90.5],"name":"B21 neu"}
+{"type":"MoveLin","xyz":[196.3,-590.3,834],"rpy":[0.0,0.0,90.5],"name":"B21 neu","tag":"21/21"}
+{"type":"MoveLin","xyz":[198.4,-421.8,827.1],"rpy":[0.0,0.8,90],"name":"B21 entrance","tag":"21/21"}
 {"type":"MoveLin","xyz":[196.6,-421.8,834.1],"rpy":[0.0,0.8,90.5],"name":"B neu"}
 {"type":"MoveLin","xyz":[-2,-421.7,834.1],"rpy":[0.0,0.0,55.1],"name":"B safe"}
 {"type":"MoveLin","xyz":[-149.3,-501,398],"rpy":[0.4,-0.1,0.0],"name":"disp above"}
@@ -23,8 +25,10 @@
 {"type":"MoveLin","xyz":[-149.4,-501,398],"rpy":[0.4,-0.1,0.0],"name":"disp above"}
 {"type":"MoveLin","xyz":[-2,-421.7,834.1],"rpy":[0.0,0.0,55.1],"name":"B safe"}
 {"type":"MoveLin","xyz":[196.7,-421.7,834.1],"rpy":[0.0,0.0,90.5],"name":"B neu"}
-{"type":"MoveLin","xyz":[196.3,-590.3,834],"rpy":[0.0,0.0,90.5],"name":"B21 neu"}
-{"type":"MoveLin","xyz":[196.3,-590.3,821.5],"rpy":[0.0,0.0,90.5],"name":"B21 drop"}
+{"type":"MoveLin","xyz":[196.3,-590.3,834],"rpy":[0.0,0.0,90.5],"name":"B21 entrance","tag":"21/21"}
+{"type":"MoveLin","xyz":[196.3,-590.3,834],"rpy":[0.0,0.0,90.5],"name":"B21 neu","tag":"21/21"}
+{"type":"MoveLin","xyz":[196.3,-590.3,821.5],"rpy":[0.0,0.0,90.5],"name":"B21 drop","tag":"21/21"}
 {"type":"GripperMove","pos":88}
-{"type":"MoveLin","xyz":[196.3,-590.3,834],"rpy":[0.0,0.0,90.5],"name":"B21 neu"}
+{"type":"MoveLin","xyz":[196.3,-590.3,834],"rpy":[0.0,0.0,90.5],"name":"B21 neu","tag":"21/21"}
+{"type":"MoveLin","xyz":[196.3,-590.3,834],"rpy":[0.0,0.0,90.5],"name":"B21 entrance","tag":"21/21"}
 {"type":"MoveLin","xyz":[196.7,-421.7,834.1],"rpy":[0.0,0.0,90.5],"name":"B neu"}
