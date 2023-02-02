@@ -253,6 +253,8 @@ class Runtime:
                     self.set_world(next)
 
     def log_state(self, state: CommandState) -> str | None:
+        with self.lock:
+            print(f'{state.state: >10}', state.cmd_type, *astuple(state.cmd))
         pass
         # with self.lock:
         #     print(f'{state.state: >10}', state.cmd_type, *astuple(state.cmd))

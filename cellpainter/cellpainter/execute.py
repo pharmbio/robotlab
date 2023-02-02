@@ -96,6 +96,8 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
         case RobotarmCmd():
             with runtime.timeit(entry):
                 if runtime.config.robotarm_env.mode == 'noop':
+                    if cmd.program_name not in movelists:
+                        raise ValueError(f'Missing robotarm move {cmd.program_name}')
                     if metadata.sim_delay:
                         print(metadata.sim_delay)
                     runtime.sleep(

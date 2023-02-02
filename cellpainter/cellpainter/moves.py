@@ -387,8 +387,7 @@ def read_movelists() -> dict[str, MoveList]:
 
     out: list[NamedMoveList] = []
     for base, v in expanded.items():
-        if '-prep' in base or '-return' in base:
-            assert 'A21-to-incu' in base # these are used to put arm in A-neutral start position
+        if base in 'B-neu-to-A-neu A-neu-to-B-neu'.split():
             out += [NamedMoveList(base, 'full', v)]
             continue
         if 'calib' in base:
@@ -403,7 +402,7 @@ def read_movelists() -> dict[str, MoveList]:
             ret,
             transfer,
         ]
-        if 'A21-to-incu' in base:
+        if re.match(r'A\d+-to-incu', base):
             # special handling for quick incubator load which has a neutral somewhere around A5
             to_neu, neu, after_neu = parts.transfer.split_on(lambda m: m.try_name().endswith('drop neu'))
             assert to_neu.has_close() and not to_neu.has_open()

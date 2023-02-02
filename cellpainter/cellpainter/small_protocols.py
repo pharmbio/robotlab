@@ -113,9 +113,9 @@ def incu_load(args: SmallProtocolArgs):
             ).add(Metadata(plate_id=p.id, stage=f'plate from A{pos} to {p.incu_loc}'))
         ]
     program = Seq(*[
-        RobotarmCmd('A21-to-incu prep'),
+        RobotarmCmd(f'B-neu-to-A-neu'),
         *cmds,
-        RobotarmCmd('A21-to-incu return'),
+        RobotarmCmd(f'A-neu-to-B-neu'),
         WaitForResource('incu'),
     ])
     return Program(program, World(world0))

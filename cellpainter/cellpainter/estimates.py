@@ -136,7 +136,8 @@ def estimate(cmd: EstCmd) -> float:
                 guess = 30.0
             case RobotarmCmd():
                 test = cmd.program_name
-                test = re.sub(r'A\d+', 'C21', test)
+                if 'incu' not in test:
+                    test = re.sub(r'A\d+', 'C21', test)
                 test = re.sub(r'\d+', '21', test)
                 if test != cmd.program_name:
                     guess = estimate(RobotarmCmd(test))
