@@ -1,5 +1,5 @@
-[ ] gripper
-    [ ] raise gripper if close more than expected
+[x] gripper
+    [x] raise gripper if close more than expected
 [ ] main gui
     [ ] batch sep argument ?
     [ ] add a "is gripper initialized? is remote on?" if robotarm GripperCheck takes too long
@@ -12,6 +12,7 @@
 [ ] bioteks
     [x] add setup.py
     [x] repo rename cli -> repl
+    [x] save a copy of LHC files when starting
     [ ] check that protocols exists before running: add to biotek cliwrapper to report checksum/hash and last modified date of protocol files
     [ ] check that all LHC protocol files exist before starting, also associate their timings with their last modification date (and perhaps hash?)
     [ ] Validate all protocols before starting cell paint
@@ -22,13 +23,13 @@
     [ ] improve command names:
         [ ] Duration -> TimeSince
         [ ] exactly ... at_least ... at_most ...
-[ ] small_protocols
-    [ ] make a load up to 18 plates protocol
+[x] small_protocols
+    [x] make a load up to 18 plates protocol
 [ ] render archive log
     [ ] use biotek pdfs: use updated print_all
     [ ] what to generate? excel? pdf? webpage?
 [ ] movelists
-    [ ] put/get names not transparent enough ... ? lid_put lid_get
+    [x] put/get names not transparent enough ... ? lid_put lid_get
     [ ] moves: both lin&joint for all coords ?
 
 [x] incubator: Use get_status instead of get_climate

@@ -582,6 +582,14 @@ def bluewash_init_all(args: SmallProtocolArgs):
     '''
     return Program(BlueFork('init_all'))
 
+@small_protocols.append
+def wave(args: SmallProtocolArgs):
+    '''
+    Makes the robot wave a handful of times.
+    '''
+    waves = [RobotarmCmd('wave')] * 5
+    return Program(Seq(*waves))
+
 @dataclass(frozen=True)
 class SmallProtocolData:
     name: str
