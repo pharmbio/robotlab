@@ -129,7 +129,7 @@ class ConnectedBlueWash:
         else:
             return lines
 
-    def write_prog(self, program_code: str, index: int, program_name: str=''):
+    def write_prog(self, program_code: str, index: int):
         delete_lines = self.delete_prog(index)
         lines = program_code.splitlines(keepends=False)
         self.write(f'$Copyprog {index:02} _')
@@ -217,7 +217,7 @@ class BlueWash(Machine):
         with self.connect() as con:
             with timeit('copyprog'):
                 path = Path(self.root_dir) / filename
-                return con.write_prog(path.read_text(), index, program_name=filename)
+                return con.write_prog(path.read_text(), index)
 
     def write_and_run_prog(self, *filename_parts: str, index: int=99) -> List[str]:
         return [
@@ -228,7 +228,7 @@ class BlueWash(Machine):
     def run_test_prog(self) -> List[str]:
         return self.write_and_run_prog('bluewash-protocols/MagBeadSpinWash-2X-80ul-Blue.prog')
 
-    def get_info(self, index: int=98, program_name: str='get_info') -> List[str]:
+    def get_info(self, index: int=99) -> List[str]:
         program: str = '''
             $getserial
             $getfirmware
@@ -236,7 +236,7 @@ class BlueWash(Machine):
         '''
         program = textwrap.dedent(program).strip()
         with self.connect() as con:
-            xs = con.write_prog(program, index, program_name=program_name)
+            xs = con.write_prog(program, index)
         return [
             *xs,
             *self.run_prog(index),
