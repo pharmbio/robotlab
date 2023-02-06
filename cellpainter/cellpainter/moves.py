@@ -393,6 +393,7 @@ def read_movelists() -> dict[str, MoveList]:
         if 'calib' in base:
             continue
         if 'wave' in base:
+            out += [NamedMoveList(base, 'full', v)]
             continue
         out += [NamedMoveList(base, 'full', v)]
         parts = v.split()

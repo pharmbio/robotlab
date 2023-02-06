@@ -1,4 +1,4 @@
-{"type":"Section","section":"calib goto"}
+{"type":"Section","section":"wave"}
 {"type":"MoveJoint","joints":[94,-110.9,90.5,19.5,93.5,179.9],"name":"B neu"}
 {"type":"MoveJoint","joints":[42.8,-127.2,133.6,-95.2,91,170.6],"name":"B neu"}
 {"type":"MoveJoint","joints":[42.8,-127.3,134.3,-103.8,126.7,162],"name":"B neu"}
@@ -9,4 +9,4 @@
 {"type":"MoveJoint","joints":[43.4,-127.2,132.3,-84.7,58.4,162.3],"name":"B neu"}
 {"type":"MoveJoint","joints":[42.8,-127.2,133.6,-95.2,91,170.6],"name":"B neu"}
 {"type":"MoveJoint","joints":[42.8,-127.2,133.6,-95.2,91,170.6],"name":"B neu"}
-{"type":"Section","section":"calib return"}
+{"type":"MoveJoint","joints":[94,-110.9,90.5,19.5,93.5,179.9],"name":"B neu"}

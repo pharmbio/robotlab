@@ -585,9 +585,9 @@ def bluewash_init_all(args: SmallProtocolArgs):
 @small_protocols.append
 def wave(args: SmallProtocolArgs):
     '''
-    Makes the robot wave a handful of times.
+    Makes the robot wave, twice!
     '''
-    waves = [RobotarmCmd('wave')] * 5
+    waves = [RobotarmCmd('wave')] * 2
     return Program(Seq(*waves))
 
 @dataclass(frozen=True)
