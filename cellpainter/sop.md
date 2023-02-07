@@ -187,7 +187,7 @@ For dry runs: make sure the plates are decontaminated since they are going into 
    <td align=center valign=top width=100px>plate 1
    <td align=center valign=top width=100px>plate 2
    <td align=center valign=top width=100px>plate 3
-   <td align=center valign=top width=100px><font color=red>plate 4
+   <td align=center valign=top width=100px><del><strike>plate 4
    <td align=center valign=top width=100px>plate 5
    <td align=center valign=top width=100px>plate 6
    </table>
