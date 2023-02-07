@@ -191,18 +191,15 @@ Interleavings = dict(
         incu -> B21 -> disp -> B21 -> incu
         incu -> B21 -> disp -> B21 -> incu
     '''),
-    dispjune = Interleaving.init('''
+    dispilv = Interleaving.init('''
         incu -> B21 -> disp
-        incu -> B21
                        disp -> B15
-                B21 -> disp
-                               B15 -> B21 -> incu
-        incu -> B21
-                       disp -> B15
-                B21 -> disp
+        incu -> B21 -> disp
                                B15 -> B21 -> incu
                        disp -> B15
+        incu -> B21 -> disp
                                B15 -> B21 -> incu
+                       disp -> B15 -> B21 -> incu
     '''),
     washlin = Interleaving.init('''
         incu -> B21 -> wash -> B21 -> incu
@@ -376,7 +373,7 @@ def make_protocol_config(paths: ProtocolPaths, args: ProtocolArgsInterface = Pro
         if not wash_protocol and name == 'lin':
             interleavings_with_disp += ['displin']
         elif not wash_protocol and name == 'june':
-            interleavings_with_disp += ['dispjune']
+            interleavings_with_disp += ['dispilv']
         else:
             interleavings_with_disp += [name]
 
