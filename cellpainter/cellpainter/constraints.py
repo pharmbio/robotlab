@@ -100,18 +100,22 @@ def optimal_env(cmd: Command, unsat_core: bool=False) -> OptimalResult:
                 res += vv
             return res
 
-    def max_symbolic(a: Symbolic | float | int, b: Symbolic | float | int):
+    added = 0
+
+    def max_symbolic(a: Symbolic | float | int, b: Symbolic | float | int, **kws: Any):
         m = Symbolic.var(ids.assign('max'))
         max_a_b, a, b = map(to_expr, (m, a, b))
         if unsat_core:
             print(f'{max_a_b} == max({a}, {b})')
+            nonlocal added
+            added += 1
             s.assert_and_track(
                 And(
                     max_a_b >= a,
                     max_a_b >= b,
                     Or(max_a_b == a, max_a_b == b),
                 ),
-                f'{max_a_b} == max({a}, {b})'
+                f'{max_a_b} == max({a}, {b}) ({added}, {kws})'
             )
         else:
             s.add(max_a_b >= a)
@@ -119,7 +123,7 @@ def optimal_env(cmd: Command, unsat_core: bool=False) -> OptimalResult:
             s.add(Or(max_a_b == a, max_a_b == b))
         return m
 
-    def constrain(lhs: Symbolic | float | int | str, op: Literal['>', '>=', '=='], rhs: Symbolic | float | int | str):
+    def constrain(lhs: Symbolic | float | int | str, op: Literal['>', '>=', '=='], rhs: Symbolic | float | int | str, **kws: Any):
         match op:
             case '>':
                 clause = (to_expr(lhs) > to_expr(rhs))
@@ -133,7 +137,9 @@ def optimal_env(cmd: Command, unsat_core: bool=False) -> OptimalResult:
             print(f'{lhs} {op} {rhs}')
             if clause == True:
                 return
-            s.assert_and_track(clause, f'{lhs} {op} {rhs}')
+            nonlocal added
+            added += 1
+            s.assert_and_track(clause, f'{lhs} {op} {rhs} ({added}, {kws})')
         else:
             s.add(clause)
 
@@ -146,7 +152,7 @@ def optimal_env(cmd: Command, unsat_core: bool=False) -> OptimalResult:
         '''
         match cmd:
             case Idle():
-                constrain(cmd.seconds, '>=', 0)
+                constrain(cmd.seconds, '>=', 0, cmd=cmd)
                 return begin + cmd.seconds
             case Info():
                 return begin
@@ -158,27 +164,27 @@ def optimal_env(cmd: Command, unsat_core: bool=False) -> OptimalResult:
                 return begin + estimate(cmd)
             case Checkpoint():
                 checkpoint = Symbolic.var(cmd.name)
-                constrain(begin, '==', checkpoint)
+                constrain(begin, '==', checkpoint, cmd=cmd)
                 return begin
             case WaitForCheckpoint():
                 point = Symbolic.var(cmd.name) + cmd.plus_seconds
-                constrain(cmd.plus_seconds, '>=', 0)
+                constrain(cmd.plus_seconds, '>=', 0, cmd=cmd)
                 if cmd.assume == 'will wait':
-                    constrain(point, '>=', begin)
+                    constrain(point, '>=', begin, cmd=cmd)
                     return point
                 elif cmd.assume == 'no wait':
-                    constrain(begin, '>=', point)
+                    constrain(begin, '>=', point, cmd=cmd)
                     return begin
                 else:
                     wait_to = Symbolic.var(ids.assign('wait_to'))
-                    constrain(wait_to, '==', max_symbolic(point, begin))
+                    constrain(wait_to, '==', max_symbolic(point, begin, cmd=cmd), cmd=cmd)
                     return wait_to
             case Duration():
                 checkpoint = Symbolic.var(cmd.name)
-                constrain(begin, '>=', checkpoint) # checkpoint must have happened
+                constrain(begin, '>=', checkpoint) # checkpoint must have happene, cmd=cmdd
                 duration = Symbolic.var(ids.assign(cmd.name + ' duration '))
-                constrain(checkpoint + duration, '==', begin)
-                constrain(duration, '>=', 0)
+                constrain(checkpoint + duration, '==', begin, cmd=cmd)
+                constrain(duration, '>=', 0, cmd=cmd)
                 match cmd.constraint:
                     case Max():
                         maxi = cmd.constraint
