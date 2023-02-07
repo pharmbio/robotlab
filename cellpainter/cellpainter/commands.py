@@ -384,7 +384,7 @@ class Fork(Command):
         for cmd, _ in self.command.collect():
             assert not isinstance(cmd, WaitForResource) # only the main thread can wait for resources
             if resource := cmd.required_resource():
-                assert resource == self_resource
+                assert resource == self_resource, f'{resource=} != {self_resource=} ({cmd=})'
 
     def replace(self, command: Command):
         return replace(self, command=command)

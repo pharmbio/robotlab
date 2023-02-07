@@ -28,6 +28,7 @@ from .commands import (
     ProgramMetadata,
     Max,
     Min,
+    WaitAssumption,
 )
 from .moves import movelists, World
 from .symbolic import Symbolic
@@ -88,8 +89,8 @@ class Locations:
     C: list[str] = [f'C{i}' for i in HC]
 
     Incu: list[str] = [f'L{i}' for i in I] + [f'R{i}' for i in I]
-    RT:   list[str] = C[:5] + A[:9] + [B[4], B[5]]
-    Out:  list[str] = A[9:][::-1] + B[5:][::-1] + C[5:][::-1]
+    RT:   list[str] = C[:5] + A[:11] + [B[4], B[5]]
+    Out:  list[str] = A[11:][::-1] + B[6:][::-1] + C[5:][::-1]
     Lid:  list[str] = [b for b in B if '19' in b or '17' in b]
 
 def sleek_program(program: Command) -> Command:
@@ -186,6 +187,58 @@ Interleavings = dict(
                         wash -> disp
                                 disp -> B21 -> incu
     '''),
+    displin = Interleaving.init('''
+        incu -> B21 -> disp -> B21 -> incu
+        incu -> B21 -> disp -> B21 -> incu
+    '''),
+    dispjune = Interleaving.init('''
+        incu -> B21 -> disp
+        incu -> B21
+                       disp -> B15
+                B21 -> disp
+                               B15 -> B21 -> incu
+        incu -> B21
+                       disp -> B15
+                B21 -> disp
+                               B15 -> B21 -> incu
+                       disp -> B15
+                               B15 -> B21 -> incu
+    '''),
+    washlin = Interleaving.init('''
+        incu -> B21 -> wash -> B21 -> incu
+        incu -> B21 -> wash -> B21 -> incu
+    '''),
+    washjune = Interleaving.init('''
+        incu -> B21 -> wash
+        incu -> B21
+                       wash -> B15
+                B21 -> wash
+                               B15 -> B21 -> incu
+        incu -> B21
+                       wash -> B15
+                B21 -> wash
+                               B15 -> B21 -> incu
+                       wash -> B15
+                               B15 -> B21 -> incu
+    '''),
+    finlin = Interleaving.init('''
+        incu -> B21 -> wash -> B21 -> out
+        incu -> B21 -> wash -> B21 -> out
+    '''),
+    finjune = Interleaving.init('''
+        incu -> B21
+                B21 -> wash
+        incu -> B21
+                       wash -> B15
+                B21 -> wash
+                               B15 -> B21 -> out
+        incu -> B21
+                       wash -> B15
+                B21 -> wash
+                               B15 -> B21 -> out
+                       wash -> B15
+                               B15 -> B21 -> out
+    '''),
     mix = Interleaving.init('''
         incu -> B21 -> wash
                        wash -> disp
@@ -229,41 +282,6 @@ Interleavings = dict(
                                disp -> B21
                                        B21 -> incu
     '''),
-    washlin = Interleaving.init('''
-        incu -> B21 -> wash -> B21 -> incu
-        incu -> B21 -> wash -> B21 -> incu
-    '''),
-    washjune = Interleaving.init('''
-        incu -> B21 -> wash
-        incu -> B21
-                       wash -> B15
-                B21 -> wash
-                               B15 -> B21 -> incu
-        incu -> B21
-                       wash -> B15
-                B21 -> wash
-                               B15 -> B21 -> incu
-                       wash -> B15
-                               B15 -> B21 -> incu
-    '''),
-    finlin = Interleaving.init('''
-        incu -> B21 -> wash -> B21 -> out
-        incu -> B21 -> wash -> B21 -> out
-    '''),
-    finjune = Interleaving.init('''
-        incu -> B21
-                B21 -> wash
-        incu -> B21
-                       wash -> B15
-                B21 -> wash
-                               B15 -> B21 -> out
-        incu -> B21
-                       wash -> B15
-                B21 -> wash
-                               B15 -> B21 -> out
-                       wash -> B15
-                               B15 -> B21 -> out
-    ''')
 )
 
 class ProtocolArgsInterface(typing.Protocol):
@@ -351,17 +369,28 @@ def make_protocol_config(paths: ProtocolPaths, args: ProtocolArgsInterface = Pro
     names_6 = ['Mito', 'PFA', 'Triton', 'Stains', 'Wash 1', 'Final']
     step_names = names_6 if six_cycles else names_5
 
+    wash = paths.wash_6 if six_cycles else paths.wash_5
+
+    interleavings_with_disp: list[str] = []
+    for name, wash_protocol in zip(interleavings, wash):
+        if not wash_protocol and name == 'lin':
+            interleavings_with_disp += ['displin']
+        elif not wash_protocol and name == 'june':
+            interleavings_with_disp += ['dispjune']
+        else:
+            interleavings_with_disp += [name]
+
     p = ProtocolConfig(
         wash_prime     = paths.wash_prime,
         step_names     = step_names,
-        wash           = paths.wash_6 if six_cycles else paths.wash_5,
+        wash           = wash,
         disp_prime     = resize(paths.disp_prime),
         disp_prep      = resize(paths.disp_prep),
         disp           = resize(paths.disp_main),
         lockstep_threshold = args.lockstep_threshold,
         incu           = incu,
         interleave     = args.interleave,
-        interleavings  = interleavings,
+        interleavings  = interleavings_with_disp,
     )
     return p
 
@@ -411,16 +440,13 @@ def RobotarmCmds(s: str, before_pick: list[Command] = [], after_drop: list[Comma
 def Early(secs: float):
     return Idle(secs=secs, only_for_scheduling=True)
 
+def CheckpointPair(name: str, assume: WaitAssumption = 'nothing'):
+    return Checkpoint(name), WaitForCheckpoint(name, assume=assume)
+
 def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
     p = protocol_config
 
-    wash_prime: list[Command] = [
-        BiotekValidateThenRun('wash', prime)
-        for prime in p.wash_prime
-    ]
-    prep_cmds: list[Command] = [
-        Fork(Seq(*wash_prime)),
-    ]
+    prep_cmds: list[Command] = []
 
     first_plate = batch[0]
     last_plate = batch[-1]
@@ -446,9 +472,21 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
     else:
         lid_locs = Locations.Lid[:1]
     lid_index = 0
-    for i, step in enumerate(p.step_names):
+
+    wash_threads: list[Command] = []
+    disp_threads: list[Command] = []
+
+    wash_prime: list[Command] = [
+        BiotekValidateThenRun('wash', prime)
+        for prime in p.wash_prime
+    ]
+
+    wash_threads += wash_prime
+
+    for i, (step, interleaving_name) in enumerate(zip(p.step_names, p.interleavings)):
         step_index = i
         for plate in batch:
+
             lid_loc = lid_locs[lid_index % len(lid_locs)]
             lid_index += 1
             plate_with_corrected_lid_pos = replace(plate, lid_loc=lid_loc)
@@ -459,6 +497,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
             incu_delay: list[Command]
             wash_delay: list[Command]
             if step_index == 0:
+                # idle_ref = WaitForCheckpoint(f'batch {batch_index}')
                 incu_delay = [
                     WaitForCheckpoint(f'batch {batch_index}') + f'{plate_desc} incu delay {ix}'
                 ]
@@ -466,6 +505,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                     WaitForCheckpoint(f'batch {batch_index}') + f'{plate_desc} first wash delay'
                 ]
             else:
+                # idle_ref = WaitForCheckpoint(f'{first_plate_desc} incubation {ix-1}')
                 incu_delay = [
                     WaitForCheckpoint(f'{first_plate_desc} incubation {ix-1}') + f'{plate_desc} incu delay {ix}'
                 ]
@@ -479,6 +519,71 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                     # WaitForCheckpoint(f'{plate_desc} incubation {ix-1}', assume='will wait') + slack,
                     Duration(f'{plate_desc} incubation {ix-1}', OptPrio.incu_slack),
                 ]
+
+            wash_thread: list[Command] = []
+            disp_thread: list[Command] = []
+
+            wash_thread += [
+                Idle() + f'{plate_desc} wash {ix} idle',
+            ]
+
+            disp_thread += [
+                Idle() + f'{plate_desc} disp {ix} idle',
+            ]
+
+            start_wash, wait_for_start_wash = CheckpointPair(f'{plate_desc} start wash {ix}', assume='no wait')
+            start_disp, wait_for_start_disp = CheckpointPair(f'{plate_desc} start disp {ix}', assume='no wait')
+            disp_started, wait_for_disp_started = CheckpointPair(f'{plate_desc} disp started {ix}', assume='no wait')
+            left_wash, wait_for_left_wash = CheckpointPair(f'{plate_desc} left wash {ix}')
+            left_disp, wait_for_left_disp = CheckpointPair(f'{plate_desc} left disp {ix}')
+            wash_done, wait_for_wash_done = CheckpointPair(f'{plate_desc} wash {ix} done')
+            disp_done, wait_for_disp_done = CheckpointPair(f'{plate_desc} disp {ix} done')
+
+            if p.wash[i]:
+                wash_thread += [
+                    WashCmd('Validate', p.wash[i]),
+                    Early(2),
+                    wait_for_start_wash,
+                    WashCmd('RunValidated', p.wash[i]),
+                    wash_done,
+                    wait_for_left_wash,
+                ]
+
+            if p.disp_prime[i] and plate is first_plate:
+                disp_thread += [
+                    BiotekValidateThenRun('disp', p.disp_prime[i]).add(Metadata(plate_id='')),
+                ]
+
+            if p.disp_prep[i]:
+                disp_thread += [
+                    BiotekValidateThenRun('disp', p.disp_prep[i]).add(Metadata(predispense=True)),
+                ]
+
+            if p.disp[i]:
+                disp_thread += [
+                    DispCmd('Validate', p.disp[i]),
+                    Early(2),
+                    wait_for_start_disp,
+                    disp_started,
+                    DispCmd('RunValidated', p.disp[i]),
+                    disp_done,
+                    wait_for_left_disp,
+                ]
+
+
+            def add_metadata(cmd: Command):
+                cmd = cmd.add(Metadata(
+                    step=step,
+                    plate_id=plate.id,
+                    stage=f'{step}, plate {plate.id}',
+                ))
+                cmd = cmd.add_to_physical_commands(Metadata(
+                    section=f'{step} {batch_index}',
+                ))
+                return cmd
+
+            wash_threads += [add_metadata(Seq(*wash_thread))]
+            disp_threads += [add_metadata(Seq(*disp_thread))]
 
             lid_off = [
                 *RobotarmCmds(plate_with_corrected_lid_pos.lid_put, before_pick=[Checkpoint(f'{plate_desc} lid off {ix}')]),
@@ -495,7 +600,6 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                     *RobotarmCmds('incu-to-B21', before_pick = [
                         WaitForResource('incu', assume='will wait'),
                     ]),
-                    *lid_off,
                 ]
             elif step == 'PFA':
                 incu_get = [
@@ -505,12 +609,10 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                     *RobotarmCmds('incu-to-B21', before_pick = [
                         WaitForResource('incu', assume='will wait'),
                     ]),
-                    *lid_off,
                 ]
             else:
                 incu_get = [
                     *RobotarmCmds(plate.rt_get),
-                    *lid_off,
                 ]
 
             if step == 'Mito':
@@ -534,83 +636,95 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                     *RobotarmCmds(plate.rt_put),
                 ]
 
-
-            if p.disp_prime[i] and plate is first_plate:
-                disp_prime = p.disp_prime[i]
-            else:
-                disp_prime = None
-
-            if p.disp[i] or disp_prime:
-                pre_disp_is_long = disp_prime or p.disp_prep[i]
-                disp_prep = Seq(
-                    Fork(
-                        Seq(
-                            WaitForCheckpoint(f'{plate_desc} incubation {ix-1}' if step_index > 0 else f'batch {batch_index}') + f'{plate_desc} pre disp {ix} delay',
-                            BiotekValidateThenRun('disp', disp_prime).add(Metadata(plate_id='')) if disp_prime else Idle(),
-                            BiotekValidateThenRun('disp', p.disp_prep[i]).add(Metadata(predispense=True)) if p.disp_prep[i] else Idle(),
-                            DispCmd('Validate', p.disp[i]) if p.disp[i] else Idle(),
-                            Early(2),
-                            Checkpoint(f'{plate_desc} pre disp done {ix}'),
-                        ).add(Metadata(slot=3)),
-                        assume='nothing',
-                    ),
-                )
-                pre_disp_wait = WaitForCheckpoint(f'{plate_desc} pre disp done {ix}')
-            else:
-                pre_disp_is_long = False
-                disp_prep = Idle()
-                pre_disp_wait = Idle()
-
-            wash = [
+            B21_to_wash = [
                 RobotarmCmd('B21-to-wash prep'),
-                WashFork(p.wash[i], cmd='Validate', assume='idle').delay(1) if plate is first_plate and p.wash[i] else Idle(),
                 RobotarmCmd('B21-to-wash transfer'),
-                disp_prep if pre_disp_is_long else Idle(),
                 Fork(
                     Seq(
                         *wash_delay,
-                        WashCmd('RunValidated', p.wash[i]) if p.wash[i] else Idle(),
+                        start_wash,
+                        wait_for_wash_done if p.wash[i] else Idle(),
                         Checkpoint(f'{plate_desc} incubation {ix}')
                         if step == 'Wash 1' else
                         Checkpoint(f'{plate_desc} transfer {ix}'),
                     ),
-                    assume='nothing',
                 ),
                 RobotarmCmd('B21-to-wash return'),
             ]
 
-            disp = [
+            wash_to_disp = [
                 RobotarmCmd('wash-to-disp prep'),
                 Early(1),
-                WaitForResource('wash', assume='nothing'),
-                Idle() if pre_disp_is_long else disp_prep,
+                wait_for_wash_done if p.wash[i] else Idle(),
                 RobotarmCmd('wash-to-disp transfer'),
-                pre_disp_wait,
-                Duration(f'{plate_desc} transfer {ix}', OptPrio.wash_to_disp) if p.disp[i] else Idle(),
+                left_wash,
+                start_disp,
                 Fork(
                     Seq(
-                        DispCmd('RunValidated', p.disp[i]) if p.disp[i] else Idle(),
-                        Checkpoint(f'{plate_desc} disp {ix} done'),
-                        Checkpoint(f'{plate_desc} incubation {ix}'),
+                        wait_for_disp_started if p.disp[i] else Idle(),
+                        Duration(f'{plate_desc} transfer {ix}', OptPrio.wash_to_disp) if p.disp[i] else Idle(),
+                        wait_for_disp_done if p.disp[i] else Idle(),
+                        Checkpoint(f'{plate_desc} incubation {ix}')
                     ),
                 ),
                 RobotarmCmd('wash-to-disp return'),
             ]
 
+            B21_to_disp = [
+                RobotarmCmd('B21-to-disp prep'),
+                RobotarmCmd('B21-to-disp transfer'),
+                Early(1),
+                Fork(
+                    Seq(
+                        *wash_delay,
+                        start_disp,
+                        wait_for_disp_started if p.disp[i] else Idle(),
+                        Duration(f'{plate_desc} transfer {ix}', OptPrio.wash_to_disp) if p.disp[i] else Idle(),
+                        wait_for_disp_done if p.disp[i] else Idle(),
+                        Checkpoint(f'{plate_desc} incubation {ix}')
+                    ),
+                ),
+                RobotarmCmd('B21-to-disp return'),
+            ]
+
             disp_to_B21 = [
                 RobotarmCmd('disp-to-B21 prep'),
-                WaitForCheckpoint(f'{plate_desc} disp {ix} done', assume='nothing'),
+                wait_for_disp_done if p.disp[i] else Idle(),
                 RobotarmCmd('disp-to-B21 transfer'),
+                left_disp,
                 RobotarmCmd('disp-to-B21 return'),
             ]
 
-            chunks[plate.id, step, 'incu -> B21' ] = [*incu_delay, *incu_get]
-            chunks[plate.id, step,  'B21 -> wash'] = [*wash]
-            chunks[plate.id, step, 'wash -> disp'] = disp
-            chunks[plate.id, step, 'disp -> B21' ] = [*disp_to_B21, *lid_on]
+            disp_to_B15 = [
+                RobotarmCmd('disp-to-B15 prep'),
+                wait_for_disp_done if p.disp[i] else Idle(),
+                RobotarmCmd('disp-to-B15 transfer'),
+                left_disp,
+                RobotarmCmd('disp-to-B15 return'),
+            ]
 
-            chunks[plate.id, step, 'wash -> B21' ] = [*RobotarmCmds('wash-to-B21', before_pick=[WaitForResource('wash')]), *lid_on]
-            chunks[plate.id, step, 'wash -> B15' ] = RobotarmCmds('wash-to-B15', before_pick=[WaitForResource('wash')])
+            if 'disp' in interleaving_name:
+                chunks[plate.id, step, 'incu -> B21' ] = [
+                    *incu_delay, *incu_get,
+                    Checkpoint(f'{plate_desc} transfer {ix}'),
+                ]
+            else:
+                chunks[plate.id, step, 'incu -> B21' ] = [
+                    *incu_delay, *incu_get,
+                    *lid_off,
+                ]
+            chunks[plate.id, step,  'B21 -> wash'] = [*B21_to_wash]
+            chunks[plate.id, step, 'wash -> disp'] = wash_to_disp
+            chunks[plate.id, step, 'disp -> B21' ] = [*disp_to_B21, *lid_on]
+            chunks[plate.id, step, 'disp -> B15' ] = [*disp_to_B15]
+            chunks[plate.id, step,  'B21 -> disp'] = [*lid_off, *B21_to_disp]
+
+            chunks[plate.id, step, 'wash -> B21' ] = [*RobotarmCmds('wash-to-B21', before_pick=[
+                wait_for_wash_done if p.wash[i] else Idle(),
+            ], after_drop=[left_wash]), *lid_on]
+            chunks[plate.id, step, 'wash -> B15' ] = RobotarmCmds('wash-to-B15', before_pick=[
+                wait_for_wash_done if p.wash[i] else Idle(),
+            ], after_drop=[left_wash])
             chunks[plate.id, step,  'B15 -> B21' ] = [*RobotarmCmds('B15 get'), *lid_on]
 
             chunks[plate.id, step,  'B21 -> incu'] = B21_to_incu
@@ -692,11 +806,13 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
     slots = {
         'incu -> B21':  1,
         'B21 -> wash':  2,
+        'B21 -> disp':  3,
         'wash -> disp': 3,
         'disp -> B21':  4,
         'B21 -> incu':  4,
         'wash -> B21':  3,
         'B21 -> out':   4,
+        'disp -> B15':  4,
         'wash -> B15':  3,
         'B15 -> B21':   4,
         'B15 -> out':   4,
@@ -738,6 +854,9 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
 
     return Seq(
         Seq(*prep_cmds).add(Metadata(step='prep', stage=stage1)),
+        Fork(Seq(*wash_threads)).add(Metadata(slot=2)),
+        Fork(Seq(*disp_threads)).add(Metadata(slot=3)),
+        Idle() + f'slack {batch_index+1}',
         *plate_cmds,
         Seq(*post_cmds)
     ).add(Metadata(batch_index=batch_index + 1))

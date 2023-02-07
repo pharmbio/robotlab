@@ -45,30 +45,36 @@
     ],
     "wash_5": [
       "",
-      "short/3_W.LHC",
-      "short/5_W.LHC",
       "",
-      ""
+      "short/5_W.LHC",
+      "short/7_W.LHC",
+      "short/9_W.LHC"
     ],
     "wash_6": [
       "",
-      "short/3_W.LHC",
+      "",
       "short/5_W.LHC",
       "short/7_W.LHC",
-      "",
-      ""
+      "short/9_10_W.LHC",
+      "short/9_10_W.LHC"
     ],
     "disp_prime": [
       "short/2.0_D.LHC",
-      "short/4.0_D.LHC"
+      "short/4.0_D.LHC",
+      "short/6.0_D.LHC",
+      "short/8.0_D.LHC"
     ],
     "disp_prep": [
       "",
-      "short/4.0b_D.LHC"
+      "",
+      "",
+      "short/8.0b_D.LHC"
     ],
     "disp_main": [
       "short/2.1_D.LHC",
-      "short/4.1_D.LHC"
+      "short/4.1_D.LHC",
+      "short/6.1_D.LHC",
+      "short/8.1_D.LHC"
     ]
   },
   "bloop": {

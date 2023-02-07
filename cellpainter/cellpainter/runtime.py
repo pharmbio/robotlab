@@ -253,59 +253,22 @@ class Runtime:
                     self.set_world(next)
 
     def log_state(self, state: CommandState) -> str | None:
+        return
+        if state.cmd_type == 'RobotarmCmd':
+            return
+        if state.cmd_type == 'Checkpoint' and state.state == 'running':
+            return
         with self.lock:
-            print(f'{state.state: >10}', state.cmd_type, *astuple(state.cmd))
-        pass
-        # with self.lock:
-        #     print(f'{state.state: >10}', state.cmd_type, *astuple(state.cmd))
-            # m = entry.metadata
-            # if entry.err:
-            #     pass
-            # elif not self.config.log_filename:
-            #     return
-            # elif m.dry_run_sleep:
-            #     return
-            # t = self.pp_time_offset(entry.t)
-            # if entry.cmd:
-            #     desc = ', '.join(f'{k}={v}' for k, v in pbutils.nub(entry.cmd).items() if k != 'machine')
-            # else:
-            #     desc = ''
-            # if entry.msg:
-            #     desc = entry.msg
-            # machine = entry.machine() or entry.cmd.__class__.__name__
-            # if entry.cmd is None:
-            #     machine = ''
-            # if machine in ('WaitForCheckpoint', 'Idle'):
-            #     machine = 'wait'
-            # if machine in ('robotarm', 'wait') and entry.is_end():
-            #     return
-            # if entry.is_end() and machine in ('wash', 'disp', 'incu'):
-            #     machine += ' done'
-            # machine = machine.lower()
-            # if machine == 'duration':
-            #     desc = f"`{getattr(entry.cmd, 'name', '?')}` = {pbutils.pp_secs(entry.duration or 0)}"
-            # desc = re.sub('^automation_', '', desc)
-            # desc = re.sub(r'\.LHC', '', desc)
-            # desc = re.sub(r'\w*path=', '', desc)
-            # desc = re.sub(r'\w*name=', '', desc)
-            # if not desc:
-            #     desc = str(pbutils.nub(entry.metadata))
-
-            # if entry.err and entry.err.message:
-            #     desc = entry.err.message
-            #     print(entry.err.message)
-
-            # w = ','.join(f'{k}:{v}' for k, v in self.world.data.items())
-            # parts = [
-            #     t,
-            #     f'{m.id or ""       : >4}',
-            #     f'{machine[:12]     : <12}',
-            #     f'{desc[:50]        : <50}',
-            #     f'{m.plate_id or "" : >2}',
-            #     f'{m.step           : <9}',
-            #     f'{w                : <30}',
-            # ]
-            # return ' | '.join(parts)
+            print(
+                f'{state.metadata.step     or "": >10}',
+                f'{state.metadata.substep  or "": >13}',
+                f'plate {state.metadata.plate_id or "": >2}',
+                f'{self.current_thread_name()   : >10}',
+                f'{state.state                  : >10}',
+                state.cmd_type,
+                *astuple(state.cmd),
+                sep=' | ',
+            )
 
     def timeit(self, entry: CommandWithMetadata) -> ContextManager[None]:
         # The inferred type for the decorated function is wrong hence this wrapper to get the correct type
@@ -391,6 +354,9 @@ class Runtime:
 
     def register_thread(self, name: str):
         return self.timelike.register_thread(name)
+
+    def current_thread_name(self) -> str:
+        return self.timelike.current_thread_name()
 
     def thread_done(self):
         return self.timelike.thread_done()

@@ -22,6 +22,10 @@ class Timelike(abc.ABC):
         pass
 
     @abc.abstractmethod
+    def current_thread_name(self) -> str:
+        pass
+
+    @abc.abstractmethod
     def queue_get(self, queue: Queue[A]) -> A:
         pass
 
@@ -81,6 +85,9 @@ class SimulatedTime(Timelike):
     def current_thread_data(self) -> ThreadData:
         tid = threading.current_thread()
         return self.threads[tid]
+
+    def current_thread_name(self) -> str:
+        return self.current_thread_data().name
 
     def thread_done(self):
         with self.lock:
@@ -181,6 +188,9 @@ class WallTime(Timelike):
 
     def register_thread(self, name: str):
         pass
+
+    def current_thread_name(self) -> str:
+        return ''
 
     def queue_get(self, queue: Queue[A]) -> A:
         return queue.get()
