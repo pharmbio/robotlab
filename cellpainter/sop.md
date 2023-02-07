@@ -97,13 +97,13 @@ Use the teach pendant.
 
    With the teach pendant, hold down the freedrive button on the back side.
 
-3. Put the robot in remote mode.
+3. Put the robot in remote mode (upper-right corner).
 
 4. Put the teach pendant close to the keyboard so you can reach the emergency button.
 
 ## Test communications
 
-1. Use the windows computer and go to http://10.10.0.55:5000.
+1. Use the windows computer and go to the gui at http://10.10.0.55:5000.
 
 2. Run the test communications protocol, `test-comm` to verify that all machines can be communicated with.
 
@@ -140,7 +140,7 @@ For dry runs: make sure the plates are decontaminated since they are going into 
 
    Use the teach pendant and its freedrive button.
 
-3. Use the windows computer and go to http://10.10.0.55:5000.
+3. Use the windows computer and go to the gui at http://10.10.0.55:5000.
 
 4. Use the load incubator protocol, `incu-load`, and enter the number of plates. Press start!
 
@@ -150,7 +150,7 @@ For dry runs: make sure the plates are decontaminated since they are going into 
 
    Use the teach pendant and its freedrive button.
 
-2. Use the windows computer and go to http://10.10.0.55:5000.
+2. Use the windows computer and go to the gui at http://10.10.0.55:5000.
 
 3. Select the `cell-paint` protocol and enter the desired settings.
 
@@ -160,36 +160,73 @@ For dry runs: make sure the plates are decontaminated since they are going into 
 
    To run multiple batches in a row enter them with a comma: `6,6`. The second batch will start right after the first.
 
-   If running with more than 9 plates you might need to increase the incubation time (depending on the protocol directory.)
+   If running with more than 10 plates you might need to increase the incubation time (depending on the protocol directory.)
 
    The protocol directory contains the protocol files for the washer and dispenser. These need to be named
    according to the schema in [protocol_paths.py](cellpainter/protocol_paths.py).
 
    For 7 and more plates use two final wash rounds.
 
-   Starting from a later stage can be used to recover from failure.
-   It can be used to skip parts, such as Mito. Note: the initial washer priming is not included if
-   starting from a later stage, do this manually first.
-
    Press start or simulate.
+
+   ### Recovering from a crash
+
+   Use `start from stage` to recover from a crash. Start from the stage you want to continue from.
+   Press simulate and rewind the time to the start to see what the locations of every plate should be when starting.
+
+   If a plate needs some extra dispense or wash step run these before starting the robotarm again.
+
+   If a plate has been damaged and cannot be used further in the experiment, decrease the number
+   of plates under `batch sizes`. This will make the starting positions change so simulate and check what the
+   starting locations are.
+
+   **An example.** Consider this batch of 6 plates where plate 4 is damaged during the Triton step. Plates 1, 2 and 3 have had
+   their Triton applied. Plate 5 and 6 have not yet had their Triton. An illustration:
+
+   <table>
+   <td align=center valign=top width=100px>plate 1
+   <td align=center valign=top width=100px>plate 2
+   <td align=center valign=top width=100px>plate 3
+   <td align=center valign=top width=100px><span style='text-decoration:line-through; color:red'>plate 4
+   <td align=center valign=top width=100px>plate 5
+   <td align=center valign=top width=100px>plate 6
+   </table>
+
+   Remove plate 4. The batch size is now 5. The batch looks like this:
+
+   <table>
+   <tr>
+   <td align=center valign=top width=100px>plate 1
+   <td align=center valign=top width=100px>plate 2
+   <td align=center valign=top width=100px>plate 3
+   <td align=center valign=top width=100px>plate 4<br><i>(previously plate 5)
+   <td align=center valign=top width=100px>plate 5<br><i>(previously plate 6)
+   </table>
+
+   Change the batch size to 5 and start from the stage `Triton, plate 4`. The robot will start with the plate _now_ called 4, which _previously_ was plate 5.
+
+   In simulation, with time set to the beginning, the initial locations can be read off from the `loc-plate` table. Place the plates accordingly
+   before restarting the robot. This is a screenshot of the simulation:
+
+   <img src="./images/start_from.png">
 
 ## After painting: saving the log file
 
-1. Use the windows computer and go to http://10.10.0.55:5000.
+1. Use the windows computer and go to the gui at http://10.10.0.55:5000.
 
 2. Go to the _show logs_ section.
 
-3. Select the new log files, press add to git, then follow the pop-ups.
+3. Check the boxes for the new log files, press _add to git_ and follow the pop-ups.
 
 ## After painting: rewinding the lab
 
 1. Return the robot to local mode.
 
-2. For dry run: Empty the washer tubings by priming them.
+2. For dry run: Prime the washer tubes to empty them.
 
-3. For dry run: Detach the washer waste bottle and dispose it if it is only water.
+3. For dry run: Detach the washer waste bottle. If it is only water: dispose it.
 
-4. For dry run: if dispenser was run with water then empty tubings by priming them and dispose the waste water.
+4. For dry run: If dispenser was run with water: Prime to empty tubes and dispose the waste water.
 
 5. Detach the dispenser cassettes around the peristaltic pumps.
 
@@ -198,7 +235,7 @@ For dry runs: make sure the plates are decontaminated since they are going into 
    - For dry runs when the incubator is not set up for experiments: turn
      off and have it slightly open for a while to let it cool down.
 
-   - When the incubator is set up for experiment: ask Polina. The proceduce
+   - When the incubator is set up for experiment: ask Polina. The procedure
      will include removing the water with a suction pump.
 
 ## Configure BioTek protocols and add time estimates for them
@@ -213,48 +250,49 @@ For dry runs: make sure the plates are decontaminated since they are going into 
    the dispenser on air, a plate is optional. Using liquids and a plate will
    not work, the plate will overflow.
 
-4. Use the windows computer and go to http://10.10.0.55:5000.
+4. Use the windows computer and go to the gui at http://10.10.0.55:5000.
 
 5. Select `time-bioteks` and enter the protocol directory name. Start!
 
-6. Afterwards, go back to the main menu and go to _show logs_. Toggle _show all_ and then select the new log files.
+6. Go back to the main page and go to _show logs_. Toggle _show all_ and check the boxes for the new log files.
     Press _add timings_.
 
 The remaining steps save the timings to version control. They are not strictly
 required to start using the protocol directory.
 
-1. Use `pharmbio@NUC-robotlab` in the directory for the repo, `~/robot-cellpainter/`.
+1. Use `pharmbio@NUC-robotlab` in the directory for the repo, `~/robotlab/`.
 
-2. Use `git status` and `git diff` to see that `estimates.json` and
-   `protocol_paths.json` are correctly updated.
+2. Use `git status` and `git diff` to see that `cellpainter/estimates.json` and
+   `cellpainter/protocol_paths.json` are correctly updated.
 
 3. Commit and push the changes:
 
    ```
-   git add estimates.json protocol_paths.json
+   git add cellpainter/estimates.json cellpainter/protocol_paths.json
    git commit -m 'Add time estimates for a new protocol directory'
    git push
    ```
 
 ## Update robotarm timings
 
-1. Run a protocol including the moves you need.
+1. Run a protocol containing the missing moves.
 
-2. Afterwards, go back to the main menu and go to _show logs_. Toggle _show all_ and then select the new log files.
-   Press _add timings_.
+2. Go back to the main page and go to _show logs_. Toggle _show all_ and check the boxes for the new log files.
+    Press _add timings_.
 
 The remaining steps save the timings to version control. They are not strictly
-required to start using the protocol directory.
+required to start using the new timings.
 
-1. Use `pharmbio@NUC-robotlab` in the directory for the repo, `~/robot-cellpainter/`.
+1. Use `pharmbio@NUC-robotlab` in the directory for the repo, `~/robotlab/`.
 
-2. Use `git status` and `git diff` to see that `estimates.json` is correctly updated.
+2. Use `git status` and `git diff` to see that `cellpainter/estimates.json` and
+   `cellpainter/protocol_paths.json` are correctly updated.
 
 3. Commit and push the changes:
 
    ```
-   git add estimates.json protocol_paths.json
-   git commit -m 'Add new robotarm timings'
+   git add cellpainter/estimates.json cellpainter/protocol_paths.json
+   git commit -m 'Add time estimates for a new protocol directory'
    git push
    ```
 
@@ -268,21 +306,23 @@ touched by hand without gloves they are not considered clean any more and must n
 
 2. Prepare for --wash-plates-clean:
 
-2.1 Put plates in A1, A3, ...
+    2.1 Put plates in A1, A2, ....
 
-2.2 Attach washer pump D to water from green tap
+    2.2 Attach washer pump D to water from green tap.
 
-2.3 Attach washer pump C to ethanol
+    2.3 Attach washer pump C to ethanol.
 
-2.4 Attach washer waste bottle, preferably an empty one or one just used with water and ethanol
+    2.4 Attach washer waste bottle, preferably an empty one or one just used with water and ethanol.
 
-3. Use the gui on the windows computer at http://10.10.0.55:5000, select `wash-plates-clean` and enter the number of plates. Press start!
+4. Use the windows computer and go to the gui at http://10.10.0.55:5000.
 
-4. After wash-plates-clean:
+4. Select `wash-plates-clean` and enter the number of plates. Press start!
 
-4.1 Prime the washer tubes empty
+5. After wash-plates-clean:
 
-4.2 Detach the washer waste bottle. If it contains only water and ethanol: empty it in the sink
+    4.1 Prime the washer tubes empty.
 
-4.3 Your plates are now safe! Safe plates may enter the incubator. They must not be touched without gloves.
+    4.2 Detach the washer waste bottle. If it contains only water and ethanol: empty it in the sink.
+
+    4.3 Your plates are now safe! Safe plates may enter the incubator. They must not be touched without gloves.
 

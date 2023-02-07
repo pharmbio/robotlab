@@ -274,11 +274,6 @@ class Log:
                     return section
             return 'before time'
 
-        def time_to_section_rev(t: float):
-            for section, t_end in sorted(section_ends.items(), key=lambda kv: kv[1]):
-                if t < t_end + 2:
-                    return section
-
         if t is not None:
             now_row = VisRow(
                 t0 = t,
@@ -287,17 +282,6 @@ class Log:
                 now = True,
             )
             rows += [now_row]
-            section_rev = time_to_section_rev(t)
-            if section_rev and section_rev != now_row.section:
-                # sections with overflow makes the time sometimes appear in two places
-                now_row2 = VisRow(
-                    t0 = t,
-                    t = t,
-                    section = section_rev,
-                    now = True,
-                )
-                rows += [now_row2]
-
 
         section_ends = self.section_ends()
 

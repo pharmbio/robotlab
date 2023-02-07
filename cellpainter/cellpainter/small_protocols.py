@@ -202,7 +202,7 @@ def wash_plates_clean(args: SmallProtocolArgs):
     Required lab prerequisites:
         1. incubator transfer door: not used
         2. hotel B21:               empty
-        3. hotel A1, A3, ...:       plates with lid
+        3. hotel A1, A2, ...:       plates with lid
         4. hotel B:                 empty!
         5. hotel C:                 empty!
         6. biotek washer:           empty!
@@ -585,9 +585,9 @@ def bluewash_init_all(args: SmallProtocolArgs):
 @small_protocols.append
 def wave(args: SmallProtocolArgs):
     '''
-    Makes the robot wave, twice!
+    Makes the robot wave a handful of times.
     '''
-    waves = [RobotarmCmd('wave')] * 2
+    waves = [RobotarmCmd('wave')] * 5
     return Program(Seq(*waves))
 
 @dataclass(frozen=True)
