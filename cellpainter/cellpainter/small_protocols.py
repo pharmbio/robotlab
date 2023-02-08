@@ -165,11 +165,12 @@ def test_circuit_with_incubator(args: SmallProtocolArgs):
     '''
     num_plates = args.num_plates
     v5 = make_protocol_config(paths_v5(), ProtocolArgs(incu='s1,s2,s3,s4,s5', two_final_washes=True, interleave=True))
-    program = cell_paint_program([num_plates], protocol_config=v5).command
-    program = Seq(
+    program = cell_paint_program([num_plates], protocol_config=v5)
+    cmds = program.command
+    cmds = Seq(
         *[
             cmd.add(metadata)
-            for cmd, metadata in program.collect()
+            for cmd, metadata in cmds.collect()
             if (
                 isinstance(cmd, Info) or
                 isinstance(cmd, RobotarmCmd) or
@@ -178,8 +179,8 @@ def test_circuit_with_incubator(args: SmallProtocolArgs):
             )
         ],
     )
-    program = sleek_program(program)
-    return Program(program)
+    cmds = sleek_program(cmds)
+    return Program(cmds, world0=program.world0)
 
 @small_protocols.append
 def incu_reset_and_activate(_: SmallProtocolArgs):
