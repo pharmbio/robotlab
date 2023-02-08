@@ -512,7 +512,7 @@ for i in HotelLocs:
     effects[Bi + ' put'] = MovePlate(source=B21, target=Bi)
     effects[Ci + ' put'] = MovePlate(source=B21, target=Ci)
 
-    lid_Bi = f'lid_B{i}'
+    lid_Bi = f'lid-B{i}'
     effects[lid_Bi + ' get'] = PutLidOn(source=Bi, target=B21)
     effects[lid_Bi + ' put'] = TakeLidOff(source=B21, target=Bi)
 
