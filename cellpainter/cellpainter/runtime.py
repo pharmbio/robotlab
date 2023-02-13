@@ -267,6 +267,7 @@ class Runtime:
                 f'{state.state                  : >10}',
                 state.cmd_type,
                 *astuple(state.cmd),
+                f'{self.world}',
                 sep=' | ',
             )
 

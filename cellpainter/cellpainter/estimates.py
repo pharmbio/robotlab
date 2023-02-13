@@ -101,19 +101,10 @@ for k, v in list(estimates.items()):
             estimates[kv] = 4.0 if k.machine == 'disp' else 1.5
             estimates[kr] = v - estimates[kv]
 
-
-if 0:
+if 1:
     for k, v in list(estimates.items()):
-        name = k.program_name if isinstance(k, RobotarmCmd) else ''
-        if 'wash' in name or 'disp' in name:
-            if 'prep' in name or 'return' in name:
-                v2 = 2.5
-            elif 'wash_to_disp' not in name:
-                v2 = 6.0
-            else:
-                v2 = round(v, 1)
-            # print(v, '-> ' + str(v2), k, sep='\t')
-            # estimates[k] = v2
+        if isinstance(k, RobotarmCmd):
+            estimates[k] = v / 1.0
 
 import re
 

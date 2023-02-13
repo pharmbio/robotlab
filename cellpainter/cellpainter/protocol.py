@@ -530,31 +530,23 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                 ),
             ]
 
-            if step == 'Mito':
-                incu_get = [
-                    RobotarmCmd('incu-to-B21 prep'),
-                    Fork(
-                        IncuCmd('get', plate.incu_loc),
-                        align='end',
-                    ),
-                    Early(1),
-                    WaitForResource('incu', assume='nothing'),
-                    RobotarmCmd('incu-to-B21 transfer'),
-                    RobotarmCmd('incu-to-B21 return'),
-                ]
-            elif step == 'PFA':
+            if step == 'Mito' or step == 'PFA':
                 incu_get = [
                     RobotarmCmd('incu-to-B21 prep'),
                     Fork(
                         Seq(
                             IncuCmd('get', plate.incu_loc),
-                            Duration(f'{plate_desc} 37C', OptPrio.inside_incu),
+                            Duration(f'{plate_desc} 37C', OptPrio.inside_incu) if step == 'PFA' else Idle(),
+                            Checkpoint(f'{plate_desc} incu get {ix}'),
+                            WaitForCheckpoint(f'{plate_desc} left incu {ix}'),
                         ),
                         align='end',
                     ),
                     Early(1),
-                    WaitForResource('incu', assume='nothing'),
+                    WaitForCheckpoint(f'{plate_desc} incu get {ix}'),
                     RobotarmCmd('incu-to-B21 transfer'),
+                    Checkpoint(f'{plate_desc} left incu {ix}'),
+                    WaitForResource('incu', assume='nothing'),
                     RobotarmCmd('incu-to-B21 return'),
                 ]
             else:
@@ -580,11 +572,33 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                     *RobotarmCmds(plate.rt_put),
                 ]
 
+            if step == 'Mito':
+                B15_to_incu = [
+                    RobotarmCmd('B15-to-incu prep'),
+                    WaitForResource('incu', assume='nothing'),
+                    RobotarmCmd('B15-to-incu transfer'),
+                    Fork(
+                        Seq(
+                            IncuCmd('put', plate.incu_loc),
+                            Checkpoint(f'{plate_desc} 37C'),
+                        ),
+                    ),
+                    RobotarmCmd('B15-to-incu return'),
+                ]
+            else:
+                B15_to_incu = [
+                    *RobotarmCmds('B15 get'),
+                    *RobotarmCmds(plate.rt_put),
+                ]
+
             B21_to_wash = [
                 RobotarmCmd('B21-to-wash prep'),
                 RobotarmCmd('B21-to-wash transfer'),
                 Fork(
-                    WashCmd('Validate', p.wash[i]),
+                    Seq(
+                        WashCmd('Validate', p.wash[i]),
+                        Early(5),
+                    ),
                     align='end',
                 ),
                 Fork(
@@ -679,14 +693,20 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
             chunks[plate.id, step,  'B21 -> wash'] = [*B21_to_wash]
             chunks[plate.id, step, 'wash -> disp'] = [*wash_to_disp]
             chunks[plate.id, step, 'disp -> B21' ] = [*disp_to_B(21), *lid_on]
-            chunks[plate.id, step, 'disp -> B15' ] = [*disp_to_B(15)]
             chunks[plate.id, step,  'B21 -> disp'] = [*lid_off, *B21_to_disp]
 
             chunks[plate.id, step, 'wash -> B21' ] = [*wash_to_B(21), *lid_on]
             chunks[plate.id, step, 'wash -> B15' ] = [*wash_to_B(15)]
-            chunks[plate.id, step,  'B15 -> B21' ] = [*RobotarmCmds('B15 get'), *lid_on]
 
-            chunks[plate.id, step,  'B21 -> incu'] = B21_to_incu
+            chunks[plate.id, step, 'disp -> B15' ] = [*disp_to_B(21), *lid_on, *RobotarmCmds('B15 put')]
+
+            if step == 'Mito' and interleaving_name == 'dispilv':
+                chunks[plate.id, step,  'B15 -> B21' ] = []
+                chunks[plate.id, step,  'B21 -> incu'] = [*B15_to_incu]
+            else:
+                chunks[plate.id, step,  'B15 -> B21' ] = [*RobotarmCmds('B15 get')]
+                chunks[plate.id, step,  'B21 -> incu'] = B21_to_incu
+
             chunks[plate.id, step,  'B21 -> out' ] = [*RobotarmCmds(plate.out_put)]
 
     adjacent: dict[Desc, set[Desc]] = DefaultDict(set)
@@ -774,6 +794,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
         'disp -> B15':  4,
         'wash -> B15':  3,
         'B15 -> B21':   4,
+        'B15 -> incu':  4,
         'B15 -> out':   4,
     }
 

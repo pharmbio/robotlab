@@ -3,9 +3,6 @@ from typing import *
 
 from dataclasses import *
 
-from rich.traceback import install
-install(show_locals=True)
-
 from pathlib import Path
 import ast
 import math

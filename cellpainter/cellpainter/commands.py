@@ -143,6 +143,15 @@ class Command(abc.ABC):
             case _:
                 pass
 
+    def push_metadata_into_forks(self) -> Command:
+        res: list[Command] = []
+        for cmd, meta in self.collect():
+            if isinstance(cmd, Fork):
+                res += [cmd.replace(command=cmd.command.add(meta))]
+            else:
+                res += [cmd.add(meta)]
+        return Seq(*res)
+
     def stages(self: Command) -> list[str]:
         return list(
             pbutils.uniq(
@@ -250,7 +259,7 @@ class Command(abc.ABC):
                         )
                 case _:
                     return cmd
-        res = self.transform(F, reverse=True)
+        res = self.push_metadata_into_forks().transform(F, reverse=True)
         for resource, cmds in residuals.items():
             assert not cmds, f'{resource} has end-aligned commands but no begin-aligned Fork to attach them to ({cmds=})'
         return res
@@ -333,7 +342,6 @@ class Command(abc.ABC):
 class Meta(Command):
     command: Command
     metadata: Metadata = field(default_factory=lambda: Metadata())
-
 
     def replace(self, command: Command):
         return command.add(self.metadata)
@@ -422,8 +430,8 @@ ForkAssumption = Literal['nothing', 'busy', 'idle']
 @dataclass(frozen=True)
 class Fork(Command):
     command: Command
-    # assume: ForkAssumption = 'idle'
-    assume: ForkAssumption = 'nothing'
+    assume: ForkAssumption = 'idle'
+    # assume: ForkAssumption = 'nothing'
     align: Literal['begin', 'end'] = 'begin'
 
     @property
@@ -443,7 +451,6 @@ class Fork(Command):
 
     def replace(self, command: Command):
         return replace(self, command=command)
-
 
     def delay(self, other: float | int | str | Symbolic) -> Fork:
         return self.replace(

@@ -258,10 +258,11 @@ class MoveList(list[Move]):
                 return MoveList(self[:i]), move, MoveList(self[i+1:])
         raise ValueError
 
-    def split(self) -> MoveListParts:
+    def split(self, name: str) -> MoveListParts:
         before_pick, close, after_pick = self.split_on(Move.is_close)
         mid, open, after_drop = after_pick.split_on(Move.is_open)
         return MoveListParts.init(
+            name=name,
             before_pick=before_pick,
             close=close,
             transfer_inner=mid,
@@ -273,10 +274,12 @@ class MoveList(list[Move]):
 class MoveListParts:
     prep: MoveList
     transfer: MoveList
+    transferless: MoveList
     ret: MoveList
 
     @staticmethod
     def init(
+        name: str,
         before_pick: MoveList,
         close: Move,
         transfer_inner: MoveList,
@@ -299,14 +302,16 @@ class MoveListParts:
         # [gripper open]
         # neu
 
-        # assert pick_neu.try_name().endswith("neu"),  f'{pick_neu.try_name()} needs a neu before pick'
-        # assert pick_pos.try_name().endswith("pick"), f'{pick_pos.try_name()} needs a pick move before gripper pick close'
-        # assert drop_neu.try_name().endswith("neu"),  f'{drop_neu.try_name()} needs a neu after drop'
+        if 1:
+            assert pick_neu.try_name().endswith("neu"),  f'{name!r}: {pick_neu.try_name()!r} needs a neu before pick'
+            assert pick_pos.try_name().endswith("pick"), f'{name!r}: {pick_pos.try_name()!r} needs a pick move before gripper pick close'
+            assert drop_neu.try_name().endswith("neu"),  f'{name!r}: {drop_neu.try_name()!r} needs a neu after drop'
 
         return MoveListParts(
-            prep     = MoveList([*to_pick_neu, pick_neu]),
-            transfer = MoveList([              pick_neu, pick_pos, close, *transfer_inner, open, drop_neu]),
-            ret      = MoveList([                                                                drop_neu, *from_drop_neu]),
+            prep         = MoveList([*to_pick_neu, pick_neu]),
+            transfer     = MoveList([              pick_neu, pick_pos, close, *transfer_inner, open, drop_neu]),
+            transferless = MoveList([              pick_neu,                  *transfer_inner                ]),
+            ret          = MoveList([                                                                drop_neu, *from_drop_neu]),
         )
 
 HasMoveList = TypeVar('HasMoveList')
@@ -349,6 +354,7 @@ class NamedMoveList:
         'full',
         'prep',
         'transfer',
+        'transferless',
         'return',
     ] | str
     movelist: MoveList
@@ -362,7 +368,6 @@ class NamedMoveList:
 
 def read_and_expand(filename: Path) -> dict[str, MoveList]:
     ml = MoveList.read_jsonl(filename)
-    name = filename.stem
     expanded = ml.expand_sections()
     for k, v in list(expanded.items()):
         expanded |= v.expand_hotels(k)
@@ -396,14 +401,16 @@ def read_movelists() -> dict[str, MoveList]:
             out += [NamedMoveList(base, 'full', v)]
             continue
         out += [NamedMoveList(base, 'full', v)]
-        parts = v.split()
+        parts = v.split(base)
         prep = NamedMoveList(base, 'prep', parts.prep)
         ret = NamedMoveList(base, 'return', parts.ret)
         transfer = NamedMoveList(base, 'transfer', parts.transfer)
+        transferless = NamedMoveList(base, 'transferless', parts.transferless)
         out += [
             prep,
             ret,
             transfer,
+            transferless,
         ]
         if re.match(r'A\d+-to-incu', base):
             # special handling for quick incubator load which has a neutral somewhere around A5

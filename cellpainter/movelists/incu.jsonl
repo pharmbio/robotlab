@@ -2,6 +2,7 @@
 {"type":"MoveJoint","joints":[94,-108.8,89.8,17.8,93.9,179.8],"name":"B neu"}
 {"type":"MoveLin","xyz":[197.7,-603.6,829.2],"rpy":[-0.3,1.1,90.1],"name":"B21 neu"}
 {"type":"MoveLin","xyz":[197.7,-448.2,829.2],"rpy":[0.0,1.1,90.1],"name":"B21 entrance","tag":"21/21"}
+{"type":"MoveLin","xyz":[197.6,-603.5,812.2],"rpy":[0.0,1.1,90.1],"name":"B21 neu","tag":"21/21"}
 {"type":"MoveLin","xyz":[197.6,-603.5,812.2],"rpy":[0.0,1.1,90.1],"name":"B21 pick","tag":"21/21"}
 {"type":"GripperMove","pos":255}
 {"type":"MoveLin","xyz":[197.7,-603.6,829.2],"rpy":[-0.3,1.1,90.1],"name":"B21 neu","tag":"21/21"}
