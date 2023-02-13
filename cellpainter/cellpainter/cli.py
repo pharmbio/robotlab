@@ -148,28 +148,45 @@ def main_with_args(args: Args, parser: argparse.ArgumentParser | None=None):
 
     if args.timing_matrix:
         out: list[list[Any]] = []
-        for incu in ['1200', 'X']:
-            for N in [x + 1 for x in range(10)]:
-                for two_final_washes in [False, True]:
-                    for interleave in [False, True]:
-                        args2 = replace(args, interleave=interleave, two_final_washes=two_final_washes, incu=incu, cell_paint=str(N))
+        # for incu in ['1200', 'X']:
+        for incu in ['X']:
+            for N in [x + 1 for x in range(18)]:
+                # for two_final_washes in [False, True]:
+                for two_final_washes in [True]:
+                    # for interleave in [False, True]:
+                    for interleave in [True]:
+                        args2 = replace(args,
+                            interleave=interleave,
+                            lockstep_threshold=20,
+                            two_final_washes=two_final_washes,
+                            incu=incu,
+                            cell_paint=str(N)
+                        )
                         p = args_to_program(args2)
                         if p:
                             try:
                                 sim_db = execute.simulate_program(p)
+                                G = Log(sim_db).group_durations()
+                                incubations = [times for event_name, times in G.items() if 'incubation' in event_name]
+                                if incubations:
+                                    X = incubations[0][0]
+                                else:
+                                    X = '?'
                                 T = pbutils.pp_secs(Log(sim_db).time_end())
                             except:
                                 T = float('NaN')
-                            print(f'{N=}, {interleave=}, {two_final_washes=}, {incu=}, {T=}')
+                                X = '?'
+                            print(f'{N=}, {X=}, {interleave=}, {two_final_washes=}, {incu=}, {T=}')
                             out += [[
                                 N,
+                                X,
                                 'interleave' if interleave else 'linear',
                                 '2*3X' if two_final_washes else '5X',
                                 incu,
                                 T
                             ]]
         print()
-        print(*'N interleave final incu T'.split(), sep='\t')
+        print(*'N X interleave final incu T'.split(), sep='\t')
         for line in out:
             print(*line, sep='\t')
         quit()

@@ -470,15 +470,14 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
         lid_locs = Locations.Lid[:1]
     lid_index = 0
 
-    wash_threads: list[Command] = []
-    disp_threads: list[Command] = []
-
     wash_prime: list[Command] = [
-        BiotekValidateThenRun('wash', prime)
+        Fork(BiotekValidateThenRun('wash', prime))
         for prime in p.wash_prime
     ]
 
-    wash_threads += wash_prime
+    prep_cmds += [
+        *wash_prime,
+    ]
 
     for i, (step, interleaving_name) in enumerate(zip(p.step_names, p.interleavings)):
         step_index = i
@@ -517,95 +516,46 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                     Duration(f'{plate_desc} incubation {ix-1}', OptPrio.incu_slack),
                 ]
 
-            wash_thread: list[Command] = []
-            disp_thread: list[Command] = []
-
-            wash_thread += [
-                Idle() + f'{plate_desc} wash {ix} idle',
-            ]
-
-            disp_thread += [
-                Idle() + f'{plate_desc} disp {ix} idle',
-            ]
-
-            start_wash, wait_for_start_wash = CheckpointPair(f'{plate_desc} start wash {ix}', assume='no wait')
-            start_disp, wait_for_start_disp = CheckpointPair(f'{plate_desc} start disp {ix}', assume='no wait')
-            disp_started, wait_for_disp_started = CheckpointPair(f'{plate_desc} disp started {ix}', assume='no wait')
-            left_wash, wait_for_left_wash = CheckpointPair(f'{plate_desc} left wash {ix}')
-            left_disp, wait_for_left_disp = CheckpointPair(f'{plate_desc} left disp {ix}')
-            wash_done, wait_for_wash_done = CheckpointPair(f'{plate_desc} wash {ix} done')
-            disp_done, wait_for_disp_done = CheckpointPair(f'{plate_desc} disp {ix} done')
-
-            if p.wash[i]:
-                wash_thread += [
-                    WashCmd('Validate', p.wash[i]),
-                    Early(2),
-                    wait_for_start_wash,
-                    WashCmd('RunValidated', p.wash[i]),
-                    wash_done,
-                    wait_for_left_wash,
-                ]
-
-            if p.disp_prime[i] and plate is first_plate:
-                disp_thread += [
-                    BiotekValidateThenRun('disp', p.disp_prime[i]).add(Metadata(plate_id='')),
-                ]
-
-            if p.disp_prep[i]:
-                disp_thread += [
-                    BiotekValidateThenRun('disp', p.disp_prep[i]).add(Metadata(predispense=True)),
-                ]
-
-            if p.disp[i]:
-                disp_thread += [
-                    DispCmd('Validate', p.disp[i]),
-                    Early(2),
-                    wait_for_start_disp,
-                    disp_started,
-                    DispCmd('RunValidated', p.disp[i]),
-                    disp_done,
-                    wait_for_left_disp,
-                ]
-
-
-            def add_metadata(cmd: Command):
-                cmd = cmd.add(Metadata(
-                    step=step,
-                    plate_id=plate.id,
-                    stage=f'{step}, plate {plate.id}',
-                ))
-                cmd = cmd.add_to_physical_commands(Metadata(
-                    section=f'{step} {batch_index}',
-                ))
-                return cmd
-
-            wash_threads += [add_metadata(Seq(*wash_thread))]
-            disp_threads += [add_metadata(Seq(*disp_thread))]
-
             lid_off = [
-                *RobotarmCmds(plate_with_corrected_lid_pos.lid_put, before_pick=[Checkpoint(f'{plate_desc} lid off {ix}')]),
+                *RobotarmCmds(
+                    plate_with_corrected_lid_pos.lid_put,
+                    before_pick=[Checkpoint(f'{plate_desc} lid off {ix}')]
+                ),
             ]
 
             lid_on = [
-                *RobotarmCmds(plate_with_corrected_lid_pos.lid_get, after_drop=[Duration(f'{plate_desc} lid off {ix}', OptPrio.without_lid)]),
+                *RobotarmCmds(
+                    plate_with_corrected_lid_pos.lid_get,
+                    after_drop=[Duration(f'{plate_desc} lid off {ix}', OptPrio.without_lid)]
+                ),
             ]
 
             if step == 'Mito':
                 incu_get = [
+                    RobotarmCmd('incu-to-B21 prep'),
+                    Fork(
+                        IncuCmd('get', plate.incu_loc),
+                        align='end',
+                    ),
+                    Early(1),
                     WaitForResource('incu', assume='nothing'),
-                    IncuFork('get', plate.incu_loc),
-                    *RobotarmCmds('incu-to-B21', before_pick = [
-                        WaitForResource('incu', assume='will wait'),
-                    ]),
+                    RobotarmCmd('incu-to-B21 transfer'),
+                    RobotarmCmd('incu-to-B21 return'),
                 ]
             elif step == 'PFA':
                 incu_get = [
+                    RobotarmCmd('incu-to-B21 prep'),
+                    Fork(
+                        Seq(
+                            IncuCmd('get', plate.incu_loc),
+                            Duration(f'{plate_desc} 37C', OptPrio.inside_incu),
+                        ),
+                        align='end',
+                    ),
+                    Early(1),
                     WaitForResource('incu', assume='nothing'),
-                    Duration(f'{plate_desc} 37C', OptPrio.inside_incu),
-                    IncuFork('get', plate.incu_loc),
-                    *RobotarmCmds('incu-to-B21', before_pick = [
-                        WaitForResource('incu', assume='will wait'),
-                    ]),
+                    RobotarmCmd('incu-to-B21 transfer'),
+                    RobotarmCmd('incu-to-B21 return'),
                 ]
             else:
                 incu_get = [
@@ -614,19 +564,16 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
 
             if step == 'Mito':
                 B21_to_incu = [
-                    *RobotarmCmds('B21-to-incu',
-                        before_pick = [
-                            WaitForResource('incu', assume='nothing'),
-                        ],
-                        after_drop = [
-                            Fork(
-                                Seq(
-                                    IncuCmd('put', plate.incu_loc),
-                                    Checkpoint(f'{plate_desc} 37C'),
-                                ),
-                            )
-                        ]
+                    RobotarmCmd('B21-to-incu prep'),
+                    WaitForResource('incu', assume='nothing'),
+                    RobotarmCmd('B21-to-incu transfer'),
+                    Fork(
+                        Seq(
+                            IncuCmd('put', plate.incu_loc),
+                            Checkpoint(f'{plate_desc} 37C'),
+                        ),
                     ),
+                    RobotarmCmd('B21-to-incu return'),
                 ]
             else:
                 B21_to_incu = [
@@ -637,91 +584,106 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                 RobotarmCmd('B21-to-wash prep'),
                 RobotarmCmd('B21-to-wash transfer'),
                 Fork(
+                    WashCmd('Validate', p.wash[i]),
+                    align='end',
+                ),
+                Fork(
                     Seq(
                         *wash_delay,
-                        start_wash,
-                        wait_for_wash_done if p.wash[i] else Idle(),
+                        WashCmd('RunValidated', p.wash[i]),
                         Checkpoint(f'{plate_desc} incubation {ix}')
                         if step == 'Wash 1' else
                         Checkpoint(f'{plate_desc} transfer {ix}'),
-                    ),
+                    )
                 ),
                 RobotarmCmd('B21-to-wash return'),
             ]
 
-            wash_to_disp = [
-                RobotarmCmd('wash-to-disp prep'),
-                Early(1),
-                wait_for_wash_done if p.wash[i] else Idle(),
-                RobotarmCmd('wash-to-disp transfer'),
-                left_wash,
-                start_disp,
+            if p.disp_prime[i] and plate is first_plate:
+                disp_prime = [
+                    BiotekValidateThenRun('disp', p.disp_prime[i]).add(Metadata(plate_id='')),
+                ]
+            else:
+                disp_prime = []
+
+            if p.disp_prep[i]:
+                disp_prep = [
+                    BiotekValidateThenRun('disp', p.disp_prep[i]).add(Metadata(predispense=True)),
+                ]
+            else:
+                disp_prep = []
+
+            run_disp = Seq(
                 Fork(
                     Seq(
-                        wait_for_disp_started if p.disp[i] else Idle(),
-                        Duration(f'{plate_desc} transfer {ix}', OptPrio.wash_to_disp) if p.disp[i] else Idle(),
-                        wait_for_disp_done if p.disp[i] else Idle(),
-                        Checkpoint(f'{plate_desc} incubation {ix}')
+                        *disp_prime,
+                        *disp_prep,
+                        DispCmd('Validate', p.disp[i]),
+                        Early(2),
                     ),
+                    align='end',
                 ),
+                Fork(
+                    Seq(
+                        *(wash_delay if not p.wash[i] else []),
+                        Duration(f'{plate_desc} transfer {ix}', OptPrio.wash_to_disp),
+                        DispCmd('RunValidated', p.disp[i]),
+                        Checkpoint(f'{plate_desc} incubation {ix}'),
+                    )
+                ),
+            )
+
+            wash_to_disp = [
+                RobotarmCmd('wash-to-disp prep'),
+                WaitForResource('wash'),
+                Early(1),
+                RobotarmCmd('wash-to-disp transfer'),
+                run_disp,
                 RobotarmCmd('wash-to-disp return'),
             ]
 
             B21_to_disp = [
                 RobotarmCmd('B21-to-disp prep'),
-                RobotarmCmd('B21-to-disp transfer'),
                 Early(1),
-                Fork(
-                    Seq(
-                        *wash_delay,
-                        start_disp,
-                        wait_for_disp_started if p.disp[i] else Idle(),
-                        Duration(f'{plate_desc} transfer {ix}', OptPrio.wash_to_disp) if p.disp[i] else Idle(),
-                        wait_for_disp_done if p.disp[i] else Idle(),
-                        Checkpoint(f'{plate_desc} incubation {ix}')
-                    ),
-                ),
+                RobotarmCmd('B21-to-disp transfer'),
+                run_disp,
                 RobotarmCmd('B21-to-disp return'),
             ]
 
-            disp_to_B21 = [
-                RobotarmCmd('disp-to-B21 prep'),
-                wait_for_disp_done if p.disp[i] else Idle(),
-                RobotarmCmd('disp-to-B21 transfer'),
-                left_disp,
-                RobotarmCmd('disp-to-B21 return'),
-            ]
-
-            disp_to_B15 = [
-                RobotarmCmd('disp-to-B15 prep'),
-                wait_for_disp_done if p.disp[i] else Idle(),
-                RobotarmCmd('disp-to-B15 transfer'),
-                left_disp,
-                RobotarmCmd('disp-to-B15 return'),
-            ]
-
-            if 'disp' in interleaving_name:
-                chunks[plate.id, step, 'incu -> B21' ] = [
-                    *incu_delay, *incu_get,
-                    Checkpoint(f'{plate_desc} transfer {ix}'),
+            def disp_to_B(z: int):
+                return [
+                    RobotarmCmd(f'disp-to-B{z} prep'),
+                    Early(1),
+                    WaitForResource('disp') if p.disp[i:][:1] else Idle(),
+                    RobotarmCmd(f'disp-to-B{z} transfer'),
+                    RobotarmCmd(f'disp-to-B{z} return'),
                 ]
-            else:
-                chunks[plate.id, step, 'incu -> B21' ] = [
-                    *incu_delay, *incu_get,
-                    *lid_off,
+
+            def wash_to_B(z: int):
+                return [
+                    RobotarmCmd(f'wash-to-B{z} prep'),
+                    Early(1),
+                    WaitForResource('wash') if p.wash[i] else Idle(),
+                    RobotarmCmd(f'wash-to-B{z} transfer'),
+                    RobotarmCmd(f'wash-to-B{z} return'),
                 ]
+
+            chunks[plate.id, step, 'incu -> B21' ] = [
+                *incu_delay,
+                *incu_get,
+                *(
+                    lid_off if p.wash[i] else
+                    [Checkpoint(f'{plate_desc} transfer {ix}')]
+                ),
+            ]
             chunks[plate.id, step,  'B21 -> wash'] = [*B21_to_wash]
-            chunks[plate.id, step, 'wash -> disp'] = wash_to_disp
-            chunks[plate.id, step, 'disp -> B21' ] = [*disp_to_B21, *lid_on]
-            chunks[plate.id, step, 'disp -> B15' ] = [*disp_to_B15]
+            chunks[plate.id, step, 'wash -> disp'] = [*wash_to_disp]
+            chunks[plate.id, step, 'disp -> B21' ] = [*disp_to_B(21), *lid_on]
+            chunks[plate.id, step, 'disp -> B15' ] = [*disp_to_B(15)]
             chunks[plate.id, step,  'B21 -> disp'] = [*lid_off, *B21_to_disp]
 
-            chunks[plate.id, step, 'wash -> B21' ] = [*RobotarmCmds('wash-to-B21', before_pick=[
-                wait_for_wash_done if p.wash[i] else Idle(),
-            ], after_drop=[left_wash]), *lid_on]
-            chunks[plate.id, step, 'wash -> B15' ] = RobotarmCmds('wash-to-B15', before_pick=[
-                wait_for_wash_done if p.wash[i] else Idle(),
-            ], after_drop=[left_wash])
+            chunks[plate.id, step, 'wash -> B21' ] = [*wash_to_B(21), *lid_on]
+            chunks[plate.id, step, 'wash -> B15' ] = [*wash_to_B(15)]
             chunks[plate.id, step,  'B15 -> B21' ] = [*RobotarmCmds('B15 get'), *lid_on]
 
             chunks[plate.id, step,  'B21 -> incu'] = B21_to_incu
@@ -851,8 +813,6 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
 
     return Seq(
         Seq(*prep_cmds).add(Metadata(step='prep', stage=stage1)),
-        Fork(Seq(*wash_threads)).add(Metadata(slot=2)),
-        Fork(Seq(*disp_threads)).add(Metadata(slot=3)),
         Idle() + f'slack {batch_index+1}',
         *plate_cmds,
         Seq(*post_cmds)

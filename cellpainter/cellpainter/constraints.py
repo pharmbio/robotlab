@@ -49,6 +49,7 @@ import pbutils
 
 def optimize(cmd: Command) -> tuple[Command, dict[int, float]]:
     cmd = cmd.make_resource_checkpoints()
+    cmd = cmd.align_forks()
     cmd = cmd.assign_ids()
     opt = optimal_env(cmd)
     cmd = cmd.resolve(opt.env)
@@ -237,7 +238,7 @@ def optimal_env(cmd: Command, unsat_core: bool=False) -> OptimalResult:
     # print(s)
     check = str(s.check())
     if check == 'unsat':
-        if 0:
+        if 1:
             print('Impossible to schedule, obtaining unsat core')
             optimal_env(cmd, unsat_core=True)
         raise ValueError(f'Impossible to schedule! (Number of missing time estimates: {len(estimates.guesses)}: {", ".join(str(g) for g in estimates.guesses.keys())}')

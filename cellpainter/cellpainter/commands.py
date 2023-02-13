@@ -107,16 +107,24 @@ class Command(abc.ABC):
             case _:
                 return False
 
-    def transform(self: Command, f: Callable[[Command], Command]) -> Command:
+    def transform(self: Command, f: Callable[[Command], Command], reverse: bool=False) -> Command:
         '''
         Bottom-up transformation a la "Uniform boilerplate and list processing"
         (Mitchell & Runciman, 2007) https://dl.acm.org/doi/10.1145/1291201.1291208
         '''
         match self:
             case Seq_():
-                return f(self.replace(commands=[cmd.transform(f) for cmd in self.commands]))
+                inner_commands = self.commands
+                if reverse:
+                    inner_commands = list(reversed(inner_commands))
+                inner_commands = [cmd.transform(f, reverse=reverse) for cmd in inner_commands]
+                if reverse:
+                    inner_commands = list(reversed(inner_commands))
+                return f(self.replace(commands=inner_commands))
+            case Seq_() if reverse:
+                return f(self.replace(commands=[cmd.transform(f, reverse=reverse) for cmd in self.commands]))
             case Fork() | Meta():
-                return f(self.replace(command=self.command.transform(f)))
+                return f(self.replace(command=self.command.transform(f, reverse=reverse)))
             case _:
                 return f(self)
 
@@ -201,6 +209,51 @@ class Command(abc.ABC):
                 case _:
                     return cmd
         return self.transform(F)
+
+    def align_forks(self: Command) -> Command:
+        '''
+        Makes Fork with align='end' become Fork with align='begin' by gluing
+        them on to the previous Fork of that resource.
+        '''
+        residuals: dict[str, list[Command]] = DefaultDict(list)
+        count: int = 0
+        def F(cmd: Command) -> Command:
+            nonlocal count
+            match cmd:
+                case Fork():
+                    resource = cmd.resource
+                    if resource is None:
+                        assert cmd.align == 'begin'
+                        return cmd
+                    elif cmd.align == 'end':
+                        count += 1
+                        name = f'residue {count}'
+                        residuals[resource] += [
+                            Seq(
+                                Checkpoint(name),
+                                WaitForCheckpoint(name, assume='nothing') + f'{name} wait',
+                                Duration(name, Max(priority=-1)),
+                                cmd.command,
+                            )
+                        ]
+                        return Idle()
+                    elif not residuals[resource]:
+                        return cmd
+                    else:
+                        residue = residuals[resource]
+                        residuals[resource] = []
+                        return cmd.replace(
+                            command=Seq(
+                                cmd.command,
+                                *reversed(residue),
+                            ),
+                        )
+                case _:
+                    return cmd
+        res = self.transform(F, reverse=True)
+        for resource, cmds in residuals.items():
+            assert not cmds, f'{resource} has end-aligned commands but no begin-aligned Fork to attach them to ({cmds=})'
+        return res
 
     def next_id(self: Command) -> int:
         next = 0
@@ -369,7 +422,9 @@ ForkAssumption = Literal['nothing', 'busy', 'idle']
 @dataclass(frozen=True)
 class Fork(Command):
     command: Command
-    assume: ForkAssumption = 'idle'
+    # assume: ForkAssumption = 'idle'
+    assume: ForkAssumption = 'nothing'
+    align: Literal['begin', 'end'] = 'begin'
 
     @property
     def resource(self):
@@ -397,6 +452,15 @@ class Fork(Command):
                 self.command,
             )
         )
+
+    def seq(self, *cmds: Command) -> Fork:
+        return self.replace(
+            command = Seq(
+                self.command,
+                *cmds,
+            )
+        )
+
 
 @dataclass(frozen=True)
 class WaitForResource(Command):
