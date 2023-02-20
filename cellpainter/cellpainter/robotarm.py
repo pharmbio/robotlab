@@ -121,9 +121,9 @@ def gripper_code(with_gripper: bool=False) -> str:
             EnsureRelPos()
             start_pos = read_output_integer_register(0)
             d = 14.0
-            GripperMove(255, soft=True)       MoveRel(0, 0,  d,        0, 0, 0)
-            Shake()                           MoveRel(0, 0, -d + 0.25, 0, 0, 0)
-            GripperMove(start_pos, soft=True) MoveRel(0, 0,     -0.25, 0, 0, 0)
+            GripperMove(255)       MoveRel(0, 0,  d,        0, 0, 0)
+            Shake()                MoveRel(0, 0, -d + 0.25, 0, 0, 0)
+            GripperMove(start_pos) MoveRel(0, 0,     -0.25, 0, 0, 0)
         end
 
         def GripperInitAndCheck():

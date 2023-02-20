@@ -211,7 +211,7 @@ gripper_code = str('''
         GripperSend("~home", "Parameter successfully set")
         sleep(1.5)
         GripperSend("~s_p_op 97", "Parameter successfully set")
-        GripperSend("~s_force 30", "Parameter successfully set")
+        GripperSend("~s_force 60", "Parameter successfully set")
         sleep(0.1)
     end
 
