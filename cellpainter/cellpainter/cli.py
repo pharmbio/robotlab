@@ -236,10 +236,6 @@ def main_with_args(args: Args, parser: argparse.ArgumentParser | None=None):
             log_path.parent.mkdir(parents=True, exist_ok=True)
             log_path.unlink(missing_ok=True)
 
-            if config.name == 'live' and args.protocol_dir:
-                with pbutils.timeit(f'saving {args.protocol_dir} protocol files'):
-                    protocol_paths.add_protocol_dir_as_sqlar(log_filename, args.protocol_dir)
-
         execute.execute_program(config, p, [em, p.metadata], sim_delays=parse_sim_delays(args))
         # if p.metadata.program == 'time-bioteks' and config.name == 'live':
         #     estimates.add_estimates_from('estimates.json', log)

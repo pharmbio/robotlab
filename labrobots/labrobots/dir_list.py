@@ -36,8 +36,15 @@ class ReadFile(tx.TypedDict):
 @dataclass(frozen=True)
 class DirList(Machine):
     root_dir: str
-    ext: str
+    ext: Union[str, List[str]]
     enable_hts_mod: bool=False
+
+    @property
+    def exts(self) -> List[str]:
+        if isinstance(self.ext, str):
+            return [self.ext]
+        else:
+            return self.ext
 
     @property
     def root(self) -> Path:
@@ -45,31 +52,33 @@ class DirList(Machine):
 
     def list(self) -> List[PathInfo]:
         value: List[PathInfo] = []
-        for lhc in self.root.glob(f'**/*.{self.ext}'):
-            path = str(lhc.relative_to(self.root)).replace('\\', '/')
-            mtime = lhc.stat().st_mtime
-            modified = str(datetime.fromtimestamp(mtime).replace(microsecond=0))
-            value += [
-                PathInfo(
-                    path=path,
-                    full=str(lhc.resolve()),
-                    modified=modified,
-                    # 'sha256': sha256(lhc.read_bytes()).hexdigest(),
-                )
-            ]
+        for ext in self.exts:
+            for lhc in self.root.glob(f'**/*.{ext}'):
+                path = str(lhc.relative_to(self.root)).replace('\\', '/')
+                mtime = lhc.stat().st_mtime
+                modified = str(datetime.fromtimestamp(mtime).replace(microsecond=0))
+                value += [
+                    PathInfo(
+                        path=path,
+                        full=str(lhc.resolve()),
+                        modified=modified,
+                        # 'sha256': sha256(lhc.read_bytes()).hexdigest(),
+                    )
+                ]
         return value
 
     def read_files(self, subdir: str) -> List[ReadFile]:
         value: List[ReadFile] = []
-        for lhc in self.root.glob(f'{subdir}/**/*.{self.ext}'):
-            path = str(lhc.relative_to(self.root)).replace('\\', '/')
-            value += [
-                ReadFile(
-                    name=path,
-                    mtime=int(lhc.stat().st_mtime),
-                    data_b64=base64.b64encode(lhc.read_bytes()).decode('ascii'),
-                )
-            ]
+        for ext in self.exts:
+            for lhc in self.root.glob(f'{subdir}/**/*.{ext}'):
+                path = str(lhc.relative_to(self.root)).replace('\\', '/')
+                value += [
+                    ReadFile(
+                        name=path,
+                        mtime=int(lhc.stat().st_mtime),
+                        data_b64=base64.b64encode(lhc.read_bytes()).decode('ascii'),
+                    )
+                ]
         return value
 
     def hts_mod(self, path: str, experiment_set: str, experiment_base_name: str):

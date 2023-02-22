@@ -8,7 +8,7 @@ from contextlib import contextmanager
 from pathlib import Path
 
 import pbutils
-from .commands import Metadata, Command, BiotekCmd, Duration, IncuCmd, ProgramMetadata, Program
+from .commands import Metadata, Command, BiotekCmd, BlueCmd, Duration, IncuCmd, ProgramMetadata, Program
 from .moves import World
 
 from pbutils.mixins import DB, DBMixin
@@ -78,7 +78,7 @@ class CommandState(DBMixin):
     def __post_init__(self):
         self.resource = self.cmd.required_resource()
         self.cmd_type = self.cmd.type
-        if isinstance(self.cmd, BiotekCmd):
+        if isinstance(self.cmd, BiotekCmd | BlueCmd):
             if self.cmd.action == 'Validate':
                 self.gui_boring = True
             if self.cmd.action == 'TestCommunications':
@@ -246,7 +246,11 @@ class Log:
             rows += [bg_row]
 
         q = self.gui_query()
-        states = q.where_some(CommandState.resource == 'disp', CommandState.resource == 'wash')
+        states = q.where_some(
+            CommandState.resource == 'disp',
+            CommandState.resource == 'wash',
+            CommandState.resource == 'blue',
+        )
         if not states.list():
             # show incu if no bioteks (for incu load)
             states = q.where_some(CommandState.resource == 'incu')

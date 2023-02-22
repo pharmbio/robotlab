@@ -20,7 +20,7 @@ class WindowsNUC(Machines):
     incu: STX = STX()
     wash: Biotek = Biotek('wash', [LHC_CALLER_CLI_PATH, "405 TS/LS", "USB 405 TS/LS sn:191107F", LHC_PROTOCOLS_ROOT])
     disp: Biotek = Biotek('disp', [LHC_CALLER_CLI_PATH, "MultiFloFX", "USB MultiFloFX sn:19041612", LHC_PROTOCOLS_ROOT])
-    dir_list: DirList = DirList(root_dir=LHC_PROTOCOLS_ROOT, ext='LHC')
+    dir_list: DirList = DirList(root_dir=LHC_PROTOCOLS_ROOT, ext=['LHC', 'prog'])
     blue: BlueWash = BlueWash(root_dir=LHC_PROTOCOLS_ROOT, com_port='COM6')
 
 @dataclass
@@ -41,7 +41,7 @@ class WindowsIMX(Machines):
 class Example(Machines):
     ip = '127.0.0.1'
     node_name = 'example'
-    dir_list: DirList = DirList(root_dir='.', ext='py', enable_hts_mod=True)
+    dir_list: DirList = DirList(root_dir='.', ext=['py', 'md'], enable_hts_mod=True)
 
 @dataclass
 class MikroAsus(Machines):

@@ -123,11 +123,18 @@ def estimate(cmd: EstCmd) -> float:
                 guess = 25.0
             case BiotekCmd(machine='wash'):
                 guess = 100.0
+            case BlueCmd(action='Validate'):
+                guess = 5.0
+            case BlueCmd(action='TestCommunications'):
+                guess = 5.0
+            case BlueCmd():
+                guess = 60.0
             case BiotekCmd(machine='disp'):
                 guess = 30.0
             case RobotarmCmd():
                 test = cmd.program_name
                 test = test.replace('B21-to-disp', 'disp-to-B21')
+                test = test.replace('blue', 'wash')
                 if 'incu' not in test:
                     test = re.sub(r'A\d+', 'C21', test)
                 test = re.sub(r'\d+', '21', test)

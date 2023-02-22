@@ -15,6 +15,7 @@ from .commands import (
     RobotarmCmd,
     BiotekCmd,
     IncuCmd,
+    BlueCmd,
     WaitForCheckpoint,
     Max,
 )
@@ -160,7 +161,7 @@ def optimal_env(cmd: Command, unsat_core: bool=False) -> OptimalResult:
             case RobotarmCmd():
                 assert is_main
                 return begin + estimate(cmd)
-            case BiotekCmd() | IncuCmd():
+            case BiotekCmd() | IncuCmd() | BlueCmd():
                 assert not is_main
                 return begin + estimate(cmd)
             case Checkpoint():
@@ -238,7 +239,7 @@ def optimal_env(cmd: Command, unsat_core: bool=False) -> OptimalResult:
     # print(s)
     check = str(s.check())
     if check == 'unsat':
-        if 1:
+        if 0:
             print('Impossible to schedule, obtaining unsat core')
             optimal_env(cmd, unsat_core=True)
         raise ValueError(f'Impossible to schedule! (Number of missing time estimates: {len(estimates.guesses)}: {", ".join(str(g) for g in estimates.guesses.keys())}')

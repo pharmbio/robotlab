@@ -21,17 +21,23 @@ def execute(
         res: list[str] = []
     else:
         match action:
-            case 'write_prog':
+            case 'Run':
                 assert isinstance(protocol_path, str)
+                res = bluewash.Run(*protocol_path.split('/'))
+            case 'Validate':
+                assert isinstance(protocol_path, str)
+                res = bluewash.Validate(*protocol_path.split('/'))
+            case 'RunValidated':
+                assert isinstance(protocol_path, str)
+                res = bluewash.RunValidated(*protocol_path.split('/'))
+            case 'TestCommunications':
+                assert protocol_path is None
+                res = bluewash.TestCommunications()
+            case 'init_all':
+                res = bluewash.init_all()
+            case 'get_working_plate':
+                res = bluewash.get_working_plate()
             case _:
-                assert not isinstance(protocol_path, str)
-        match action:
-            case 'write_prog':
-                assert isinstance(protocol_path, str)
-                res = bluewash.write_prog(*protocol_path.split('/'))
-            case 'run_prog':          res = bluewash.run_prog()
-            case 'init_all':          res = bluewash.init_all()
-            case 'get_balance_plate': res = bluewash.get_balance_plate()
-            case 'get_working_plate': res = bluewash.get_working_plate()
-            case 'get_info':          res = bluewash.get_info()
+                raise ValueError(f'No such bluewash {action=}')
+
     res # bluewash raises error if error, otherwise everything OK

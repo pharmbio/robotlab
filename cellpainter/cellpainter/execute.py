@@ -22,6 +22,7 @@ from .commands import (
     Fork,
     Idle,
     IncuCmd,
+    BlueCmd,
     Info,
     Meta,
     RobotarmCmd,
@@ -37,7 +38,9 @@ import pbutils
 from .moves import movelists, MoveList
 from . import moves
 from . import bioteks
+from . import bluewash
 from . import incubator
+from . import protocol_paths
 from .estimates import estimate, EstCmd
 from . import estimates
 from datetime import datetime
@@ -113,6 +116,10 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
         case BiotekCmd():
             with runtime.timeit(entry):
                 bioteks.execute(runtime, entry, cmd.machine, cmd.protocol_path, cmd.action)
+
+        case BlueCmd():
+            with runtime.timeit(entry):
+                bluewash.execute(runtime, entry, action=cmd.action, protocol_path=cmd.protocol_path)
 
         case IncuCmd():
             with runtime.timeit(entry):
@@ -268,16 +275,30 @@ def execute_simulated_program(config: RuntimeConfig, sim_db: DB, metadata: list[
         [program] = programs
     cmd = program.command
 
-    if program.metadata.protocol == 'cell-paint':
-        missing: list[BiotekCmd] = []
+    if program.metadata.protocol == 'cell-paint' and config.name == 'live':
+        missing: list[BiotekCmd | BlueCmd] = []
         for k, _v in estimates.guesses.items():
             if isinstance(k, BiotekCmd) and k.protocol_path:
+                missing += [k]
+            if isinstance(k, BlueCmd) and k.protocol_path:
                 missing += [k]
         if missing:
             from pprint import pformat
             raise ValueError('Missing timings for the following biotek commands:\n' + pformat(missing))
 
+    protocol_dirs = set[str]()
+    for c in program.command.universe():
+        if isinstance(c, BiotekCmd | BlueCmd) and c.protocol_path:
+            protocol_dir, _, _ = c.protocol_path.partition('/')
+            if protocol_dir:
+                protocol_dirs.add(protocol_dir)
+
     with make_runtime(config, program) as runtime:
+        if config.name == 'live':
+            for protocol_dir in protocol_dirs:
+                with pbutils.timeit(f'saving {protocol_dir} protocol files'):
+                    protocol_paths.add_protocol_dir_as_sqlar(runtime.log_db, protocol_dir)
+
         states = sim_db.get(CommandState).list()
         with runtime.log_db.transaction:
             for state in states:

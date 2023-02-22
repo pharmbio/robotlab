@@ -20,7 +20,7 @@ from .commands import (
     DispFork,              # type: ignore
     IncuFork,              # type: ignore
     BiotekCmd,             # type: ignore
-    BiotekValidateThenRun, # type: ignore
+    ValidateThenRun, # type: ignore
     RobotarmCmd,           # type: ignore
     WaitForCheckpoint,     # type: ignore
     WaitForResource,       # type: ignore
@@ -317,7 +317,7 @@ def run_biotek(args: SmallProtocolArgs):
         for p, machine in protocols:
             if f'/{x.lower()}' in p.lower():
                 cmds += [
-                    Fork(BiotekValidateThenRun(machine, p)),
+                    Fork(ValidateThenRun(machine, p)),
                     WaitForResource(machine)
                 ]
     return Program(Seq(*cmds))
@@ -559,11 +559,11 @@ def time_bioteks(args: SmallProtocolArgs):
     '''
     paths = protocol_paths.get_protocol_paths()[args.protocol_dir]
     wash = [
-        BiotekValidateThenRun('wash', p)
+        ValidateThenRun('wash', p)
         for p in paths.all_wash_paths()
     ]
     disp = [
-        BiotekValidateThenRun('disp', p)
+        ValidateThenRun('disp', p)
         for p in paths.all_disp_paths()
     ]
     program = Seq(

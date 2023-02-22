@@ -18,12 +18,10 @@ from ..commands import ProgramMetadata
 from .db_edit import Edit
 from . import common
 
+from pbutils import dotdict
+
 A = TypeVar('A')
 B = TypeVar('B')
-class dotdict(Generic[A, B], dict[A, B]):
-    __getattr__ = dict.__getitem__ # type: ignore
-    __setattr__ = dict.__setitem__ # type: ignore
-    __delattr__ = dict.__delitem__ # type: ignore
 
 def show_logs() -> Iterator[Tag | V.Node | dict[str, str]]:
     enable_edit = store.bool()

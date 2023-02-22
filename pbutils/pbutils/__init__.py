@@ -24,6 +24,11 @@ B = TypeVar('B')
 P = ParamSpec('P')
 R = TypeVar('R')
 
+class dotdict(Generic[A, B], dict[A, B]):
+    __getattr__ = dict.__getitem__ # type: ignore
+    __setattr__ = dict.__setitem__ # type: ignore
+    __delattr__ = dict.__delitem__ # type: ignore
+
 @dataclass(frozen=True, eq=False, order=False)
 class Hide(Generic[A]):
     value: A

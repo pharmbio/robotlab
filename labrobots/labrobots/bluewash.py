@@ -6,7 +6,6 @@ from pathlib import Path
 import contextlib
 import time
 import textwrap
-import re
 
 def timeit(desc: str=''):
     # The inferred type for the decorated function is wrong hence this wrapper to get the correct type
@@ -150,9 +149,9 @@ class BlueWash(Machine):
     com_port: str = 'COM6'
 
     @contextlib.contextmanager
-    def connect(self):
+    def _connect(self):
         print('bluewash: Using com_port', self.com_port)
-        with timeit('connection'):
+        with timeit('_connection'):
             com = Serial(
                 self.com_port,
                 timeout=15,
@@ -194,51 +193,65 @@ class BlueWash(Machine):
         return self.run_cmd('$rackgetoutsensor')
 
     def run_cmd(self, cmd: str) -> List[str]:
-        with self.connect() as con:
+        with self._connect() as con:
             con.write(cmd)
             code, lines = con.read_until_code()
             con.check_code(code, HTI_NoError)
             return lines
 
     def run_servprog(self, index: int) -> List[str]:
-        with self.connect() as con:
+        with self._connect() as con:
             with timeit('runservprog'):
                 con.write(f'$runservprog {index}')
                 return con.read_until_prog_end()
 
-    def run_prog(self, index: int=99) -> List[str]:
-        with self.connect() as con:
+    def run_prog(self, index: int) -> List[str]:
+        with self._connect() as con:
             with timeit('runprog'):
                 con.write(f'$runprog {index}')
                 return con.read_until_prog_end()
 
-    def write_prog(self, *filename_parts: str, index: int=99) -> List[str]:
-        filename = '/'.join(filename_parts)
-        with self.connect() as con:
+    def write_prog(self, program_text: str, index: int) -> List[str]:
+        program_text = textwrap.dedent(program_text).strip()
+        with self._connect() as con:
             with timeit('copyprog'):
-                path = Path(self.root_dir) / filename
-                return con.write_prog(path.read_text(), index)
+                return con.write_prog(program_text, index)
 
-    def write_and_run_prog(self, *filename_parts: str, index: int=99) -> List[str]:
-        return [
-            *self.write_prog(*filename_parts, index=index),
-            *self.run_prog(index),
-        ]
-
-    def run_test_prog(self) -> List[str]:
-        return self.write_and_run_prog('bluewash-protocols/MagBeadSpinWash-2X-80ul-Blue.prog')
-
-    def get_info(self, index: int=99) -> List[str]:
+    def TestCommunications(self) -> List[str]:
         program: str = '''
             $getserial
             $getfirmware
             $getipadr
         '''
-        program = textwrap.dedent(program).strip()
-        with self.connect() as con:
-            xs = con.write_prog(program, index)
         return [
-            *xs,
-            *self.run_prog(index),
+            *self.write_prog(program, index=98),
+            *self.run_prog(index=98),
+        ]
+
+    mem: Dict[int, str] = field(default_factory=dict)
+
+    def Validate(self, *filename_parts: str) -> List[str]:
+        filename = '/'.join(filename_parts)
+        self.mem[99] = filename
+        path = Path(self.root_dir) / filename
+        return self.write_prog(path.read_text(), index=99)
+
+    def RunValidated(self, *filename_parts: str) -> List[str]:
+        filename = '/'.join(filename_parts)
+        stored = self.mem.get(99)
+        if stored == filename:
+            return self.run_prog(index=99)
+        else:
+            return [
+                f'warning: RunValidated without Validate first'
+                f'{stored=!r}',
+                f'{filename=!r}',
+                *self.Run(*filename_parts),
+            ]
+
+    def Run(self, *filename_parts: str) -> List[str]:
+        return [
+            *self.Validate(*filename_parts),
+            *self.RunValidated(*filename_parts),
         ]
 

@@ -3,10 +3,11 @@ from typing import *
 
 import labrobots
 from labrobots.dir_list import PathInfo
-from cellpainter.log import Log
+from cellpainter.log import Log, DB
 
 import pbutils
 import base64
+import re
 
 def nonempty(*xs: str) -> list[str]:
     return [x for x in sorted(set(xs)) if x]
@@ -37,6 +38,8 @@ class ProtocolPaths:
     disp_prime: list[str]
     disp_prep:  list[str]
     disp_main:  list[str]
+    blue_prime: list[str]
+    blue:       list[str]
 
     def all_wash_paths(self) -> list[str]:
         return nonempty(*self.wash_prime, *self.wash_5, *self.wash_6)
@@ -44,30 +47,40 @@ class ProtocolPaths:
     def all_disp_paths(self) -> list[str]:
         return nonempty(*self.disp_prime, *self.disp_prep, *self.disp_main)
 
+    def all_blue_paths(self) -> list[str]:
+        return nonempty(*self.blue_prime, *self.blue)
+
+    def use_wash(self) -> bool:
+        return any(self.all_wash_paths())
+
+    def use_blue(self) -> bool:
+        return any(self.all_blue_paths())
+
+
 template_protocol_paths = ProtocolPaths(
     wash_prime = [
-        '0_W_',
+        '0_W_.*.LHC',
     ],
     wash_5 = [
-        '1_W_',
-        '3_W_',
-        '5_W_',
-        '7_W_',
-        '9_W_',
+        '1_W_.*.LHC',
+        '3_W_.*.LHC',
+        '5_W_.*.LHC',
+        '7_W_.*.LHC',
+        '9_W_.*.LHC',
     ],
     wash_6 = [
-        '1_W_',
-        '3_W_',
-        '5_W_',
-        '7_W_',
-        '9_10_W_',
-        '9_10_W_',
+        '1_W_.*.LHC',
+        '3_W_.*.LHC',
+        '5_W_.*.LHC',
+        '7_W_.*.LHC',
+        '9_10_W_.*.LHC',
+        '9_10_W_.*.LHC',
     ],
     disp_prime = [
-        '2.0_D_',
-        '4.0_D_',
-        '6.0_D_',
-        '8.0_D_',
+        '2.0_D_.*.LHC',
+        '4.0_D_.*.LHC',
+        '6.0_D_.*.LHC',
+        '8.0_D_.*.LHC',
     ],
     disp_prep = [
         '2.0b_D_',
@@ -76,10 +89,20 @@ template_protocol_paths = ProtocolPaths(
         '8.0b_D_',
     ],
     disp_main = [
-        '2.1_D_',
-        '4.1_D_',
-        '6.1_D_',
-        '8.1_D_',
+        '2.1_D_.*.LHC',
+        '4.1_D_.*.LHC',
+        '6.1_D_.*.LHC',
+        '8.1_D_.*.LHC',
+    ],
+    blue_prime = [
+        '0_W_.*.prog',
+    ],
+    blue = [
+        '1_W_.*.prog',
+        '3_W_.*.prog',
+        '5_W_.*.prog',
+        '7_W_.*.prog',
+        '9_W_.*.prog',
     ],
 )
 
@@ -110,21 +133,21 @@ def make_protocol_paths(protocol_dir: str, infos: list[PathInfo]):
         if dir == protocol_dir:
             lhcs += [lhc]
 
-    def resolve_one(prefix: str) -> str:
+    def resolve_one(regex: str) -> str:
         candidates = [
             protocol_dir + '/' + lhc
             for lhc in lhcs
-            if lhc.startswith(prefix)
+            if re.match(regex + '$', lhc)
         ]
         if len(candidates) > 1:
-            raise ValueError(f'More than one candidate for {prefix=}: {candidates}')
+            raise ValueError(f'More than one candidate for {regex=}: {candidates}')
         elif candidates:
             return candidates[0]
         else:
             return ''
 
-    def resolve(prefixes: list[str]) -> list[str]:
-        return [resolve_one(prefix) for prefix in prefixes]
+    def resolve(regexes: list[str]) -> list[str]:
+        return [resolve_one(regex) for regex in regexes]
 
     paths = ProtocolPaths(
         **{
@@ -134,13 +157,12 @@ def make_protocol_paths(protocol_dir: str, infos: list[PathInfo]):
     )
     return paths
 
-def add_protocol_dir_as_sqlar(db_path: str, protocol_dir: str):
+def add_protocol_dir_as_sqlar(db: DB, protocol_dir: str):
     '''
     Add the LHC files in the protocol_dir as an SQLite Archive (sqlar) table (without compression for simplicity)
     '''
     files = labrobots.WindowsNUC().remote().dir_list.read_files(protocol_dir)
-    with Log.open(db_path) as log:
-        with log.db.transaction:
-            for f in files:
-                data: bytes = base64.b64decode(f['data_b64'])
-                log.sqlar_add(f['name'], f['mtime'], data)
+    with db.transaction:
+        for f in files:
+            data: bytes = base64.b64decode(f['data_b64'])
+            Log(db).sqlar_add(f['name'], f['mtime'], data)

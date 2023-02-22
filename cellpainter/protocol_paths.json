@@ -1,6 +1,6 @@
 {
   "automation_v5.0": {
-    "type": "ProtocolPaths",
+    "type": "ProtocolPaths", "blue_prime": [], "blue": [],
     "wash_prime": [
       "automation_v5.0/0_W_PRIME_PBS.LHC"
     ],
@@ -38,8 +38,53 @@
       "automation_v5.0/8.1_D_P2_20ul_stains.LHC"
     ]
   },
-  "short": {
+  "automation_v5.0_blue": {
     "type": "ProtocolPaths",
+    "wash_prime": [
+      "automation_v5.0/0_W_PRIME_PBS.LHC"
+    ],
+    "wash_5": [
+      "",
+      "automation_v4.0_RMS/1_W_1X_beforeMito_leaves20ul_PBS.LHC",
+      "",
+      "",
+      ""
+    ],
+    "wash_6": [
+      "",
+      "automation_v4.0_RMS/1_W_1X_beforeMito_leaves20ul_PBS.LHC",
+      "",
+      "",
+      "",
+      ""
+    ],
+    "disp_prime": [
+      "automation_v5.0_blue/2.0_D_SB_PRIME_Mito.LHC",
+      "automation_v5.0_blue/4.0_D_SA_PRIME_PFA.LHC",
+      "automation_v5.0_blue/6.0_D_P1_PRIME_TritonStains.LHC"
+    ],
+    "disp_prep": [
+      "",
+      "",
+      ""
+    ],
+    "disp_main": [
+      "automation_v5.0_blue/2.1_D_SB_30ul_Mito.LHC",
+      "automation_v5.0_blue/4.1_D_SA_80ul_PFA.LHC",
+      "automation_v5.0_blue/6.1_D_P1_80ul_TritonStains.LHC"
+    ],
+    "blue_prime": [
+      "automation_v5.0_blue/0_W_PRIME_PBS.prog"
+    ],
+    "blue": [
+      "",
+      "",
+      "automation_v5.0_blue/5_W_PBS.prog",
+      "automation_v5.0_blue/7_W_PBS.prog"
+    ]
+  },
+  "short": {
+    "type": "ProtocolPaths", "blue_prime": [], "blue": [],
     "wash_prime": [
       "short/0_W.LHC"
     ],
@@ -78,7 +123,7 @@
     ]
   },
   "bloop": {
-    "type": "ProtocolPaths",
+    "type": "ProtocolPaths", "blue_prime": [], "blue": [],
     "wash_prime": [
       "bloop/0_W_PRIME_PBS.LHC"
     ],
@@ -117,7 +162,7 @@
     ]
   },
   "automation_v5.0_AW_CR_noMito": {
-    "type": "ProtocolPaths",
+    "type": "ProtocolPaths", "blue_prime": [], "blue": [],
     "wash_prime": [
       "automation_v5.0_AW_CR_noMito/0_W_PRIME_PBS.LHC"
     ],
@@ -156,7 +201,7 @@
     ]
   },
   "automation96_v1": {
-    "type": "ProtocolPaths",
+    "type": "ProtocolPaths", "blue_prime": [], "blue": [],
     "wash_prime": [
       "automation96_v1/0_W_PRIME_PBS.LHC"
     ],
@@ -195,7 +240,7 @@
     ]
   },
   "automation_v5.1": {
-    "type": "ProtocolPaths",
+    "type": "ProtocolPaths", "blue_prime": [], "blue": [],
     "wash_prime": [
       "automation_v5.1/0_W_PRIME_PBS.LHC"
     ],
@@ -234,7 +279,7 @@
     ]
   },
   "automation_v4.0": {
-    "type": "ProtocolPaths",
+    "type": "ProtocolPaths", "blue_prime": [], "blue": [],
     "wash_prime": [
       "automation_v4.0/0_W_PRIME_PBS.LHC"
     ],
@@ -273,7 +318,7 @@
     ]
   },
   "automation_v4.0_copy": {
-    "type": "ProtocolPaths",
+    "type": "ProtocolPaths", "blue_prime": [], "blue": [],
     "wash_prime": [
       "automation_v4.0_copy/0_W_PRIME_PBS.LHC"
     ],
@@ -312,7 +357,7 @@
     ]
   },
   "automation_v4.0_RMS": {
-    "type": "ProtocolPaths",
+    "type": "ProtocolPaths", "blue_prime": [], "blue": [],
     "wash_prime": [
       "automation_v4.0_RMS/0_W_PRIME_PBS.LHC"
     ],

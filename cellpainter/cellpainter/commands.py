@@ -515,14 +515,20 @@ def DispCmd(
 ):
     return BiotekCmd('disp', cmd, protocol_path)
 
-def BiotekValidateThenRun(
-    machine: Literal['wash', 'disp'],
+def ValidateThenRun(
+    machine: Literal['wash', 'disp', 'blue'],
     protocol_path: str,
 ) -> Command:
-    return Seq(
-        BiotekCmd(machine, 'Validate',     protocol_path),
-        BiotekCmd(machine, 'RunValidated', protocol_path),
-    )
+    if machine == 'blue':
+        return Seq(
+            BlueCmd('Validate',     protocol_path),
+            BlueCmd('RunValidated', protocol_path),
+        )
+    else:
+        return Seq(
+            BiotekCmd(machine, 'Validate',     protocol_path),
+            BiotekCmd(machine, 'RunValidated', protocol_path),
+        )
 
 def WashFork(
     protocol_path: str | None,
@@ -538,13 +544,12 @@ def DispFork(
 ):
     return Fork(DispCmd(cmd, protocol_path), assume=assume)
 
-BlueWashAction = Literal[
-    'run_prog',
-    'write_prog',
-    'init_all',
-    'get_balance_plate',
-    'get_working_plate',
-    'get_info',
+BlueWashAction = Union[
+    BiotekAction,
+    Literal[
+        'reset_and_activate',
+        'get_working_plate',
+    ],
 ]
 
 @dataclass(frozen=True)

@@ -178,10 +178,11 @@ def add_to_serve(serve: Serve, cmdline0: str, cmdline_to_log: Callable[[str], Lo
                 slot = {
                     'incu': 1,
                     'wash': 2,
+                    'blue': 2,
                     'disp': 3,
                 }.get(machine, 1)
             slot = 2 * slot
-            if m.thread_resource in ('wash', 'disp', 'incu'):
+            if m.thread_resource in ('wash', 'disp', 'incu', 'blue'):
                 slot += 1
             if source == 'duration':
                 slot = 18 + plate
@@ -190,6 +191,7 @@ def add_to_serve(serve: Serve, cmdline0: str, cmdline_to_log: Callable[[str], Lo
                 'idle': 'color3',
                 'robotarm': 'color4',
                 'wash': 'color6',
+                'blue': 'color6',
                 'disp': 'color5',
                 'incu': 'color2',
             }

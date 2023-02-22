@@ -12,7 +12,7 @@ import re
 from ..log import ExperimentMetadata, Log
 
 from .. import commands
-from ..commands import IncuCmd, BiotekCmd, ProgramMetadata
+from ..commands import IncuCmd, BiotekCmd, BlueCmd, ProgramMetadata
 import pbutils
 from ..log import CommandState, Message, VisRow, RuntimeMetadata, countdown
 
@@ -88,7 +88,7 @@ class AnalyzeResult:
     def entry_desc_for_hover(self, e: CommandState):
         cmd = e.cmd
         match cmd:
-            case BiotekCmd():
+            case BiotekCmd() | BlueCmd():
                 if cmd.protocol_path:
                     if cmd.action == 'Validate':
                         return cmd.action + ' ' + cmd.protocol_path
@@ -109,11 +109,15 @@ class AnalyzeResult:
         match cmd:
             case commands.RobotarmCmd():
                 return cmd.program_name
-            case BiotekCmd():
+            case BiotekCmd() | BlueCmd():
                 if cmd.action == 'TestCommunications':
                     return cmd.action
                 else:
-                    return re.sub(r'^automation_|\.LHC$', '', str(cmd.protocol_path))
+                    path = str(cmd.protocol_path)
+                    path = path.removeprefix('automation_')
+                    path = path.removesuffix('.LHC')
+                    path = path.removesuffix('.prog')
+                    return path
             case IncuCmd():
                 if cmd.incu_loc:
                     return cmd.action + ' ' + cmd.incu_loc
@@ -130,7 +134,7 @@ class AnalyzeResult:
 
     def running(self):
         d: dict[str, CommandState | None] = {}
-        resources = 'main disp wash incu'.split()
+        resources = 'main disp wash blue incu'.split()
         G = pbutils.group_by(self.running_state, key=lambda e: e.metadata.thread_resource)
         G['main'] = G[None]
         for resource in resources:
@@ -257,6 +261,7 @@ class AnalyzeResult:
 
             color = {
                 'wash': 'var(--cyan)',
+                'blue': 'var(--blue)',
                 'disp': 'var(--purple)',
                 'incu': 'var(--green)',
                 'now': '#fff',
@@ -268,7 +273,7 @@ class AnalyzeResult:
             y1 = (row.t - row.section_t0) / (max_length or 1.0)
             h = y1 - y0
 
-            if row.state and isinstance(row.state.cmd, BiotekCmd):
+            if row.state and isinstance(row.state.cmd, BiotekCmd | BlueCmd):
                 info = row.state.cmd.protocol_path or row.state.cmd.action
             elif row.state and isinstance(row.state.cmd, IncuCmd):
                 loc = row.state.cmd.incu_loc

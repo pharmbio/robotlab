@@ -6,6 +6,8 @@ from dataclasses import *
 import graphlib
 import re
 
+import itertools as it
+
 from .commands import (
     Program,
     Command,
@@ -16,12 +18,14 @@ from .commands import (
     Idle,
     Seq,
     WashCmd,
+    BlueCmd,
     DispCmd,
     IncuCmd,
     WashFork,
+    BlueFork,
     DispFork,
     IncuFork,
-    BiotekValidateThenRun,
+    ValidateThenRun,
     RobotarmCmd,
     WaitForCheckpoint,
     WaitForResource,
@@ -169,74 +173,92 @@ class Interleaving:
             assert v == target, f'{k!r} occurred {v} times, should be {target} times'
         return Interleaving(rows)
 
-Interleavings = dict(
-    lin = Interleaving.init('''
-        incu -> B21 -> wash -> disp -> B21 -> incu
-        incu -> B21 -> wash -> disp -> B21 -> incu
-    '''),
-    june = Interleaving.init('''
-        incu -> B21  -> wash
-        incu -> B21
-                        wash -> disp
-                B21  -> wash
-                                disp -> B21 -> incu
-        incu -> B21
-                        wash -> disp
-                B21  -> wash
-                                disp -> B21 -> incu
-                        wash -> disp
-                                disp -> B21 -> incu
-    '''),
-    displin = Interleaving.init('''
-        incu -> B21 -> disp -> B21 -> incu
-        incu -> B21 -> disp -> B21 -> incu
-    '''),
-    dispilv = Interleaving.init('''
-        incu -> B21 -> disp
-                       disp -> B15
-        incu -> B21 -> disp
-                               B15 -> B21 -> incu
-                       disp -> B15
-        incu -> B21 -> disp
-                               B15 -> B21 -> incu
-                       disp -> B15 -> B21 -> incu
-    '''),
-    washlin = Interleaving.init('''
-        incu -> B21 -> wash -> B21 -> incu
-        incu -> B21 -> wash -> B21 -> incu
-    '''),
-    washjune = Interleaving.init('''
-        incu -> B21 -> wash
-        incu -> B21
-                       wash -> B15
-                B21 -> wash
-                               B15 -> B21 -> incu
-        incu -> B21
-                       wash -> B15
-                B21 -> wash
-                               B15 -> B21 -> incu
-                       wash -> B15
-                               B15 -> B21 -> incu
-    '''),
-    finlin = Interleaving.init('''
-        incu -> B21 -> wash -> B21 -> out
-        incu -> B21 -> wash -> B21 -> out
-    '''),
-    finjune = Interleaving.init('''
-        incu -> B21
-                B21 -> wash
-        incu -> B21
-                       wash -> B15
-                B21 -> wash
-                               B15 -> B21 -> out
-        incu -> B21
-                       wash -> B15
-                B21 -> wash
-                               B15 -> B21 -> out
-                       wash -> B15
-                               B15 -> B21 -> out
-    '''),
-    mix = Interleaving.init('''
+InterleavingKind = Literal[
+    'wash -> disp',
+    'blue -> disp',
+    'wash -> out',
+    'blue -> out',
+    'disp',
+    'wash',
+    'blue',
+]
+
+def make_interleaving(kind: InterleavingKind, linear: bool) -> Interleaving:
+    match kind:
+        case 'wash -> disp' | 'blue -> disp':
+            lin = '''
+                incu -> B21 -> wash -> disp -> B21 -> incu
+                incu -> B21 -> wash -> disp -> B21 -> incu
+            '''
+            ilv = '''
+                incu -> B21  -> wash
+                incu -> B21
+                                wash -> disp
+                        B21  -> wash
+                                        disp -> B21 -> incu
+                incu -> B21
+                                wash -> disp
+                        B21  -> wash
+                                        disp -> B21 -> incu
+                                wash -> disp
+                                        disp -> B21 -> incu
+            '''
+        case 'wash -> out' | 'blue -> out':
+            lin = '''
+                incu -> B21 -> wash -> B15 -> B21 -> out
+                incu -> B21 -> wash -> B15 -> B21 -> out
+            '''
+            ilv = '''
+                incu -> B21
+                        B21 -> wash
+                incu -> B21
+                               wash -> B15
+                        B21 -> wash
+                                       B15 -> B21 -> out
+                incu -> B21
+                               wash -> B15
+                        B21 -> wash
+                                       B15 -> B21 -> out
+                               wash -> B15
+                                       B15 -> B21 -> out
+            '''
+        case 'wash' | 'blue':
+            lin = '''
+                incu -> B21 -> wash -> B21 -> incu
+                incu -> B21 -> wash -> B21 -> incu
+            '''
+            ilv = '''
+                incu -> B21 -> wash
+                incu -> B21
+                               wash -> B15
+                        B21 -> wash
+                                       B15 -> B21 -> incu
+                incu -> B21
+                               wash -> B15
+                        B21 -> wash
+                                       B15 -> B21 -> incu
+                               wash -> B15
+                                       B15 -> B21 -> incu
+            '''
+        case 'disp':
+            lin = '''
+                incu -> B21 -> disp -> B21 -> incu
+                incu -> B21 -> disp -> B21 -> incu
+            '''
+            ilv = '''
+                incu -> B21 -> disp
+                               disp -> B15
+                incu -> B21 -> disp
+                                       B15 -> B21 -> incu
+                               disp -> B15
+                incu -> B21 -> disp
+                                       B15 -> B21 -> incu
+                               disp -> B15 -> B21 -> incu
+            '''
+    if 'blue' in kind:
+        lin = lin.replace('wash', 'blue')
+        ilv = ilv.replace('wash', 'blue')
+    _mix = '''
         incu -> B21 -> wash
                        wash -> disp
         incu -> B21 -> wash
@@ -246,8 +268,8 @@ Interleavings = dict(
                                disp -> B21 -> incu
                        wash -> disp
                                disp -> B21 -> incu
-    '''),
-    quad = Interleaving.init('''
+    '''
+    _quad = '''
         incu -> B21 -> wash
                        wash -> disp
         incu -> B21 -> wash
@@ -260,8 +282,8 @@ Interleavings = dict(
                                        B21  -> incu
                                disp -> B21
                                        B21  -> incu
-    '''),
-    three = Interleaving.init('''
+    '''
+    _three = '''
         incu -> B21 -> wash
                        wash -> disp
         incu -> B21 -> wash
@@ -278,8 +300,8 @@ Interleavings = dict(
                                        B21 -> incu
                                disp -> B21
                                        B21 -> incu
-    '''),
-)
+    '''
+    return Interleaving.init(lin if linear else ilv)
 
 class ProtocolArgsInterface(typing.Protocol):
     incu:               str
@@ -299,40 +321,29 @@ if typing.TYPE_CHECKING:
 
 @dataclass(frozen=True, kw_only=True)
 class ProtocolConfig:
-    step_names:    list[str]
-    wash_prime:    list[str]
-    wash:          list[str]
-    disp_prime:    list[str]
-    disp_prep:     list[str]
-    disp:          list[str]
-    incu:          list[Symbolic]
-    interleavings: list[str]
-    interleave:    bool
+    steps: list[Step]
+    wash_prime: list[str]
+    blue_prime: list[str]
     lockstep_threshold: int
-    def __post_init__(self):
-        d: dict[str, list[Any]] = {}
-        for field in fields(self):
-            k = field.name
-            v = getattr(self, k)
-            if isinstance(v, list) and k != 'wash_prime':
-                d[k] = v
-        for ka, kb in pbutils.iterate_with_next(list(d.items())):
-            if kb:
-                _, a = ka
-                _, b = kb
-                assert len(a) == len(b), f'{ka} and {kb} do not have same lengths'
-        for ilv in self.interleavings:
-            assert ilv in Interleavings
 
 from .protocol_paths import ProtocolPaths, paths_v5
+
+@dataclass(frozen=True)
+class Step:
+    name: str
+    incu: float | int | Symbolic
+    blue: str | None
+    wash: str | None
+    disp: str | None
+    disp_prime: str | None
+    disp_prep: str | None
+    interleaving: Interleaving
 
 def make_protocol_config(paths: ProtocolPaths, args: ProtocolArgsInterface = ProtocolArgs()) -> ProtocolConfig:
     incu_csv = args.incu
     six_cycles = args.two_final_washes
-    N = 6 if six_cycles else 5
-    # print(incu_csv, pbutils.read_commasep(incu_csv), file=sys.stderr)
 
-    incu = [
+    incu_lengths = [
         Symbolic.wrap(
             float(m.group(1)) * 60 + float(m.group(2))
             if (m := re.match(r'(\d+):(\d\d)$', s)) else
@@ -342,54 +353,77 @@ def make_protocol_config(paths: ProtocolPaths, args: ProtocolArgsInterface = Pro
         )
         for s in pbutils.read_commasep(incu_csv)
     ]
-    incu = incu + [incu[-1]] * N
-    incu = incu[:N-1] + [Symbolic.wrap(0)]
 
-    def resize(xs: list[str]) -> list[str]:
-        while len(xs) < N:
-            xs = [*xs, '']
-        return xs[:N]
+    def drop_trail(xs: list[str]) -> list[str]:
+        for i, _ in enumerate(xs):
+            if not any(xs[i:]):
+                return xs[:i]
+        return xs
 
-    interleavings: list[str]
-    if six_cycles:
-        if args.interleave:
-            interleavings = 'june june june june washjune finjune'.split()
-        else:
-            interleavings = 'lin  lin  lin  lin  washlin  finlin'.split()
+    if paths.use_blue():
+        names = ['Mito', 'PFA', 'Stains', 'Final']
+    elif six_cycles:
+        names = ['Mito', 'PFA', 'Triton', 'Stains', 'Wash 1', 'Final']
     else:
-        if args.interleave:
-            interleavings = 'june june june june finjune'.split()
-        else:
-            interleavings = 'lin  lin  lin  lin  finlin'.split()
+        names = ['Mito', 'PFA', 'Triton', 'Stains', 'Final']
 
-    names_5 = ['Mito', 'PFA', 'Triton', 'Stains', 'Final']
-    names_6 = ['Mito', 'PFA', 'Triton', 'Stains', 'Wash 1', 'Final']
-    step_names = names_6 if six_cycles else names_5
-
-    wash = paths.wash_6 if six_cycles else paths.wash_5
-
-    interleavings_with_disp: list[str] = []
-    for name, wash_protocol in zip(interleavings, wash):
-        if not wash_protocol and name == 'lin':
-            interleavings_with_disp += ['displin']
-        elif not wash_protocol and name == 'june':
-            interleavings_with_disp += ['dispilv']
-        else:
-            interleavings_with_disp += [name]
-
-    p = ProtocolConfig(
-        wash_prime     = paths.wash_prime,
-        step_names     = step_names,
-        wash           = wash,
-        disp_prime     = resize(paths.disp_prime),
-        disp_prep      = resize(paths.disp_prep),
-        disp           = resize(paths.disp_main),
-        lockstep_threshold = args.lockstep_threshold,
-        incu           = incu,
-        interleave     = args.interleave,
-        interleavings  = interleavings_with_disp,
+    steps_proto = list(
+        it.zip_longest(
+            drop_trail(paths.wash_6 if six_cycles else paths.wash_5),
+            drop_trail(paths.blue),
+            drop_trail(paths.disp_main),
+            fillvalue=None
+        )
     )
-    return p
+
+    steps: list[Step] = []
+
+    for i, (wash, blue, disp) in enumerate(steps_proto):
+        incu = dict(enumerate(incu_lengths)).get(i, incu_lengths[-1])
+        name = dict(enumerate(names)).get(i, f'Step {i+1}')
+        last_step = i == len(steps_proto) - 1
+        kind: InterleavingKind
+        if last_step:
+            if wash:
+                kind = 'wash -> out'
+            elif blue:
+                kind = 'blue -> out'
+            else:
+                raise ValueError(f'Last step should be a washing step [{i=} {wash=} {blue=} {disp=}]')
+        elif wash and blue:
+            raise ValueError('Cannot use both biotek washer and bluewasher in the same step [{i=} {wash=} {blue=}]')
+        elif wash and disp:
+            kind = 'wash -> disp'
+        elif blue and disp:
+            kind = 'blue -> disp'
+        elif wash:
+            kind = 'wash'
+        elif blue:
+            kind = 'blue'
+        elif disp:
+            kind = 'disp'
+        else:
+            raise ValueError(f'Step must have some purpose [{i=} {wash=} {blue=} {disp=}]')
+        ilv = make_interleaving(kind, linear=not args.interleave)
+        steps += [
+            Step(
+                name=name,
+                incu=incu,
+                wash=wash,
+                blue=blue,
+                disp=disp,
+                disp_prime=dict(enumerate(paths.disp_prime)).get(i),
+                disp_prep=dict(enumerate(paths.disp_prep)).get(i),
+                interleaving=ilv,
+            )
+        ]
+
+    return ProtocolConfig(
+        wash_prime = paths.wash_prime,
+        blue_prime = paths.blue_prime,
+        steps      = steps,
+        lockstep_threshold = args.lockstep_threshold if not paths.use_blue() else 10000,
+    )
 
 def test_make_protocol_config():
     argss: list[ProtocolArgs] = [
@@ -414,6 +448,7 @@ def test_comm_program(with_incu: bool=True) -> Command:
     Test communication with robotarm, washer, dispenser and incubator.
     '''
     return Seq(
+        BlueFork(action='TestCommunications', protocol_path=None),
         DispFork(cmd='TestCommunications', protocol_path=None),
         IncuFork(action='get_status', incu_loc=None) if with_incu else Idle(),
         RobotarmCmd('gripper init and check'),
@@ -421,6 +456,7 @@ def test_comm_program(with_incu: bool=True) -> Command:
         WashFork(cmd='TestCommunications', protocol_path=None),
         WaitForResource('incu') if with_incu else Idle(),
         WaitForResource('wash'),
+        WaitForResource('blue'),
     ).add(Metadata(step='test comm'))
 
 Desc = tuple[str, str, str]
@@ -464,23 +500,23 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
     ]
 
     chunks: dict[Desc, Iterable[Command]] = {}
-    if p.interleave:
-        lid_locs = Locations.Lid[:2]
-    else:
-        lid_locs = Locations.Lid[:1]
+    lid_locs = Locations.Lid[:2]
     lid_index = 0
 
-    wash_prime: list[Command] = [
-        Fork(BiotekValidateThenRun('wash', prime))
+    wash_prime = [
+        ValidateThenRun('wash', prime)
         for prime in p.wash_prime
+        if prime
+    ]
+    blue_prime = [
+        ValidateThenRun('blue', prime)
+        for prime in p.blue_prime
+        if prime
     ]
 
-    prep_cmds += [
-        *wash_prime,
-    ]
+    use_lockstep = len(batch) >= p.lockstep_threshold
 
-    for i, (step, interleaving_name) in enumerate(zip(p.step_names, p.interleavings)):
-        step_index = i
+    for i, (prev_step, step, next_step) in enumerate(pbutils.iterate_with_context(p.steps)):
         for plate in batch:
 
             lid_loc = lid_locs[lid_index % len(lid_locs)]
@@ -492,7 +528,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
 
             incu_delay: list[Command]
             wash_delay: list[Command]
-            if step_index == 0:
+            if not prev_step:
                 # idle_ref = WaitForCheckpoint(f'batch {batch_index}')
                 incu_delay = [
                     WaitForCheckpoint(f'batch {batch_index}') + f'{plate_desc} incu delay {ix}'
@@ -507,11 +543,11 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                 ]
                 _slack = (
                     Symbolic.var(f'{plate_desc} incubation {ix-1} slack')
-                    + p.incu[i-1]
+                    + prev_step.incu
                 )
                 wash_delay = [
                     Early(2),
-                    WaitForCheckpoint(f'{plate_desc} incubation {ix-1}', assume='will wait') + p.incu[i-1],
+                    WaitForCheckpoint(f'{plate_desc} incubation {ix-1}', assume='will wait') + prev_step.incu,
                     # WaitForCheckpoint(f'{plate_desc} incubation {ix-1}', assume='will wait') + slack,
                     Duration(f'{plate_desc} incubation {ix-1}', OptPrio.incu_slack),
                 ]
@@ -530,13 +566,13 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                 ),
             ]
 
-            if step == 'Mito' or step == 'PFA':
+            if step.name == 'Mito' or step.name == 'PFA':
                 incu_get = [
                     RobotarmCmd('incu-to-B21 prep'),
                     Fork(
                         Seq(
                             IncuCmd('get', plate.incu_loc),
-                            Duration(f'{plate_desc} 37C', OptPrio.inside_incu) if step == 'PFA' else Idle(),
+                            Duration(f'{plate_desc} 37C', OptPrio.inside_incu) if step.name == 'PFA' else Idle(),
                             Checkpoint(f'{plate_desc} incu get {ix}'),
                             WaitForCheckpoint(f'{plate_desc} left incu {ix}'),
                         ),
@@ -554,7 +590,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                     *RobotarmCmds(plate.rt_get),
                 ]
 
-            if step == 'Mito':
+            if step.name == 'Mito':
                 B21_to_incu = [
                     RobotarmCmd('B21-to-incu prep'),
                     WaitForResource('incu', assume='nothing'),
@@ -572,7 +608,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                     *RobotarmCmds(plate.rt_put),
                 ]
 
-            if step == 'Mito':
+            if step.name == 'Mito':
                 B15_to_incu = [
                     RobotarmCmd('B15-to-incu prep'),
                     WaitForResource('incu', assume='nothing'),
@@ -596,7 +632,13 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                 RobotarmCmd('B21-to-wash transfer'),
                 Fork(
                     Seq(
-                        WashCmd('Validate', p.wash[i]),
+                        *[
+                            Seq(cmd, Early(5)).add(Metadata(plate_id='', predispense=True))
+                            for cmd in wash_prime
+                            if plate is first_plate
+                            if not use_lockstep or not prev_step or not prev_step.wash
+                        ],
+                        WashCmd('Validate', step.wash),
                         Early(5),
                     ),
                     align='end',
@@ -604,25 +646,52 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                 Fork(
                     Seq(
                         *wash_delay,
-                        WashCmd('RunValidated', p.wash[i]),
+                        WashCmd('RunValidated', step.wash),
                         Checkpoint(f'{plate_desc} incubation {ix}')
-                        if step == 'Wash 1' else
+                        if step.name == 'Wash 1' else
                         Checkpoint(f'{plate_desc} transfer {ix}'),
                     )
                 ),
                 RobotarmCmd('B21-to-wash return'),
             ]
+            B21_to_blue = [
+                RobotarmCmd('B21-to-blue prep'),
+                RobotarmCmd('B21-to-blue transfer'),
+                Fork(
+                    Seq(
+                        *[
+                            Seq(cmd, Early(5)).add(Metadata(plate_id='', predispense=True))
+                            for cmd in blue_prime
+                            if plate is first_plate
+                            if not use_lockstep or not prev_step or not prev_step.blue
+                        ],
+                        BlueCmd('Validate', step.blue),
+                        Early(5),
+                    ),
+                    align='end',
+                ),
+                Fork(
+                    Seq(
+                        *wash_delay,
+                        BlueCmd('RunValidated', step.blue),
+                        Checkpoint(f'{plate_desc} incubation {ix}')
+                        if step.name == 'Wash 1' else
+                        Checkpoint(f'{plate_desc} transfer {ix}'),
+                    )
+                ),
+                RobotarmCmd('B21-to-blue return'),
+            ]
 
-            if p.disp_prime[i] and plate is first_plate:
+            if step.disp_prime and plate is first_plate:
                 disp_prime = [
-                    BiotekValidateThenRun('disp', p.disp_prime[i]).add(Metadata(plate_id='')),
+                    ValidateThenRun('disp', step.disp_prime).add(Metadata(plate_id='')),
                 ]
             else:
                 disp_prime = []
 
-            if p.disp_prep[i]:
+            if step.disp_prep:
                 disp_prep = [
-                    BiotekValidateThenRun('disp', p.disp_prep[i]).add(Metadata(predispense=True)),
+                    ValidateThenRun('disp', step.disp_prep).add(Metadata(predispense=True)),
                 ]
             else:
                 disp_prep = []
@@ -632,16 +701,16 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                     Seq(
                         *disp_prime,
                         *disp_prep,
-                        DispCmd('Validate', p.disp[i]),
+                        DispCmd('Validate', step.disp),
                         Early(2),
                     ),
                     align='end',
                 ),
                 Fork(
                     Seq(
-                        *(wash_delay if not p.wash[i] else []),
+                        *(wash_delay if not step.wash and not step.blue else []),
                         Duration(f'{plate_desc} transfer {ix}', OptPrio.wash_to_disp),
-                        DispCmd('RunValidated', p.disp[i]),
+                        DispCmd('RunValidated', step.disp),
                         Checkpoint(f'{plate_desc} incubation {ix}'),
                     )
                 ),
@@ -656,6 +725,15 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                 RobotarmCmd('wash-to-disp return'),
             ]
 
+            blue_to_disp = [
+                RobotarmCmd('blue-to-disp prep'),
+                WaitForResource('blue'),
+                Early(1),
+                RobotarmCmd('blue-to-disp transfer'),
+                run_disp,
+                RobotarmCmd('blue-to-disp return'),
+            ]
+
             B21_to_disp = [
                 RobotarmCmd('B21-to-disp prep'),
                 Early(1),
@@ -668,7 +746,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                 return [
                     RobotarmCmd(f'disp-to-B{z} prep'),
                     Early(1),
-                    WaitForResource('disp') if p.disp[i:][:1] else Idle(),
+                    WaitForResource('disp') if step.disp else Idle(),
                     RobotarmCmd(f'disp-to-B{z} transfer'),
                     RobotarmCmd(f'disp-to-B{z} return'),
                 ]
@@ -677,37 +755,57 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                 return [
                     RobotarmCmd(f'wash-to-B{z} prep'),
                     Early(1),
-                    WaitForResource('wash') if p.wash[i] else Idle(),
+                    WaitForResource('wash') if step.wash else Idle(),
                     RobotarmCmd(f'wash-to-B{z} transfer'),
                     RobotarmCmd(f'wash-to-B{z} return'),
                 ]
 
-            chunks[plate.id, step, 'incu -> B21' ] = [
+            def blue_to_B(z: int):
+                return [
+                    RobotarmCmd(f'blue-to-B{z} prep'),
+                    Early(1),
+                    WaitForResource('blue') if step.blue else Idle(),
+                    RobotarmCmd(f'blue-to-B{z} transfer'),
+                    RobotarmCmd(f'blue-to-B{z} return'),
+                ]
+
+
+            chunks[plate.id, step.name, 'incu -> B21' ] = [
                 *incu_delay,
                 *incu_get,
                 *(
-                    lid_off if p.wash[i] else
+                    lid_off
+                    if step.wash or step.blue else
                     [Checkpoint(f'{plate_desc} transfer {ix}')]
                 ),
             ]
-            chunks[plate.id, step,  'B21 -> wash'] = [*B21_to_wash]
-            chunks[plate.id, step, 'wash -> disp'] = [*wash_to_disp]
-            chunks[plate.id, step, 'disp -> B21' ] = [*disp_to_B(21), *lid_on]
-            chunks[plate.id, step,  'B21 -> disp'] = [*lid_off, *B21_to_disp]
 
-            chunks[plate.id, step, 'wash -> B21' ] = [*wash_to_B(21), *lid_on]
-            chunks[plate.id, step, 'wash -> B15' ] = [*wash_to_B(15)]
+            # disp|blue|wash|B15 -> B21 should end up with a lid
+            # disp|blue|wash     -> B15 should not have lid
 
-            chunks[plate.id, step, 'disp -> B15' ] = [*disp_to_B(21), *lid_on, *RobotarmCmds('B15 put')]
+            chunks[plate.id, step.name,  'B21 -> wash'] = [*B21_to_wash]
+            chunks[plate.id, step.name,  'B21 -> blue'] = [*B21_to_blue]
+            chunks[plate.id, step.name, 'wash -> disp'] = [*wash_to_disp]
+            chunks[plate.id, step.name, 'blue -> disp'] = [*blue_to_disp]
+            chunks[plate.id, step.name, 'disp -> B21' ] = [*disp_to_B(21), *lid_on]
+            chunks[plate.id, step.name,  'B21 -> disp'] = [*lid_off, *B21_to_disp]
 
-            if step == 'Mito' and interleaving_name == 'dispilv':
-                chunks[plate.id, step,  'B15 -> B21' ] = []
-                chunks[plate.id, step,  'B21 -> incu'] = [*B15_to_incu]
+            chunks[plate.id, step.name, 'wash -> B21' ] = [*wash_to_B(21), *lid_on]
+            chunks[plate.id, step.name, 'wash -> B15' ] = [*wash_to_B(15)]
+            chunks[plate.id, step.name, 'blue -> B21' ] = [*blue_to_B(21), *lid_on]
+            chunks[plate.id, step.name, 'blue -> B15' ] = [*blue_to_B(15)]
+
+            if 0 and step.name == 'Mito' and not step.blue and not step.wash:
+                # exception!
+                chunks[plate.id, step.name, 'disp -> B15' ] = [*disp_to_B(21), *lid_on, *RobotarmCmds('B15 put')]
+                chunks[plate.id, step.name,  'B15 -> B21' ] = []
+                chunks[plate.id, step.name,  'B21 -> incu'] = [*B15_to_incu]
             else:
-                chunks[plate.id, step,  'B15 -> B21' ] = [*RobotarmCmds('B15 get')]
-                chunks[plate.id, step,  'B21 -> incu'] = B21_to_incu
+                chunks[plate.id, step.name, 'disp -> B15' ] = [*disp_to_B(15)]
+                chunks[plate.id, step.name,  'B15 -> B21' ] = [*RobotarmCmds('B15 get'), *lid_on]
+                chunks[plate.id, step.name,  'B21 -> incu'] = [*B21_to_incu]
 
-            chunks[plate.id, step,  'B21 -> out' ] = [*RobotarmCmds(plate.out_put)]
+            chunks[plate.id, step.name,  'B21 -> out' ] = [*RobotarmCmds(plate.out_put)]
 
     adjacent: dict[Desc, set[Desc]] = DefaultDict(set)
 
@@ -723,11 +821,11 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
         else:
             return p.id, step, substep
 
-    if len(batch) >= p.lockstep_threshold:
-        for i, (step, next_step) in enumerate(pbutils.iterate_with_next(p.step_names)):
+    if use_lockstep:
+        for i, (step, next_step) in enumerate(pbutils.iterate_with_next(p.steps)):
             if next_step:
-                ilv = Interleavings[p.interleavings[i]]
-                next_ilv = Interleavings[p.interleavings[i+1]]
+                ilv = step.interleaving
+                next_ilv = next_step.interleaving
                 overlap = [
                     (batch[-2], step, {row_subpart for _, row_subpart in ilv.rows}),
                     (batch[-1], step, {row_subpart for _, row_subpart in ilv.rows}),
@@ -736,26 +834,26 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                 ]
                 for offset, _ in enumerate(overlap):
                     seq([
-                        desc(p, step, substep=substep)
+                        desc(p, step.name, substep=substep)
                         for i, substep in ilv.rows
                         if i + offset < len(overlap)
                         for p, step, subparts in [overlap[i + offset]]
                         if substep in subparts
                     ])
     else:
-        for step, next_step in pbutils.iterate_with_next(p.step_names):
+        for step, next_step in pbutils.iterate_with_next(p.steps):
             if next_step:
                 seq([
-                    desc(last_plate, step, 'B21 -> incu'),
-                    desc(first_plate, next_step, 'incu -> B21'),
+                    desc(last_plate, step.name, 'B21 -> incu'),
+                    desc(first_plate, next_step.name, 'incu -> B21'),
                 ])
 
 
-    for i, step in enumerate(p.step_names):
-        ilv = Interleavings[p.interleavings[i]]
+    for i, step in enumerate(p.steps):
+        ilv = step.interleaving
         for offset, _ in enumerate(batch):
             seq([
-                desc(batch[i+offset], step, substep)
+                desc(batch[i+offset], step.name, substep)
                 for i, substep in ilv.rows
                 if i + offset < len(batch)
             ])
@@ -776,13 +874,13 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
 
     linear = list(graphlib.TopologicalSorter(deps).static_order())
 
-    if 0:
+    if 1:
         pbutils.pr([
             ', '.join((desc[1], desc[0], desc[2]))
             for desc in linear
         ])
 
-    slots = {
+    slots = DefaultDict[str, int](int) | {
         'incu -> B21':  1,
         'B21 -> wash':  2,
         'B21 -> disp':  3,
@@ -797,28 +895,31 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
         'B15 -> incu':  4,
         'B15 -> out':   4,
     }
+    for k, v in list(slots.items()):
+        if 'wash' in k:
+            slots[k.replace('wash', 'blue')] = v
 
     plate_cmds: list[Command] = []
     for prev_descrs, descr, next_descrs in pbutils.iterate_with_full_context(linear):
-        plate_id, step, substep = descr
+        plate_id, step_name, substep = descr
         commands: list[Command] = []
         for command in chunks[descr]:
             command = command.add(Metadata(
-                step=step,
+                step=step_name,
                 substep=substep,
                 plate_id=plate_id,
                 slot=slots[substep],
-                stage=f'{step}, plate {plate_id}',
+                stage=f'{step_name}, plate {plate_id}',
             ))
             command = command.add_to_physical_commands(Metadata(
-                section=f'{step} {batch_index}',
+                section=f'{step_name} {batch_index}',
             ))
             commands += [command]
         command = Seq(*commands)
         if 1:
-            first_of_step = not any(prev_step == step for _, prev_step, _ in prev_descrs)
-            last_of_step = not any(next_step == step for _, next_step, _ in next_descrs)
-            checkpoint_name = f'squeeze {step} {batch_index}'
+            first_of_step = not any(prev_step == step_name for _, prev_step, _ in prev_descrs)
+            last_of_step = not any(next_step == step_name for _, next_step, _ in next_descrs)
+            checkpoint_name = f'squeeze {step_name} {batch_index}'
             if first_of_step:
                 command, ok = command.transform_first_physical_command(lambda c: Seq(Checkpoint(checkpoint_name), c))
                 assert ok
@@ -826,8 +927,8 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                 command = Seq(command, Duration(checkpoint_name, OptPrio.squeeze_steps))
         plate_cmds += [command]
 
-    for plate_id, step, _substep in linear:
-        stage1 = f'{step}, plate {plate_id}'
+    for plate_id, step_name, _substep in linear:
+        stage1 = f'{step_name}, plate {plate_id}'
         break
     else:
         stage1 = f'prep, batch {batch_index+1}'
