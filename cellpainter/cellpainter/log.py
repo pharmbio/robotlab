@@ -291,7 +291,7 @@ class Log:
 
         for row in rows:
             if row.section == '':
-                row.section = time_to_section(row.t)
+                row.section = time_to_section(row.t0)
             row.section_column = section_columns[row.section]
             row.section_t0 = section_starts[row.section]
             row.section_t_with_overflow = max(row.t, section_ends[row.section])
