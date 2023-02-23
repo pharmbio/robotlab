@@ -7,7 +7,6 @@ from .commands import (
     Program,               # type: ignore
     Command,               # type: ignore
     Fork,                  # type: ignore
-    Info,                  # type: ignore
     Meta,                  # type: ignore
     Checkpoint,            # type: ignore
     Duration,              # type: ignore
@@ -43,7 +42,6 @@ from .protocol import (
 )
 
 from . import protocol
-from .protocol_paths import paths_v5
 from . import protocol_paths
 
 @dataclass(frozen=True)
@@ -128,9 +126,9 @@ def test_comm(_: SmallProtocolArgs):
     return Program(protocol.test_comm_program().add(Metadata(gui_force_show=True)))
 
 @small_protocols.append
-def test_circuit(_: SmallProtocolArgs):
+def test_circuit(args: SmallProtocolArgs):
     '''
-    Move one plate around to all its positions using the robotarm, without running incubator or bioteks.
+    Move one plate around to all its positions using the robotarm, without running incubator, bluewasher or bioteks.
 
     Required lab prerequisites:
         1. hotel one:               empty!
@@ -138,41 +136,44 @@ def test_circuit(_: SmallProtocolArgs):
         3. hotel three:             empty!
         4. biotek washer:           empty!
         5. biotek dispenser:        empty!
+        5. bluewasher:              empty!
         6. incubator transfer door: one plate with lid
         7. robotarm:                in neutral position by lid hotel
     '''
     [[plate]] = define_plates([1])
-    v5 = make_protocol_config(paths_v5(), ProtocolArgs(incu='s1,s2,s3,s4,s5', two_final_washes=True, interleave=True))
-    program = cell_paint_program([1], protocol_config=v5).command
-    program = Seq(
+    paths = protocol_paths.get_protocol_paths()[args.protocol_dir]
+    protocol_config = make_protocol_config(paths, ProtocolArgs(incu='s1,s2,s3,s4,s5', two_final_washes=True, interleave=True))
+    program = cell_paint_program([1], protocol_config=protocol_config)
+    cmds = program.command
+    cmds = Seq(
         *[
             cmd.add(metadata)
-            for cmd, metadata in program.collect()
+            for cmd, metadata in cmds.collect()
             if isinstance(cmd, RobotarmCmd)
             # if metadata.step not in {'Triton', 'Stains'}
         ],
         *RobotarmCmds(plate.out_get),
         *RobotarmCmds('B21-to-incu'),
     )
-    program = sleek_program(program)
-    return Program(program, World({'incu': plate.id}))
+    cmds = sleek_program(cmds)
+    return Program(cmds, World({'incu': plate.id}))
 
 @small_protocols.append
 def test_circuit_with_incubator(args: SmallProtocolArgs):
     '''
-    Move plates around to all its positions using the robotarm and incubator, without running bioteks.
+    Move plates around to all its positions using the robotarm and incubator, without running bluewasher or bioteks.
     Plates start in incubator L1, L2, .. as normal cell painting
     '''
     num_plates = args.num_plates
-    v5 = make_protocol_config(paths_v5(), ProtocolArgs(incu='s1,s2,s3,s4,s5', two_final_washes=True, interleave=True))
-    program = cell_paint_program([num_plates], protocol_config=v5)
+    paths = protocol_paths.get_protocol_paths()[args.protocol_dir]
+    protocol_config = make_protocol_config(paths, ProtocolArgs(incu='s1,s2,s3,s4,s5', two_final_washes=True, interleave=True))
+    program = cell_paint_program([num_plates], protocol_config=protocol_config)
     cmds = program.command
     cmds = Seq(
         *[
             cmd.add(metadata)
             for cmd, metadata in cmds.collect()
             if (
-                isinstance(cmd, Info) or
                 isinstance(cmd, RobotarmCmd) or
                 isinstance(cmd, Fork) and cmd.resource == 'incu' or
                 isinstance(cmd, WaitForResource) and cmd.resource == 'incu'
@@ -575,13 +576,13 @@ def time_bioteks(args: SmallProtocolArgs):
     return Program(program)
 
 @small_protocols.append
-def bluewash_init_all(args: SmallProtocolArgs):
+def bluewash_reset_and_activate(args: SmallProtocolArgs):
     '''
     Required to run before using BlueWasher:
     Initializes linear drive, rotor, inputs, outputs, motors, valves.
     Presents working carrier (= top side of rotor) to RACKOUT.
     '''
-    return Program(BlueFork('init_all'))
+    return Program(BlueFork('reset_and_activate'))
 
 @small_protocols.append
 def wave(args: SmallProtocolArgs):

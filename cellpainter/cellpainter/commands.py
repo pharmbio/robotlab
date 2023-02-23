@@ -367,10 +367,6 @@ def Seq(*commands: Command) -> Command:
     return Seq_(flat)
 
 @dataclass(frozen=True)
-class Info(Command):
-    msg: str = ''
-
-@dataclass(frozen=True)
 class Idle(Command):
     secs: Symbolic | float | int = 0.0
     only_for_scheduling: bool = False
@@ -566,14 +562,6 @@ def BlueFork(
     assume: ForkAssumption = 'nothing',
 ):
     return Fork(BlueCmd(action, protocol_path), assume=assume)
-
-def BlueWriteThenRun(
-    protocol_path: str,
-) -> Command:
-    return Seq(
-        BlueCmd('write_prog', protocol_path),
-        BlueCmd('run_prog', protocol_path),
-    )
 
 @dataclass(frozen=True)
 class IncuCmd(Command):

@@ -292,7 +292,10 @@ def args_to_filename(args: Args) -> str:
     log_filename = re.sub(r'-{2,}', '-', log_filename)
     return log_filename
 
-@pbutils.cache_by(lambda args: str(replace(args, desc='', operators='')))
+def normalize_args(args: Args) -> str:
+    return str(replace(args, desc='', operators=''))
+
+@pbutils.cache_by(normalize_args)
 def args_to_stages(args: Args) -> list[str] | None:
     p = args_to_program(args)
     if p:
@@ -300,7 +303,7 @@ def args_to_stages(args: Args) -> list[str] | None:
     else:
         return None
 
-@pbutils.cache_by(lambda args: str(replace(args, desc='', operators='')))
+@pbutils.cache_by(normalize_args)
 def args_to_program(args: Args) -> Program | None:
     paths = protocol_paths.get_protocol_paths()[args.protocol_dir]
     protocol_config = protocol.make_protocol_config(paths, args)

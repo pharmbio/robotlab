@@ -11,7 +11,7 @@ from .commands import (
     Checkpoint,
     Duration,
     Idle,
-    Info,
+
     RobotarmCmd,
     BiotekCmd,
     IncuCmd,
@@ -156,7 +156,7 @@ def optimal_env(cmd: Command, unsat_core: bool=False) -> OptimalResult:
             case Idle():
                 constrain(cmd.seconds, '>=', 0, cmd=cmd)
                 return begin + cmd.seconds
-            case Info():
+
                 return begin
             case RobotarmCmd():
                 assert is_main

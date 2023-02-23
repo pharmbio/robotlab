@@ -23,7 +23,6 @@ from .commands import (
     Idle,
     IncuCmd,
     BlueCmd,
-    Info,
     Meta,
     RobotarmCmd,
     Seq,
@@ -168,7 +167,7 @@ def check_correspondence(program: Command, states: list[CommandState], expected_
         if i not in seen:
             cmd = by_id.get(i)
             match cmd:
-                case Meta(command=Info() | Checkpoint()):
+                case Meta(command=Checkpoint()):
                     continue
                 case _:
                     pass
