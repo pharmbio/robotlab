@@ -874,7 +874,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
 
     linear = list(graphlib.TopologicalSorter(deps).static_order())
 
-    if 1:
+    if 0:
         pbutils.pr([
             ', '.join((desc[1], desc[0], desc[2]))
             for desc in linear
