@@ -354,7 +354,7 @@ def incu_get(args: SmallProtocolArgs):
     return Program(Seq(*cmds))
 
 @small_protocols.append
-def robotarm(args: SmallProtocolArgs):
+def run_robotarm(args: SmallProtocolArgs):
     '''
     Run robotarm programs.
 
@@ -363,7 +363,7 @@ def robotarm(args: SmallProtocolArgs):
     cmds: list[Command] = []
     for x in args.params:
         cmds += [
-            RobotarmCmd(x.replace('-', ' ')),
+            RobotarmCmd(x),
         ]
     return Program(Seq(*cmds))
 
