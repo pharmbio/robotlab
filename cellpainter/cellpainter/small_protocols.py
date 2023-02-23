@@ -548,15 +548,16 @@ def add_missing_timings(_: SmallProtocolArgs):
     return Program(program)
 
 @small_protocols.append
-def time_bioteks(args: SmallProtocolArgs):
+def time_protocols(args: SmallProtocolArgs):
     '''
-    Timing for biotek protocols, with dispenser running on air.
+    Timing for biotek and bluewasher protocols.
 
     Required lab prerequisites:
         1. biotek washer:    one plate *without* lid
         2. biotek washer:    connected to water
-        3. biotek dispenser: all pumps and syringes disconnected (just use air) (plate optional)
-        4. robotarm:         not used
+        3. biotek dispenser: all pumps and syringes disconnected (air or water with plate)
+        4. bluewasher:       correct balance plate inserted, one plate *without* lid presented as working plate
+        5. robotarm:         not used
     '''
     paths = protocol_paths.get_protocol_paths()[args.protocol_dir]
     wash = [
@@ -567,11 +568,17 @@ def time_bioteks(args: SmallProtocolArgs):
         ValidateThenRun('disp', p)
         for p in paths.all_disp_paths()
     ]
+    blue = [
+        ValidateThenRun('blue', p)
+        for p in paths.all_blue_paths()
+    ]
     program = Seq(
         Fork(Seq(*wash)),
         Fork(Seq(*disp)).delay(2),
+        Fork(Seq(*blue)),
         WaitForResource('wash'),
         WaitForResource('disp'),
+        WaitForResource('blue'),
     )
     return Program(program)
 
