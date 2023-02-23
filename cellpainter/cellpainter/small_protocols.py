@@ -27,6 +27,7 @@ from .commands import (
 
 from .moves import World
 
+import re
 import pbutils
 from .log import Metadata
 
@@ -173,11 +174,13 @@ def test_circuit_with_incubator(args: SmallProtocolArgs):
         *[
             cmd.add(metadata)
             for cmd, metadata in cmds.collect()
-            if (
-                isinstance(cmd, RobotarmCmd) or
-                isinstance(cmd, Fork) and cmd.resource == 'incu' or
-                isinstance(cmd, WaitForResource) and cmd.resource == 'incu'
-            )
+            if any([
+                isinstance(cmd, RobotarmCmd),
+                isinstance(cmd, Fork) and cmd.resource == 'incu',
+                isinstance(cmd, WaitForResource) and cmd.resource == 'incu' ,
+                isinstance(cmd, WaitForCheckpoint) and re.search(r'\bincu\b', cmd.name),
+                isinstance(cmd, Checkpoint) and re.search(r'\bincu\b', cmd.name),
+            ])
         ],
     )
     cmds = sleek_program(cmds)

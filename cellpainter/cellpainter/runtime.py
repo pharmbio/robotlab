@@ -255,6 +255,7 @@ class Runtime:
     def log_state(self, state: CommandState) -> str | None:
         return
         if state.cmd_type == 'RobotarmCmd':
+            # pass
             return
         if state.cmd_type == 'Checkpoint' and state.state == 'running':
             return
