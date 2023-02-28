@@ -83,10 +83,10 @@ template_protocol_paths = ProtocolPaths(
         '8.0_D_.*.LHC',
     ],
     disp_prep = [
-        '2.0b_D_',
-        '4.0b_D_',
-        '6.0b_D_',
-        '8.0b_D_',
+        '2.0b_D_.*.LHC',
+        '4.0b_D_.*.LHC',
+        '6.0b_D_.*.LHC',
+        '8.0b_D_.*.LHC',
     ],
     disp_main = [
         '2.1_D_.*.LHC',
