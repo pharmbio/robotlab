@@ -422,7 +422,15 @@
       "automation_v4.0_RMS/6.1_D_P1_80ul_Triton.LHC",
       "automation_v4.0_RMS/8.1_D_P2_20ul_stains.LHC"
     ],
-    "blue_prime": [],
-    "blue": []
+    "blue_prime": [
+      ""
+    ],
+    "blue": [
+      "",
+      "",
+      "",
+      "",
+      ""
+    ]
   }
 }

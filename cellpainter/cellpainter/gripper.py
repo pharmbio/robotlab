@@ -211,8 +211,9 @@ gripper_code = str('''
         GripperSend("~home", "Parameter successfully set")
         sleep(1.5)
         GripperSend("~s_p_op 97", "Parameter successfully set")
-        GripperSend("~s_force 80", "Parameter successfully set")
-        sleep(0.1)
+        GripperSend("~s_force 85", "Parameter successfully set")
+        sleep(1.5)
+        GripperMove(97)
     end
 
     def GripperMove(pos, soft=False):
