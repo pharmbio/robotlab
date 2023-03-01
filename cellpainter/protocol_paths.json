@@ -29,7 +29,7 @@
       "",
       "",
       "",
-      ""
+      "automation_v5.0/8.0b_D_P2_purge_then_predispense.LHC"
     ],
     "disp_main": [
       "automation_v5.0/2.1_D_SB_30ul_Mito.LHC",
@@ -430,6 +430,55 @@
       "",
       "",
       "",
+      ""
+    ]
+  },
+  "evacuate": {
+    "type": "ProtocolPaths",
+    "wash_prime": [
+      ""
+    ],
+    "wash_5": [
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    "wash_6": [
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    "disp_prime": [
+      "",
+      "",
+      "",
+      ""
+    ],
+    "disp_prep": [
+      "",
+      "",
+      "",
+      ""
+    ],
+    "disp_main": [
+      "evacuate/2.1_D_SB_PRIME.LHC",
+      "",
+      "",
+      ""
+    ],
+    "blue_prime": [
+      ""
+    ],
+    "blue": [
+      "evacuate/1_W_StrongSpin.prog",
+      "evacuate/3_W_StrongSpin.prog",
+      "evacuate/5_W_StrongSpin.prog",
+      "evacuate/7_W_StrongSpin.prog",
       ""
     ]
   }
