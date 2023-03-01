@@ -325,6 +325,7 @@ class ProtocolConfig:
     wash_prime: list[str]
     blue_prime: list[str]
     lockstep_threshold: int
+    use_blue: bool
 
 from .protocol_paths import ProtocolPaths, paths_v5
 
@@ -423,6 +424,7 @@ def make_protocol_config(paths: ProtocolPaths, args: ProtocolArgsInterface = Pro
         blue_prime = paths.blue_prime,
         steps      = steps,
         lockstep_threshold = args.lockstep_threshold if not paths.use_blue() else 10000,
+        use_blue = paths.use_blue(),
     )
 
 def test_make_protocol_config():
@@ -443,12 +445,12 @@ def test_make_protocol_config():
 
 test_make_protocol_config()
 
-def test_comm_program(with_incu: bool=True) -> Command:
+def test_comm_program(with_incu: bool=True, with_blue: bool=True) -> Command:
     '''
     Test communication with robotarm, washer, dispenser and incubator.
     '''
     return Seq(
-        BlueFork(action='TestCommunications', protocol_path=None),
+        BlueFork(action='TestCommunications', protocol_path=None) if with_blue else Idle(),
         DispFork(cmd='TestCommunications', protocol_path=None),
         IncuFork(action='get_status', incu_loc=None) if with_incu else Idle(),
         RobotarmCmd('gripper init and check'),
@@ -456,7 +458,7 @@ def test_comm_program(with_incu: bool=True) -> Command:
         WashFork(cmd='TestCommunications', protocol_path=None),
         WaitForResource('incu') if with_incu else Idle(),
         WaitForResource('wash'),
-        WaitForResource('blue'),
+        WaitForResource('blue') if with_blue else Idle(),
     ).add(Metadata(step='test comm'))
 
 Desc = tuple[str, str, str]
@@ -956,7 +958,7 @@ def cell_paint_program(batch_sizes: list[int], protocol_config: ProtocolConfig, 
         program = sleek_program(program)
     program = Seq(
         Checkpoint('run'),
-        test_comm_program(),
+        test_comm_program(with_blue=protocol_config.use_blue),
         program,
         Duration('run', OptPrio.batch_time)
     )
