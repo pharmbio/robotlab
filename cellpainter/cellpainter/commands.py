@@ -226,6 +226,7 @@ class Command(abc.ABC):
         '''
         residuals: dict[str, list[Command]] = DefaultDict(list)
         count: int = 0
+        ref_name = f'residue t0'
         def F(cmd: Command) -> Command:
             nonlocal count
             match cmd:
@@ -240,7 +241,7 @@ class Command(abc.ABC):
                         residuals[resource] += [
                             Seq(
                                 Checkpoint(name),
-                                WaitForCheckpoint(name, assume='nothing') + f'{name} wait',
+                                WaitForCheckpoint(ref_name, assume='nothing') + f'{name} wait',
                                 Duration(name, Max(priority=-1)),
                                 cmd.command,
                             )
@@ -262,7 +263,7 @@ class Command(abc.ABC):
         res = self.push_metadata_into_forks().transform(F, reverse=True)
         for resource, cmds in residuals.items():
             assert not cmds, f'{resource} has end-aligned commands but no begin-aligned Fork to attach them to ({cmds=})'
-        return res
+        return Checkpoint(ref_name) >> res
 
     def next_id(self: Command) -> int:
         next = 0
@@ -337,6 +338,8 @@ class Command(abc.ABC):
             case _:
                 return None
 
+    def __rshift__(self, other: Command) -> Command:
+        return Seq(self, other)
 
 @dataclass(frozen=True, kw_only=True)
 class Meta(Command):

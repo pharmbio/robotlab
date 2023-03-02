@@ -174,16 +174,19 @@ def add_to_serve(serve: Serve, cmdline0: str, cmdline_to_log: Callable[[str], Lo
             source = sources.get(e.cmd.__class__, machine) or ''
             if t0 is None:
                 continue
-            if slot is None:
+            if slot == 0:
                 slot = {
-                    'incu': 1,
-                    'wash': 2,
-                    'blue': 2,
-                    'disp': 3,
-                }.get(machine, 1)
+                    'incu': 2,
+                    'wash': 3,
+                    'blue': 3,
+                    'disp': 4,
+                    None: 1
+                }.get(m.thread_resource, 1)
             slot = 2 * slot
-            if m.thread_resource in ('wash', 'disp', 'incu', 'blue'):
+            if machine in ('wash', 'disp', 'incu', 'blue'):
                 slot += 1
+            if m.thread_resource in ('wash', 'disp', 'incu', 'blue') and isinstance(e.cmd, commands.WaitForCheckpoint):
+                slot -= 1
             if source == 'duration':
                 slot = 18 + plate
             color_map = {
@@ -231,9 +234,9 @@ def add_to_serve(serve: Serve, cmdline0: str, cmdline_to_log: Callable[[str], Lo
                 t0=pbutils.pp_secs(t0),
                 machine=machine,
                 source=source,
+                est=pbutils.pp_secs(e.metadata.est or 0.0),
                 duration=pbutils.pp_secs(e.duration or 0.0),
                 slot=slot,
-                est=e.metadata.est,
                 id=e.metadata.id,
                 pct=pct,
                 stage=e.metadata.stage,
