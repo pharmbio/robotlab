@@ -154,11 +154,22 @@ def define_plates(batch_sizes: list[int]) -> list[list[Plate]]:
 
     return plates
 
+InterleavingKind = Literal[
+    'wash -> disp',
+    'blue -> disp',
+    'wash -> out',
+    'blue -> out',
+    'disp',
+    'wash',
+    'blue',
+]
+
 @dataclass(frozen=True)
 class Interleaving:
     rows: list[tuple[int, str]]
+    kind: InterleavingKind
     @staticmethod
-    def init(s: str) -> Interleaving:
+    def init(s: str, kind: InterleavingKind) -> Interleaving:
         rows: list[tuple[int, str]] = []
         seen: Counter[str] = Counter()
         for line in s.strip().split('\n'):
@@ -171,17 +182,14 @@ class Interleaving:
         assert target > 1, 'need at least two copies of all transitions'
         for k, v in seen.items():
             assert v == target, f'{k!r} occurred {v} times, should be {target} times'
-        return Interleaving(rows)
+        return Interleaving(rows, kind=kind)
 
-InterleavingKind = Literal[
-    'wash -> disp',
-    'blue -> disp',
-    'wash -> out',
-    'blue -> out',
-    'disp',
-    'wash',
-    'blue',
-]
+def ok_lockstep(k1: InterleavingKind, k2: InterleavingKind) -> bool:
+    match k1, k2:
+        case 'disp', 'wash -> disp' | 'blue -> disp':
+            return False
+        case _:
+            return True
 
 def make_interleaving(kind: InterleavingKind, linear: bool) -> Interleaving:
     match kind:
@@ -301,7 +309,7 @@ def make_interleaving(kind: InterleavingKind, linear: bool) -> Interleaving:
                                disp -> B21
                                        B21 -> incu
     '''
-    return Interleaving.init(lin if linear else ilv)
+    return Interleaving.init(lin if linear else ilv, kind=kind)
 
 class ProtocolArgsInterface(typing.Protocol):
     incu:               str
@@ -423,7 +431,7 @@ def make_protocol_config(paths: ProtocolPaths, args: ProtocolArgsInterface = Pro
         wash_prime = paths.wash_prime,
         blue_prime = paths.blue_prime,
         steps      = steps,
-        lockstep_threshold = args.lockstep_threshold if not paths.use_blue() else 10000,
+        lockstep_threshold = args.lockstep_threshold, # if not paths.use_blue() else 10000,
         use_blue = paths.use_blue(),
     )
 
@@ -823,33 +831,30 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
         else:
             return p.id, step, substep
 
-    if use_lockstep:
         for i, (step, next_step) in enumerate(pbutils.iterate_with_next(p.steps)):
             if next_step:
                 ilv = step.interleaving
                 next_ilv = next_step.interleaving
-                overlap = [
-                    (batch[-2], step, {row_subpart for _, row_subpart in ilv.rows}),
-                    (batch[-1], step, {row_subpart for _, row_subpart in ilv.rows}),
-                    (batch[0], next_step, {row_subpart for _, row_subpart in next_ilv.rows}),
-                    (batch[1], next_step, {row_subpart for _, row_subpart in next_ilv.rows}),
-                ]
-                for offset, _ in enumerate(overlap):
+                if use_lockstep and ok_lockstep(ilv.kind, next_ilv.kind):
+                    overlap = [
+                        (batch[-2], step, {row_subpart for _, row_subpart in ilv.rows}),
+                        (batch[-1], step, {row_subpart for _, row_subpart in ilv.rows}),
+                        (batch[0], next_step, {row_subpart for _, row_subpart in next_ilv.rows}),
+                        (batch[1], next_step, {row_subpart for _, row_subpart in next_ilv.rows}),
+                    ]
+                    for offset, _ in enumerate(overlap):
+                        seq([
+                            desc(p, step.name, substep=substep)
+                            for i, substep in ilv.rows
+                            if i + offset < len(overlap)
+                            for p, step, subparts in [overlap[i + offset]]
+                            if substep in subparts
+                        ])
+                else:
                     seq([
-                        desc(p, step.name, substep=substep)
-                        for i, substep in ilv.rows
-                        if i + offset < len(overlap)
-                        for p, step, subparts in [overlap[i + offset]]
-                        if substep in subparts
+                        desc(last_plate, step.name, 'B21 -> incu'),
+                        desc(first_plate, next_step.name, 'incu -> B21'),
                     ])
-    else:
-        for step, next_step in pbutils.iterate_with_next(p.steps):
-            if next_step:
-                seq([
-                    desc(last_plate, step.name, 'B21 -> incu'),
-                    desc(first_plate, next_step.name, 'incu -> B21'),
-                ])
-
 
     for i, step in enumerate(p.steps):
         ilv = step.interleaving
