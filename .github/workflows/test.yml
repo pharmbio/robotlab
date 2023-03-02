@@ -8,11 +8,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        pip_install:
-          # - "pip install"
-          - "pip install --editable"
     name: main ${{ matrix.pip_install }}
     steps:
       - uses: actions/checkout@v2
@@ -21,10 +16,5 @@ jobs:
           python-version: '3.10'
       - run: pip install pip --upgrade
       - run: pip install pyright pytest
-      - run: ./foreach.sh ${{ matrix.pip_install }} .
-      - run: cd pbutils; pytest
-      - run: cd viable; pytest
-      - run: python gui-tests.py
-      - run: cd labrobots; python test.py
-      - run: cd cellpainter; set -o pipefail; cellpainter --list-imports | tee /dev/stderr | xargs pyright
-      - run: cd cellpainter; ./cli-tests.bash
+      - run: ./foreach.sh pip install --editable .
+      - run: ./run-tests.sh

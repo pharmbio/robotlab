@@ -75,8 +75,7 @@ class Select(Generic[R], PrivateReplaceMixin):
                 return sep.join(values)
         columns: set[str] = {
             col
-            for col, in
-            self._db.con.execute(
+            for col, in self._db.con.execute(
                 'select name from pragma_table_info(?)',
                 (self._table.table_name(),)
             )
@@ -404,10 +403,38 @@ def to_sql(v: Var | Syntax | Any) -> str:
 
 import contextlib
 
+class Cur:
+    def fetchall(self) -> list[Any]:
+        raise NotImplementedError
+
+    def fetchone(self) -> Any:
+        raise NotImplementedError
+
+    def __iter__(self) -> Iterator[Any]:
+        raise NotImplementedError
+
+@dataclass(frozen=True)
+class Con:
+    _con: apsw.Connection
+    def execute(self, statements: str, bindings: Sequence[int | float | bytes | str | None] | None = None) -> Cur:
+        execute: Any = self._con.execute # type: ignore
+        return execute(statements, bindings)
+
+    def close(self):
+        pass
+
+    @property
+    def filename(self):
+        return self._con.filename
+
 @dataclass
 class DB:
-    con: apsw.Connection
+    _con: apsw.Connection
     transaction_depth: int = 0
+
+    @property
+    def con(self) -> Con:
+        return Con(self._con)
 
     @property
     @contextlib.contextmanager
@@ -490,6 +517,7 @@ class DBMixin(ReplaceMixin):
                 )
                 return self
             else:
+                res: Self
                 if self.id == -1:
                     reply = db.con.execute(f'''
                         select ifnull(max(id) + 1, 0) from {Table};
@@ -570,8 +598,9 @@ def make_converter(t: Type[Any]) -> list[Converter[Any, Any]]:
     elif t == timedelta:
         return [Converter(float, timedelta, lambda d: timedelta(seconds=d), timedelta.total_seconds)]
     elif get_origin(t) in (UnionType, Union):
-        res = DefaultDict[SQLType, list[Any]](list)
-        for alt in get_args(t):
+        res: DefaultDict[SQLType, list[Any]] = DefaultDict(list)
+        alts: Sequence[Any] = get_args(t) # type: ignore
+        for alt in alts:
             for conv in make_converter(alt):
                 res[conv.sql_type] += [conv]
         # pp((t, res))

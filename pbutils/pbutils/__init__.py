@@ -169,6 +169,7 @@ def git_HEAD() -> str | None:
         return None
 
 from datetime import timedelta
+import math
 
 def pp_secs(seconds: int | float) -> str:
     '''
@@ -207,6 +208,8 @@ def pp_secs(seconds: int | float) -> str:
     >>> pp_secs(-(3600 * 24))
     '-1 day, 0:00:00.0'
     '''
+    if math.isnan(seconds):
+        return 'NaN'
     if seconds < 0:
         return '-' + pp_secs(-seconds)
     s = str(timedelta(seconds=float(seconds)))

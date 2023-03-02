@@ -394,12 +394,12 @@ class Log:
                 where sz > 0
                 order by name
             '''
-        res: list[tuple[Any]] = self.db.con.execute(sql).fetchall()
+        res: list[tuple[str, float, bytes]] = self.db.con.execute(sql).fetchall()
         return [
             (
-                cast(str, name),
-                datetime.fromtimestamp(cast(float, mtime)),
-                cast(bytes, data),
+                name,
+                datetime.fromtimestamp(mtime),
+                data
             )
             for name, mtime, data in res
         ]

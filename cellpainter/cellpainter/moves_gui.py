@@ -39,6 +39,88 @@ polled_info: dict[str, list[float]] = {}
 from datetime import datetime
 server_start = datetime.now()
 
+def snap(desc: str=''):
+    from subprocess import check_call
+    # k = 2 # by incu
+    # k = 1 # by wash
+    k = 4
+    x, y, z = [pbutils.round_nnz(v, 2) for v in polled_info.get('xyz', [0, 0, 0])]
+    r, p, a = [pbutils.round_nnz(v, 2) for v in polled_info.get('rpy', [0, 0, 0])]
+    if not x:
+        filename = f'k{k}_{desc}_XXX.png'
+    else:
+        filename = f'k{k}_{desc}_x{x}_y{y}_z{z}_r{r}_p{p}_a{a}.png'
+    check_call(['curl', '-Os', f'http://localhost:1337/k{k}/{filename}'])
+
+import random
+import time
+
+def round_array(xs: list[float]):
+    return [pbutils.round_nnz(v, 2) for v in xs]
+
+def snap_many(desc: str):
+    x, y, z = polled_info['xyz']
+    r, p, a = polled_info['rpy']
+
+    def capture(
+        subdesc: str,
+        X: float = x,
+        Y: float = y,
+        Z: float = z,
+        R: float = r,
+        P: float = p,
+        A: float = a,
+    ):
+        arm_do(moves.MoveLin([X, Y, Z], [R, P, A]))
+        time.sleep(0.2)
+        print(desc, subdesc, *round_array([X, Y, Z]), *round_array([R, P, A]), sep='\t')
+        print(desc, subdesc, *round_array(polled_info['xyz']), *round_array(polled_info['rpy']), sep='\t')
+        snap(f'{desc}_{subdesc.replace("=", "")}')
+
+
+    capture('t0')
+
+    for rnd in range(40):
+        s = 1
+        capture(f'{rnd=}',
+            X = x + random.uniform(-6, 6),
+            Y = y + random.uniform(-6, 6),
+            Z = z + random.uniform(-6, 6),
+            R = r + random.uniform(-2, 2),
+            P = p + random.uniform(-2, 2),
+            A = a + random.uniform(-2, 2),
+        )
+
+    N = 10
+
+    if 1:
+
+        for da in range(N):
+            s = 1
+            capture(f'{da=}', A = a + s * (da / (N - 1) - 0.5))
+
+        for dp in range(N):
+            s = 1
+            capture(f'{dp=}', P = p + s * (dp / (N - 1) - 0.5))
+
+        for dr in range(N):
+            s = 1
+            capture(f'{dr=}', R = r + s * (dr / (N - 1) - 0.5))
+
+        for dx in range(N):
+            s = 3
+            capture(f'{dx=}', X = x + s * (dx / (N - 1) - 0.5))
+
+        for dy in range(N):
+            s = 3
+            capture(f'{dy=}', Y = y + s * (dy / (N - 1) - 0.5))
+
+        for dz in range(N):
+            s = 3
+            capture(f'{dz=}', Z = z + s * (dz / (N - 1) - 0.5))
+
+    capture('t1')
+
 @pbutils.spawn
 def poll() -> None:
     if config.robotarm_env.mode == 'noop':
@@ -50,7 +132,7 @@ def poll() -> None:
         arm.send(robotarm.reindent('''
             sec poll():
                 def round(x):
-                    return floor(x * 10 + 0.5) / 10
+                    return floor(x * 100 + 0.5) / 100
                 end
                 def r2d_round(rad):
                     deg = r2d(rad)
@@ -537,6 +619,8 @@ def index() -> Iterator[Tag | dict[str, str]]:
             button('run program',   tabindex='-1', onclick=call(arm_do, *visible_program),
                                                    oncontextmenu='event.preventDefault();' + call(arm_do, *(visible_program * 100)), css='width: 160px'),
             button('freedrive',     tabindex='-1', onclick=call(arm_do, moves.RawCode("freedrive_mode() sleep(3600)"))),
+            button('snap',          tabindex='-1', onclick=call(snap)),
+            button('snap many',     tabindex='-1', onclick=call(snap_many, js('prompt("desc", "")'))),
             button('stop robot',    tabindex='-1', onclick=call(arm_do, )                                              , css='flex-grow: 1; color: red; font-size: 48px'),
             button('gripper open',  tabindex='-1', onclick=call(arm_do, moves.RawCode("GripperMove(88)"))),
             button('gripper close', tabindex='-1', onclick=call(arm_do, moves.RawCode("GripperMove(255)"))),

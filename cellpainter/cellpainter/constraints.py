@@ -266,7 +266,11 @@ def optimal_env(cmd: Command, unsat_core: bool=False) -> OptimalResult:
         for a in sorted(variables)
     }
 
-    pbutils.pr(env)
+    pbutils.pr({
+        k: v
+        for k, v in env.items()
+        if not k.startswith('residue')
+    })
 
     expected_ends = {
         i: model_value(e)

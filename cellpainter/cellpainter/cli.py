@@ -151,13 +151,11 @@ def main_with_args(args: Args, parser: argparse.ArgumentParser | None=None):
         # for incu in ['1200', 'X']:
         for incu in ['X']:
             for N in [x + 1 for x in range(18)]:
-                # for two_final_washes in [False, True]:
                 for two_final_washes in [True]:
-                    # for interleave in [False, True]:
                     for interleave in [True]:
                         args2 = replace(args,
                             interleave=interleave,
-                            lockstep_threshold=20,
+                            lockstep_threshold=4,
                             two_final_washes=two_final_washes,
                             incu=incu,
                             cell_paint=str(N)
@@ -171,22 +169,15 @@ def main_with_args(args: Args, parser: argparse.ArgumentParser | None=None):
                                 if incubations:
                                     X = incubations[0][0]
                                 else:
-                                    X = '?'
+                                    X = float('NaN')
                                 T = pbutils.pp_secs(Log(sim_db).time_end())
                             except:
                                 T = float('NaN')
-                                X = '?'
-                            print(f'{N=}, {X=}, {interleave=}, {two_final_washes=}, {incu=}, {T=}')
-                            out += [[
-                                N,
-                                X,
-                                'interleave' if interleave else 'linear',
-                                '2*3X' if two_final_washes else '5X',
-                                incu,
-                                T
-                            ]]
+                                X = float('NaN')
+                            print(f'{N=}, {X=}, {T=}')
+                            out += [[N, X, T]]
         print()
-        print(*'N X interleave final incu T'.split(), sep='\t')
+        print(*'N incu T'.split(), sep='\t')
         for line in out:
             print(*line, sep='\t')
         quit()

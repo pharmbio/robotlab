@@ -42,12 +42,13 @@ from . import moves
 import pbutils
 
 class OptPrio:
+    incubation    = Min(priority=7, weight=1)
     wash_to_disp  = Min(priority=6, weight=1)
-    incu_slack    = Min(priority=5, weight=1)
+    incu_slack    = Min(priority=6, weight=1)
     without_lid   = Min(priority=4, weight=1)
     batch_time    = Min(priority=3, weight=1)
-    inside_incu   = Max(priority=2, weight=0)
-    squeeze_steps = Min(priority=1, weight=1)
+    squeeze_steps = Min(priority=2, weight=1)
+    inside_incu   = Max(priority=1, weight=0)
 
 @dataclass(frozen=True)
 class Plate:
@@ -431,7 +432,7 @@ def make_protocol_config(paths: ProtocolPaths, args: ProtocolArgsInterface = Pro
         wash_prime = paths.wash_prime,
         blue_prime = paths.blue_prime,
         steps      = steps,
-        lockstep_threshold = args.lockstep_threshold, # if not paths.use_blue() else 10000,
+        lockstep_threshold = args.lockstep_threshold,
         use_blue = paths.use_blue(),
     )
 
@@ -558,8 +559,9 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                 wash_delay = [
                     Early(2),
                     WaitForCheckpoint(f'{plate_desc} incubation {ix-1}', assume='will wait') + prev_step.incu,
+                    Duration(f'{plate_desc} incubation {ix-1}', OptPrio.incubation),
                     # WaitForCheckpoint(f'{plate_desc} incubation {ix-1}', assume='will wait') + slack,
-                    Duration(f'{plate_desc} incubation {ix-1}', OptPrio.incu_slack),
+                    # Duration(f'{plate_desc} incubation {ix-1}', OptPrio.incu_slack),
                 ]
 
             lid_off = [
@@ -831,30 +833,30 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
         else:
             return p.id, step, substep
 
-        for i, (step, next_step) in enumerate(pbutils.iterate_with_next(p.steps)):
-            if next_step:
-                ilv = step.interleaving
-                next_ilv = next_step.interleaving
-                if use_lockstep and ok_lockstep(ilv.kind, next_ilv.kind):
-                    overlap = [
-                        (batch[-2], step, {row_subpart for _, row_subpart in ilv.rows}),
-                        (batch[-1], step, {row_subpart for _, row_subpart in ilv.rows}),
-                        (batch[0], next_step, {row_subpart for _, row_subpart in next_ilv.rows}),
-                        (batch[1], next_step, {row_subpart for _, row_subpart in next_ilv.rows}),
-                    ]
-                    for offset, _ in enumerate(overlap):
-                        seq([
-                            desc(p, step.name, substep=substep)
-                            for i, substep in ilv.rows
-                            if i + offset < len(overlap)
-                            for p, step, subparts in [overlap[i + offset]]
-                            if substep in subparts
-                        ])
-                else:
+    for step, next_step in pbutils.iterate_with_next(p.steps):
+        if next_step:
+            ilv = step.interleaving
+            next_ilv = next_step.interleaving
+            if use_lockstep and ok_lockstep(ilv.kind, next_ilv.kind):
+                overlap = [
+                    (batch[-2], step, {row_subpart for _, row_subpart in ilv.rows}),
+                    (batch[-1], step, {row_subpart for _, row_subpart in ilv.rows}),
+                    (batch[0], next_step, {row_subpart for _, row_subpart in next_ilv.rows}),
+                    (batch[1], next_step, {row_subpart for _, row_subpart in next_ilv.rows}),
+                ]
+                for offset, _ in enumerate(overlap):
                     seq([
-                        desc(last_plate, step.name, 'B21 -> incu'),
-                        desc(first_plate, next_step.name, 'incu -> B21'),
+                        desc(p, step.name, substep=substep)
+                        for i, substep in ilv.rows
+                        if i + offset < len(overlap)
+                        for p, step, subparts in [overlap[i + offset]]
+                        if substep in subparts
                     ])
+            else:
+                seq([
+                    desc(last_plate, step.name, 'B21 -> incu'),
+                    desc(first_plate, next_step.name, 'incu -> B21'),
+                ])
 
     for i, step in enumerate(p.steps):
         ilv = step.interleaving

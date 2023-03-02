@@ -241,7 +241,7 @@ class Command(abc.ABC):
                         residuals[resource] += [
                             Seq(
                                 Checkpoint(name),
-                                WaitForCheckpoint(ref_name, assume='nothing') + f'{name} wait',
+                                WaitForCheckpoint(ref_name, assume='will wait') + f'{name} wait',
                                 Duration(name, Max(priority=-1)),
                                 cmd.command,
                             )

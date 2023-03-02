@@ -15,10 +15,10 @@ import time
 
 def main():
     with chdir('cellpainter'):
-        test('cellpainter-gui --simulate',              'http://localhost:5000',                        'incubation times:')
-        test('cellpainter-moves --simulate',            'http://localhost:5000',                        'wash_to_disp')
-        test('cellpainter --cell-paint 2 --visualize', 'http://localhost:5000',                        'plate  1 incubation')
-        test('cellpainter --cell-paint 2 --visualize', 'http://localhost:5000?cmdline=--cell-paint+3', 'plate  3 incubation')
+        test('cellpainter-gui --simulate',              'http://localhost:5000',               'incubation times:')
+        test('cellpainter-moves --simulate',            'http://localhost:5000',               'wash-to-disp')
+        test('cellpainter-gui --simulate', 'http://localhost:5000/vis?cmdline=--cell-paint+2', 'plate  1 incubation')
+        test('cellpainter-gui --simulate', 'http://localhost:5000/vis?cmdline=--cell-paint+3', 'plate  3 incubation')
 
     with chdir('imager'):
         test('pf-moves --simulate', 'http://localhost:5000',             'fridge-to-H12')
@@ -81,7 +81,7 @@ def test(cmd: str, addr: str, needle: str):
         for line in p.stdout:
             print(f'line: {line.rstrip()!r}')
             if wait_for in line:
-                time.sleep(0.1)
+                time.sleep(0.5)
                 print(f'curl {addr!r}')
                 res = curl(addr)
                 if needle in res:
