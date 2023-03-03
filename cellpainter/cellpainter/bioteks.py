@@ -82,7 +82,7 @@ def execute(
                 case 'TestCommunications':
                     assert protocol_path is None
                     res = biotek.TestCommunications()
-                case _:
+                case _: # type: ignore
                     raise ValueError(f'No such biotek {action=}')
         success: bool = res.get('success', False)
         lines: list[str] = res.get('lines', [])
