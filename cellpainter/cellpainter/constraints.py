@@ -133,7 +133,7 @@ def optimal_env(cmd: Command, unsat_core: bool=False) -> OptimalResult:
                 clause = (to_expr(lhs) >= to_expr(rhs))
             case '==':
                 clause = (to_expr(lhs) == to_expr(rhs))
-            case _:
+            case _: # type: ignore
                 raise ValueError(f'{op=} not a valid operator')
         if unsat_core:
             print(f'{lhs} {op} {rhs}')

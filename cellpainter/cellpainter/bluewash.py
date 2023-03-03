@@ -33,11 +33,11 @@ def execute(
             case 'TestCommunications':
                 assert protocol_path is None
                 res = bluewash.TestCommunications()
-            case 'init_all':
+            case 'reset_and_activate':
                 res = bluewash.init_all()
             case 'get_working_plate':
                 res = bluewash.get_working_plate()
-            case _:
+            case _: # type: ignore
                 raise ValueError(f'No such bluewash {action=}')
 
     res # bluewash raises error if error, otherwise everything OK
