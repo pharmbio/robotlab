@@ -15,14 +15,16 @@ from .commands import (
     WashCmd,               # type: ignore
     DispCmd,               # type: ignore
     IncuCmd,               # type: ignore
+    BlueCmd,               # type: ignore
     WashFork,              # type: ignore
     DispFork,              # type: ignore
     IncuFork,              # type: ignore
     BiotekCmd,             # type: ignore
-    ValidateThenRun, # type: ignore
+    ValidateThenRun,       # type: ignore
     RobotarmCmd,           # type: ignore
     WaitForCheckpoint,     # type: ignore
     WaitForResource,       # type: ignore
+    Max, Min,              # type: ignore
 )
 
 from .moves import World
@@ -40,6 +42,7 @@ from .protocol import (
     RobotarmCmds,
     sleek_program,
     cell_paint_program,
+    Early,
 )
 
 from . import protocol
@@ -185,6 +188,120 @@ def test_circuit_with_incubator(args: SmallProtocolArgs):
     )
     cmds = sleek_program(cmds)
     return Program(cmds, world0=program.world0)
+
+@small_protocols.append
+def measure_liquids(args: SmallProtocolArgs):
+    '''
+    Measure liquids from dispenser and washers by moving one plate several times around running all the protocols.
+    No incubation. No lids are used.
+
+    Use num plates for the number of times each step will be run.
+
+    B21: plate without lid
+    washer, dispenser, bluewasher: no plate  and connected as desired
+    '''
+    paths = protocol_paths.get_protocol_paths()[args.protocol_dir]
+    p = make_protocol_config(paths, ProtocolArgs(incu='s1,s2,s3,s4,s5', two_final_washes=True, interleave=True))
+    cmds: list[Command] = []
+
+    def Predisp(cmd: Command):
+        return cmd.add_to_physical_commands(Metadata(predispense=True, plate_id=None))
+
+    for prime in p.wash_prime:
+        if prime:
+            cmds += [
+                Predisp(
+                    Fork(ValidateThenRun('wash', prime)),
+                )
+            ]
+
+    blue_primed: bool = False
+    loc: str = 'B21'
+    prev: str
+
+    pbutils.p(p)
+
+    for step in p.steps:
+        step_cmds: list[Command] = []
+        if step.blue and not blue_primed:
+            blue_primed = True
+            for prime in p.blue_prime:
+                if prime:
+                    step_cmds += [
+                        Predisp(
+                            Fork(ValidateThenRun('blue', prime)),
+                        ),
+                    ]
+        if step.disp_prime:
+            step_cmds += [
+                Predisp(
+                    Fork(ValidateThenRun('disp', step.disp_prime), align='end'),
+                ),
+            ]
+        for i in range(args.num_plates):
+            stage_cmds: list[Command] = []
+            if not step.blue and not step.wash:
+                step = replace(step, blue='evacuate/HardDecant.prog')
+            if step.blue and step.wash:
+                raise ValueError(f'Cannot have both {step.blue=} and {step.wash=}')
+            if step.blue:
+                prev, loc = loc, 'blue'
+                stage_cmds += [
+                    Fork(BlueCmd('Validate', step.blue) >> Early(5), align='end') if i == 0 else Idle(),
+                    *(RobotarmCmds(f'{prev}-to-{loc}') if prev != loc else []),
+                    Fork(BlueCmd('RunValidated', step.blue)),
+                    WaitForResource('blue'),
+                ]
+            if step.wash:
+                prev, loc = loc, 'wash'
+                stage_cmds += [
+                    Fork(WashCmd('Validate', step.wash) >> Early(5), align='end') if i == 0 else Idle(),
+                    *(RobotarmCmds(f'{prev}-to-{loc}') if prev != loc else []),
+                    Fork(WashCmd('RunValidated', step.wash)),
+                    WaitForResource('wash'),
+                ]
+            if step.disp_prep:
+                stage_cmds += [
+                    Predisp(
+                        Fork(ValidateThenRun('disp', step.disp_prep), align='end'),
+                    )
+                ]
+            if step.disp:
+                prev, loc = loc, 'disp'
+                stage_cmds += [
+                    Fork(DispCmd('Validate', step.disp) >> Early(5), align='end') if i == 0 else Idle(),
+                    *(RobotarmCmds(f'{prev}-to-{loc}') if prev != loc else []),
+                    Fork(DispCmd('RunValidated', step.disp)),
+                    WaitForResource('disp'),
+                ]
+            step_cmds += [
+                Seq(*stage_cmds).add(Metadata(stage=f'{step.name}, iteration {i+1}'))
+            ]
+        cmds += [
+            Seq(*step_cmds).add(Metadata(plate_id='1', section=step.name))
+        ]
+
+    from itertools import count
+    unique = count(0).__next__
+
+    def W(cmd: Command):
+        i = unique()
+        if isinstance(cmd, Fork):
+            return Seq(Early(0) + f'idle {i}', cmd)
+        else:
+            return cmd
+
+    cmds = [
+        Checkpoint('start'),
+        protocol.test_comm_program(with_incu=False, with_blue=True),
+        *cmds,
+        Duration('start', Min(1)),
+    ]
+
+    cmd = Seq(*cmds).transform(W)
+    cmd = sleek_program(cmd)
+    prog = Program(cmd, world0=World({'B21': '1'}))
+    return prog
 
 @small_protocols.append
 def incu_reset_and_activate(_: SmallProtocolArgs):

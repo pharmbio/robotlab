@@ -5244,6 +5244,26 @@
   {
     "cmd": {
       "type": "BlueCmd",
+      "action": "Validate",
+      "protocol_path": "evacuate/HardDecant.prog"
+    },
+    "times": {
+      "2023-03-14 15:00:00": 5.0
+    }
+  },
+  {
+    "cmd": {
+      "type": "BlueCmd",
+      "action": "RunValidated",
+      "protocol_path": "evacuate/HardDecant.prog"
+    },
+    "times": {
+      "2023-03-14 15:00:00": 25.0
+    }
+  },
+  {
+    "cmd": {
+      "type": "BlueCmd",
       "action": "RunValidated",
       "protocol_path": "automation_v5.0_blue/0_W_Prime-Blue-Full.prog"
     },

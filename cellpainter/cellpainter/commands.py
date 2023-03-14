@@ -273,7 +273,7 @@ class Command(abc.ABC):
         return next
 
     def assign_ids(self: Command) -> Command:
-        count = 1 + max((m.metadata.id for m in self.universe() if isinstance(m, Meta)), default=0)
+        count = self.next_id()
         def F(cmd: Command) -> Command:
             nonlocal count
             match cmd:
@@ -355,7 +355,6 @@ class Seq_(Command):
 
     def replace(self, commands: list[Command]):
         return replace(self, commands=commands)
-
 
 def Seq(*commands: Command) -> Command:
     flat: list[Command] = []
