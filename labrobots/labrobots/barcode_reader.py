@@ -8,7 +8,7 @@ from datetime import datetime
 
 from serial import Serial # type: ignore
 
-from .machine import Machine, Cell
+from .machine import Machine, Cell, make_log_handle
 
 @dataclass(frozen=True)
 class BarcodeReader(Machine):
@@ -19,8 +19,9 @@ class BarcodeReader(Machine):
         Thread(target=self._scanner_thread, daemon=True).start()
 
     def _scanner_thread(self):
-        self.log('barcode_reader: Using com_ port', self.com_port)
+        log = make_log_handle('barcode')
         scanner: Any = Serial(self.com_port, timeout=60)
+        log('using com_port', self.com_port)
         while True:
             try:
                 b: bytes = scanner.read_until(b'\r')
@@ -29,12 +30,12 @@ class BarcodeReader(Machine):
                 self.current_barcode.value = str(e)
                 lines = traceback.format_exc().splitlines(keepends=False)
                 for line in lines:
-                    self.log('barcode_reader:', lines)
+                    log(line)
                 continue
             line = line.strip()
             if line:
                 self.current_barcode.value = line
-                self.log(f'barcode_reader: recv({line!r})', line=line)
+                log(f'recv({line!r})', line=line)
 
     def read(self):
         return self.current_barcode.value

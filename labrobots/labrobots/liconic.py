@@ -74,7 +74,6 @@ class STX(Machine):
             "co2": co2,
             "n2": n2,
         }
-        self.log("value", climate)
         return climate
 
     def get_status(self) -> dict[str, bool]:

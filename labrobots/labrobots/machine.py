@@ -79,7 +79,7 @@ class ResourceLock:
         finally:
             self.rlock.release()
 
-def make_redirect_log_to(name: str, xs: List[str]):
+def make_log_handle(name: str, xs: List[str] | None = None):
     with sqlite3.connect('io.db') as con:
         con.executescript('''
             pragma synchronous=OFF;
@@ -98,7 +98,8 @@ def make_redirect_log_to(name: str, xs: List[str]):
         msg = ' '.join(map(str, args))
         if msg:
             print(f'{name}:', msg)
-            xs.append(msg)
+            if xs is not None:
+                xs.append(msg)
         with sqlite3.connect('io.db', isolation_level=None) as con:
             con.executescript('''
                 pragma synchronous=OFF;
@@ -121,7 +122,7 @@ def make_redirect_log_to(name: str, xs: List[str]):
                 con.execute('commit')
     return log
 
-system_default_log = make_redirect_log_to('system', [])
+system_default_log = make_log_handle('system')
 
 @dataclass(frozen=False)
 class Cell(Generic[A]):
@@ -169,8 +170,10 @@ class Machine:
 
         If there are no positional arguments it is not printed to stdout nor included in the http response.
         '''
-        log = getattr(flask.g, 'log', self.default_log)
-        log(*args, **kwargs)
+        self.log_handle()(*args, **kwargs)
+
+    def log_handle(self) -> Callable[..., None]:
+        return getattr(flask.g, 'log', self.default_log)
 
     @staticmethod
     def default_log(*args: Any, **kwargs: Any):
@@ -215,7 +218,7 @@ class Machine:
 
         def call(cmd: str, *args: Any, **kwargs: Any):
             xs: List[str] = []
-            flask.g.log = make_redirect_log_to(name, xs)
+            flask.g.log = make_log_handle(name, xs)
             data = dict(cmd=cmd, args=args) | kwargs
             sig = make_sig(cmd, *args, **kwargs)
             self.log(sig, **data, type='call')

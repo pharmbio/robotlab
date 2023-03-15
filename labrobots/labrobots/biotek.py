@@ -41,7 +41,7 @@ class Biotek(Machine):
                 msg = cmd + ' ' + arg
             else:
                 msg = cmd
-            self.input_queue.put((msg, self.log, reply_queue))
+            self.input_queue.put((msg, self.log_handle(), reply_queue))
             return reply_queue.get()
 
     def _handler(self):
