@@ -348,7 +348,10 @@ class Git(Machine):
     def pull_and_shutdown(self):
         import os
         import signal
-        self.log(check_output(['git', 'pull'], text=True))
+        res = check_output(['git', 'pull']).decode().strip()
+        self.log(res)
+        if res == 'Already up to date.':
+            return
         self.log('killing process...')
         os.kill(os.getpid(), signal.SIGTERM)
         self.log('killed.')
