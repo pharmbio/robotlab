@@ -64,7 +64,7 @@ Errors = {
 @dataclass
 class ConnectedBlueWash:
     com: Any # Serial
-    log: Callable[[Any, ...], None] = field(default_factory=lambda: Machine.default_log)
+    log: Callable[..., None] = field(default_factory=lambda: Machine.default_log)
 
     def write(self, line: str):
         msg = line.strip().encode() + b'\r\n'
@@ -86,7 +86,7 @@ class ConnectedBlueWash:
             if reply.startswith('Err='):
                 return int(reply[len('Err='):]), out
 
-    def read_until_prog_end(self) -> List[str]:
+    def read_until_prog_end(self):
         # Err=00 is OK, read until Err=21
         while True:
             code, _ = self.read_until_code()
@@ -106,7 +106,7 @@ class ConnectedBlueWash:
         return res
 
     def delete_prog(self, index: int):
-        progs, _ = self.get_progs()
+        progs = self.get_progs()
         if index in progs:
             self.write(f'$deleteprog {index:02}')
             code, _ = self.read_until_code()
@@ -219,7 +219,7 @@ class BlueWash(Machine):
         path = Path(self.root_dir) / filename
         self.write_prog(path.read_text(), index=99)
 
-    def RunValidated(self, *filename_parts: str) -> List[str]:
+    def RunValidated(self, *filename_parts: str):
         filename = '/'.join(filename_parts)
         stored = self.mem.get(99)
         if stored == filename:
@@ -230,6 +230,6 @@ class BlueWash(Machine):
             self.log(f'{filename=!r}')
             self.Run(*filename_parts)
 
-    def Run(self, *filename_parts: str) -> List[str]:
+    def Run(self, *filename_parts: str):
         self.Validate(*filename_parts)
         self.RunValidated(*filename_parts)
