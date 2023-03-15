@@ -32,7 +32,6 @@ ErrorCodes = {
     '23': 'Failed to Find A01 Centerpoint for Round Bottom Plates (MetaXpress version 6.6 and above)',
 }
 
-@dataclass(unsafe_hash=True)
 class IMX(Machine):
     com_port: str = 'COM4'
     com: Any = None # Serial

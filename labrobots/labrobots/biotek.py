@@ -16,8 +16,8 @@ class BiotekResult(TypedDict):
 @dataclass(frozen=True)
 class Biotek(Machine):
     name: str
-    args: List[str]
-    input_queue: 'Queue[Tuple[str, Queue[Any]]]' = field(default_factory=Queue)
+    args: List[str] = field(default_factory=list)
+    input_queue: 'Queue[Tuple[str, Callable[..., None], Queue[Any]]]' = field(default_factory=Queue)
 
     def init(self):
         threading.Thread(target=self._handler, daemon=True).start()
@@ -35,13 +35,14 @@ class Biotek(Machine):
         return self._send("Validate", '\\'.join(protocol_file_parts))
 
     def _send(self, cmd: str, arg: str="") -> BiotekResult:
-        reply_queue: Queue[Any] = Queue()
-        if arg:
-            msg = cmd + ' ' + arg
-        else:
-            msg = cmd
-        self.input_queue.put((msg, reply_queue))
-        return reply_queue.get()
+        with self.atomic():
+            reply_queue: Queue[Any] = Queue()
+            if arg:
+                msg = cmd + ' ' + arg
+            else:
+                msg = cmd
+            self.input_queue.put((msg, self.log, reply_queue))
+            return reply_queue.get()
 
     def _handler(self):
         with Popen(
@@ -59,13 +60,13 @@ class Biotek(Machine):
             assert stdin
             assert stdout
 
-            def read_until_ready(t0: float) -> list[str]:
+            def read_until_ready(t0: float, log: Callable[..., None]) -> list[str]:
                 lines: List[str] = []
                 while True:
                     exc = p.poll()
                     if exc is not None:
                         t = round(time.monotonic() - t0, 3)
-                        print(t, self.name, f"exit code: {exc}")
+                        log(t, self.name, f"exit code: {exc}")
                         lines += [f"exit code: {exc}"]
                         return lines
                     line = stdout.readline().rstrip()
@@ -73,18 +74,18 @@ class Biotek(Machine):
                     short_line = line
                     if len(short_line) > 250:
                         short_line = short_line[:250] + '... (truncated)'
-                    print(t, self.name, short_line)
+                    log(t, self.name, short_line)
                     if line.startswith('ready'):
                         return lines
                     lines += [line]
 
-            lines = read_until_ready(time.monotonic())
+            lines = read_until_ready(time.monotonic(), Machine.default_log)
             while True:
-                msg, reply_queue = self.input_queue.get()
+                msg, log, reply_queue = self.input_queue.get()
                 t0 = time.monotonic()
                 stdin.write(msg + '\n')
                 stdin.flush()
-                lines = read_until_ready(t0)
+                lines = read_until_ready(t0, log)
                 success = any(line.startswith('success') for line in lines)
                 response = dict(lines=lines, success=success)
                 reply_queue.put_nowait(response)

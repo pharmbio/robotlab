@@ -22,26 +22,27 @@ class STX(Machine):
         return self._send(f'{command_name}({csv_args})')
 
     def _send(self, cmd: str) -> str:
-        RECEIVE_BUFFER_SIZE = 8192 # Also max response length since we are not looping response if buffer gets full
+        with self.atomic():
+            RECEIVE_BUFFER_SIZE = 8192 # Also max response length since we are not looping response if buffer gets full
 
-        cmd_as_bytes = (cmd + '\r').encode("ascii")
+            cmd_as_bytes = (cmd + '\r').encode("ascii")
 
-        # send and recieve
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.connect((self.host, self.port))
-        s.sendall(cmd_as_bytes)
-        print("sent", cmd_as_bytes)
-        received = s.recv(RECEIVE_BUFFER_SIZE)
-        print("received", repr(received))
-        s.close()
+            # send and recieve
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.connect((self.host, self.port))
+            s.sendall(cmd_as_bytes)
+            self.log("sent", cmd_as_bytes)
+            received = s.recv(RECEIVE_BUFFER_SIZE)
+            self.log("received", repr(received))
+            s.close()
 
-        # decode recieved byte array to ascii
-        response = received.decode('ascii')
-        response = response.strip()
+            # decode recieved byte array to ascii
+            response = received.decode('ascii')
+            response = response.strip()
 
-        print("response", response)
+            self.log("response", response)
 
-        return response
+            return response
 
     def _parse_pos(self, pos: str) -> Tuple[int, int]:
         if pos[0] == "L":
@@ -73,7 +74,7 @@ class STX(Machine):
             "co2": co2,
             "n2": n2,
         }
-        print("value", climate)
+        self.log("value", climate)
         return climate
 
     def get_status(self) -> dict[str, bool]:

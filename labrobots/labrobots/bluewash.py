@@ -7,18 +7,6 @@ import contextlib
 import time
 import textwrap
 
-def timeit(desc: str=''):
-    # The inferred type for the decorated function is wrong hence this wrapper to get the correct type
-
-    @contextlib.contextmanager
-    def worker():
-        t0 = time.monotonic_ns()
-        yield
-        T = time.monotonic_ns() - t0
-        print(f'{T/1e6:.1f}ms {desc}')
-
-    return worker()
-
 NoReply = -1
 HTI_NoError = 0
 HTI_ProgEnd = 21
@@ -76,15 +64,16 @@ Errors = {
 @dataclass
 class ConnectedBlueWash:
     com: Any # Serial
+    log: Callable[[Any, ...], None] = field(default_factory=lambda: Machine.default_log)
 
     def write(self, line: str):
         msg = line.strip().encode() + b'\r\n'
-        print(f'bluewash.write({msg!r})')
+        self.log(f'bluewash.write({msg!r})')
         self.com.write(msg)
 
     def read(self) -> str:
         reply_bytes: bytes = self.com.readline()
-        print(f'bluewash.read() = {reply_bytes!r}')
+        self.log(f'bluewash.read() = {reply_bytes!r}')
         reply = reply_bytes.decode().strip()
         return reply
 
@@ -99,15 +88,13 @@ class ConnectedBlueWash:
 
     def read_until_prog_end(self) -> List[str]:
         # Err=00 is OK, read until Err=21
-        out: list[str] = []
         while True:
-            code, reply = self.read_until_code()
-            out += reply
+            code, _ = self.read_until_code()
             self.check_code(code, HTI_NoError, HTI_ProgEnd)
             if code == HTI_ProgEnd:
-                return out
+                return
 
-    def get_progs(self) -> Tuple[Set[int], List[str]]:
+    def get_progs(self) -> Set[int]:
         self.write(f'$getprogs')
         code, lines = self.read_until_code()
         self.check_code(code, HTI_NoError)
@@ -116,28 +103,24 @@ class ConnectedBlueWash:
             for line in lines
             if line and line[0].isdigit()
         }
-        return res, lines
+        return res
 
-    def delete_prog(self, index: int) -> List[str]:
-        progs, lines = self.get_progs()
+    def delete_prog(self, index: int):
+        progs, _ = self.get_progs()
         if index in progs:
             self.write(f'$deleteprog {index:02}')
-            code, deleteprog_lines = self.read_until_code()
+            code, _ = self.read_until_code()
             self.check_code(code, HTI_NoError, HTI_ERR_FILE_NOT_FOUND)
-            return lines + deleteprog_lines
-        else:
-            return lines
 
     def write_prog(self, program_code: str, index: int):
-        delete_lines = self.delete_prog(index)
+        self.delete_prog(index)
         lines = program_code.splitlines(keepends=False)
         self.write(f'$Copyprog {index:02} _')
         for line in lines:
             self.write('$& ' + line)
         self.write('$%')
-        code, copyprog_lines = self.read_until_code()
+        code, _ = self.read_until_code()
         self.check_code(code, HTI_NoError)
-        return delete_lines + copyprog_lines
 
     def check_code(self, code: int, *ok_codes: int) -> None:
         if code not in ok_codes:
@@ -145,20 +128,22 @@ class ConnectedBlueWash:
 
 @dataclass(frozen=True)
 class BlueWash(Machine):
+    _: KW_ONLY
     root_dir: str
     com_port: str = 'COM6'
 
     @contextlib.contextmanager
     def _connect(self):
-        print('bluewash: Using com_port', self.com_port)
-        with timeit('_connection'):
-            com = Serial(
-                self.com_port,
-                timeout=15,
-                baudrate=115200
-            )
-            yield ConnectedBlueWash(com)
-            com.close()
+        with self.atomic():
+            self.log('bluewash: Using com_port', self.com_port)
+            with self.timeit('_connection'):
+                com = Serial(
+                    self.com_port,
+                    timeout=15,
+                    baudrate=115200
+                )
+                yield ConnectedBlueWash(com, log=self.log)
+                com.close()
 
     def init_all(self):
         '''
@@ -166,21 +151,21 @@ class BlueWash(Machine):
         Initializes linear drive, rotor, inputs, outputs, motors, valves .
         Presents working carrier (= top side of rotor) to RACKOUT.
         '''
-        return self.run_servprog(1)
+        self.run_servprog(1)
 
     def get_balance_plate(self):
         '''
         Presents balance carrier (= bottom side of rotor) to RACKOUT.
         Check whether working or balance carrier present with rotorgetpos
         '''
-        return self.run_servprog(2)
+        self.run_servprog(2)
 
     def get_working_plate(self):
         '''
         Presents working carrier (= top side of rotor) to RACKOUT.
         Check whether working or balance carrier present with rotorgetpos
         '''
-        return self.run_servprog(3)
+        self.run_servprog(3)
 
     def rackgetoutsensor(self):
         '''
@@ -190,68 +175,61 @@ class BlueWash(Machine):
 
         Note: Confirm carrier presence in RACKOUT position prior to automated plate drop-off/pick-up.
         '''
-        return self.run_cmd('$rackgetoutsensor')
+        self.run_cmd('$rackgetoutsensor')
 
-    def run_cmd(self, cmd: str) -> List[str]:
+    def run_cmd(self, cmd: str):
         with self._connect() as con:
             con.write(cmd)
             code, lines = con.read_until_code()
             con.check_code(code, HTI_NoError)
             return lines
 
-    def run_servprog(self, index: int) -> List[str]:
+    def run_servprog(self, index: int):
         with self._connect() as con:
-            with timeit('runservprog'):
+            with self.timeit('runservprog'):
                 con.write(f'$runservprog {index}')
-                return con.read_until_prog_end()
+                con.read_until_prog_end()
 
-    def run_prog(self, index: int) -> List[str]:
+    def run_prog(self, index: int):
         with self._connect() as con:
-            with timeit('runprog'):
+            with self.timeit('runprog'):
                 con.write(f'$runprog {index}')
-                return con.read_until_prog_end()
+                con.read_until_prog_end()
 
-    def write_prog(self, program_text: str, index: int) -> List[str]:
+    def write_prog(self, program_text: str, index: int):
         program_text = textwrap.dedent(program_text).strip()
         with self._connect() as con:
-            with timeit('copyprog'):
-                return con.write_prog(program_text, index)
+            with self.timeit('copyprog'):
+                con.write_prog(program_text, index)
 
-    def TestCommunications(self) -> List[str]:
+    def TestCommunications(self):
         program: str = '''
             $getserial
             $getfirmware
             $getipadr
         '''
-        return [
-            *self.write_prog(program, index=98),
-            *self.run_prog(index=98),
-        ]
+        self.write_prog(program, index=98)
+        self.run_prog(index=98)
 
     mem: Dict[int, str] = field(default_factory=dict)
 
-    def Validate(self, *filename_parts: str) -> List[str]:
+    def Validate(self, *filename_parts: str):
         filename = '/'.join(filename_parts)
         self.mem[99] = filename
         path = Path(self.root_dir) / filename
-        return self.write_prog(path.read_text(), index=99)
+        self.write_prog(path.read_text(), index=99)
 
     def RunValidated(self, *filename_parts: str) -> List[str]:
         filename = '/'.join(filename_parts)
         stored = self.mem.get(99)
         if stored == filename:
-            return self.run_prog(index=99)
+            self.run_prog(index=99)
         else:
-            return [
-                f'warning: RunValidated without Validate first'
-                f'{stored=!r}',
-                f'{filename=!r}',
-                *self.Run(*filename_parts),
-            ]
+            self.log(f'warning: RunValidated without Validate first', type='warning', stored=stored, filename=filename)
+            self.log(f'{stored=!r}')
+            self.log(f'{filename=!r}')
+            self.Run(*filename_parts)
 
     def Run(self, *filename_parts: str) -> List[str]:
-        return [
-            *self.Validate(*filename_parts),
-            *self.RunValidated(*filename_parts),
-        ]
-
+        self.Validate(*filename_parts)
+        self.RunValidated(*filename_parts)
