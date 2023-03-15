@@ -348,7 +348,7 @@ class Git(Machine):
     def pull_and_shutdown(self):
         import os
         import signal
-        run(['git', 'pull'])
+        self.log(run(['git', 'pull'], text=True))
         self.log('killing process...')
         os.kill(os.getpid(), signal.SIGTERM)
         self.log('killed.')
