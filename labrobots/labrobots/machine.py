@@ -420,7 +420,7 @@ class Machines:
             if raw is not None:
                 select = 'select rowid as row, t, name, id, data'
             else:
-                select = 'select rowid as row, t, name, id, coalesce(data ->> "msg", data) as data'
+                select = 'select rowid as row, t, name, id, coalesce(json_extract(data, "$.msg"), data) as data'
             sql = f'''
                 select * from (
                     {select} from io {where} order by t desc limit {n}
