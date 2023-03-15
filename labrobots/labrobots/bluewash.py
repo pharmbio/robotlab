@@ -81,10 +81,10 @@ class ConnectedBlueWash:
         out: list[str] = []
         while True:
             reply = self.read()
-            if reply:
-                out += [reply]
             if reply.startswith('Err='):
                 return int(reply[len('Err='):]), out
+            else:
+                out += [reply]
 
     def read_until_prog_end(self) -> List[str]:
         # Err=00 is OK, read until Err=21
