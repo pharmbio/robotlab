@@ -92,13 +92,14 @@ def make_redirect_log_to(name: str, xs: List[str]):
             );
             create index if not exists io_name_id on io(name, id);
         ''')
-        [id] = con.execute('select ifnull(max(id) + 1, 0) from io where name = ?', [name]).fetchone()
+    id: None | int = None
     def log(*args: Any, **kwargs: Any):
+        nonlocal id
         msg = ' '.join(map(str, args))
         if msg:
             print(f'{name}:', msg)
             xs.append(msg)
-        with sqlite3.connect('io.db') as con:
+        with sqlite3.connect('io.db', isolation_level=None) as con:
             con.executescript('''
                 pragma synchronous=OFF;
                 pragma journal_mode=WAL;
@@ -107,10 +108,17 @@ def make_redirect_log_to(name: str, xs: List[str]):
                 data = {'msg': msg, **kwargs}
             else:
                 data = kwargs
+            needs_commit = False
+            if id is None:
+                con.execute('begin exclusive')
+                [id] = con.execute('select ifnull(max(id) + 1, 0) from io where name = ?', [name]).fetchone()
+                needs_commit = True
             con.execute(
                 'insert into io (name, id, data) values (?, ?, json(?));',
                 [name, id, try_json_dumps(data)],
             )
+            if needs_commit:
+                con.execute('commit')
     return log
 
 system_default_log = make_redirect_log_to('system', [])
