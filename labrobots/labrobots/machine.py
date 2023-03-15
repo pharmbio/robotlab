@@ -1,12 +1,12 @@
 from __future__ import annotations
+from typing import *
+from dataclasses import *
 
 from contextlib import contextmanager
-from dataclasses import *
 from datetime import datetime
-from subprocess import run, check_output
-from threading import Lock
+from subprocess import check_output
+from threading import RLock
 from typing_extensions import Self
-from typing import *
 from urllib.request import urlopen, Request
 from pathlib import Path
 import inspect
@@ -67,19 +67,17 @@ class Proxy(Generic[R]):
 
 @dataclass(frozen=False)
 class ResourceLock:
-    lock: Lock = field(default_factory=Lock)
-    is_avail: bool = True
+    rlock: RLock = field(default_factory=RLock)
 
     @contextmanager
     def ensure_available(self):
-        with self.lock:
-            if not self.is_avail:
-                raise ValueError('Resource not available')
-            self.is_avail = False
+        ok = self.rlock.acquire(blocking=False)
+        if not ok:
+            raise ValueError('Resource not available')
         try:
             yield
         finally:
-            self.is_avail = True
+            self.rlock.release()
 
 def make_redirect_log_to(name: str, xs: List[str]):
     with sqlite3.connect('io.db') as con:

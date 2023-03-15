@@ -203,33 +203,37 @@ class BlueWash(Machine):
                 con.write_prog(program_text, index)
 
     def TestCommunications(self):
-        program: str = '''
-            $getserial
-            $getfirmware
-            $getipadr
-        '''
-        self.write_prog(program, index=98)
-        self.run_prog(index=98)
+        with self.atomic():
+            program: str = '''
+                $getserial
+                $getfirmware
+                $getipadr
+            '''
+            self.write_prog(program, index=98)
+            self.run_prog(index=98)
 
     mem: Dict[int, str] = field(default_factory=dict)
 
     def Validate(self, *filename_parts: str):
-        filename = '/'.join(filename_parts)
-        self.mem[99] = filename
-        path = Path(self.root_dir) / filename
-        self.write_prog(path.read_text(), index=99)
+        with self.atomic():
+            filename = '/'.join(filename_parts)
+            self.mem[99] = filename
+            path = Path(self.root_dir) / filename
+            self.write_prog(path.read_text(), index=99)
 
     def RunValidated(self, *filename_parts: str):
-        filename = '/'.join(filename_parts)
-        stored = self.mem.get(99)
-        if stored == filename:
-            self.run_prog(index=99)
-        else:
-            self.log(f'warning: RunValidated without Validate first', type='warning', stored=stored, filename=filename)
-            self.log(f'{stored=!r}')
-            self.log(f'{filename=!r}')
-            self.Run(*filename_parts)
+        with self.atomic():
+            filename = '/'.join(filename_parts)
+            stored = self.mem.get(99)
+            if stored == filename:
+                self.run_prog(index=99)
+            else:
+                self.log(f'warning: RunValidated without Validate first', type='warning', stored=stored, filename=filename)
+                self.log(f'{stored=!r}')
+                self.log(f'{filename=!r}')
+                self.Run(*filename_parts)
 
     def Run(self, *filename_parts: str):
-        self.Validate(*filename_parts)
-        self.RunValidated(*filename_parts)
+        with self.atomic():
+            self.Validate(*filename_parts)
+            self.RunValidated(*filename_parts)
