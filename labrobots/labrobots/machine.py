@@ -404,10 +404,6 @@ class Machines:
                 (Path.cwd() / 'io.db').resolve()
             )
 
-        @app.route('/io.sql')
-        def io_sql():
-            return check_output(['sqlite3', 'io.db', '.dump'], text=True)
-
         @app.get('/tail/<int:n>') # type: ignore
         @app.get('/tail/') # type: ignore
         @app.get('/tail') # type: ignore
@@ -415,6 +411,7 @@ class Machines:
             assert isinstance(n, int)
             args = json_request_args()
             raw = args.pop('raw', None)
+            sep = str(args.pop('sep', '  ')).replace('tab', '\t')
             where = ''
             if name := args.pop('name', None):
                 where = f'where name = {name!r}'
@@ -429,9 +426,20 @@ class Machines:
                     {select} from io {where} order by t desc limit {n}
                 ) order by t asc
             '''
-            args = ['sqlite3', 'io.db', '.mode column --wrap 140', sql]
-            return check_output(args, text=True)
-
+            with sqlite3.connect('io.db') as con:
+                rows = ['row t name id data'.split()] + [
+                    [str(x) for x in row]
+                    for row in con.execute(sql).fetchall()
+                ]
+            lengths = [
+                max(len(x) for x in col)
+                for col in zip(*rows)
+            ]
+            lines = [
+                sep.join(x.ljust(n) for n, x in zip(lengths, row))
+                for row in rows
+            ]
+            return '\n'.join(lines) + '\n'
 
         @app.get('/') # type: ignore
         def root():
@@ -442,7 +450,6 @@ class Machines:
             for name, m in self.items():
                 d[url + '/' + name] = str(m)
             d[url + '/io.db'] = 'Download the IO database in binary sqlite'
-            d[url + '/io.sql'] = 'Download the IO database as sqlite dump. This can be read with `| sqlite .read`'
             d[url + '/tail'] = 'Show last 10 lines from the IO database'
             d[url + '/tail/<N>'] = 'Show last N lines from the IO database'
             return jsonify(d)
