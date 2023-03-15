@@ -29,7 +29,7 @@ class WindowsGBG(Machines):
     node_name = 'WINDOWS-GBG'
     fridge: STX = STX()
     barcode: BarcodeReader = BarcodeReader(com_port='COM3')
-    imx: IMX = IMX()
+    # imx: IMX = IMX()
 
 @dataclass
 class WindowsIMX(Machines):

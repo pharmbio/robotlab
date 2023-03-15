@@ -104,7 +104,7 @@ $ curl localhost:5050/echo/echo/banana/split?servings=3
 Run:
 
 ```
-labrobots.exe
+while (1) { labrobots.exe }
 ```
 
 The output should look like this (on the WINDOWS-GBG computer):
