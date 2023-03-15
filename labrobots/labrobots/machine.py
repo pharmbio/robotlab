@@ -161,7 +161,8 @@ class Machine:
 
         If there are no positional arguments it is not printed to stdout nor included in the http response.
         '''
-        return self.log_cell.value(*args, **kwargs)
+        log = getattr(flask.g, 'log', self.default_log)
+        log(*args, **kwargs)
 
     @staticmethod
     def default_log(*args: Any, **kwargs: Any):
@@ -201,51 +202,41 @@ class Machine:
     def routes(self, name: str, app: Any):
         from itertools import count
         unique = count(1).__next__
-
         def make_endpoint_name():
             return f'{name}{unique()}'
 
-        @contextmanager
-        def redirect_log(xs: List[str]):
-            self.log_cell.value = make_redirect_log_to(name, xs)
-            try:
-                yield
-            finally:
-                self.log_cell.value = Machine.default_log
-
         def call(cmd: str, *args: Any, **kwargs: Any):
             xs: List[str] = []
-            with redirect_log(xs):
-                data = dict(cmd=cmd, args=args) | kwargs
-
-                sig = make_sig(cmd, *args, **kwargs)
-                self.log(sig, **data, type='call')
-                try:
-                    if cmd in Machine.__dict__.keys() or cmd.startswith('_') or cmd == 'init':
-                        raise ValueError(f'Cannot call {cmd!r} on {name} remotely')
-                    if cmd == 'up?':
-                        return {'value': True}
-                    fn = getattr(self, cmd, None)
-                    if fn is None:
-                        raise ValueError(f'No such command {cmd} on {name}')
-                    with self.timeit(sig):
-                        value = fn(*args, **kwargs)
-                    if value is None:
-                        self.log('return', **data, type='return', value=small(value))
-                    else:
-                        self.log('return', repr(small(value)), **data, type='return', value=small(value))
-                    return {
-                        'value': value,
-                        'log': xs,
-                    }
-                except Exception as e:
-                    for line in tb.format_exc().splitlines():
-                        self.log(line)
-                    self.log(**data, type='error', error=repr(e))
-                    return {
-                        'error': repr(e),
-                        'log': xs,
-                    }
+            flask.g.log = make_redirect_log_to(name, xs)
+            data = dict(cmd=cmd, args=args) | kwargs
+            sig = make_sig(cmd, *args, **kwargs)
+            self.log(sig, **data, type='call')
+            try:
+                if cmd in Machine.__dict__.keys() or cmd.startswith('_') or cmd == 'init':
+                    raise ValueError(f'Cannot call {cmd!r} on {name} remotely')
+                if cmd == 'up?':
+                    return {'value': True}
+                fn = getattr(self, cmd, None)
+                if fn is None:
+                    raise ValueError(f'No such command {cmd} on {name}')
+                with self.timeit(sig):
+                    value = fn(*args, **kwargs)
+                if value is None:
+                    self.log('return', **data, type='return', value=small(value))
+                else:
+                    self.log('return', repr(small(value)), **data, type='return', value=small(value))
+                return {
+                    'value': value,
+                    'log': xs,
+                }
+            except Exception as e:
+                for line in tb.format_exc().splitlines():
+                    self.log(line)
+                self.log(**data, type='error', error=repr(e))
+                return {
+                    'error': repr(e),
+                    'log': xs,
+                }
 
         @app.get(f'/{name}/', endpoint=make_endpoint_name()) # type: ignore
         @app.get(f'/{name}', endpoint=make_endpoint_name()) # type: ignore
@@ -336,10 +327,9 @@ class Echo(Machine):
 
     def sleep(self, secs: int | float):
         with self.atomic():
-            with self.timeit('sleep'):
-                self.log(datetime.now().isoformat(sep=' '))
-                time.sleep(float(secs))
-                self.log(datetime.now().isoformat(sep=' '))
+            self.log(datetime.now().isoformat(sep=' '))
+            time.sleep(float(secs))
+            self.log(datetime.now().isoformat(sep=' '))
 
 @dataclass(frozen=True)
 class Git(Machine):
