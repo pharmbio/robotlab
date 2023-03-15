@@ -83,7 +83,7 @@ class ConnectedBlueWash:
             reply = self.read()
             if reply.startswith('Err='):
                 return int(reply[len('Err='):]), out
-            else:
+            elif reply:
                 out += [reply]
 
     def read_until_prog_end(self) -> List[str]:
