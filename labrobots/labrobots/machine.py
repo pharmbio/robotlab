@@ -221,7 +221,7 @@ class Machine:
                 sig = make_sig(cmd, *args, **kwargs)
                 self.log(sig, **data, type='call')
                 try:
-                    if cmd in Machine.__dict__.keys() or cmd.startswith('_'):
+                    if cmd in Machine.__dict__.keys() or cmd.startswith('_') or cmd == 'init':
                         raise ValueError(f'Cannot call {cmd!r} on {name} remotely')
                     if cmd == 'up?':
                         return {'value': True}
