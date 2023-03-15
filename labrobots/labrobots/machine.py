@@ -181,6 +181,8 @@ class Machine:
                 continue
             if name.startswith('_'):
                 continue
+            if name == 'init':
+                continue
             sig = inspect.signature(fn)
             doc = fn.__doc__ or ""
             doc = textwrap.dedent(doc).strip()
