@@ -86,13 +86,15 @@ class ConnectedBlueWash:
             if reply.startswith('Err='):
                 return int(reply[len('Err='):]), out
 
-    def read_until_prog_end(self):
+    def read_until_prog_end(self) -> List[str]:
         # Err=00 is OK, read until Err=21
+        out: List[str] = []
         while True:
-            code, _ = self.read_until_code()
+            code, lines = self.read_until_code()
+            out += lines
             self.check_code(code, HTI_NoError, HTI_ProgEnd)
             if code == HTI_ProgEnd:
-                return
+                return out
 
     def get_progs(self) -> Set[int]:
         self.write(f'$getprogs')
@@ -151,21 +153,21 @@ class BlueWash(Machine):
         Initializes linear drive, rotor, inputs, outputs, motors, valves .
         Presents working carrier (= top side of rotor) to RACKOUT.
         '''
-        self.run_servprog(1)
+        return self.run_servprog(1)
 
     def get_balance_plate(self):
         '''
         Presents balance carrier (= bottom side of rotor) to RACKOUT.
         Check whether working or balance carrier present with rotorgetpos
         '''
-        self.run_servprog(2)
+        return self.run_servprog(2)
 
     def get_working_plate(self):
         '''
         Presents working carrier (= top side of rotor) to RACKOUT.
         Check whether working or balance carrier present with rotorgetpos
         '''
-        self.run_servprog(3)
+        return self.run_servprog(3)
 
     def rackgetoutsensor(self):
         '''
@@ -175,7 +177,7 @@ class BlueWash(Machine):
 
         Note: Confirm carrier presence in RACKOUT position prior to automated plate drop-off/pick-up.
         '''
-        self.run_cmd('$rackgetoutsensor')
+        return self.run_cmd('$rackgetoutsensor')
 
     def run_cmd(self, cmd: str):
         with self._connect() as con:
@@ -188,13 +190,13 @@ class BlueWash(Machine):
         with self._connect() as con:
             with self.timeit('runservprog'):
                 con.write(f'$runservprog {index}')
-                con.read_until_prog_end()
+                return con.read_until_prog_end()
 
     def run_prog(self, index: int):
         with self._connect() as con:
             with self.timeit('runprog'):
                 con.write(f'$runprog {index}')
-                con.read_until_prog_end()
+                return con.read_until_prog_end()
 
     def write_prog(self, program_text: str, index: int):
         program_text = textwrap.dedent(program_text).strip()
@@ -210,7 +212,7 @@ class BlueWash(Machine):
                 $getipadr
             '''
             self.write_prog(program, index=98)
-            self.run_prog(index=98)
+            return self.run_prog(index=98)
 
     mem: Dict[int, str] = field(default_factory=dict)
 
@@ -221,19 +223,19 @@ class BlueWash(Machine):
             path = Path(self.root_dir) / filename
             self.write_prog(path.read_text(), index=99)
 
-    def RunValidated(self, *filename_parts: str):
+    def RunValidated(self, *filename_parts: str) -> List[str]:
         with self.atomic():
             filename = '/'.join(filename_parts)
             stored = self.mem.get(99)
             if stored == filename:
-                self.run_prog(index=99)
+                return self.run_prog(index=99)
             else:
                 self.log(f'warning: RunValidated without Validate first', type='warning', stored=stored, filename=filename)
                 self.log(f'{stored=!r}')
                 self.log(f'{filename=!r}')
-                self.Run(*filename_parts)
+                return self.Run(*filename_parts)
 
-    def Run(self, *filename_parts: str):
+    def Run(self, *filename_parts: str) -> List[str]:
         with self.atomic():
             self.Validate(*filename_parts)
-            self.RunValidated(*filename_parts)
+            return self.RunValidated(*filename_parts)
