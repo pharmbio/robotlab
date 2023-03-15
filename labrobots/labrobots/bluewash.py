@@ -130,7 +130,6 @@ class ConnectedBlueWash:
 
 @dataclass(frozen=True)
 class BlueWash(Machine):
-    _: KW_ONLY
     root_dir: str
     com_port: str = 'COM6'
 

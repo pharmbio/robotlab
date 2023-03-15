@@ -428,6 +428,7 @@ class Machines:
                 max(len(x) for x in col)
                 for col in zip(*rows)
             ]
+            lengths[-1] = 0
             lines = [
                 sep.join(x.ljust(n) for n, x in zip(lengths, row))
                 for row in rows
