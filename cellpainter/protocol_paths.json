@@ -446,10 +446,10 @@
       "automation_v4.0_colo52/9_W_3X_leaves100ul_PBS.LHC"
     ],
     "wash_6": [
-      "",
-      "",
-      "",
-      "",
+      "automation_v4.0_colo52/1_W_1X_beforeMito_leaves20ul_PBS.LHC",
+      "automation_v4.0_colo52/3_W_3X_beforePFA_leaves20ul_PBS.LHC",
+      "automation_v4.0_colo52/5_W_3X_beforeTriton_leaves10ul_PBS.LHC",
+      "automation_v4.0_colo52/7_W_3X_beforeStains_leaves10ul_PBS.LHC",
       "",
       ""
     ],
@@ -528,6 +528,55 @@
       "evacuate/3_W_StrongSpin.prog",
       "evacuate/5_W_StrongSpin.prog",
       "evacuate/7_W_StrongSpin.prog",
+      ""
+    ]
+  },
+  "automation_v5.0_Beactica": {
+    "type": "ProtocolPaths",
+    "wash_prime": [
+      "automation_v5.0_Beactica/0_W_PRIME_PBS.LHC"
+    ],
+    "wash_5": [
+      "automation_v5.0_Beactica/1_W_2X_beforeMito_leaves20ul_PBS.LHC",
+      "automation_v5.0_Beactica/3_W_3X_beforePFA_leaves20ul_PBS.LHC",
+      "automation_v5.0_Beactica/5_W_3X_beforeTriton_leaves10ul_PBS.LHC",
+      "automation_v5.0_Beactica/7_W_3X_beforeStains_leaves10ul_PBS.LHC",
+      "automation_v5.0_Beactica/9_W_3X_leaves80ul_PBS.LHC"
+    ],
+    "wash_6": [
+      "automation_v5.0_Beactica/1_W_2X_beforeMito_leaves20ul_PBS.LHC",
+      "automation_v5.0_Beactica/3_W_3X_beforePFA_leaves20ul_PBS.LHC",
+      "automation_v5.0_Beactica/5_W_3X_beforeTriton_leaves10ul_PBS.LHC",
+      "automation_v5.0_Beactica/7_W_3X_beforeStains_leaves10ul_PBS.LHC",
+      "",
+      ""
+    ],
+    "disp_prime": [
+      "automation_v5.0_Beactica/2.0_D_SB_PRIME_Mito.LHC",
+      "automation_v5.0_Beactica/4.0_D_SA_PRIME_PFA.LHC",
+      "automation_v5.0_Beactica/6.0_D_P1_PRIME_Triton.LHC",
+      "automation_v5.0_Beactica/8.0_D_P2_MIX_PRIME.LHC"
+    ],
+    "disp_prep": [
+      "",
+      "",
+      "",
+      "automation_v5.0_Beactica/8.0b_D_P2_purge_then_predispense.LHC"
+    ],
+    "disp_main": [
+      "automation_v5.0_Beactica/2.1_D_SB_30ul_Mito.LHC",
+      "automation_v5.0_Beactica/4.1_D_SA_80ul_PFA.LHC",
+      "automation_v5.0_Beactica/6.1_D_P1_80ul_Triton.LHC",
+      "automation_v5.0_Beactica/8.1_D_P2_20ul_stains.LHC"
+    ],
+    "blue_prime": [
+      ""
+    ],
+    "blue": [
+      "",
+      "",
+      "",
+      "",
       ""
     ]
   }
