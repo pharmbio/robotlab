@@ -641,7 +641,6 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
 
             B21_to_wash = [
                 RobotarmCmd('B21-to-wash prep'),
-                RobotarmCmd('B21-to-wash transfer'),
                 Fork(
                     Seq(
                         *[
@@ -655,6 +654,8 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                     ),
                     align='end',
                 ),
+                WaitForResource('wash'),
+                RobotarmCmd('B21-to-wash transfer'),
                 Fork(
                     Seq(
                         *wash_delay,
@@ -668,20 +669,20 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
             ]
             B21_to_blue = [
                 RobotarmCmd('B21-to-blue prep'),
-                RobotarmCmd('B21-to-blue transfer'),
                 Fork(
                     Seq(
                         *[
-                            Seq(cmd, Early(5)).add(Metadata(plate_id='', predispense=True))
+                            cmd.add(Metadata(plate_id='', predispense=True))
                             for cmd in blue_prime
                             if plate is first_plate
                             if not use_lockstep or not prev_step or not prev_step.blue
                         ],
                         BlueCmd('Validate', step.blue),
-                        Early(5),
                     ),
                     align='end',
                 ),
+                WaitForResource('blue'),
+                RobotarmCmd('B21-to-blue transfer'),
                 Fork(
                     Seq(
                         *wash_delay,
