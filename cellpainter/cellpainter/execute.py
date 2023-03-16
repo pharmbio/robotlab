@@ -285,15 +285,15 @@ def execute_simulated_program(config: RuntimeConfig, sim_db: DB, metadata: list[
             from pprint import pformat
             raise ValueError('Missing timings for the following biotek commands:\n' + pformat(missing))
 
-    protocol_dirs = set[str]()
-    for c in program.command.universe():
-        if isinstance(c, BiotekCmd | BlueCmd) and c.protocol_path:
-            protocol_dir, _, _ = c.protocol_path.partition('/')
-            if protocol_dir:
-                protocol_dirs.add(protocol_dir)
-
     with make_runtime(config, program) as runtime:
         if config.name == 'live':
+            protocol_dirs = set[str]()
+            for c in program.command.universe():
+                if isinstance(c, BiotekCmd | BlueCmd) and c.protocol_path:
+                    protocol_dir, _, _ = c.protocol_path.partition('/')
+                    if protocol_dir:
+                        protocol_dirs.add(protocol_dir)
+
             for protocol_dir in protocol_dirs:
                 with pbutils.timeit(f'saving {protocol_dir} protocol files'):
                     protocol_paths.add_protocol_dir_as_sqlar(runtime.log_db, protocol_dir)

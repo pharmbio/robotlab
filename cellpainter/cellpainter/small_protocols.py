@@ -219,7 +219,7 @@ def measure_liquids(args: SmallProtocolArgs):
     loc: str = 'B21'
     prev: str
 
-    pbutils.p(p)
+    # pbutils.p(p)
 
     for step in p.steps:
         step_cmds: list[Command] = []
@@ -227,10 +227,13 @@ def measure_liquids(args: SmallProtocolArgs):
             blue_primed = True
             for prime in p.blue_prime:
                 if prime:
+                    assert loc != 'blue', f'Cannot prime blue washer with the plate there ({loc=})'
                     step_cmds += [
                         Predisp(
                             Fork(ValidateThenRun('blue', prime)),
+                            # cannot align='end' here without checkpoint making sure plate has left blue washer
                         ),
+                        WaitForResource('blue'),
                     ]
         if step.disp_prime:
             step_cmds += [
@@ -709,7 +712,12 @@ def bluewash_reset_and_activate(args: SmallProtocolArgs):
     Initializes linear drive, rotor, inputs, outputs, motors, valves.
     Presents working carrier (= top side of rotor) to RACKOUT.
     '''
-    return Program(BlueFork('reset_and_activate'))
+    return Program(
+        Seq(
+            BlueFork('reset_and_activate'),
+            WaitForResource('blue'),
+        )
+    )
 
 @small_protocols.append
 def wave(args: SmallProtocolArgs):

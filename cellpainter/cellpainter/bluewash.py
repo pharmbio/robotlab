@@ -18,7 +18,7 @@ def execute(
         est = entry.metadata.est
         assert isinstance(est, float)
         runtime.sleep(est, entry.merge(Metadata(dry_run_sleep=True)))
-        res: list[str] = []
+        res: list[str] | None = []
     else:
         match action:
             case 'Run':
