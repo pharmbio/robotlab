@@ -17,7 +17,7 @@ def execute(
     if runtime.incu is None:
         est = entry.metadata.est
         assert isinstance(est, float)
-        runtime.sleep(est, entry.merge(Metadata(dry_run_sleep=True)))
+        runtime.sleep(est)
     else:
         try:
             if action == 'put':

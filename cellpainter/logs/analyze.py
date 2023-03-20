@@ -197,9 +197,8 @@ for path in paths:
                         ),
                         metadata=Metadata(
                             plate_id=plate_id,
-                            predispense=predispense,
                             batch_index=batch_index,
-                            step=step,
+                            step_desc=step,
                             id=len(css),
                         ),
                         state='completed',

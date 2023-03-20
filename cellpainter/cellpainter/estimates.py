@@ -109,7 +109,7 @@ if 1:
 import re
 
 def estimate(cmd: EstCmd) -> float:
-    assert isinstance(cmd, EstCmd)
+    assert isinstance(cmd, EstCmd), f'{cmd} is not estimatable'
     cmd = normalize(cmd)
     if cmd not in estimates:
         match cmd:

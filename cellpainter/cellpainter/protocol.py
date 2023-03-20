@@ -468,7 +468,7 @@ def test_comm_program(with_incu: bool=True, with_blue: bool=True) -> Command:
         WaitForResource('incu') if with_incu else Idle(),
         WaitForResource('wash'),
         WaitForResource('blue') if with_blue else Idle(),
-    ).add(Metadata(step='test comm'))
+    ).add(Metadata(step_desc='test comm'))
 
 Desc = tuple[str, str, str]
 
@@ -644,7 +644,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                 Fork(
                     Seq(
                         *[
-                            Seq(cmd, Early(5)).add(Metadata(plate_id='', predispense=True))
+                            Seq(cmd, Early(5)).add(Metadata(plate_id=None))
                             for cmd in wash_prime
                             if plate is first_plate
                             if not use_lockstep or not prev_step or not prev_step.wash
@@ -672,7 +672,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                 Fork(
                     Seq(
                         *[
-                            cmd.add(Metadata(plate_id='', predispense=True))
+                            cmd.add(Metadata(plate_id=None))
                             for cmd in blue_prime
                             if plate is first_plate
                             if not use_lockstep or not prev_step or not prev_step.blue
@@ -704,7 +704,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
 
             if step.disp_prep:
                 disp_prep = [
-                    ValidateThenRun('disp', step.disp_prep).add(Metadata(predispense=True)),
+                    ValidateThenRun('disp', step.disp_prep).add(Metadata(plate_id=None)),
                 ]
             else:
                 disp_prep = []
@@ -915,11 +915,10 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
         commands: list[Command] = []
         for command in chunks[descr]:
             command = command.add(Metadata(
-                step=step_name,
-                substep=substep,
                 plate_id=plate_id,
                 slot=slots[substep],
                 stage=f'{step_name}, plate {plate_id}',
+                step_desc=f'{step_name} {substep}',
             ))
             command = command.add_to_physical_commands(Metadata(
                 section=f'{step_name} {batch_index}',
@@ -944,7 +943,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
         stage1 = f'prep, batch {batch_index+1}'
 
     return Seq(
-        Seq(*prep_cmds).add(Metadata(step='prep', stage=stage1)),
+        Seq(*prep_cmds).add(Metadata(step_desc='prep', stage=stage1)),
         Idle() + f'slack {batch_index+1}',
         *plate_cmds,
         Seq(*post_cmds)

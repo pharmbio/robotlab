@@ -14,19 +14,15 @@ import pbutils
 class Metadata:
     id: int = 0
 
-    batch_index: int = 0
+    batch_index: int = 0   # not really used
     plate_id: str | None = None
 
-    step: str = ''         # 'Mito'
-    substep: str = ''      # 'incu -> B21'
-    slot: int = 0          # 1               (for --visualize, derived from substep)
-    section: str = ''      # 'Mito 0'        (f'{step} {batch_index}', for gui columns)
-    stage: str = ''        # 'Mito, plate 1' (f'{step}, {plate_id}', for start from stage)
+    step_desc: str = ''    # 'Mito, incu -> B21' (f'{step}, {substep}', for debugging)
+    slot: int = 0          # 1                   (for --visualize, derived from substep)
+    section: str = ''      # 'Mito 0'            (f'{step} {batch_index}', for gui columns)
+    stage: str = ''        # 'Mito, plate 1'     (f'{step}, {plate_id}', for start from stage)
 
     thread_resource: str | None = None
-    predispense: bool = False
-
-    dry_run_sleep: bool = False
 
     est:        float | None = None
     sim_delay:  float | None = None

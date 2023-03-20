@@ -66,7 +66,7 @@ def execute(
         if biotek is None:
             est = entry.metadata.est
             assert isinstance(est, float)
-            runtime.sleep(est, entry.merge(Metadata(dry_run_sleep=True)))
+            runtime.sleep(est)
             res: Any = {"success":True, "lines":[]}
         else:
             match action:

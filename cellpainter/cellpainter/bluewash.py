@@ -17,7 +17,7 @@ def execute(
     if bluewash is None:
         est = entry.metadata.est
         assert isinstance(est, float)
-        runtime.sleep(est, entry.merge(Metadata(dry_run_sleep=True)))
+        runtime.sleep(est)
         res: list[str] | None = []
     else:
         match action:

@@ -205,7 +205,7 @@ def measure_liquids(args: SmallProtocolArgs):
     cmds: list[Command] = []
 
     def Predisp(cmd: Command):
-        return cmd.add_to_physical_commands(Metadata(predispense=True, plate_id=None))
+        return cmd.add_to_physical_commands(Metadata(plate_id=None))
 
     for prime in p.wash_prime:
         if prime:

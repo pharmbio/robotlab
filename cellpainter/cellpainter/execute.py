@@ -63,7 +63,7 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
             assert isinstance(secs, (float, int))
             entry = entry.merge(Metadata(est=round(secs, 3)))
             with runtime.timeit(entry):
-                runtime.sleep(secs, entry)
+                runtime.sleep(secs)
 
         case Checkpoint():
             runtime.checkpoint(cmd.name, entry)
@@ -77,9 +77,9 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
             entry = entry.merge(Metadata(est=round(delay, 3)))
             if entry.metadata.id:
                 with runtime.timeit(entry):
-                    runtime.sleep(delay, entry)
+                    runtime.sleep(delay)
             else:
-                runtime.sleep(delay, entry)
+                runtime.sleep(delay)
 
         case Duration():
             t0 = runtime.wait_for_checkpoint(cmd.name)
@@ -102,10 +102,7 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
                         raise ValueError(f'Missing robotarm move {cmd.program_name}')
                     if metadata.sim_delay:
                         print(metadata.sim_delay)
-                    runtime.sleep(
-                        estimate(cmd) + (metadata.sim_delay or 0),
-                        entry.merge(Metadata(dry_run_sleep=True))
-                    )
+                    runtime.sleep(estimate(cmd) + (metadata.sim_delay or 0))
                 else:
                     movelist = MoveList(movelists[cmd.program_name])
                     arm = runtime.get_robotarm(include_gripper=movelist.has_gripper())

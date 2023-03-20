@@ -261,8 +261,7 @@ class Runtime:
             return
         with self.lock:
             print(
-                f'{state.metadata.step     or "": >10}',
-                f'{state.metadata.substep  or "": >13}',
+                f'{state.metadata.step_desc or "": >13}',
                 f'plate {state.metadata.plate_id or "": >2}',
                 f'{self.current_thread_name()   : >10}',
                 f'{state.state                  : >10}',
@@ -334,7 +333,7 @@ class Runtime:
     def monotonic(self) -> float:
         return self.timelike.monotonic()
 
-    def sleep(self, secs: float, entry: CommandWithMetadata):
+    def sleep(self, secs: float):
         secs = round(secs, 3)
         if abs(secs) < 0.1:
             _msg = f'on time {pp_secs(secs)}s'
