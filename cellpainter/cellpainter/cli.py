@@ -27,6 +27,7 @@ from .moves import movelists
 from .runtime import RuntimeConfig, configs, config_lookup
 from .small_protocols import small_protocols_dict, SmallProtocolArgs
 from . import protocol_paths
+from . import commandlib
 
 from pbutils.mixins import DB
 from pbutils.args import arg, option
@@ -75,7 +76,7 @@ class Args:
     list_robotarm_programs:    bool = arg(help='List the robot arm programs')
     inspect_robotarm_programs: bool = arg(help='Inspect steps of robotarm programs')
     robotarm_send:             str  = arg(help='Send a raw program to the robot arm')
-    robotarm_speed:            int  = arg(default=100, help='Robot arm speed [1-100]')
+    ur_speed:                  int  = arg(default=100, help='Robot arm speed [1-100]')
     json_arg:                  str  = arg(help='Give arguments as json on the command line')
     yes:                       bool = arg(help='Assume yes in confirmation questions')
     make_uml:                  str  = arg(help='Write uml in dot format to the given path and exit')
@@ -108,6 +109,7 @@ def main():
 
 def cmdline_to_log(cmdline: str):
     cmdname = 'cellpainter'
+    print(cmdline, shlex.split(cmdline))
     args, _ = arg.parse_args(Args, args=[cmdname, *shlex.split(cmdline)], exit_on_error=False)
     pbutils.pr(args)
     if args.log_file_for_visualize:
@@ -137,7 +139,7 @@ def main_with_args(args: Args, parser: argparse.ArgumentParser | None=None):
 
     config: RuntimeConfig = config_lookup(args.config_name)
     config = config.replace(
-        robotarm_speed=args.robotarm_speed,
+        ur_speed=args.ur_speed,
         log_filename=args.log_filename,
     )
 
@@ -233,9 +235,8 @@ def main_with_args(args: Args, parser: argparse.ArgumentParser | None=None):
 
     elif args.robotarm_send:
         runtime = config.make_runtime()
-        arm = runtime.get_robotarm()
-        arm.execute_moves([moves.RawCode(args.robotarm_send)], name='raw')
-        arm.close()
+        with runtime.get_ur() as arm:
+            arm.execute_moves([moves.RawCode(args.robotarm_send)], name='raw')
 
     elif args.list_robotarm_programs:
         for name in movelists.keys():
@@ -331,7 +332,7 @@ def args_to_program(args: Args) -> Program | None:
     if program:
         if args.start_from_stage:
             if args.start_from_stage != program.command.stages()[0]:
-                program = execute.remove_stages(program, args.start_from_stage)
+                program = commandlib.remove_stages(program, args.start_from_stage)
         return program
     else:
         return None

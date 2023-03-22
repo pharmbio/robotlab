@@ -15,9 +15,7 @@ from queue import Queue
 from threading import RLock
 
 import pbutils
-
-from pbutils import pp_secs
-from pbutils.mixins import DB
+from pbutils.mixins import DB, DBMixin
 
 from .robotarm import Robotarm
 from .timelike import Timelike, WallTime, SimulatedTime
@@ -25,104 +23,98 @@ from .moves import World, Effect
 from .log import Message, CommandState, CommandWithMetadata, Log
 
 from labrobots import WindowsNUC, Biotek, STX, BlueWash
+from labrobots import WindowsGBG, STX, BarcodeReader
+from labrobots import MikroAsus, Squid
 
 import contextlib
 
 @dataclass(frozen=True)
-class RobotarmEnv:
+class UREnv:
     mode: Literal['noop', 'execute', 'execute no gripper']
     host: str
     port: int
 
-class RobotarmEnvs:
-    live      = RobotarmEnv('execute', '10.10.0.112', 30001)
-    forward   = RobotarmEnv('execute', 'localhost', 30001)
-    simulator = RobotarmEnv('execute no gripper', 'localhost', 30001)
-    dry       = RobotarmEnv('noop', '', 0)
+class UREnvs:
+    live      = UREnv('execute', '10.10.0.112', 30001)
+    forward   = UREnv('execute', '127.0.0.1', 30001)
+    simulator = UREnv('execute no gripper', '127.0.0.1', 30001)
+    dry       = UREnv('noop', '', 0)
 
 @dataclass(frozen=True)
-class Keep:
-    pass
+class PFEnv:
+    mode: Literal['noop', 'execute']
+    host: str
+    port: int
 
-keep = Keep()
+class PFEnvs:
+    live      = PFEnv('execute', '10.10.0.98', 10100)
+    forward   = PFEnv('execute', '127.0.0.1', 10100)
+    dry       = PFEnv('noop', '', 0)
 
 @dataclass(frozen=True)
-class RuntimeConfig:
-    name:               str
-    timelike_factory:   Callable[[], Timelike]
-    robotarm_env:       RobotarmEnv
-    run_incu_wash_disp: bool
+class RuntimeConfig(DBMixin):
+    name:                   str = 'simulate'
+    timelike:               Literal['WallTime', 'SimulatedTime'] = 'SimulatedTime'
+    ur_env:                 UREnv = UREnvs.dry
+    pf_env:                 PFEnv = PFEnvs.dry
+    _: KW_ONLY
+    run_incu_wash_disp:     bool = False
+    run_fridge_squid_nikon: bool = False
 
-    robotarm_speed: int = 100
+    ur_speed: int = 100
+    pf_speed: int = 100
     log_filename: str | None = None
+
+    def only_arm(self) -> RuntimeConfig:
+        return self.replace(
+            run_incu_wash_disp=False,
+            run_fridge_squid_nikon=False,
+        )
 
     def make_runtime(self) -> Runtime:
         return Runtime(
             config=self,
-            timelike=self.make_timelike(),
+            time=self.make_timelike(),
             log_db=DB.connect(self.log_filename if self.log_filename else ':memory:'),
         )
 
     def make_timelike(self) -> Timelike:
-        return self.timelike_factory()
+        if self.timelike == 'WallTime':
+            return WallTime()
+        elif self.timelike == 'SimulatedTime':
+            return SimulatedTime()
+        else:
+            raise ValueError(f'No such {self.timelike=}')
 
-    def replace(self,
-        robotarm_speed:       Keep | int                 = keep,
-        log_filename:         Keep | str | None          = keep,
-    ):
-        next = self
-        updates = dict(
-            robotarm_speed=robotarm_speed,
-            log_filename=log_filename,
-        )
-        for k, v in updates.items():
-            if v is keep:
-                pass
-            elif getattr(next, k) is v:
-                pass
-            else:
-                next = replace(next, **{k: v})
-        return next
+    def __post_init__(self):
+        if self.ur_env.mode != 'noop' and self.pf_env.mode != 'noop':
+            raise ValueError(f'Not allowed: PF & UR ({self=})')
+        if self.run_incu_wash_disp and self.run_fridge_squid_nikon:
+            raise ValueError(f'Not allowed: cellpainting room and microscope room ({self=})')
 
 configs: list[RuntimeConfig]
 configs = [
-    RuntimeConfig('live',           WallTime,      robotarm_env=RobotarmEnvs.live,      run_incu_wash_disp=True,),
-    RuntimeConfig('ur-simulator',   WallTime,      robotarm_env=RobotarmEnvs.simulator, run_incu_wash_disp=False),
-    RuntimeConfig('forward',        WallTime,      robotarm_env=RobotarmEnvs.forward,   run_incu_wash_disp=False),
-    RuntimeConfig('simulate-wall',  WallTime,      robotarm_env=RobotarmEnvs.dry,       run_incu_wash_disp=False),
-    RuntimeConfig('simulate',       SimulatedTime, robotarm_env=RobotarmEnvs.dry,       run_incu_wash_disp=False),
+    RuntimeConfig('live',           'WallTime',      UREnvs.live,      PFEnvs.dry, run_incu_wash_disp=True,  run_fridge_squid_nikon=False),
+    RuntimeConfig('ur-simulator',   'WallTime',      UREnvs.simulator, PFEnvs.dry, run_incu_wash_disp=False, run_fridge_squid_nikon=False),
+    RuntimeConfig('forward',        'WallTime',      UREnvs.forward,   PFEnvs.dry, run_incu_wash_disp=False, run_fridge_squid_nikon=False),
+    RuntimeConfig('simulate-wall',  'WallTime',      UREnvs.dry,       PFEnvs.dry, run_incu_wash_disp=False, run_fridge_squid_nikon=False),
+    RuntimeConfig('simulate',       'SimulatedTime', UREnvs.dry,       PFEnvs.dry, run_incu_wash_disp=False, run_fridge_squid_nikon=False),
 ]
 
 def config_lookup(name: str) -> RuntimeConfig:
-    for config in configs:
-        if config.name == name:
-            return config
-    raise KeyError(name)
+    return {c.name: c for c in configs}[name]
 
 simulate = config_lookup('simulate')
-
-def get_robotarm(config: RuntimeConfig, quiet: bool = False, include_gripper: bool = True) -> Robotarm:
-    if config.robotarm_env.mode == 'noop':
-        return Robotarm.init_noop(with_gripper=include_gripper, quiet=quiet)
-    assert config.robotarm_env.mode == 'execute' or config.robotarm_env.mode == 'execute no gripper'
-    with_gripper = config.robotarm_env.mode == 'execute'
-    if not include_gripper:
-        with_gripper = False
-    return Robotarm.init(config.robotarm_env.host, config.robotarm_env.port, with_gripper, quiet=quiet)
 
 A = TypeVar('A')
 
 @dataclass
 class Runtime:
     config: RuntimeConfig
-    timelike: Timelike
+
+    time: Timelike
 
     log_db: DB = field(default_factory=lambda: DB.connect(':memory:'))
-
-    incu: STX      | None = None
-    wash: Biotek   | None = None
-    disp: Biotek   | None = None
-    blue: BlueWash | None = None
 
     lock: RLock = field(default_factory=RLock)
 
@@ -133,15 +125,27 @@ class Runtime:
         lambda: DefaultDict[str, list[Queue[None]]](list)
     )
 
-    world: World | None = None
+    incu: STX      | None = None
+    wash: Biotek   | None = None
+    disp: Biotek   | None = None
+    blue: BlueWash | None = None
+
+    fridge: STX | None = None
+    barcode_reader: BarcodeReader | None = None
+    squid: Squid | None = None
 
     def __post_init__(self):
-        self.register_thread('main')
+        self.init()
+
+    def init(self):
+        self.time.register_thread('main')
 
         if self.log_db:
             self.log_db.con.execute('pragma synchronous=OFF;')
 
-        if self.config.name != 'simulate':
+        install_handlers=self.config.name != 'simulate'
+
+        if install_handlers:
             def handle_signal(signum: int, _frame: Any):
                 signal.signal(signal.SIGINT, signal.SIG_DFL)
                 signal.signal(signal.SIGQUIT, signal.SIG_DFL)
@@ -149,7 +153,7 @@ class Runtime:
                 signal.signal(signal.SIGABRT, signal.SIG_DFL)
                 pid = os.getpid()
                 self.log(Message(f'Received {signal.strsignal(signum)}, shutting down ({pid=})', is_error=True))
-                self.stop_arm()
+                self.stop_arms()
                 sys.exit(1)
 
             signal.signal(signal.SIGINT, handle_signal)
@@ -166,26 +170,42 @@ class Runtime:
             self.disp = nuc.disp
             self.blue = nuc.blue
 
-        self.set_robotarm_speed(self.config.robotarm_speed)
+        if self.config.ur_env.mode != 'noop':
+            with self.get_ur() as arm:
+                arm.set_speed(self.config.ur_speed)
 
-    def get_log(self) -> Log:
-        return Log(self.log_db)
+        if self.config.run_fridge_squid_nikon:
+            gbg = WindowsGBG.remote()
+            mikro_asus = MikroAsus.remote()
+            self.fridge = gbg.fridge
+            self.barcode_reader = gbg.barcode
+            self.squid = mikro_asus.squid
 
-    def kill(self):
-        self.stop_arm()
-        os.kill(os.getpid(), signal.SIGINT)
+        if self.config.pf_env.mode != 'noop':
+            raise ValueError('todo: set pf speed')
+            # self.set_pf_speed(self.config.pf_speed)
 
-    def get_robotarm(self, quiet: bool = True, include_gripper: bool = True) -> Robotarm:
-        return get_robotarm(self.config, quiet=quiet, include_gripper=include_gripper)
+    @contextlib.contextmanager
+    def get_ur(self, quiet: bool = False, include_gripper: bool = True) -> Iterator[Robotarm]:
+        config = self.config
+        if config.ur_env.mode == 'noop':
+            return Robotarm.init_noop(with_gripper=include_gripper, quiet=quiet)
+        assert config.ur_env.mode == 'execute' or config.ur_env.mode == 'execute no gripper'
+        with_gripper = config.ur_env.mode == 'execute'
+        if not include_gripper:
+            with_gripper = False
+        arm = Robotarm.init(config.ur_env.host, config.ur_env.port, with_gripper, quiet=quiet)
+        yield arm
+        arm.close()
 
-    def stop_arm(self):
+    def stop_arms(self):
         sync = Queue[None]()
 
         @pbutils.spawn
         def _():
-            arm = self.get_robotarm(quiet=False, include_gripper=False)
-            arm.stop()
-            arm.close()
+            with self.get_ur(quiet=False, include_gripper=False) as arm:
+                arm.stop()
+                arm.close()
             sync.put_nowait(None)
 
         try:
@@ -193,10 +213,8 @@ class Runtime:
         except:
             pass
 
-    def set_robotarm_speed(self, speed: int):
-        arm = self.get_robotarm(quiet=False, include_gripper=False)
-        arm.set_speed(speed)
-        arm.close()
+    def get_log(self) -> Log:
+        return Log(self.log_db)
 
     def spawn(self, f: Callable[[], None]) -> None:
         def F():
@@ -215,28 +233,29 @@ class Runtime:
 
     def log(self, message: Message) -> Message:
         with self.lock:
-            t = round(self.monotonic(), 3)
+            t = self.monotonic()
             message = message.replace(t=t).save(self.log_db)
             if message.traceback:
                 print(message.msg, file=sys.stderr)
                 print(message.traceback, file=sys.stderr)
             return message
 
+    world: World | None = None
+
     def set_world(self, world: World | None):
         with self.lock:
             if world is not None:
-                world = world.replace(t=round(self.timelike.monotonic(), 3))
+                world = world.replace(t=self.time.monotonic())
                 world = world.save(self.log_db)
             self.world = world
 
-    def apply_effect(self, effect: Effect, entry: CommandWithMetadata | None):
+    def apply_effect(self, effect: Effect, entry: CommandWithMetadata | None, fatal_errors: bool=False):
         with self.lock:
             if self.world is None:
                 return
             try:
                 next = effect.apply(self.world)
             except Exception as error:
-                fatal = self.config.name == 'simulate'
                 msg = pbutils.show({
                     'message': 'Cannot apply effect at this world',
                     'effect': effect,
@@ -246,7 +265,7 @@ class Runtime:
                 }, use_color=False)
                 if entry:
                     self.log(entry.message(msg, is_error=True))
-                if fatal:
+                if fatal_errors:
                     raise ValueError(msg)
             else:
                 if next.data != self.world.data:
@@ -284,7 +303,7 @@ class Runtime:
         @contextmanager
         def worker():
             with self.lock:
-                t0 = round(self.monotonic(), 3)
+                t0 = self.monotonic()
                 state = CommandState(
                     t0=t0,
                     t=t0 + (entry.metadata.est or 3),
@@ -296,7 +315,7 @@ class Runtime:
                 self.log_state(state)
             yield
             with self.lock:
-                t = round(self.monotonic(), 3)
+                t = self.monotonic()
                 state.state='completed'
                 state.t=t
                 state = state.save(self.log_db)
@@ -312,7 +331,7 @@ class Runtime:
 
         with self.lock:
             t0 = round(t0, 3)
-            t = round(self.monotonic(), 3)
+            t = self.monotonic()
             state = CommandState(
                 t0=t0,
                 t=t,
@@ -331,56 +350,36 @@ class Runtime:
         return self.start_time + timedelta(seconds=self.monotonic())
 
     def monotonic(self) -> float:
-        return self.timelike.monotonic()
+        return round(self.time.monotonic(), 3)
 
-    def sleep(self, secs: float):
-        secs = round(secs, 3)
-        if abs(secs) < 0.1:
-            _msg = f'on time {pp_secs(secs)}s'
-        elif secs < 0:
-            _msg = f'behind time {pp_secs(secs)}s'
-        else:
-            to = self.pp_time_offset(self.monotonic() + secs)
-            _msg = f'sleeping to {to} ({pp_secs(secs)}s)'
-            self.timelike.sleep(secs)
-
-    def queue_get(self, queue: Queue[A]) -> A:
-        return self.timelike.queue_get(queue)
-
-    def queue_put(self, queue: Queue[A], a: A) -> None:
-        return self.timelike.queue_put(queue, a)
-
-    def queue_put_nowait(self, queue: Queue[A], a: A) -> None:
-        return self.timelike.queue_put_nowait(queue, a)
+    def sleep(self, secs: float | int):
+        self.time.sleep(secs)
 
     def register_thread(self, name: str):
-        return self.timelike.register_thread(name)
-
-    def current_thread_name(self) -> str:
-        return self.timelike.current_thread_name()
+        self.time.register_thread(name)
 
     def thread_done(self):
-        return self.timelike.thread_done()
+        self.time.thread_done()
 
     def checkpoint(self, name: str, entry: CommandWithMetadata):
         with self.lock:
             assert name not in self.checkpoint_times, f'{name!r} already checkpointed in {pbutils.show(self.checkpoint_times, use_color=False)}'
             self.checkpoint_times[name] = self.monotonic()
             for q in self.checkpoint_waits[name]:
-                self.queue_put_nowait(q, None)
+                self.time.queue_put_nowait(q, None)
             self.checkpoint_waits[name].clear()
 
     def enqueue_for_checkpoint(self, name: str):
         q: Queue[None] = Queue()
         with self.lock:
             if name in self.checkpoint_times:
-                self.queue_put_nowait(q, None) # prepopulate it
+                self.time.queue_put_nowait(q, None) # prepopulate it
             else:
                 self.checkpoint_waits[name] += [q]
         return q
 
     def wait_for_checkpoint(self, name: str) -> float:
         q = self.enqueue_for_checkpoint(name)
-        self.queue_get(q)
+        self.time.queue_get(q)
         with self.lock:
             return self.checkpoint_times[name]

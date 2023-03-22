@@ -65,7 +65,8 @@ def execute(
     while True:
         if biotek is None:
             est = entry.metadata.est
-            assert isinstance(est, float)
+            if not isinstance(est, float | int):
+                raise ValueError(f'No biotek estimate {est=} {entry=}')
             runtime.sleep(est)
             res: Any = {"success":True, "lines":[]}
         else:

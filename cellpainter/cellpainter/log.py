@@ -325,6 +325,8 @@ class Log:
 
     def group_durations_for_display(self):
         for k, vs in self.group_durations().items():
+            if k.startswith('align'):
+                continue
             yield k + ' [' + ', '.join(vs) + ']'
 
     def errors(self) -> list[Message]:

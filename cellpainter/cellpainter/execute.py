@@ -26,11 +26,12 @@ from .commands import (
     Meta,
     RobotarmCmd,
     Seq,
-    Seq_,
+    SeqCmd,
     WaitForCheckpoint,
     WaitForResource,
 )
 from .runtime import RuntimeConfig, Runtime, simulate
+from . import commandlib
 from . import commands
 from . import constraints
 import pbutils
@@ -54,7 +55,7 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
         case Meta():
             execute(cmd.command, runtime, metadata.merge(cmd.metadata))
 
-        case Seq_():
+        case SeqCmd():
             for c in cmd.commands:
                 execute(c, runtime, metadata)
 
@@ -97,7 +98,7 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
 
         case RobotarmCmd():
             with runtime.timeit(entry):
-                if runtime.config.robotarm_env.mode == 'noop':
+                if runtime.config.ur_env.mode == 'noop':
                     if cmd.program_name not in movelists:
                         raise ValueError(f'Missing robotarm move {cmd.program_name}')
                     if metadata.sim_delay:
@@ -105,20 +106,25 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
                     runtime.sleep(estimate(cmd) + (metadata.sim_delay or 0))
                 else:
                     movelist = MoveList(movelists[cmd.program_name])
-                    arm = runtime.get_robotarm(include_gripper=movelist.has_gripper())
-                    arm.execute_moves(movelist, name=cmd.program_name)
-                    arm.close()
+                    with runtime.get_ur(include_gripper=movelist.has_gripper()) as arm:
+                        arm.execute_moves(movelist, name=cmd.program_name)
 
         case BiotekCmd():
             with runtime.timeit(entry):
+                if metadata.sim_delay:
+                    runtime.sleep(metadata.sim_delay or 0)
                 bioteks.execute(runtime, entry, cmd.machine, cmd.protocol_path, cmd.action)
 
         case BlueCmd():
             with runtime.timeit(entry):
+                if metadata.sim_delay:
+                    runtime.sleep(metadata.sim_delay or 0)
                 bluewash.execute(runtime, entry, action=cmd.action, protocol_path=cmd.protocol_path)
 
         case IncuCmd():
             with runtime.timeit(entry):
+                if metadata.sim_delay:
+                    runtime.sleep(metadata.sim_delay or 0)
                 incubator.execute(runtime, entry, cmd.action, cmd.incu_loc)
 
         case WaitForResource():
@@ -139,113 +145,14 @@ def make_runtime(config: RuntimeConfig, program: Program) -> Iterator[Runtime]:
             runtime.set_world(program.world0)
         yield runtime
 
-def check_correspondence(program: Command, states: list[CommandState], expected_ends: dict[int, float]):
-    matches = 0
-    mismatches = 0
-    seen: set[int] = set()
-    for state in states:
-        i = state.metadata.id
-        if i:
-            seen.add(i)
-            if abs(state.t - expected_ends[i]) > 0.3:
-                pbutils.pr(('mismatch!', i, expected_ends[i], state))
-                mismatches += 1
-            else:
-                matches += 1
-    by_id: dict[int, Command] = {
-        i: c
-        for c in program.universe()
-        if isinstance(c, commands.Meta)
-        if (i := c.metadata.id)
-    }
-
-    not_seen = 0
-    for i, e in expected_ends.items():
-        if i not in seen:
-            cmd = by_id.get(i)
-            match cmd:
-                case Meta(command=Checkpoint()):
-                    continue
-                case _:
-                    pass
-            pbutils.pr(('not seen in simulation:', i, e, cmd))
-            not_seen += 1
-
-    if mismatches or not matches or not_seen:
-        raise ValueError(f'Correspondence check failed {matches=} {mismatches=} {len(expected_ends)=} {not_seen=}')
-
-def remove_stages(program: Program, until_stage: str) -> Program:
-    cmd = program.command
-    stages = cmd.stages()
-    until_index = stages.index(until_stage)
-
-    effects: list[moves.Effect] = []
-    def FilterStage(cmd: Command):
-        if isinstance(cmd, Meta) and (stage := cmd.metadata.stage):
-            if stages.index(stage) < until_index:
-                for c in cmd.universe():
-                    if (effect := c.effect()) is not None:
-                        effects.append(effect)
-                return Seq()
-        return cmd
-    cmd = cmd.transform(FilterStage)
-    cmd = cmd.remove_noops()
-
-    world0 = program.world0
-    if world0:
-        for effect in effects:
-            world0 = effect.apply(world0)
-        # could prune plates from world here that are never moved in the program
-
-    checkpoints = cmd.checkpoints()
-    dangling: set[str] = set()
-    i = 0
-    def FixDanglingCheckpoints(cmd: Command):
-        nonlocal i
-        if isinstance(cmd, WaitForCheckpoint | Duration) and cmd.name not in checkpoints:
-            i += 1
-            name = f'(partial) {cmd.name}'
-            dangling.add(name)
-            replacement = WaitForCheckpoint(name, assume='nothing') + f'wiggle {i}'
-            if isinstance(cmd, Duration):
-                replacement = Seq(replacement, Duration(name))
-            return replacement
-        else:
-            return cmd
-
-    cmd = cmd.transform(FixDanglingCheckpoints)
-    cmd = Seq(
-        *[Checkpoint(dang) for dang in dangling],
-        cmd,
-    )
-    return program.replace(
-        command=cmd,
-        world0=world0,
-        metadata=program.metadata.replace(
-            from_stage=until_stage,
-        )
-    )
-
-def prepare_program(program: Program, sim_delays: dict[int, float]) -> tuple[Program, dict[int, float]]:
-    cmd = program.command
-    cmd = cmd.remove_noops()
-
-    with pbutils.timeit('scheduling'):
-        cmd, expected_ends = constraints.optimize(cmd)
-
-    def AddSimDelays(cmd: commands.Command) -> commands.Command:
-        if isinstance(cmd, commands.Meta):
-            if sim_delay := sim_delays.get(cmd.metadata.id):
-                return cmd.add(commands.Metadata(sim_delay=sim_delay))
-        return cmd
-    if sim_delays:
-        cmd = cmd.transform(AddSimDelays)
-
-    program = program.replace(command=cmd)
-    return program, expected_ends
-
 def simulate_program(program: Program, sim_delays: dict[int, float] = {}, log_filename: str | None=None) -> DB:
-    program, expected_ends = prepare_program(program, sim_delays=sim_delays)
+    program, expected_ends = commandlib.prepare_program(program, sim_delays=sim_delays)
+
+    with pbutils.timeit('quicksim'):
+        quicksim_ends, _checkpoints = commandlib.quicksim(program.command, {}, cast(Any, estimate))
+
+    commandlib.check_correspondence(program.command, optimizer_ends=expected_ends, quicksim_ends=quicksim_ends)
+
     cmd = program.command
     with pbutils.timeit('simulating'):
         config = simulate.replace(log_filename=log_filename)
@@ -257,7 +164,8 @@ def simulate_program(program: Program, sim_delays: dict[int, float] = {}, log_fi
             states = runtime_est.log_db.get(CommandState).list()
 
         with pbutils.timeit('check schedule and simulation correspondence'):
-            check_correspondence(cmd, states, expected_ends)
+            sim_ends={state.id: state.t for state in states}
+            commandlib.check_correspondence(cmd, optimizer_ends=expected_ends, sim_ends=sim_ends)
 
     return runtime_est.log_db
 

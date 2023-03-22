@@ -3,7 +3,7 @@ from typing import *
 from dataclasses import *
 
 from .commands import (
-    BlueFork,
+
     Program,               # type: ignore
     Command,               # type: ignore
     Fork,                  # type: ignore
@@ -16,9 +16,6 @@ from .commands import (
     DispCmd,               # type: ignore
     IncuCmd,               # type: ignore
     BlueCmd,               # type: ignore
-    WashFork,              # type: ignore
-    DispFork,              # type: ignore
-    IncuFork,              # type: ignore
     BiotekCmd,             # type: ignore
     ValidateThenRun,       # type: ignore
     RobotarmCmd,           # type: ignore
@@ -40,7 +37,6 @@ from .protocol import (
     Plate,
     define_plates,
     RobotarmCmds,
-    sleek_program,
     cell_paint_program,
     Early,
 )
@@ -110,7 +106,7 @@ def incu_load(args: SmallProtocolArgs):
                 RobotarmCmd(f'A{pos}-to-incu transfer to drop neu'),
                 WaitForResource('incu'),
                 RobotarmCmd(f'A{pos}-to-incu transfer from drop neu'),
-                IncuFork('put', p.incu_loc),
+                IncuCmd('put', p.incu_loc).fork(),
                 RobotarmCmd(f'A{pos}-to-incu return'),
             ).add(Metadata(plate_id=p.id, stage=f'plate from A{pos} to {p.incu_loc}'))
         ]
@@ -159,7 +155,6 @@ def test_circuit(args: SmallProtocolArgs):
         *RobotarmCmds(plate.out_get),
         *RobotarmCmds('B21-to-incu'),
     )
-    cmds = sleek_program(cmds)
     return Program(cmds, World({'incu': plate.id}))
 
 @small_protocols.append
@@ -186,7 +181,6 @@ def test_circuit_with_incubator(args: SmallProtocolArgs):
             ])
         ],
     )
-    cmds = sleek_program(cmds)
     return Program(cmds, world0=program.world0)
 
 @small_protocols.append
@@ -302,7 +296,6 @@ def measure_liquids(args: SmallProtocolArgs):
     ]
 
     cmd = Seq(*cmds).transform(W)
-    cmd = sleek_program(cmd)
     prog = Program(cmd, world0=World({'B21': '1'}))
     return prog
 
@@ -312,9 +305,9 @@ def incu_reset_and_activate(_: SmallProtocolArgs):
     Reset and activate the incubator.
     '''
     program = Seq(
-        IncuFork('reset_and_activate'),
+        IncuCmd('reset_and_activate').fork(),
         WaitForResource('incu'),
-        IncuFork('get_status'),
+        IncuCmd('get_status').fork(),
         WaitForResource('incu'),
     )
     return Program(program.add(Metadata(gui_force_show=True)))
@@ -392,7 +385,6 @@ def wash_plates_clean(args: SmallProtocolArgs):
 
     world0 = World({plate.out_loc: plate.id for plate in plates})
     program = Seq(*cmds)
-    program = sleek_program(program)
     return Program(program, world0)
 
 @small_protocols.append
@@ -456,7 +448,7 @@ def incu_put(args: SmallProtocolArgs):
     cmds: list[Command] = []
     for x in args.params:
         cmds += [
-            IncuFork('put', x),
+            IncuCmd('put', x).fork(),
             WaitForResource('incu'),
         ]
     return Program(Seq(*cmds))
@@ -471,7 +463,7 @@ def incu_get(args: SmallProtocolArgs):
     cmds: list[Command] = []
     for x in args.params:
         cmds += [
-            IncuFork('get', x),
+            IncuCmd('get', x).fork(),
             WaitForResource('incu'),
         ]
     return Program(Seq(*cmds))
@@ -511,7 +503,6 @@ def robotarm_small_cycle(args: SmallProtocolArgs):
             *RobotarmCmds('lid-B19 get'),
         ]
     program = Seq(*cmds)
-    program = sleek_program(program)
     return Program(program)
 
 @small_protocols.append
@@ -593,7 +584,7 @@ def lid_stress_test(_: SmallProtocolArgs):
             *RobotarmCmds(p.out_put),
             *RobotarmCmds(p.out_get),
         ]
-    program = sleek_program(Seq(*cmds))
+    program = Seq(*cmds)
     return Program(program)
 
 # @small_protocols.append
@@ -626,10 +617,10 @@ def incu_unload(args: SmallProtocolArgs):
         assert p.out_loc.startswith('A')
         pos = p.out_loc.removeprefix('A')
         cmds += [
-            IncuFork('put', p.incu_loc),
             RobotarmCmd(f'incu-to-A{pos} prep'),
-            WaitForResource('incu'),
+            Fork(IncuCmd('get', p.incu_loc), align='end'),
             RobotarmCmd(f'incu-to-A{pos} transfer'),
+            IncuCmd('get_status', None).fork(), # signal to incu that it's now empty
             RobotarmCmd(f'incu-to-A{pos} return'),
         ]
     return Program(Seq(*cmds))
@@ -647,9 +638,9 @@ def plate_shuffle(_: SmallProtocolArgs):
     cmds: list[Command] = []
     for dest, src in zip(Locations.Incu[:6], Locations.Incu[6:]):
         cmds += [
-            IncuFork('get', src),
+            IncuCmd('get', src).fork(),
             WaitForResource('incu'),
-            IncuFork('put', dest),
+            IncuCmd('put', dest).fork(),
             WaitForResource('incu'),
         ]
     program = Seq(*cmds)
@@ -714,7 +705,7 @@ def bluewash_reset_and_activate(args: SmallProtocolArgs):
     '''
     return Program(
         Seq(
-            BlueFork('reset_and_activate'),
+            BlueCmd('reset_and_activate').fork(),
             WaitForResource('blue'),
         )
     )
@@ -726,6 +717,110 @@ def wave(args: SmallProtocolArgs):
     '''
     waves = [RobotarmCmd('wave')] * 5
     return Program(Seq(*waves))
+
+from . import moves
+from . import estimates
+from .commands import Symbolic
+
+def fill_estimates(cmd: Command):
+    for c in cmd.universe():
+        if isinstance(c, RobotarmCmd):
+            moves.movelists[c.program_name] = moves.MoveList()
+        if isinstance(c, Meta) and (est := c.metadata.est) is not None:
+            i = c.peel_meta()
+            if isinstance(i, estimates.EstCmd):
+                estimates.estimates[i] = est
+                # print(i, est)
+
+
+@small_protocols.append
+def small(args: SmallProtocolArgs):
+    args.params
+    params = [int(p) for p in args.params if p.isdigit()]
+    time_pfa, *_ = [*params, 15]
+    time_mito = 20
+    pbutils.pr(dict(
+        time_pfa=time_pfa,
+        time_mito=time_mito,
+    ))
+    class X:
+        wait_disp = WaitForResource('disp')
+
+        disp_init = Fork(DispCmd('TestCommunications', None))
+        arm_hotel_to_disp = RobotarmCmd('hotel-to-disp') @ Metadata(est=15, plate_id='to disp')
+        arm_disp_to_hotel = Seq(
+            RobotarmCmd('disp-to-hotel') @ Metadata(est=17, plate_id='to hotel'),
+        )
+
+        disp_mito = Fork(DispCmd('Run', 'mito') @ Metadata(est=time_mito, plate_id='mito'))
+        disp_mix_mito = Fork(
+            Seq(DispCmd('Run', 'mix') @ Metadata(est=25, plate_id='mix mito')),
+            align='end'
+        )
+
+        disp_pfa = Fork(DispCmd('Run', 'pfa') @ Metadata(est=time_pfa, plate_id='PFA'))
+        disp_prime_pfa_fork = Fork(
+            Seq(DispCmd('Run', 'prime_pfa') @ Metadata(est=25, plate_id='prime PFA')),
+        )
+        disp_prime_pfa_prefork = Fork(
+            Seq(DispCmd('Run', 'prime_pfa') @ Metadata(est=25, plate_id='prime PFA')),
+            align='end'
+        )
+
+    incu_time = 120
+
+    cmds = [
+        Checkpoint('batch'),
+        # X.disp_init,
+
+        Idle(0) + 'idle',
+        X.arm_hotel_to_disp,
+        X.disp_prime_pfa_prefork,
+        X.disp_mito,
+        X.wait_disp,
+        Checkpoint('incu 1'),
+        X.arm_disp_to_hotel,
+
+        WaitForCheckpoint('batch') + 'sep',
+
+        X.arm_hotel_to_disp,
+        X.disp_mito,
+        X.wait_disp,
+        Checkpoint('incu 2'),
+        X.arm_disp_to_hotel,
+
+        # X.disp_prime_pfa_fork.delay(17),
+
+        WaitForCheckpoint('incu 1') + 'wait 1',
+        Duration('batch', Max(1)),
+
+        X.arm_hotel_to_disp,
+
+        WaitForCheckpoint('incu 1') + incu_time,
+        Duration('incu 1', Max(1)),
+
+        X.disp_prime_pfa_prefork,
+
+        X.disp_pfa,
+        X.wait_disp,
+        X.arm_disp_to_hotel,
+
+        WaitForCheckpoint('incu 2') + 'wait 2',
+        Duration('batch', Max(1)),
+
+        X.arm_hotel_to_disp,
+        WaitForCheckpoint('incu 2') + incu_time,
+        Duration('incu 2', Max(1)),
+        X.disp_pfa,
+        X.wait_disp,
+        X.arm_disp_to_hotel,
+
+        Duration('batch', Min(2))
+    ]
+    cmd = Seq(*cmds)
+    fill_estimates(cmd)
+    return Program(cmd)
+
 
 @dataclass(frozen=True)
 class SmallProtocolData:

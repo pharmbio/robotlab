@@ -21,10 +21,6 @@ from .commands import (
     BlueCmd,
     DispCmd,
     IncuCmd,
-    WashFork,
-    BlueFork,
-    DispFork,
-    IncuFork,
     ValidateThenRun,
     RobotarmCmd,
     WaitForCheckpoint,
@@ -97,27 +93,6 @@ class Locations:
     RT:   list[str] = C[:5] + A[:11] + [B[4], B[5]]
     Out:  list[str] = A[11:][::-1] + B[6:][::-1] + C[5:][::-1]
     Lid:  list[str] = [b for b in B if '19' in b or '17' in b]
-
-def sleek_program(program: Command) -> Command:
-    def get_movelist(cmd_and_metadata: tuple[Command, Metadata]) -> moves.MoveList | None:
-        cmd, _ = cmd_and_metadata
-        if isinstance(cmd, RobotarmCmd):
-            return movelists[cmd.program_name]
-        else:
-            return None
-    def pair_ok(cmd_and_metadata1: tuple[Command, Metadata], cmd_and_metadata2: tuple[Command, Metadata]) -> bool:
-        _, m1 = cmd_and_metadata1
-        _, m2 = cmd_and_metadata2
-        p1 = m1.plate_id
-        p2 = m2.plate_id
-        return p1 == p2
-    return Seq(
-        *[
-            cmd.add(metadata)
-            for cmd, metadata
-            in moves.sleek_movements(program.collect(), get_movelist, pair_ok)
-        ]
-    )
 
 def initial_world(plates: list[Plate], p: ProtocolConfig) -> World:
     return World({p.incu_loc: p.id for p in plates})
@@ -459,12 +434,12 @@ def test_comm_program(with_incu: bool=True, with_blue: bool=True) -> Command:
     Test communication with robotarm, washer, dispenser and incubator.
     '''
     return Seq(
-        BlueFork(action='TestCommunications', protocol_path=None) if with_blue else Idle(),
-        DispFork(cmd='TestCommunications', protocol_path=None),
-        IncuFork(action='get_status', incu_loc=None) if with_incu else Idle(),
+        BlueCmd(action='TestCommunications', protocol_path=None).fork() if with_blue else Idle(),
+        DispCmd(cmd='TestCommunications', protocol_path=None).fork(),
+        IncuCmd(action='get_status', incu_loc=None).fork() if with_incu else Idle(),
         RobotarmCmd('gripper init and check'),
         WaitForResource('disp'),
-        WashFork(cmd='TestCommunications', protocol_path=None),
+        WashCmd(cmd='TestCommunications', protocol_path=None).fork(),
         WaitForResource('incu') if with_incu else Idle(),
         WaitForResource('wash'),
         WaitForResource('blue') if with_blue else Idle(),
@@ -580,20 +555,18 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
 
             if step.name == 'Mito' or step.name == 'PFA':
                 incu_get = [
+                    # Idle() + 'sep {plate_desc} {step.name}',
                     RobotarmCmd('incu-to-B21 prep'),
                     Fork(
                         Seq(
                             IncuCmd('get', plate.incu_loc),
                             Duration(f'{plate_desc} 37C', OptPrio.inside_incu) if step.name == 'PFA' else Idle(),
-                            Checkpoint(f'{plate_desc} incu get {ix}'),
-                            WaitForCheckpoint(f'{plate_desc} left incu {ix}'),
                         ),
                         align='end',
                     ),
                     Early(1),
-                    WaitForCheckpoint(f'{plate_desc} incu get {ix}'),
                     RobotarmCmd('incu-to-B21 transfer'),
-                    Checkpoint(f'{plate_desc} left incu {ix}'),
+                    Fork(IncuCmd('get_status', incu_loc=None)), # use incu thread to signal that plate has left incu
                     WaitForResource('incu', assume='nothing'),
                     RobotarmCmd('incu-to-B21 return'),
                 ]
@@ -644,17 +617,16 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                 Fork(
                     Seq(
                         *[
-                            Seq(cmd, Early(5)).add(Metadata(plate_id=None))
+                            cmd.add(Metadata(plate_id=None))
                             for cmd in wash_prime
                             if plate is first_plate
                             if not use_lockstep or not prev_step or not prev_step.wash
                         ],
                         WashCmd('Validate', step.wash),
-                        Early(5),
+                        # Early(5),
                     ),
                     align='end',
                 ),
-                WaitForResource('wash'),
                 RobotarmCmd('B21-to-wash transfer'),
                 Fork(
                     Seq(
@@ -949,7 +921,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
         Seq(*post_cmds)
     ).add(Metadata(batch_index=batch_index + 1))
 
-def cell_paint_program(batch_sizes: list[int], protocol_config: ProtocolConfig, sleek: bool = True) -> Program:
+def cell_paint_program(batch_sizes: list[int], protocol_config: ProtocolConfig) -> Program:
     cmds: list[Command] = []
     plates = define_plates(batch_sizes)
     for batch in plates:
@@ -961,11 +933,10 @@ def cell_paint_program(batch_sizes: list[int], protocol_config: ProtocolConfig, 
 
     world0 = initial_world(pbutils.flatten(plates), protocol_config)
     program = Seq(*cmds)
-    if sleek:
-        program = sleek_program(program)
     program = Seq(
         Checkpoint('run'),
         test_comm_program(with_blue=protocol_config.use_blue),
+        # Idle(0) + 'sep',
         program,
         Duration('run', OptPrio.batch_time)
     )

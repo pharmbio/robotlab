@@ -92,8 +92,11 @@ class Arg:
                 else:
                     parser.add_argument(name, default=default, metavar='X', type=f_type, help=self.helps.get(f))
         v, unknown = parser.parse_known_args(args)
+        d = dict(v.__dict__)
         if unknown:
-            raise ValueError('Unknown args: ' + '\n'.join(unknown))
-        return as_type(**v.__dict__), parser
+            d['params'] = unknown
+            # raise ValueError('Unknown args: ' + '\n'.join(unknown))
+        res = as_type(**d)
+        return res, parser
 
 arg = Arg()

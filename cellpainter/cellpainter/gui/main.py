@@ -21,7 +21,7 @@ from .. import protocol_vis
 from .. import moves
 from .. import runtime
 from ..moves import RawCode, Move
-from ..runtime import get_robotarm, RuntimeConfig
+from ..runtime import RuntimeConfig
 
 from .start_form import start_form, start
 from .vis import AnalyzeResult
@@ -45,10 +45,11 @@ serve.suppress_flask_logging()
 
 protocol_vis.add_to_serve(serve, '', cli.cmdline_to_log, route='/vis')
 
+runtime = config.only_arm().make_runtime()
+
 def robotarm_do(ms: list[Move]):
-    arm = get_robotarm(config, quiet=False, include_gripper=True)
-    arm.execute_moves(ms, name='gui', allow_partial_completion=True)
-    arm.close()
+    with runtime.get_ur(quiet=False, include_gripper=True) as arm:
+        arm.execute_moves(ms, name='gui', allow_partial_completion=True)
 
 def robotarm_freedrive():
     '''
@@ -61,9 +62,8 @@ def robotarm_set_speed(pct: int):
     Sets the robotarm speed, in percentages
     '''
     print(pct)
-    arm = get_robotarm(config, quiet=False, include_gripper=True)
-    arm.set_speed(pct)
-    arm.close()
+    with runtime.get_ur(quiet=False, include_gripper=True) as arm:
+        arm.set_speed(pct)
 
 def robotarm_to_neutral():
     '''

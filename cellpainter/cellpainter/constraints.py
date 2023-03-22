@@ -5,7 +5,7 @@ from dataclasses import *
 from .symbolic import Symbolic
 from .commands import (
     Command,
-    Seq_,
+    SeqCmd,
     Fork,
     Meta,
     Checkpoint,
@@ -194,7 +194,7 @@ def optimal_env(cmd: Command, unsat_core: bool=False) -> OptimalResult:
                     case None:
                         pass
                 return begin
-            case Seq_():
+            case SeqCmd():
                 end = begin
                 for c in cmd.commands:
                     end = run(c, end, is_main=is_main)

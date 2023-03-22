@@ -121,59 +121,59 @@ def snap_many(desc: str):
 
     capture('t1')
 
+runtime = config.only_arm().make_runtime()
+
 @pbutils.spawn
 def poll() -> None:
-    if config.robotarm_env.mode == 'noop':
+    if config.ur_env.mode == 'noop':
         return None
-    arm = runtime.get_robotarm(config, quiet=False)
-    arm.send('write_output_integer_register(1, 0)\n')
-    arm.recv_until('PROGRAM_XXX_STOPPED')
-    while True:
-        arm.send(robotarm.reindent('''
-            sec poll():
-                def round(x):
-                    return floor(x * 100 + 0.5) / 100
+    with runtime.get_ur(quiet=False) as arm:
+        arm.send('write_output_integer_register(1, 0)\n')
+        arm.recv_until('PROGRAM_XXX_STOPPED')
+        while True:
+            arm.send(robotarm.reindent('''
+                sec poll():
+                    def round(x):
+                        return floor(x * 100 + 0.5) / 100
+                    end
+                    def r2d_round(rad):
+                        deg = r2d(rad)
+                        return round(deg)
+                    end
+                    p = get_actual_tcp_pose()
+                    rpy = rotvec2rpy([p[3], p[4], p[5]])
+                    rpy = [r2d_round(rpy[0]), r2d_round(rpy[1]), r2d_round(rpy[2])]
+                    xyz = [round(p[0]*1000), round(p[1]*1000), round(p[2]*1000)]
+                    q = get_actual_joint_positions()
+                    q = [r2d_round(q[0]), r2d_round(q[1]), r2d_round(q[2]), r2d_round(q[3]), r2d_round(q[4]), r2d_round(q[5])]
+                    tick = 1 + read_output_integer_register(1)
+                    write_output_integer_register(1, tick)
+                    textmsg("poll {" +
+                        "'xyz': " + to_str(xyz) + ", " +
+                        "'rpy': " + to_str(rpy) + ", " +
+                        "'joints': " + to_str(q) + ", " +
+                        "'pos': " + to_str([read_output_integer_register(0)]) + ", " +
+                        "'tick': " + to_str([floor(tick / 10) + 1]) + ", " +
+                    "} eom")
                 end
-                def r2d_round(rad):
-                    deg = r2d(rad)
-                    return round(deg)
-                end
-                p = get_actual_tcp_pose()
-                rpy = rotvec2rpy([p[3], p[4], p[5]])
-                rpy = [r2d_round(rpy[0]), r2d_round(rpy[1]), r2d_round(rpy[2])]
-                xyz = [round(p[0]*1000), round(p[1]*1000), round(p[2]*1000)]
-                q = get_actual_joint_positions()
-                q = [r2d_round(q[0]), r2d_round(q[1]), r2d_round(q[2]), r2d_round(q[3]), r2d_round(q[4]), r2d_round(q[5])]
-                tick = 1 + read_output_integer_register(1)
-                write_output_integer_register(1, tick)
-                textmsg("poll {" +
-                    "'xyz': " + to_str(xyz) + ", " +
-                    "'rpy': " + to_str(rpy) + ", " +
-                    "'joints': " + to_str(q) + ", " +
-                    "'pos': " + to_str([read_output_integer_register(0)]) + ", " +
-                    "'tick': " + to_str([floor(tick / 10) + 1]) + ", " +
-                "} eom")
-            end
-        '''))
-        for b in arm.recv():
-            if m := re.search(rb'poll (.*\}) eom', b):
-                try:
-                    v = m.group(1).decode(errors='replace')
-                    polled_info.update(ast.literal_eval(v))
-                except:
-                    import traceback as tb
-                    tb.print_exc()
-                break
+            '''))
+            for b in arm.recv():
+                if m := re.search(rb'poll (.*\}) eom', b):
+                    try:
+                        v = m.group(1).decode(errors='replace')
+                        polled_info.update(ast.literal_eval(v))
+                    except:
+                        import traceback as tb
+                        tb.print_exc()
+                    break
 
 def arm_do(*ms: Move):
-    arm = runtime.get_robotarm(config)
-    arm.execute_moves(list(ms), name='gui', allow_partial_completion=True)
-    arm.close()
+    with runtime.get_ur() as arm:
+        arm.execute_moves(list(ms), name='gui', allow_partial_completion=True)
 
 def arm_set_speed(value: int) -> None:
-    arm = runtime.get_robotarm(config, quiet=False)
-    arm.set_speed(value)
-    arm.close()
+    with runtime.get_ur(quiet=False) as arm:
+        arm.set_speed(value)
 
 def edit_at(program_name: str, i: int, changes: dict[str, Any], action: None | Literal['duplicate', 'delete']=None):
     filename = get_programs()[program_name]

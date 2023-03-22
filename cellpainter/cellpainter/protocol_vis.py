@@ -1,8 +1,10 @@
 from __future__ import annotations
 from typing import *
+from labrobots.liconic import is_dataclass
 
-from viable import Serve, js, store, Flask
+from viable import Serve, js, store, Flask, call
 from viable import Tag, pre, div, span, label
+import viable as V
 
 from .log import Log
 from . import commands
@@ -78,12 +80,14 @@ n = 0
 from functools import lru_cache
 
 def start(cmdline0: str, cmdline_to_log: Callable[[str], Log]):
-    cmdline_to_log = lru_cache(cmdline_to_log)
+    # cmdline_to_log = lru_cache(cmdline_to_log)
     serve = Serve(_app := Flask(__name__))
     add_to_serve(serve, cmdline0, cmdline_to_log)
     serve.run()
 
 def add_to_serve(serve: Serve, cmdline0: str, cmdline_to_log: Callable[[str], Log], route: str='/'):
+
+    cmdline_to_log = lru_cache(cmdline_to_log)
 
     @serve.route(route)
     def index() -> Iterator[Tag | dict[str, str]]:
@@ -121,23 +125,53 @@ def add_to_serve(serve: Serve, cmdline0: str, cmdline_to_log: Callable[[str], Lo
             '''
         }
         cmdline = store.query.str(cmdline0)
+        delay_ids = store.query.str('')
+        delay_secs = store.query.int(0, min=0, max=60)
         zoom_int = store.query.int(100, min=1, max=1000)
+        vertical = store.query.bool(True)
+        pfa_duration = store.query.int(15, min=0, max=100)
         store.assign_names(locals())
         zoom = zoom_int.value / 100.0
         yield div(
-            label(span('cmdline: '), cmdline.input(iff='0').extend(
-                onkeydown='event.key == "Enter" && ' + cmdline.update(js('this.value'))
-            )),
-            label(span('zoom: '), zoom_int.range(), span(str(zoom_int.value))),
-            position='sticky',
+            div(
+                label(span('cmdline: '), cmdline.input(iff='0').extend(
+                    onkeydown='event.key == "Enter" && ' + cmdline.update(js('this.value'))
+                )),
+                label(span('sim delay: '),
+                    div(
+                        delay_ids.input(),
+                        delay_secs.range(),
+                        style='''
+                            display: grid;
+                            grid-template-columns: 100px 1fr;
+                            grid-gap: 10px;
+                        '''
+                    ),
+                    span(f'{delay_secs.value} s'),
+                ),
+                label(span('zoom: '), zoom_int.range(), span(str(zoom_int.value))),
+                label(span('pfa duration: '), pfa_duration.range().extend(width=200), span(f'{pfa_duration.value} s')),
+                label(span('vertical: '), vertical.input().extend(style='justify-self: left')),
+                background='#fff',
+                border_bottom='1px #0008 solid',
+                p=20,
+                m=0,
+            ),
+            position='fixed',
             top=0,
-            background='#fff',
-            border_bottom='1px #0008 solid',
+            p=0,
+            width='100%',
             z_index='1' + '0' * 9,
         )
 
+        yield div(mb=170, p=0)
+
         try:
-            log = cmdline_to_log(cmdline.value)
+            if delay_ids.value and delay_secs.value:
+                sim_delay = f' --sim-delay {delay_ids.value}:{delay_secs.value}'
+            else:
+                sim_delay = ''
+            log = cmdline_to_log(cmdline.value + sim_delay + f' {pfa_duration.value}')
             entries = log.command_states().list()
         except:
             import traceback
@@ -145,18 +179,25 @@ def add_to_serve(serve: Serve, cmdline0: str, cmdline_to_log: Callable[[str], Lo
             yield pre(traceback.format_exc())
             return
 
-        from . import estimates
-        if estimates.guesses:
-            pbutils.pr(estimates.guesses)
+        if 1 or vertical.value:
+            from . import estimates
+            if estimates.guesses:
+                pbutils.pr(estimates.guesses)
 
-        yield pre('\n'.join(log.group_durations_for_display()))
+            yield pre('\n'.join(log.group_durations_for_display()))
 
         area = div(style=f'''
             width: 100%;
-            height: {zoom * max(e.t for e in entries)}px;
+            -height: {zoom * max(e.t for e in entries)}px;
         ''', css='''
-            position: relative;
-            user-select: none;
+            & {
+                position: relative;
+                user-select: none;
+                -transform: translateY(-50%) rotate(90deg) scaleX(-1);
+            }
+            & > * > span {
+                -transform: translate(-25%, -25%) rotate(90deg) scaleX(-1);
+            }
         ''')
         for e in reversed(entries):
             t0 = e.t0
@@ -205,6 +246,17 @@ def add_to_serve(serve: Serve, cmdline0: str, cmdline_to_log: Callable[[str], Lo
             width = 14
             my_width = 14
             my_offset = 0
+            if not vertical.value:
+                slot = {
+                    'incu': 3,
+                    'wash': 2,
+                    'blue': 2,
+                    'disp': 1,
+                    None: 0,
+                }.get(m.thread_resource, 0)
+                if isinstance(cmd, commands.Duration):
+                    continue
+                    slot = 4
             if isinstance(cmd, commands.Duration):
                 my_width = 4
                 if 'transfer' in cmd.name:
@@ -236,13 +288,13 @@ def add_to_serve(serve: Serve, cmdline0: str, cmdline_to_log: Callable[[str], Lo
                 source=source,
                 est=pbutils.pp_secs(e.metadata.est or 0.0),
                 duration=pbutils.pp_secs(e.duration or 0.0),
-                slot=slot,
                 id=e.metadata.id,
                 pct=pct,
                 stage=e.metadata.stage,
+                thread_resource=m.thread_resource,
             )
             area += div(
-                str(plate) if t - t0 > 9.0 and my_width > 4 and plate else '',
+                (m.plate_id if t - t0 > 9.0 and my_width > 4 else '') or '',
                 css='''
                     position: absolute;
                     border-radius: 2px;
@@ -251,67 +303,71 @@ def add_to_serve(serve: Serve, cmdline0: str, cmdline_to_log: Callable[[str], Lo
                     place-items: center;
                     font-size: 12px;
                     background: var(--bg-color);
-                ''',
-                css_='''
-                    &:hover {
-                        z-index: 1;
-                    }
-                    &:hover::after, &:hover::before {
-                        white-space: pre;
-                        padding: 2px 4px;
-                        border-radius: 2px;
-                        border: 1px #0005 solid;
-                        background: var(--bg-color);
-                        color: var(--fg-color);
-                        z-index: 1;
-                        font-size: 16px;
-                    }
-                    &:hover::after {
-                        position: fixed;
-                        right: 0;
-                        bottom: 0;
-                        min-width: 40em;
-                        min-height: 40em;
-                        content: attr(data-info);
-                    }
-                    &:hoer::before {
-                        position: absolute;
-                        left: calc(100% + 1px);
-                        top: -1px;
-                        content: attr(data-short-info);
-                    }
+                    cursor: pointer;
+                    filter: contrast(1.3);
+                    text-align: center;
                 ''',
                 css__=f'''
                     --bg-color: {color};
                     --fg-color: {fg_color};
                 ''',
-                style=f'''
-                    left: {slot * width + my_offset:.1f}px;
-                    width: {my_width - 2:.1f}px;
-                    top: {zoom * t0:.1f}px;
-                    height: {max(zoom * (t - t0), 1):.1f}px;
-                    min-height: 5px;
-                ''',
-                css___='outline: 2px #f00a dashed; border-radius: 0;' if pct > 120 else '',
+                style=
+                    f'''
+                        left: {slot * width + my_offset:.1f}px;
+                        width: {my_width - 2:.1f}px;
+                        top: {zoom * t0:.1f}px;
+                        height: {max(zoom * (t - t0), 1):.1f}px;
+                        min-height: 5px;
+                    '''
+                    if vertical.value else
+                    f'''
+                        top: {slot * width + my_offset:.1f}px;
+                        height: {my_width - 2:.1f}px;
+                        left: {20 + zoom * t0:.1f}px;
+                        width: {max(zoom * (t - t0), 1):.1f}px;
+                        min-width: 5px;
+                    '''
+                ,
+                css_=
+                    '''
+                        &:hover::after {
+                            position: absolute;
+                            display: block;
+                            left: 100%;
+                            top: 50%;
+                            margin-left: 5px;
+                            content: attr(shortinfo);
+                        }
+                        &:hover {
+                            z-index: 10;
+                        }
+                    '''
+                    if vertical.value else
+                    '''
+                        &:hover::after {
+                            position: absolute;
+                            display: block;
+                            height: 100%;
+                            top: 100%;
+                            content: attr(shortinfo);
+                        }
+                        &:hover {
+                            z-index: 10;
+                        }
+                    ''',
+                shortinfo=str(e.duration),
+                css___='outline: 2px #f00a dashed; border-radius: 0;' if pct > 101 else '',
+                data_color=color,
+                data_fg_color=fg_color,
                 data_info=pbutils.show(for_show, use_color=False),
                 data_short_info=pbutils.show(e.cmd, use_color=False),
+                onclick='''
+                    console.log('%c' + this.dataset.info, `color: ${this.dataset.fgColor}; background: ${this.dataset.color}`)
+                ''',
+                ondblclick='event.preventDefault();' + call(delay_ids.assign, str(m.id)),
+                oncontextmenu='event.preventDefault();' + call(delay_ids.assign, str(m.id)),
             )
 
         yield area
 
-        yield div(' ', style="height:400px")
 
-        yield pre(
-            id="info",
-            css='''
-                position: fixed;
-                left: 0;
-                bottom: 0;
-                margin: 0;
-                padding: 10px;
-                background: #fff;
-                z-index: 10;
-                position: fixed;
-                border-radius: 5px;
-                border: 1px #0005 solid;
-            ''')

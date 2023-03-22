@@ -50,6 +50,21 @@ class Command(abc.ABC):
         else:
             return Meta(command=self, metadata=m)
 
+    def __matmul__(self, m: Metadata):
+        return self.add(m)
+
+    def peel_meta(self) -> Command:
+        if isinstance(self, Meta):
+            return self.command.peel_meta()
+        else:
+            return self
+
+    def __rshift__(self, other: Command) -> Command:
+        return Seq(self, other)
+
+    def fork(self, assume: ForkAssumption = 'idle', align: Literal['begin', 'end'] = 'begin') -> Fork:
+        return Fork(self, assume=assume, align=align)
+
     def add_to_physical_commands(self, m: Metadata):
         def Add(cmd: Command):
             if isinstance(cmd, BiotekCmd | RobotarmCmd | IncuCmd):
@@ -73,7 +88,7 @@ class Command(abc.ABC):
 
     def collect(self: Command) -> list[tuple[Command, Metadata]]:
         match self:
-            case Seq_():
+            case SeqCmd():
                 return [
                     tup
                     for cmd in self.commands
@@ -96,7 +111,7 @@ class Command(abc.ABC):
                     return False
                 else:
                     return float(s.offset) == 0.0
-            case Seq_():
+            case SeqCmd():
                 return all(cmd.is_noop() for cmd in self.commands)
             case Fork() | Meta():
                 return self.command.is_noop()
@@ -109,7 +124,7 @@ class Command(abc.ABC):
         (Mitchell & Runciman, 2007) https://dl.acm.org/doi/10.1145/1291201.1291208
         '''
         match self:
-            case Seq_():
+            case SeqCmd():
                 inner_commands = self.commands
                 if reverse:
                     inner_commands = list(reversed(inner_commands))
@@ -117,8 +132,6 @@ class Command(abc.ABC):
                 if reverse:
                     inner_commands = list(reversed(inner_commands))
                 return f(self.replace(commands=inner_commands))
-            case Seq_() if reverse:
-                return f(self.replace(commands=[cmd.transform(f, reverse=reverse) for cmd in self.commands]))
             case Fork() | Meta():
                 return f(self.replace(command=self.command.transform(f, reverse=reverse)))
             case _:
@@ -131,7 +144,7 @@ class Command(abc.ABC):
         '''
         yield self
         match self:
-            case Seq_():
+            case SeqCmd():
                 for cmd in self.commands:
                     yield from cmd.universe()
             case Fork() | Meta():
@@ -193,7 +206,7 @@ class Command(abc.ABC):
                         case 'nothing':
                             pass
                     if resource is None:
-                        prev_wait = Idle()
+                        prev_wait = Seq()
                         counts['None'] += 1
                         this = counts['None']
                         this_name = f'None #{counts["None"]}'
@@ -233,16 +246,25 @@ class Command(abc.ABC):
                         return cmd
                     elif cmd.align == 'end':
                         count += 1
-                        name = f'residue {count}'
+                        name_wait = f'align {count}'
+                        name_sync = f'align sync {count}'
+                        name_sync_wait = f'align sync wait {count}'
                         residuals[resource] += [
                             Seq(
-                                Checkpoint(name),
-                                WaitForCheckpoint(ref_name, assume='nothing') + f'{name} wait',
-                                Duration(name, Max(priority=-1)),
+                                Checkpoint(name_wait),
+                                # # not sure which one is best here:
+                                # WaitForCheckpoint(ref_name, assume='nothing') + f'{name_wait} wait',
+                                WaitForCheckpoint(name_wait, assume='nothing') + f'{name_wait} wait',
+                                Duration(name_wait, Max(priority=-2)),
                                 cmd.command,
+                                Checkpoint(name_sync),
                             )
                         ]
-                        return Idle()
+                        return Seq(
+                            Checkpoint(name_sync_wait),
+                            WaitForCheckpoint(name_sync, assume='nothing') + f'{name_sync} wait',
+                            Duration(name_sync_wait, Min(priority=-1)),
+                        )
                     elif not residuals[resource]:
                         return cmd
                     else:
@@ -257,8 +279,10 @@ class Command(abc.ABC):
                 case _:
                     return cmd
         res = self.push_metadata_into_forks().transform(F, reverse=True)
-        for resource, cmds in residuals.items():
-            assert not cmds, f'{resource} has end-aligned commands but no begin-aligned Fork to attach them to ({cmds=})'
+        for _resource, residue in residuals.items():
+            if residue:
+                res = Fork(Seq(*reversed(residue))) >> res
+            # assert not cmds, f'{resource} has end-aligned commands but no begin-aligned Fork to attach them to ({cmds=})'
         return Checkpoint(ref_name) >> res
 
     def next_id(self: Command) -> int:
@@ -273,7 +297,7 @@ class Command(abc.ABC):
         def F(cmd: Command) -> Command:
             nonlocal count
             match cmd:
-                case Seq_() | Fork() | Meta():
+                case SeqCmd() | Fork() | Meta():
                     return cmd
                 case _:
                     count += 1
@@ -294,7 +318,7 @@ class Command(abc.ABC):
             match cmd:
                 case _ if cmd.is_noop():
                     return Seq()
-                case Seq_():
+                case SeqCmd():
                     return Seq(*(c for c in cmd.commands if not c.is_noop()))
                 case _:
                     return Seq(cmd)
@@ -334,9 +358,6 @@ class Command(abc.ABC):
             case _:
                 return None
 
-    def __rshift__(self, other: Command) -> Command:
-        return Seq(self, other)
-
 @dataclass(frozen=True, kw_only=True)
 class Meta(Command):
     command: Command
@@ -346,7 +367,7 @@ class Meta(Command):
         return command.add(self.metadata)
 
 @dataclass(frozen=True)
-class Seq_(Command):
+class SeqCmd(Command):
     commands: list[Command]
 
     def replace(self, commands: list[Command]):
@@ -356,13 +377,13 @@ def Seq(*commands: Command) -> Command:
     flat: list[Command] = []
     for cmd in commands:
         match cmd:
-            case Seq_():
+            case SeqCmd():
                 flat += cmd.commands
             case _:
                 flat += [cmd]
     if len(flat) == 1:
         return flat[0]
-    return Seq_(flat)
+    return SeqCmd(flat)
 
 @dataclass(frozen=True)
 class Idle(Command):
@@ -416,8 +437,11 @@ class Max:
     priority: int
     weight: float = 1
 
+    def negate(self):
+        return Max(self.priority, -self.weight)
+
 def Min(priority: int, weight: float = 1):
-    return Max(priority, -weight)
+    return Max(priority, weight).negate()
 
 ForkAssumption = Literal['nothing', 'busy', 'idle']
 
@@ -436,13 +460,6 @@ class Fork(Command):
                 return resource
         return None
 
-    def __post_init__(self):
-        self_resource = self.resource
-        for cmd, _ in self.command.collect():
-            assert not isinstance(cmd, WaitForResource) # only the main thread can wait for resources
-            if resource := cmd.required_resource():
-                assert resource == self_resource, f'{resource=} != {self_resource=} ({cmd=})'
-
     def replace(self, command: Command):
         return replace(self, command=command)
 
@@ -453,15 +470,6 @@ class Fork(Command):
                 self.command,
             )
         )
-
-    def seq(self, *cmds: Command) -> Fork:
-        return self.replace(
-            command = Seq(
-                self.command,
-                *cmds,
-            )
-        )
-
 
 @dataclass(frozen=True)
 class WaitForResource(Command):
@@ -524,20 +532,6 @@ def ValidateThenRun(
             BiotekCmd(machine, 'RunValidated', protocol_path),
         )
 
-def WashFork(
-    protocol_path: str | None,
-    cmd: BiotekAction,
-    assume: ForkAssumption = 'nothing',
-):
-    return Fork(WashCmd(cmd, protocol_path), assume=assume)
-
-def DispFork(
-    protocol_path: str | None,
-    cmd: BiotekAction,
-    assume: ForkAssumption = 'nothing',
-):
-    return Fork(DispCmd(cmd, protocol_path), assume=assume)
-
 BlueWashAction = Union[
     BiotekAction,
     Literal[
@@ -554,13 +548,6 @@ class BlueCmd(Command):
     def required_resource(self):
         return 'blue'
 
-def BlueFork(
-    action: BlueWashAction,
-    protocol_path: str | None = None,
-    assume: ForkAssumption = 'nothing',
-):
-    return Fork(BlueCmd(action, protocol_path), assume=assume)
-
 @dataclass(frozen=True)
 class IncuCmd(Command):
     action: Literal['put', 'get', 'get_status', 'reset_and_activate']
@@ -568,13 +555,6 @@ class IncuCmd(Command):
 
     def required_resource(self):
         return 'incu'
-
-def IncuFork(
-    action: Literal['put', 'get', 'get_status', 'reset_and_activate'],
-    incu_loc: str | None = None,
-    assume: ForkAssumption = 'nothing',
-):
-    return Fork(IncuCmd(action, incu_loc), assume=assume)
 
 @dataclass(frozen=True)
 class Program(DBMixin):
@@ -593,3 +573,202 @@ class ProgramMetadata(DBMixin):
     id: int = -1
 
 pbutils.serializer.register(globals())
+
+'''
+
+Delay from relative time better than idle:
+
+    - Prime
+    - Mix, align=end
+    - Dispense
+    - Mix, align=end
+    - Dispense
+
+    becomes
+
+    - Fork (Prime >> Idle(X) >> Mix)
+    - Fork (Dispense >> Idle(Y) >> Mix)
+    - Fork (Dispense)
+
+    If the Dispense estimate is too low (takes longer in reality),
+    we will also wait for the fixed Idle time before Validating.
+    Better to use WaitForCheckpoint relative to some reference time such as batch start:
+
+    - Checkpoint(ref)
+    - Fork (Prime >> WaitForCheckpoint(ref + X) >> Mix)
+    - Fork (Dispense >> WaitForCheckpoint(ref + Y) >> Mix)
+    - Fork (Dispense)
+
+    Same example. If Dispense estimate is too low (takes shorter in reality),
+    we will wait the correct amount of time!
+
+Delay from relative time better than from zero:
+
+    Consider a few steps A B C and B takes shorter time than expected, and
+    C could start whenever everything is ready before it.
+    The times inside C should be relative to its start so its internal times
+    are correct. It should not reference times from A or B (such as time zero).
+
+
+
+With implicit enqueue:
+
+    fork (a; b) = fork a; fork b
+
+Without
+
+    fork (a; b) = wait for resource; fork a; wait for resource; fork b
+
+Am I ever using the implicit enqueue?
+If you need it you could do align='end' and slap on an Idle
+The more surprising choise is to use implict queue.
+
+Preforking and min/max
+
+    x || a
+    prefork b
+    y
+
+-->
+
+    x || a
+         sleep d
+         b
+    wait
+    y
+
+Highest prio is to minimize the wait to start y, and with lower priority
+postpone starting b as late as possible.
+
+    x || a
+         max(sleep d, prio=low)
+         b
+    min(wait, prio=high)
+    y
+
+
+    min x -> checkpoint c
+             x
+             wait for c + d
+             min duration c
+
+
+'''
+
+'''
+
+    primitives:
+
+        physical commands
+        checkpoint
+        wait for checkpoint
+        fork
+        seq
+        (duration)
+        (meta)
+
+    removables:
+
+        prefork
+        wait for resource
+        maximize/minimize
+        sleep
+        (free variables)
+
+    with one fork per resource:
+        list[
+            | physical commands
+            | checkpoint
+            | wait for checkpoint
+        ]
+
+    now the main thread is allowed to run the robotarm, but it would be
+    symmetric if it did fork for each robotarm.
+
+
+        prefork b21-to-disp <- new idea, is this useful?
+        prefork prime
+        fork disp
+
+
+    make this simpler for presentation and testing:
+
+        assign estimates to commands
+
+        shrink all estimates by X to see why scheduling failed
+            - deadlock or similar: can never be scheduled
+            - to much to do: can report how much shorter physical commands
+                             would have to be for successfull schedule
+                    guess: last wash needs to be reduced (130s -> 95s) to schedule these plates
+
+        change simulation delay easily, perhaps add name to metadata
+
+    review:
+        start from stage semantics
+
+'''
+
+def SCRATCH():
+    def maximize(name: str, m: Max, cmd: Command):
+        return Seq(
+            Checkpoint(name),
+            cmd,
+            WaitForCheckpoint(name) + f'{name} delay',
+            Duration(name, m)
+        )
+
+    def maximize_since(name: str, m: Max, cmd: Command):
+        return Seq(
+            Checkpoint(name),
+            cmd,
+            WaitForCheckpoint(name) + f'{name} delay',
+            Duration(name, m)
+        )
+
+    @dataclass
+    class Maximize(Command):
+        command: Command
+        priority: int
+        weight: float = 1
+
+    def Minimize(
+        command: Command,
+        priority: int,
+        weight: float = 1,
+    ) -> Command:
+        return Maximize(command, priority, weight=-weight)
+
+    def transform_maximize(self: Command):
+        count = 0
+        def F(cmd: Command) -> Command:
+            nonlocal count
+            if isinstance(cmd, Maximize):
+                count += 1
+                name = f'max {count}'
+                return Seq(
+                    Checkpoint(name),
+                    cmd.command,
+                    WaitForCheckpoint(name) + f'{name} delay',
+                    Duration(name, Max(priority=cmd.priority, weight=cmd.weight))
+                )
+            else:
+                return cmd
+        return self.transform(F)
+
+    def test():
+        cmds = [
+            RobotarmCmd('B21-to-blue prep'),
+
+            Fork(BlueCmd('Run', 'prime'), align='end'),
+
+            RobotarmCmd('B21-to-blue transfer'),
+
+            Fork(BlueCmd('Validate', 'wash'), align='end'),
+
+            Fork(BlueCmd('RunValidated', 'wash')),
+
+            WaitForResource('blue'),
+
+            RobotarmCmd('B21-to-blue return'),
+        ]
+        cmds
