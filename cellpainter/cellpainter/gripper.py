@@ -244,7 +244,7 @@ gripper_code = str('''
                 if 1:
                     sleep(0.15)
                     p = GripperPos()
-                    if p > 0 and p <= 80:
+                    if p > 0 and p <= 82:
                         msg = str_cat("Gripper closed more than expected: ", p) + "mm"
                         textmsg("fatal: ", msg)
                         popup(msg, "fatal", error=False, blocking=True)
