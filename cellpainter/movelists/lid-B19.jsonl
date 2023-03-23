@@ -21,7 +21,9 @@
 {"type":"MoveLin","xyz":[196.7,-567.4,751.1],"rpy":[0.4,1.5,90.6],"tag":"19/21","name":"B19 pick neu"}
 {"type":"MoveLin","xyz":[196.7,-421.8,751.1],"rpy":[0.4,1.5,90.6],"tag":"19/21","name":"B19 entrance"}
 {"type":"MoveLin","xyz":[196.7,-421.9,831],"rpy":[0.4,1.5,90.6],"name":"B neu"}
-{"type":"MoveLin","xyz":[196.7,-567.4,831.1],"rpy":[0.4,1.5,90.6],"name":"B21 neu"}
+{"type":"MoveLin","xyz":[196.5,-565.5,831.1],"rpy":[0.4,2.5,90.6],"name":"B21 neu"}
+{"type":"MoveLin","xyz":[196.5,-565.5,820],"rpy":[0.4,2.5,90.6],"name":"B21 tilt1","slow":true}
+{"type":"MoveLin","xyz":[196.5,-566.4,819.1],"rpy":[0.4,2.5,90.6],"name":"B21 tilt2","slow":true}
 {"type":"MoveLin","xyz":[196.7,-567.4,820.1],"rpy":[0.4,1.5,90.6],"name":"B21 drop","slow":true}
 {"type":"GripperMove","pos":88}
 {"type":"MoveLin","xyz":[196.7,-567.4,831],"rpy":[0.4,1.5,90.6],"name":"B21 neu"}
