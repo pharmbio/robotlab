@@ -8,22 +8,15 @@ from .log import Log
 
 
 from .commands import (
+    PhysicalCommand,
     RobotarmCmd,
     IncuCmd,
     BiotekCmd,
     BlueCmd,
 )
 
-EstCmd = RobotarmCmd | IncuCmd | BiotekCmd | BlueCmd
-
-def normalize(cmd: EstCmd) -> EstCmd:
-    if isinstance(cmd, IncuCmd):
-        return IncuCmd(action=cmd.action, incu_loc=None)
-    else:
-        return cmd
-
 class EstEntry(TypedDict):
-    cmd: EstCmd
+    cmd: PhysicalCommand
     times: dict[str, float]
 
 def avg(xs: Iterable[float]) -> float:
@@ -32,7 +25,7 @@ def avg(xs: Iterable[float]) -> float:
 
 estimates_json_path = 'estimates.json'
 
-def read_estimates(path: str=estimates_json_path) -> dict[EstCmd, float]:
+def read_estimates(path: str=estimates_json_path) -> dict[PhysicalCommand, float]:
     entries: list[EstEntry] = pbutils.serializer.read_json(path)
     return {
         e['cmd']: round(avg(e['times'].values()), 3)
@@ -43,7 +36,7 @@ from datetime import timedelta
 
 def add_estimates_from(log_path: str, *, path: str=estimates_json_path):
     entries: list[EstEntry] = pbutils.serializer.read_json(path)
-    ests: dict[EstCmd, dict[str, float]] = DefaultDict(dict)
+    ests: dict[PhysicalCommand, dict[str, float]] = DefaultDict(dict)
 
     def size(x: Dict[Any, dict[Any, Any]]) -> int:
         return sum(
@@ -53,7 +46,7 @@ def add_estimates_from(log_path: str, *, path: str=estimates_json_path):
         )
 
     for e in entries:
-        cmd = normalize(e['cmd'])
+        cmd = e['cmd'].normalize()
         ests[cmd] = e['times']
 
     size_0 = size(ests)
@@ -67,8 +60,8 @@ def add_estimates_from(log_path: str, *, path: str=estimates_json_path):
             for e in log.command_states():
                 if e.state == 'completed':
                     cmd = e.cmd
-                    if isinstance(cmd, EstCmd) and e.duration is not None:
-                        cmd = normalize(cmd)
+                    if isinstance(cmd, PhysicalCommand) and e.duration is not None:
+                        cmd = cmd.normalize()
                         t_datetime = rt.start_time + timedelta(seconds=e.t)
                         t_str = t_datetime.replace(microsecond=0).isoformat(sep=' ')
                         ests[cmd][t_str] = e.duration
@@ -86,19 +79,19 @@ def add_estimates_from(log_path: str, *, path: str=estimates_json_path):
     print(f'Wrote {size_after - size_0} new estimates to {path} from {log_path}.')
 
 estimates = read_estimates('estimates.json')
-guesses: dict[EstCmd, float] = {}
+guesses: dict[PhysicalCommand, float] = {}
 
 estimates = {
     RobotarmCmd('noop'): 0.5,
     **estimates
 }
 
-for k, v in list(estimates.items()):
-    if isinstance(k, BiotekCmd) and k.action =='Run':
-        kv = k.replace(action='Validate')
-        kr = k.replace(action='RunValidated')
+for cmd, v in list(estimates.items()):
+    if isinstance(cmd, BiotekCmd) and cmd.action =='Run':
+        kv = cmd.replace(machine=cmd.machine, action='Validate')
+        kr = cmd.replace(machine=cmd.machine, action='RunValidated')
         if kv not in estimates and kr not in estimates:
-            estimates[kv] = 4.0 if k.machine == 'disp' else 1.5
+            estimates[kv] = 4.0 if cmd.machine == 'disp' else 1.5
             estimates[kr] = v - estimates[kv]
 
 if 1:
@@ -108,16 +101,16 @@ if 1:
 
 import re
 
-def estimate(cmd: EstCmd) -> float:
-    assert isinstance(cmd, EstCmd), f'{cmd} is not estimatable'
-    cmd = normalize(cmd)
+def estimate(cmd: PhysicalCommand) -> float:
+    assert isinstance(cmd, PhysicalCommand), f'{cmd} is not estimatable'
+    cmd = cmd.normalize()
     if cmd not in estimates:
         match cmd:
             case BiotekCmd(action='Validate'):
                 guess = 2.5
-            case BiotekCmd(action='Run') if other := estimates.get(cmd.replace(action='RunValidated')):
+            case BiotekCmd(action='Run') if other := estimates.get(cmd.replace(machine=cmd.machine, action='RunValidated')):
                 guess = other + 2.5
-            case BiotekCmd(action='RunValidated') if other := estimates.get(cmd.replace(action='Run')):
+            case BiotekCmd(action='RunValidated') if other := estimates.get(cmd.replace(machine=cmd.machine, action='Run')):
                 guess = other - 2.5
             case BiotekCmd() if 'PRIME' in str(cmd.protocol_path):
                 guess = 25.0

@@ -728,18 +728,18 @@ def fill_estimates(cmd: Command):
             moves.movelists[c.program_name] = moves.MoveList()
         if isinstance(c, Meta) and (est := c.metadata.est) is not None:
             i = c.peel_meta()
-            if isinstance(i, estimates.EstCmd):
+            if isinstance(i, estimates.PhysicalCommand):
                 estimates.estimates[i] = est
                 # print(i, est)
 
 
 @small_protocols.append
-def small(args: SmallProtocolArgs):
+def example(args: SmallProtocolArgs):
     args.params
     params = [int(p) for p in args.params if p.isdigit()]
     time_pfa, *_ = [*params, 15]
     time_mito = 20
-    pbutils.pr(dict(
+    if 0: pbutils.pr(dict(
         time_pfa=time_pfa,
         time_mito=time_mito,
     ))
@@ -767,6 +767,11 @@ def small(args: SmallProtocolArgs):
             align='end'
         )
 
+        disp_prime_mito_prefork = Fork(
+            Seq(DispCmd('Run', 'prime_mito') @ Metadata(est=25, plate_id='prime mito')),
+            align='end'
+        )
+
     incu_time = 120
 
     cmds = [
@@ -775,7 +780,7 @@ def small(args: SmallProtocolArgs):
 
         Idle(0) + 'idle',
         X.arm_hotel_to_disp,
-        X.disp_prime_pfa_prefork,
+        # X.disp_prime_mito_prefork,
         X.disp_mito,
         X.wait_disp,
         Checkpoint('incu 1'),
@@ -799,7 +804,7 @@ def small(args: SmallProtocolArgs):
         WaitForCheckpoint('incu 1') + incu_time,
         Duration('incu 1', Max(1)),
 
-        X.disp_prime_pfa_prefork,
+        # X.disp_prime_pfa_prefork,
 
         X.disp_pfa,
         X.wait_disp,

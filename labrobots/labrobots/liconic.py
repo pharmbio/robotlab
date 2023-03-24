@@ -1,15 +1,19 @@
 from __future__ import annotations
-import socket
 from dataclasses import *
 from typing import *
 
+import socket
+import contextlib
+import sqlite3
+
 from .machine import Machine
+from .sqlitecell import SqliteCell
 
 @dataclass(frozen=True)
 class STX(Machine):
-    id="STX"
-    host="localhost"
-    port=3333
+    id: str = "STX"
+    host: str = "localhost"
+    port: int = 3333
 
     def call(self, command_name: str, *args: Union[str, float, int]):
         '''
@@ -179,3 +183,186 @@ class STX(Machine):
         }
         assert self.call('STX2ServiceMovePlate', *args.values()) == "1"
 
+class FridgeSlot(TypedDict):
+    plate: str
+    project: str
+
+FridgeSlots = dict[str, FridgeSlot]
+
+@dataclass(frozen=True)
+class FridgeDB(SqliteCell[FridgeSlots]):
+    table: str = 'Fridge'
+    key: str = 'fridge'
+    default: FridgeSlots = field(default_factory=dict)
+
+    def normalize(self, value: FridgeSlots):
+        return {
+            loc: FridgeSlot(**slot)
+            for loc, slot in sorted(value.items())
+        }
+
+    def update_loc(self, loc: str, slot: FridgeSlot):
+        slots = self.read()
+        slots[loc] = slot
+        self.write(slots)
+
+    __setitem__ = update_loc
+
+    def get_by_loc(self, loc: str) -> FridgeSlot | None:
+        return self.read().get(loc)
+
+    __getitem__ = get_by_loc
+
+    def get_by_plate_project(self, plate: str, project: str) -> tuple[str, FridgeSlot] | None:
+        for loc, slot in self.read().items():
+            if slot['plate'] == plate and slot['project'] == project:
+                return loc, slot
+
+    def get_empty(self) -> tuple[str, FridgeSlot] | None:
+        return self.get_by_plate_project('', '')
+
+@dataclass(frozen=True)
+class Fridge(STX):
+    fridge_db: str = 'fridge.db'
+
+    @contextlib.contextmanager
+    def _get_db(self) -> Iterator[FridgeDB]:
+        con = sqlite3.connect(self.fridge_db, isolation_level=None)
+        db = FridgeDB(con)
+        with db.exclusive():
+            yield db
+        con.close()
+
+    def contents(self) -> FridgeSlots:
+        '''
+        Returns a listing of the fridge contents.
+        '''
+        with self._get_db() as db:
+            return db.read()
+
+    def rewrite_contents(self, current: FridgeSlots, next: FridgeSlots, bypass_db_check: bool=False) -> FridgeSlots:
+        '''
+        Rewrites the contents of the fridge. Succeeds iff the current argument matches the current database (unless using the bypass check argument).
+
+        Returns the new contents.
+        '''
+        with self._get_db() as db:
+            db_current = db.read()
+            if bypass_db_check:
+                pass
+            else:
+                assert db.normalize(db_current) == db.normalize(current)
+            db.write(next)
+            return next
+
+    def add_capacity(self, loc: str) -> tuple[str, FridgeSlot]:
+        '''
+        Makes sure the location is registered in the fridge database,
+        adding a new entry to an empty slot if necessary.
+        '''
+        with self._get_db() as db:
+            if slot := db.get_by_loc(loc):
+                return loc, slot
+            else:
+                slot = FridgeSlot(plate='', project='')
+                db[loc] = slot
+                return loc, slot
+
+    def insert(self, plate: str, project: str, loc: str | None=None, bypass_db_check: bool=False) -> FridgeSlot:
+        '''
+        Inserts a plate on either some empty location or a location specified as argument.
+
+        Returns info about the plate and the new location, or raises an error if it was not possible to complete the action.
+        '''
+        with self.atomic():
+            with self._get_db() as db:
+                if loc:
+                    slot = db.get_by_loc(loc)
+                    if not slot:
+                        raise ValueError('No slot with {loc=}')
+                else:
+                    loc_slot = db.get_empty()
+                    if not loc_slot:
+                        raise ValueError('No empty slot')
+                    loc, slot = loc_slot
+                if bypass_db_check:
+                    pass
+                else:
+                    if slot['plate'] or slot['project']:
+                        raise ValueError('Target slot not empty {slot=}')
+                slot = FridgeSlot(plate=plate, project=project)
+
+            self.put(loc)
+
+            with self._get_db() as db:
+                db[loc] = slot
+                return slot
+
+    def eject(self, plate: str, project: str) -> tuple[str, FridgeSlot]:
+        '''
+        Ejects a plate given a plate and project.
+
+        Returns info about the plate and the old location, or raises an error if it was not possible to complete the action.
+        '''
+        with self.atomic():
+            with self._get_db() as db:
+                loc_slot = db.get_by_plate_project(plate, project)
+                if not loc_slot:
+                    raise ValueError('No slot with {plate=} and {project=}')
+                loc, slot = loc_slot
+            return self._eject(loc, slot)
+
+    def eject_by_loc(self, loc: str, bypass_db_check: bool=False) -> tuple[str, FridgeSlot]:
+        '''
+        Ejects a plate given a location. The database will be consulted if the location contains a plate (unless using the bypass check argument).
+
+        Returns info about the plate and the old location, or raises an error if it was not possible to complete the action.
+        '''
+        with self.atomic():
+            with self._get_db() as db:
+                slot = db.get_by_loc(loc)
+                if not slot:
+                    raise ValueError('No slot with {loc=}')
+                if bypass_db_check:
+                    pass
+                else:
+                    if not slot['plate']:
+                        raise ValueError('Target slot empty {slot=}')
+            return self._eject(loc, slot)
+
+    def _eject(self, loc: str, slot: FridgeSlot) -> tuple[str, FridgeSlot]:
+        with self.atomic():
+            self.get(loc)
+            with self._get_db() as db:
+                empty_slot = FridgeSlot(plate='', project='')
+                db[loc] = empty_slot
+                return loc, slot
+
+def test_fridge_db():
+    import tempfile
+    with tempfile.NamedTemporaryFile(suffix='.db', prefix='fridge') as tmp:
+        fridge = Fridge(fridge_db=tmp.name)
+        fridge.add_capacity('1x1')
+        fridge.add_capacity('1x2')
+        empty = FridgeSlot(plate='', project='')
+        assert fridge.contents() == {'1x1': empty, '1x2': empty}
+        with fridge._get_db() as db: # type: ignore
+            plate1 = FridgeSlot(plate='PB1701', project='ambi-40k')
+            plate2 = FridgeSlot(plate='PB1703', project='ambi-40k')
+            assert db.get_empty() == ('1x1', empty)
+            db['1x1'] = plate1
+            assert db.get_empty() == ('1x2', empty)
+            db['1x2'] = plate2
+            assert db.get_empty() is None
+            assert db['1x1'] == plate1
+            assert db['1x2'] == plate2
+            assert db.get_by_plate_project(plate1['plate'], plate1['project']) == ('1x1', plate1)
+            assert db.get_by_plate_project(plate2['plate'], plate2['project']) == ('1x2', plate2)
+        assert fridge.contents() == {'1x1': plate1, '1x2': plate2}
+        fridge.rewrite_contents({'1x1': plate1, '1x2': plate2}, {'1x1': {'plate': '', 'project': ''}, '1x2': plate2})
+        with fridge._get_db() as db: # type: ignore
+            assert db.get_empty() == ('1x1', empty)
+            assert db['1x1'] == empty
+            assert db['1x2'] == plate2
+            assert db.get_by_plate_project(plate1['plate'], plate1['project']) is None
+            assert db.get_by_plate_project(plate2['plate'], plate2['project']) == ('1x2', plate2)

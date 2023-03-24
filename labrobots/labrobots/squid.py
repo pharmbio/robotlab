@@ -1,20 +1,20 @@
 from .machine import Machine
 from dataclasses import *
+from typing import *
 
 @dataclass(frozen=True)
 class Squid(Machine):
-    def home(self) -> None:
+    def goto_loading(self) -> None:
         raise
 
-    def load(self) -> None:
+    def leave_loading(self) -> None:
         raise
 
-    def acquire(self, path: str) -> None:
-        # settings?
+    def load_config(self, file_path: str, project_override: str='', plate_override: str='') -> None:
         raise
 
-    def stop_acquire(self) -> None:
+    def acquire(self) -> bool:
         raise
 
-    def is_ready(self) -> bool:
+    def status(self) -> dict[str, Any]:
         raise

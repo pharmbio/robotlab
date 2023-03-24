@@ -4,7 +4,7 @@ from typing import *
 
 import abc
 
-from pbutils.mixins import DBMixin
+from pbutils.mixins import DBMixin, ReplaceMixin
 
 from .moves import Effect, World, effects, MovePlate
 from .symbolic import Symbolic
@@ -36,12 +36,12 @@ class Metadata:
         out = replace(self, **repl)
         return out
 
-class Command(abc.ABC):
+class Command(ReplaceMixin, abc.ABC):
     @property
     def type(self) -> str:
         return self.__class__.__name__
 
-    def required_resource(self) -> Literal['robotarm', 'incu', 'wash', 'disp', 'blue'] | None:
+    def required_resource(self) -> str | None:
         return None
 
     def add(self, m: Metadata):
@@ -67,7 +67,7 @@ class Command(abc.ABC):
 
     def add_to_physical_commands(self, m: Metadata):
         def Add(cmd: Command):
-            if isinstance(cmd, BiotekCmd | RobotarmCmd | IncuCmd):
+            if isinstance(cmd, PhysicalCommand):
                 return cmd.add(m)
             else:
                 return cmd
@@ -358,20 +358,20 @@ class Command(abc.ABC):
             case _:
                 return None
 
+class PhysicalCommand(Command, abc.ABC):
+    def normalize(self) -> PhysicalCommand:
+        return self
+
 @dataclass(frozen=True, kw_only=True)
 class Meta(Command):
-    command: Command
+    command: Command = field(default_factory=lambda: Noop())
     metadata: Metadata = field(default_factory=lambda: Metadata())
-
-    def replace(self, command: Command):
-        return command.add(self.metadata)
 
 @dataclass(frozen=True)
 class SeqCmd(Command):
     commands: list[Command]
 
-    def replace(self, commands: list[Command]):
-        return replace(self, commands=commands)
+Noop = lambda: SeqCmd([])
 
 def Seq(*commands: Command) -> Command:
     flat: list[Command] = []
@@ -394,9 +394,6 @@ class Idle(Command):
     def seconds(self) -> Symbolic:
         return Symbolic.wrap(self.secs)
 
-    def replace(self, secs: Symbolic | float | int) -> Idle:
-        return replace(self, secs=secs)
-
     def __add__(self, other: float | int | str | Symbolic) -> Idle:
         return self.replace(secs = self.seconds + other)
 
@@ -408,21 +405,13 @@ WaitAssumption = Literal['nothing', 'will wait', 'no wait']
 
 @dataclass(frozen=True)
 class WaitForCheckpoint(Command):
-    name: str
+    name: str = ''
     plus_secs: Symbolic | float | int = 0.0
     assume: WaitAssumption = 'will wait'
 
     @property
     def plus_seconds(self) -> Symbolic:
         return Symbolic.wrap(self.plus_secs)
-
-    def replace(self, plus_secs: Symbolic | float | int | None = None, assume: WaitAssumption | None = None) -> WaitForCheckpoint:
-        next = self
-        if plus_secs is not None:
-            next = replace(next, plus_secs=plus_secs)
-        if assume is not None:
-            next = replace(next, assume=assume)
-        return next
 
     def __add__(self, other: float | int | str | Symbolic) -> WaitForCheckpoint:
         return self.replace(plus_secs=self.plus_seconds + other)
@@ -460,9 +449,6 @@ class Fork(Command):
                 return resource
         return None
 
-    def replace(self, command: Command):
-        return replace(self, command=command)
-
     def delay(self, other: float | int | str | Symbolic) -> Fork:
         return self.replace(
             command = Seq(
@@ -480,7 +466,7 @@ class WaitForResource(Command):
     assume: WaitAssumption = 'nothing'
 
 @dataclass(frozen=True)
-class RobotarmCmd(Command):
+class RobotarmCmd(PhysicalCommand):
     program_name: str
 
     def required_resource(self):
@@ -494,16 +480,13 @@ BiotekAction = Literal[
 ]
 
 @dataclass(frozen=True)
-class BiotekCmd(Command):
+class BiotekCmd(PhysicalCommand):
     machine: Literal['wash', 'disp']
     action: BiotekAction
     protocol_path: str | None = None
 
     def required_resource(self):
         return self.machine
-
-    def replace(self, action: BiotekAction):
-        return replace(self, action=action)
 
 def WashCmd(
     cmd: BiotekAction,
@@ -541,7 +524,7 @@ BlueWashAction = Union[
 ]
 
 @dataclass(frozen=True)
-class BlueCmd(Command):
+class BlueCmd(PhysicalCommand):
     action: BlueWashAction
     protocol_path: str | None = None
 
@@ -549,9 +532,12 @@ class BlueCmd(Command):
         return 'blue'
 
 @dataclass(frozen=True)
-class IncuCmd(Command):
+class IncuCmd(PhysicalCommand):
     action: Literal['put', 'get', 'get_status', 'reset_and_activate']
-    incu_loc: str | None
+    incu_loc: str | None = None
+
+    def normalize(self):
+        return IncuCmd(action=self.action, incu_loc=None)
 
     def required_resource(self):
         return 'incu'
@@ -772,3 +758,107 @@ def SCRATCH():
             RobotarmCmd('B21-to-blue return'),
         ]
         cmds
+
+@dataclass(frozen=True)
+class PFCmd(PhysicalCommand):
+    '''
+    Run a program on the robotarm.
+    '''
+    program_name: str
+    def required_resource(self):
+        return 'pf'
+
+class SquidABC(PhysicalCommand, abc.ABC):
+    def required_resource(self):
+        return 'squid'
+
+@dataclass(frozen=True)
+class SquidAcquire(SquidABC):
+    config_path: str
+    project: str
+    plate: str
+    def normalize(self):
+        return SquidAcquire(config_path=self.config_path, project='', plate='')
+
+@dataclass(frozen=True)
+class SquidStageCmd(SquidABC):
+    action: Literal['goto_loading', 'leave_loading']
+
+class FridgeABC(PhysicalCommand, abc.ABC):
+    def required_resource(self):
+        return 'fridge'
+
+@dataclass(frozen=True)
+class FridgePlate:
+    project: str = ""
+    barcode: str = ""
+
+class FridgeDB(DBMixin):
+    contents: dict[str, FridgePlate]
+    id: int = -1
+
+    def get_by_loc(self, loc: str) -> FridgePlate | None:
+        return self.get(loc)
+
+    def get_loc(self, plate: FridgePlate) -> str | None:
+        for k, v in self.contents.items():
+            if v == plate:
+                return k
+        return None
+
+    def insert(self, loc: str, plate: FridgePlate) -> FridgeDB:
+        # lock?
+        return self.replace({**self.contents, loc: plate})
+
+    def eject(self, loc: str) -> FridgeDB:
+        # lock?
+        contents = self.contents.copy()
+        contents = contents.pop(loc)
+        return self.replace(contents)
+
+@dataclass(frozen=True)
+class FridgeGetByBarcode(FridgeABC):
+    plate: FridgePlate
+
+    def normalize(self):
+        return FridgeGet('', check_barcode=False)
+
+@dataclass(frozen=True)
+class FridgeGet(FridgeABC):
+    loc: str
+    # check that the popped plate has the barcode we thought was in the fridge
+    # using the fridge database and the barcode reader
+    check_barcode: bool = False
+
+    def normalize(self):
+        return FridgeGet('', check_barcode=False)
+
+@dataclass(frozen=True)
+class FridgePut(FridgeABC):
+    loc: str
+    plate: FridgePlate
+    def normalize(self):
+        return FridgePut('', FridgePlate())
+
+@dataclass(frozen=True)
+class FridgePutByBarcode(FridgeABC):
+    '''
+    Puts a plate with a known project on some empty location using the barcode reader
+    '''
+    project: str
+    expected_barcode: str | None = None
+
+    def normalize(self):
+        return FridgePut('', FridgePlate())
+
+@dataclass(frozen=True)
+class FridgeCmd(FridgeABC):
+    action: Literal['get_status', 'reset_and_activate']
+
+@dataclass(frozen=True)
+class BarcodeClear(PhysicalCommand):
+    '''
+    Clears the last seen barcode from the barcode reader memory
+    '''
+    pass
+

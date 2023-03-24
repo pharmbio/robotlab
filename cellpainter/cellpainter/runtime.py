@@ -22,7 +22,7 @@ from .timelike import Timelike, WallTime, SimulatedTime
 from .moves import World, Effect
 from .log import Message, CommandState, CommandWithMetadata, Log
 
-from labrobots import WindowsNUC, Biotek, STX, BlueWash
+from labrobots import WindowsNUC, Biotek, STX, BlueWash, barcode_reader
 from labrobots import WindowsGBG, STX, BarcodeReader
 from labrobots import MikroAsus, Squid
 
@@ -133,6 +133,13 @@ class Runtime:
     fridge: STX | None = None
     barcode_reader: BarcodeReader | None = None
     squid: Squid | None = None
+
+    @property
+    def fridge_and_barcode_reader(self):
+        if self.fridge and self.barcode_reader:
+            return self.fridge, self.barcode_reader
+        else:
+            return None
 
     def __post_init__(self):
         self.init()
@@ -289,6 +296,19 @@ class Runtime:
                 f'{self.world}',
                 sep=' | ',
             )
+
+    def time_resource_use(self, entry: CommandWithMetadata, resource: A | None) -> Iterator[A]:
+        '''
+        The loop will be run once if the resource exists, otherwise not run.
+        '''
+        with self.timeit(entry):
+            if resource:
+                yield resource
+            else:
+                est = entry.metadata.est
+                if est is None:
+                    raise ValueError(f'No estimate for {entry}')
+                self.sleep(est)
 
     def timeit(self, entry: CommandWithMetadata) -> ContextManager[None]:
         # The inferred type for the decorated function is wrong hence this wrapper to get the correct type

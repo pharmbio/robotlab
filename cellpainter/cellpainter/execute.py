@@ -5,6 +5,7 @@ from dataclasses import *
 import contextlib
 
 from . import commands
+from .commands import *
 
 from .log import (
     CommandState,
@@ -12,24 +13,6 @@ from .log import (
     CommandWithMetadata,
 )
 
-from .commands import (
-    Program,
-    Metadata,
-    Command,
-    BiotekCmd,
-    Checkpoint,
-    Duration,
-    Fork,
-    Idle,
-    IncuCmd,
-    BlueCmd,
-    Meta,
-    RobotarmCmd,
-    Seq,
-    SeqCmd,
-    WaitForCheckpoint,
-    WaitForResource,
-)
 from .runtime import RuntimeConfig, Runtime, simulate
 from . import commandlib
 from . import commands
@@ -41,14 +24,14 @@ from . import bioteks
 from . import bluewash
 from . import incubator
 from . import protocol_paths
-from .estimates import estimate, EstCmd
+from .estimates import estimate
 from . import estimates
 from datetime import datetime
 
 from pbutils.mixins import DB, DBMixin
 
 def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
-    if isinstance(cmd, EstCmd) and metadata.est is None:
+    if isinstance(cmd, PhysicalCommand) and metadata.est is None:
         metadata = metadata.merge(Metadata(est=estimate(cmd)))
     entry = CommandWithMetadata(cmd=cmd, metadata=metadata)
     match cmd:
@@ -129,6 +112,70 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
 
         case WaitForResource():
             raise ValueError('Cannot execute WaitForResource, run Command.make_resource_checkpoints first')
+
+        case PFCmd():
+            raise ValueError('TODO: execute PF')
+
+        case SquidAcquire():
+            for squid in runtime.time_resource_use(entry, runtime.squid):
+                squid.load_config(cmd.config_path, cmd.project, cmd.plate)
+                ok = squid.acquire()
+                if not ok:
+                    raise ValueError(f'Failed to start squid acquire, is squid busy?')
+
+                # wait until it has started running:
+                while squid.status().get('interactive'):
+                    runtime.sleep(1.0)
+
+                # wait until it has finished running:
+                while not squid.status().get('interactive'):
+                    runtime.sleep(1.0)
+
+        case SquidStageCmd() as cmd:
+            for squid in runtime.time_resource_use(entry, runtime.squid):
+                match cmd.action:
+                    case 'goto_loading':
+                        squid.goto_loading()
+                    case 'leave_loading':
+                        squid.leave_loading()
+
+        case FridgePutByBarcode():
+            for fridge, barcode_reader in runtime.time_resource_use(entry, runtime.fridge_and_barcode_reader):
+                barcode = barcode_reader.read_and_clear()
+                if cmd.expected_barcode and cmd.expected_barcode != barcode:
+                    raise ValueError(f'Plate has {barcode=!r} but expected {cmd.expected_barcode=!r}')
+                loc = FridgeDB
+                fridge.put(
+                slot, *_ = FridgeSlots.where(FridgeSlot.occupant == None)
+                next_cmd = FridgePut(loc=slot.loc, project=cmd.project, barcode=barcode)
+
+        case FridgePut():
+            [slot] = FridgeSlots.where(FridgeSlot.loc == cmd.loc)
+            assert slot.occupant is None
+            env.fridge.put(cmd.loc)
+            occupant = FridgeOccupant(project=cmd.project, barcode=cmd.barcode)
+            slot.replace(occupant=occupant).save(env.db)
+
+        case FridgeGetByBarcode():
+            occupant = FridgeOccupant(project=cmd.project, barcode=cmd.barcode)
+            [slot] = FridgeSlots.where(FridgeSlot.occupant == occupant)
+            return execute_one(FridgeGet(slot.loc, check_barcode=True), env)
+
+        case FridgeGet():
+            [slot] = FridgeSlots.where(FridgeSlot.loc == cmd.loc)
+            assert slot.occupant is not None
+            env.fridge.get(cmd.loc)
+            if cmd.check_barcode and not env.is_sim:
+                # check that the popped plate has the barcode we thought was in the fridge
+                barcode = env.barcode_reader.read_and_clear()
+                assert slot.occupant.barcode == barcode
+            slot.replace(occupant=None).save(env.db)
+
+        case FridgeCmd():
+            env.fridge.action(cmd.action)
+
+        case BarcodeClear():
+            env.barcode_reader.clear()
 
         case _:
             raise ValueError(cmd)
