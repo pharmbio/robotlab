@@ -1,7 +1,6 @@
 from .machine import Machines
-from .liconic import STX
+from .liconic import STX, Fridge
 from .barcode_reader import BarcodeReader
-from .imx import IMX
 from .dir_list import DirList
 from .biotek import Biotek
 from .squid import Squid
@@ -27,7 +26,7 @@ class WindowsNUC(Machines):
 class WindowsGBG(Machines):
     ip = '10.10.0.97'
     node_name = 'WINDOWS-GBG'
-    fridge: STX = STX()
+    fridge: Fridge= Fridge()
     barcode: BarcodeReader = BarcodeReader(com_port='COM3')
     # imx: IMX = IMX()
 

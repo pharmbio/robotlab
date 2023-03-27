@@ -3,7 +3,6 @@ from typing import *
 from dataclasses import *
 
 from .commands import (
-
     Program,               # type: ignore
     Command,               # type: ignore
     Fork,                  # type: ignore
@@ -25,6 +24,8 @@ from .commands import (
 )
 
 from .moves import World
+from . import moves
+from . import estimates
 
 import re
 import pbutils
@@ -717,10 +718,6 @@ def wave(args: SmallProtocolArgs):
     '''
     waves = [RobotarmCmd('wave')] * 5
     return Program(Seq(*waves))
-
-from . import moves
-from . import estimates
-from .commands import Symbolic
 
 def fill_estimates(cmd: Command):
     for c in cmd.universe():

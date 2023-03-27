@@ -4,11 +4,10 @@ from dataclasses import *
 import traceback
 
 from threading import Thread
-from datetime import datetime
 
 from serial import Serial # type: ignore
 
-from .machine import Machine, Cell, make_log_handle
+from .machine import Machine, Cell, Log
 
 @dataclass(frozen=True)
 class BarcodeReader(Machine):
@@ -19,7 +18,7 @@ class BarcodeReader(Machine):
         Thread(target=self._scanner_thread, daemon=True).start()
 
     def _scanner_thread(self):
-        self_log = make_log_handle('barcode')
+        self_log = Log.make('barcode')
         scanner: Any = Serial(self.com_port, timeout=60)
         self_log('using com_port', self.com_port)
         while True:

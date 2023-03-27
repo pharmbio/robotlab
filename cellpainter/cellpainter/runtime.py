@@ -17,12 +17,12 @@ from threading import RLock
 import pbutils
 from pbutils.mixins import DB, DBMixin
 
-from .robotarm import Robotarm
+from .ur import UR
 from .timelike import Timelike, WallTime, SimulatedTime
 from .moves import World, Effect
 from .log import Message, CommandState, CommandWithMetadata, Log
 
-from labrobots import WindowsNUC, Biotek, STX, BlueWash, barcode_reader
+from labrobots import WindowsNUC, Biotek, Fridge, BlueWash, BarcodeReader
 from labrobots import WindowsGBG, STX, BarcodeReader
 from labrobots import MikroAsus, Squid
 
@@ -125,12 +125,14 @@ class Runtime:
         lambda: DefaultDict[str, list[Queue[None]]](list)
     )
 
+    ur: UR | None = None
+
     incu: STX      | None = None
     wash: Biotek   | None = None
     disp: Biotek   | None = None
     blue: BlueWash | None = None
 
-    fridge: STX | None = None
+    fridge: Fridge | None = None
     barcode_reader: BarcodeReader | None = None
     squid: Squid | None = None
 
@@ -178,8 +180,11 @@ class Runtime:
             self.blue = nuc.blue
 
         if self.config.ur_env.mode != 'noop':
-            with self.get_ur() as arm:
-                arm.set_speed(self.config.ur_speed)
+            self.ur = UR(
+                self.config.ur_env.host,
+                self.config.ur_env.port,
+            )
+            self.ur.set_speed(self.config.ur_speed)
 
         if self.config.run_fridge_squid_nikon:
             gbg = WindowsGBG.remote()
@@ -192,27 +197,13 @@ class Runtime:
             raise ValueError('todo: set pf speed')
             # self.set_pf_speed(self.config.pf_speed)
 
-    @contextlib.contextmanager
-    def get_ur(self, quiet: bool = False, include_gripper: bool = True) -> Iterator[Robotarm]:
-        config = self.config
-        if config.ur_env.mode == 'noop':
-            return Robotarm.init_noop(with_gripper=include_gripper, quiet=quiet)
-        assert config.ur_env.mode == 'execute' or config.ur_env.mode == 'execute no gripper'
-        with_gripper = config.ur_env.mode == 'execute'
-        if not include_gripper:
-            with_gripper = False
-        arm = Robotarm.init(config.ur_env.host, config.ur_env.port, with_gripper, quiet=quiet)
-        yield arm
-        arm.close()
-
     def stop_arms(self):
         sync = Queue[None]()
 
         @pbutils.spawn
         def _():
-            with self.get_ur(quiet=False, include_gripper=False) as arm:
-                arm.stop()
-                arm.close()
+            if self.ur:
+                self.ur.stop()
             sync.put_nowait(None)
 
         try:
@@ -309,6 +300,7 @@ class Runtime:
                 if est is None:
                     raise ValueError(f'No estimate for {entry}')
                 self.sleep(est)
+                self.sleep(entry.metadata.sim_delay or 0.0)
 
     def timeit(self, entry: CommandWithMetadata) -> ContextManager[None]:
         # The inferred type for the decorated function is wrong hence this wrapper to get the correct type

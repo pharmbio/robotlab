@@ -11,8 +11,8 @@ import re
 from .moves import Move, MoveList
 from .runtime import RuntimeConfig
 from . import moves
-from . import robotarm
 from . import runtime
+from .ur_script import URScript
 import pbutils
 
 from viable import store, js, call, Serve, Flask
@@ -125,13 +125,14 @@ runtime = config.only_arm().make_runtime()
 
 @pbutils.spawn
 def poll() -> None:
-    if config.ur_env.mode == 'noop':
-        return None
-    with runtime.get_ur(quiet=False) as arm:
+    ur = runtime.ur
+    if not ur: return
+    with ur.connect(quiet=False) as arm:
         arm.send('write_output_integer_register(1, 0)\n')
         arm.recv_until('PROGRAM_XXX_STOPPED')
-        while True:
-            arm.send(robotarm.reindent('''
+    while True:
+        with ur.connect(quiet=False) as arm:
+            arm.send(URScript.reindent('''
                 sec poll():
                     def round(x):
                         return floor(x * 100 + 0.5) / 100
@@ -168,12 +169,12 @@ def poll() -> None:
                     break
 
 def arm_do(*ms: Move):
-    with runtime.get_ur() as arm:
-        arm.execute_moves(list(ms), name='gui', allow_partial_completion=True)
+    ur = runtime.ur
+    ur and ur.execute_moves(list(ms), name='gui', allow_partial_completion=True)
 
 def arm_set_speed(value: int) -> None:
-    with runtime.get_ur(quiet=False) as arm:
-        arm.set_speed(value)
+    ur = runtime.ur
+    ur and ur.set_speed(value)
 
 def edit_at(program_name: str, i: int, changes: dict[str, Any], action: None | Literal['duplicate', 'delete']=None):
     filename = get_programs()[program_name]
@@ -181,7 +182,7 @@ def edit_at(program_name: str, i: int, changes: dict[str, Any], action: None | L
     m = ml[i]
     for k, v in changes.items():
         if k in 'rpy xyz joints name slow pos tag section'.split():
-            m = replace(m, **{k: v})
+            m: Move = replace(cast(Any, m), **{k: v})
         else:
             raise ValueError(k)
 
@@ -250,7 +251,7 @@ def keydown(program_name: str, args: dict[str, Any]):
             m,
         )
 
-def update(program_name: str, i: int, grouped: bool=False):
+def update(program_name: str, i: int | None, grouped: bool=False):
     if i is None:
         return
 

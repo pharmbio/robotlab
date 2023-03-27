@@ -1,13 +1,8 @@
 from __future__ import annotations
-
 from dataclasses import *
 from typing import *
-
-from .moves import Move
-
-import re
-import socket
 from . import gripper
+import re
 
 prelude = '''
     # Set TCP so that RPY makes sense
@@ -138,8 +133,6 @@ def reindent(s: str) -> str:
     i = 0
     for line in s.strip().split('\n'):
         line = line.strip()
-        # if '"' not in line:
-        #     line = re.sub('#.*$', '', line).strip()
         if line == 'end' or line.startswith('elif') or line.startswith('else'):
             i -= 2
         if line:
@@ -148,103 +141,24 @@ def reindent(s: str) -> str:
             i += 2
     return '\n'.join(out) + '\n'  # final newline required when sending on socket
 
-def make_script(movelist: list[Move], with_gripper: bool, name: str='script') -> str:
-    body = '\n'.join(
-        ("# " + getattr(m, 'name') + '\n' if hasattr(m, 'name') else '')
-        + m.to_script()
-        for m in movelist
-    )
-    assert re.match(r'(?!\d)\w*$', name)
-    assert len(name) <= 30
-    return reindent(f'''
-        def {name}():
-            {prelude}
-            {gripper_code(with_gripper)}
-            {body}
-            textmsg("log {name} done")
-        end
-    ''')
-
 @dataclass(frozen=True)
-class Robotarm:
+class URScript:
+    name: str
+    code: str
 
-    @staticmethod
-    def init(host: str, port: int, with_gripper: bool, quiet: bool = False) -> Robotarm:
-        quiet or print('connecting to robotarm...', end=' ')
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.connect((host, port))
-        quiet or print('connected!')
-        return Robotarm(with_gripper, sock, quiet)
-
-    @staticmethod
-    def init_noop(with_gripper: bool, quiet: bool = False) -> Robotarm:
-        return Robotarm(with_gripper, 'noop', quiet)
-
-    with_gripper: bool
-    sock: socket.socket | Literal['noop']
-    quiet: bool = False
-
-    def send(self, prog_str: str) -> Robotarm:
-        prog_bytes = prog_str.encode()
-        if self.sock == 'noop':
-            return self
-        # print(prog_str)
-        self.sock.sendall(prog_bytes)
-        return self
-
-    def recv(self) -> Iterator[bytes]:
-        if self.sock == 'noop':
-            raise RuntimeError
-        while True:
-            data = self.sock.recv(4096)
-            for m in re.findall(rb'[\x20-\x7e]*(?:log|fatal|program|assert|\w+exception|error|\w+_\w+:)[\x20-\x7e]*', data, re.IGNORECASE):
-                m = m.decode()
-                # self.quiet or print(f'{m = }')
-                print(f'{m = }')
-                if 'fatal' in m:
-                    self.sock.sendall('textmsg("log panic stop")\n'.encode())
-                    raise RuntimeError(m)
-            yield data
-
-    def recv_until(self, needle: str) -> None:
-        if self.sock == 'noop':
-            return
-        for data in self.recv():
-            if needle.encode() in data:
-                self.quiet or print(f'received {needle}')
-                return
-
-    def close(self) -> None:
-        if self.sock == 'noop':
-            return
-        self.sock.close()
-
-    def set_speed(self, value: int) -> Robotarm:
-        if not (0 < value <= 100):
-            raise ValueError
-        # The speed is set on the RTDE interface on port 30003:
-        self.send(reindent(f'''
-            sec set_speed():
-                socket_open("127.0.0.1", 30003)
-                socket_send_line("set speed {value/100}")
-                socket_close()
-                textmsg("log speed changed to {value}")
-            end
-        '''))
-        return self
-
-    def stop(self):
-        self.send('textmsg("log quit")\n')
-        self.recv_until('quit')
-
-    def execute_moves(self, movelist: list[Move], name: str='script', allow_partial_completion: bool=False) -> None:
-        name = name.replace('/', '_of_')
-        name = name.replace(' ', '_')
-        name = name.replace('-', '_')
+    @classmethod
+    def make(cls, *, name: str, code: str):
+        name = ''.join(c if c.isalnum() and c.isascii() else '_' for c in name)
+        if not name or name[0].isdigit():
+            name = f'x{name}'
         name = name[:30]
-        self.send(make_script(movelist, self.with_gripper, name=name))
-        if allow_partial_completion:
-            self.recv_until(f'PROGRAM_XXX_STOPPED{name}')
-        else:
-            self.recv_until(f'log {name} done')
+        assert len(name) <= 30
+        assert re.match(r'(?!\d)\w+$', name)
+        assert name.isascii()
+        code = reindent(code)
+        return cls(name=name, code=code)
 
+    # repackage
+    prelude: ClassVar = str(prelude)
+    gripper_code = staticmethod(gripper_code)
+    reindent = staticmethod(reindent)

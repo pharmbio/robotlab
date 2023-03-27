@@ -4,7 +4,6 @@ from dataclasses import *
 
 import contextlib
 
-from . import commands
 from .commands import *
 
 from .log import (
@@ -15,11 +14,8 @@ from .log import (
 
 from .runtime import RuntimeConfig, Runtime, simulate
 from . import commandlib
-from . import commands
-from . import constraints
 import pbutils
-from .moves import movelists, MoveList
-from . import moves
+from .moves import movelists
 from . import bioteks
 from . import bluewash
 from . import incubator
@@ -80,35 +76,22 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
                 runtime.thread_done()
 
         case RobotarmCmd():
-            with runtime.timeit(entry):
-                if runtime.config.ur_env.mode == 'noop':
-                    if cmd.program_name not in movelists:
-                        raise ValueError(f'Missing robotarm move {cmd.program_name}')
-                    if metadata.sim_delay:
-                        print(metadata.sim_delay)
-                    runtime.sleep(estimate(cmd) + (metadata.sim_delay or 0))
-                else:
-                    movelist = MoveList(movelists[cmd.program_name])
-                    with runtime.get_ur(include_gripper=movelist.has_gripper()) as arm:
-                        arm.execute_moves(movelist, name=cmd.program_name)
+            movelist = movelists.get(cmd.program_name)
+            if movelist is None:
+                raise ValueError(f'Missing robotarm move {cmd.program_name}')
+            with_gripper = movelist.has_gripper() and runtime.config.ur_env.mode != 'execute no gripper'
+            script = movelist.make_script(with_gripper=with_gripper, name=cmd.program_name)
+            for ur in runtime.time_resource_use(entry, runtime.ur):
+                ur.execute_script(script)
 
         case BiotekCmd():
-            with runtime.timeit(entry):
-                if metadata.sim_delay:
-                    runtime.sleep(metadata.sim_delay or 0)
-                bioteks.execute(runtime, entry, cmd.machine, cmd.protocol_path, cmd.action)
+            bioteks.execute(runtime, entry, cmd.machine, cmd.protocol_path, cmd.action)
 
         case BlueCmd():
-            with runtime.timeit(entry):
-                if metadata.sim_delay:
-                    runtime.sleep(metadata.sim_delay or 0)
-                bluewash.execute(runtime, entry, action=cmd.action, protocol_path=cmd.protocol_path)
+            bluewash.execute(runtime, entry, action=cmd.action, protocol_path=cmd.protocol_path)
 
-        case IncuCmd():
-            with runtime.timeit(entry):
-                if metadata.sim_delay:
-                    runtime.sleep(metadata.sim_delay or 0)
-                incubator.execute(runtime, entry, cmd.action, cmd.incu_loc)
+        case IncuCmd(action=action):
+            incubator.execute(runtime, entry, action, cmd.incu_loc)
 
         case WaitForResource():
             raise ValueError('Cannot execute WaitForResource, run Command.make_resource_checkpoints first')
@@ -139,46 +122,36 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
                     case 'leave_loading':
                         squid.leave_loading()
 
-        case FridgePutByBarcode():
+        case FridgeInsert():
             for fridge, barcode_reader in runtime.time_resource_use(entry, runtime.fridge_and_barcode_reader):
                 barcode = barcode_reader.read_and_clear()
                 if cmd.expected_barcode and cmd.expected_barcode != barcode:
                     raise ValueError(f'Plate has {barcode=!r} but expected {cmd.expected_barcode=!r}')
-                loc = FridgeDB
-                fridge.put(
-                slot, *_ = FridgeSlots.where(FridgeSlot.occupant == None)
-                next_cmd = FridgePut(loc=slot.loc, project=cmd.project, barcode=barcode)
+                fridge.insert(barcode, cmd.project)
 
-        case FridgePut():
-            [slot] = FridgeSlots.where(FridgeSlot.loc == cmd.loc)
-            assert slot.occupant is None
-            env.fridge.put(cmd.loc)
-            occupant = FridgeOccupant(project=cmd.project, barcode=cmd.barcode)
-            slot.replace(occupant=occupant).save(env.db)
+        case FridgeEject():
+            for fridge, barcode_reader in runtime.time_resource_use(entry, runtime.fridge_and_barcode_reader):
+                barcode_reader.clear()
+                fridge.eject(plate=cmd.plate, project=cmd.project)
+                runtime.sleep(1.0)
+                barcode = barcode_reader.read_and_clear()
+                if barcode != cmd.plate:
+                    raise ValueError(f'Plate has {barcode=!r} but expected {cmd.plate=!r}')
 
-        case FridgeGetByBarcode():
-            occupant = FridgeOccupant(project=cmd.project, barcode=cmd.barcode)
-            [slot] = FridgeSlots.where(FridgeSlot.occupant == occupant)
-            return execute_one(FridgeGet(slot.loc, check_barcode=True), env)
-
-        case FridgeGet():
-            [slot] = FridgeSlots.where(FridgeSlot.loc == cmd.loc)
-            assert slot.occupant is not None
-            env.fridge.get(cmd.loc)
-            if cmd.check_barcode and not env.is_sim:
-                # check that the popped plate has the barcode we thought was in the fridge
-                barcode = env.barcode_reader.read_and_clear()
-                assert slot.occupant.barcode == barcode
-            slot.replace(occupant=None).save(env.db)
-
-        case FridgeCmd():
-            env.fridge.action(cmd.action)
+        case FridgeCmd(action=action):
+            for fridge in runtime.time_resource_use(entry, runtime.fridge):
+                match action:
+                    case 'get_status':
+                        fridge.get_status()
+                    case 'reset_and_activate':
+                        fridge.reset_and_activate()
 
         case BarcodeClear():
-            env.barcode_reader.clear()
+            for barcode_reader in runtime.time_resource_use(entry, runtime.barcode_reader):
+                barcode_reader.clear()
 
         case _:
-            raise ValueError(cmd)
+            raise ValueError(f'Unknown command {cmd}')
 
     if effect := cmd.effect():
         runtime.apply_effect(effect, entry)

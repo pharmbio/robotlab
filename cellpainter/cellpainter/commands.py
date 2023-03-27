@@ -789,59 +789,7 @@ class FridgeABC(PhysicalCommand, abc.ABC):
         return 'fridge'
 
 @dataclass(frozen=True)
-class FridgePlate:
-    project: str = ""
-    barcode: str = ""
-
-class FridgeDB(DBMixin):
-    contents: dict[str, FridgePlate]
-    id: int = -1
-
-    def get_by_loc(self, loc: str) -> FridgePlate | None:
-        return self.get(loc)
-
-    def get_loc(self, plate: FridgePlate) -> str | None:
-        for k, v in self.contents.items():
-            if v == plate:
-                return k
-        return None
-
-    def insert(self, loc: str, plate: FridgePlate) -> FridgeDB:
-        # lock?
-        return self.replace({**self.contents, loc: plate})
-
-    def eject(self, loc: str) -> FridgeDB:
-        # lock?
-        contents = self.contents.copy()
-        contents = contents.pop(loc)
-        return self.replace(contents)
-
-@dataclass(frozen=True)
-class FridgeGetByBarcode(FridgeABC):
-    plate: FridgePlate
-
-    def normalize(self):
-        return FridgeGet('', check_barcode=False)
-
-@dataclass(frozen=True)
-class FridgeGet(FridgeABC):
-    loc: str
-    # check that the popped plate has the barcode we thought was in the fridge
-    # using the fridge database and the barcode reader
-    check_barcode: bool = False
-
-    def normalize(self):
-        return FridgeGet('', check_barcode=False)
-
-@dataclass(frozen=True)
-class FridgePut(FridgeABC):
-    loc: str
-    plate: FridgePlate
-    def normalize(self):
-        return FridgePut('', FridgePlate())
-
-@dataclass(frozen=True)
-class FridgePutByBarcode(FridgeABC):
+class FridgeInsert(FridgeABC):
     '''
     Puts a plate with a known project on some empty location using the barcode reader
     '''
@@ -849,7 +797,15 @@ class FridgePutByBarcode(FridgeABC):
     expected_barcode: str | None = None
 
     def normalize(self):
-        return FridgePut('', FridgePlate())
+        return FridgeInsert('')
+
+@dataclass(frozen=True)
+class FridgeEject(FridgeABC):
+    plate: str
+    project: str
+
+    def normalize(self):
+        return FridgeEject('', '')
 
 @dataclass(frozen=True)
 class FridgeCmd(FridgeABC):

@@ -1,16 +1,15 @@
 from threading import Thread
 import time
-
 import labrobots
 
 def server():
     labrobots.Example().serve()
 
-def main():
+def test_e2e():
     s = Thread(target=server, daemon=True)
     s.start()
 
-    time.sleep(1)
+    time.sleep(0.3)
 
     ex = labrobots.Example().remote()
     res = ex.echo.echo('1', '2', three=4)
@@ -25,4 +24,4 @@ def main():
     print('success!')
 
 if __name__ == '__main__':
-    main()
+    test_e2e()

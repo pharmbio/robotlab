@@ -7,7 +7,7 @@ from typing import *
 import threading
 import time
 
-from .machine import Machine
+from .machine import Machine, Log
 
 class BiotekResult(TypedDict):
     success: bool
@@ -17,7 +17,7 @@ class BiotekResult(TypedDict):
 class Biotek(Machine):
     name: str
     args: List[str] = field(default_factory=list)
-    input_queue: 'Queue[Tuple[str, Callable[..., None], Queue[Any]]]' = field(default_factory=Queue)
+    input_queue: 'Queue[Tuple[str, Log, Queue[Any]]]' = field(default_factory=Queue)
 
     def init(self):
         threading.Thread(target=self._handler, daemon=True).start()
@@ -41,7 +41,7 @@ class Biotek(Machine):
                 msg = cmd + ' ' + arg
             else:
                 msg = cmd
-            self.input_queue.put((msg, self.log_handle(), reply_queue))
+            self.input_queue.put((msg, self.log, reply_queue))
             return reply_queue.get()
 
     def _handler(self):
@@ -60,7 +60,7 @@ class Biotek(Machine):
             assert stdin
             assert stdout
 
-            def read_until_ready(t0: float, log: Callable[..., None]) -> list[str]:
+            def read_until_ready(t0: float, log: Log) -> list[str]:
                 lines: List[str] = []
                 while True:
                     exc = p.poll()

@@ -3,7 +3,7 @@ from dataclasses import *
 from typing import *
 
 from .runtime import Runtime
-from .log import Metadata, CommandWithMetadata
+from .log import CommandWithMetadata
 
 def execute(
     runtime: Runtime,
@@ -14,24 +14,20 @@ def execute(
     '''
     Run the incubator.
     '''
-    if runtime.incu is None:
-        est = entry.metadata.est
-        assert isinstance(est, float)
-        runtime.sleep(est)
-    else:
+    for incu in runtime.time_resource_use(entry, runtime.incu):
         try:
             if action == 'put':
                 assert incu_loc is not None
-                runtime.incu.put(incu_loc)
+                incu.put(incu_loc)
             elif action == 'get':
                 assert incu_loc is not None
-                runtime.incu.get(incu_loc)
+                incu.get(incu_loc)
             elif action == 'get_status':
                 assert incu_loc is None
-                runtime.incu.get_status()
+                incu.get_status()
             elif action == 'reset_and_activate':
                 assert incu_loc is None
-                runtime.incu.reset_and_activate()
+                incu.reset_and_activate()
             else:
                 raise ValueError('Incubator {action=} not supported')
         except BaseException as e:

@@ -79,50 +79,58 @@ class ResourceLock:
         finally:
             self.rlock.release()
 
-def make_log_handle(name: str, xs: List[str] | None = None):
-    with sqlite3.connect('io.db') as con:
-        con.executescript('''
-            pragma synchronous=OFF;
-            pragma journal_mode=WAL;
-            create table if not exists io (
-                t     timestamp default (strftime('%Y-%m-%d %H:%M:%f', 'now', 'localtime')),
-                name  text,
-                id    int,
-                data  json
-            );
-            create index if not exists io_name_id on io(name, id);
-        ''')
-    id: None | int = None
-    def log(*args: Any, **kwargs: Any):
-        nonlocal id
-        msg = ' '.join(map(str, args))
-        if msg:
-            print(f'{name}:', msg)
-            if xs is not None:
-                xs.append(msg)
-        with sqlite3.connect('io.db', isolation_level=None) as con:
+@dataclass(frozen=True)
+class Log:
+    _log: Callable[..., None]
+    def __call__(self, *args, **kwargs):
+        self._log(*args, **kwargs)
+
+    @classmethod
+    def make(cls, name: str, xs: List[str] | None = None, stdout: bool=True) -> Log:
+        with sqlite3.connect('io.db') as con:
             con.executescript('''
                 pragma synchronous=OFF;
                 pragma journal_mode=WAL;
+                create table if not exists io (
+                    t     timestamp default (strftime('%Y-%m-%d %H:%M:%f', 'now', 'localtime')),
+                    name  text,
+                    id    int,
+                    data  json
+                );
+                create index if not exists io_name_id on io(name, id);
             ''')
+        id: None | int = None
+        def log(*args: Any, **kwargs: Any):
+            nonlocal id
+            msg = ' '.join(map(str, args))
             if msg:
-                data = {'msg': msg, **kwargs}
-            else:
-                data = kwargs
-            needs_commit = False
-            if id is None:
-                con.execute('begin exclusive')
-                [id] = con.execute('select ifnull(max(id) + 1, 0) from io where name = ?', [name]).fetchone()
-                needs_commit = True
-            con.execute(
-                'insert into io (name, id, data) values (?, ?, json(?));',
-                [name, id, try_json_dumps(data)],
-            )
-            if needs_commit:
-                con.execute('commit')
-    return log
+                if stdout:
+                    print(f'{name}:', msg)
+                if xs is not None:
+                    xs.append(msg)
+            with sqlite3.connect('io.db', isolation_level=None) as con:
+                con.executescript('''
+                    pragma synchronous=OFF;
+                    pragma journal_mode=WAL;
+                ''')
+                if msg:
+                    data = {'msg': msg, **kwargs}
+                else:
+                    data = kwargs
+                needs_commit = False
+                if id is None:
+                    con.execute('begin exclusive')
+                    [id] = con.execute('select ifnull(max(id) + 1, 0) from io where name = ?', [name]).fetchone()
+                    needs_commit = True
+                con.execute(
+                    'insert into io (name, id, data) values (?, ?, json(?));',
+                    [name, id, try_json_dumps(data)],
+                )
+                if needs_commit:
+                    con.execute('commit')
+        return Log(log)
 
-system_default_log = make_log_handle('system')
+system_default_log = Log.make('system')
 
 @dataclass(frozen=False)
 class Cell(Generic[A]):
@@ -133,13 +141,14 @@ class Cell(Generic[A]):
 
 @dataclass(frozen=True, kw_only=True)
 class Machine:
-    log_cell: Cell[Callable[..., None]] = field(default_factory=lambda: Cell(Machine.default_log), repr=False)
+    log_cell: Cell[Log] = field(default_factory=lambda: Cell(Machine.default_log), repr=False)
     resource_lock: ResourceLock = field(default_factory=ResourceLock, repr=False)
 
     def init(self):
         pass
 
-    def log(self, *args: Any, **kwargs: Any):
+    @property
+    def log(self) -> Log:
         '''
         Make a log message.
 
@@ -170,14 +179,9 @@ class Machine:
 
         If there are no positional arguments it is not printed to stdout nor included in the http response.
         '''
-        self.log_handle()(*args, **kwargs)
-
-    def log_handle(self) -> Callable[..., None]:
         return getattr(flask.g, 'log', self.default_log)
 
-    @staticmethod
-    def default_log(*args: Any, **kwargs: Any):
-        system_default_log(*args, **kwargs)
+    default_log: ClassVar[Log] = system_default_log
 
     @contextmanager
     def atomic(self):
@@ -218,7 +222,7 @@ class Machine:
 
         def call(cmd: str, *args: Any, **kwargs: Any):
             xs: List[str] = []
-            flask.g.log = make_log_handle(name, xs)
+            flask.g.log = Log.make(name, xs)
             data = dict(cmd=cmd, args=args) | kwargs
             sig = make_sig(cmd, *args, **kwargs)
             self.log(sig, **data, type='call')
@@ -395,8 +399,11 @@ class Machines:
             print('    ' + k + ':', v)
 
         app = Flask(__name__)
-        app.config['JSONIFY_PRETTYPRINT_REGULAR'] = True # type: ignore
-        app.config['JSON_SORT_KEYS'] = False             # type: ignore
+        app.json.compact = False    # type: ignore
+        app.json.sort_keys = False  # type: ignore
+        # # The deprecated configs:
+        # app.config['JSONIFY_PRETTYPRINT_REGULAR'] = True # type: ignore
+        # app.config['JSON_SORT_KEYS'] = False             # type: ignore
 
         for name, m in self.items():
             m.init()

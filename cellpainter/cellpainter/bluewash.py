@@ -4,7 +4,7 @@ from typing import *
 
 from .runtime import Runtime
 
-from .log import CommandWithMetadata, Metadata
+from .log import CommandWithMetadata
 from .commands import BlueWashAction
 
 def execute(
@@ -13,31 +13,25 @@ def execute(
     action: BlueWashAction,
     protocol_path: str | None,
 ):
-    bluewash = runtime.blue
-    if bluewash is None:
-        est = entry.metadata.est
-        assert isinstance(est, float)
-        runtime.sleep(est)
-        res: list[str] | None = []
-    else:
+    for blue in runtime.time_resource_use(entry, runtime.blue):
         match action:
             case 'Run':
                 assert isinstance(protocol_path, str)
-                res = bluewash.Run(*protocol_path.split('/'))
+                res = blue.Run(*protocol_path.split('/'))
             case 'Validate':
                 assert isinstance(protocol_path, str)
-                res = bluewash.Validate(*protocol_path.split('/'))
+                res = blue.Validate(*protocol_path.split('/'))
             case 'RunValidated':
                 assert isinstance(protocol_path, str)
-                res = bluewash.RunValidated(*protocol_path.split('/'))
+                res = blue.RunValidated(*protocol_path.split('/'))
             case 'TestCommunications':
                 assert protocol_path is None
-                res = bluewash.TestCommunications()
+                res = blue.TestCommunications()
             case 'reset_and_activate':
-                res = bluewash.init_all()
+                res = blue.init_all()
             case 'get_working_plate':
-                res = bluewash.get_working_plate()
+                res = blue.get_working_plate()
             case _: # type: ignore
                 raise ValueError(f'No such bluewash {action=}')
 
-    res # bluewash raises error if error, otherwise everything OK
+        res # bluewash raises error if error, otherwise everything OK

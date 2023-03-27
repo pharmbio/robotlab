@@ -62,14 +62,8 @@ def execute(
         biotek = runtime.disp
     else:
         raise ValueError(f'No such biotek {machine=}')
-    while True:
-        if biotek is None:
-            est = entry.metadata.est
-            if not isinstance(est, float | int):
-                raise ValueError(f'No biotek estimate {est=} {entry=}')
-            runtime.sleep(est)
-            res: Any = {"success":True, "lines":[]}
-        else:
+    for biotek in runtime.time_resource_use(entry, biotek):
+        while True:
             match action:
                 case 'Run':
                     assert isinstance(protocol_path, str)
@@ -85,14 +79,14 @@ def execute(
                     res = biotek.TestCommunications()
                 case _: # type: ignore
                     raise ValueError(f'No such biotek {action=}')
-        success: bool = res.get('success', False)
-        lines: list[str] = res.get('lines', [])
-        details = '\n'.join(lines)
-        if success:
-            break
-        elif 'Error code: 6061' in details:
-            runtime.log(entry.message(msg=f'{machine}: {details}'))
-            runtime.log(entry.message(msg=f'{machine} got error code 6061, retrying...'))
-        else:
-            runtime.log(entry.message(f'{machine}: {details}', is_error=True))
-            raise ValueError(res)
+            success: bool = res.get('success', False)
+            lines: list[str] = res.get('lines', [])
+            details = '\n'.join(lines)
+            if success:
+                break
+            elif 'Error code: 6061' in details:
+                runtime.log(entry.message(msg=f'{machine}: {details}'))
+                runtime.log(entry.message(msg=f'{machine} got error code 6061, retrying...'))
+            else:
+                runtime.log(entry.message(f'{machine}: {details}', is_error=True))
+                raise ValueError(res)

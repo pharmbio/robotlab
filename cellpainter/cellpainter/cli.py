@@ -230,13 +230,11 @@ def main_with_args(args: Args, parser: argparse.ArgumentParser | None=None):
             log_path.unlink(missing_ok=True)
 
         execute.execute_program(config, p, [em, p.metadata], sim_delays=parse_sim_delays(args))
-        # if p.metadata.program == 'time-bioteks' and config.name == 'live':
-        #     estimates.add_estimates_from('estimates.json', log)
 
     elif args.robotarm_send:
         runtime = config.make_runtime()
-        with runtime.get_ur() as arm:
-            arm.execute_moves([moves.RawCode(args.robotarm_send)], name='raw')
+        assert runtime.ur
+        runtime.ur.execute_moves([moves.RawCode(args.robotarm_send)], name='raw')
 
     elif args.list_robotarm_programs:
         for name in movelists.keys():

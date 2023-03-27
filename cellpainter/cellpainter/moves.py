@@ -11,6 +11,8 @@ import re
 import pbutils
 from pbutils.mixins import DBMixin
 
+from .ur_script import URScript
+
 class Move(abc.ABC):
     def to_dict(self) -> dict[str, Any]:
         res = pbutils.to_json(self)
@@ -268,6 +270,22 @@ class MoveList(list[Move]):
             open=open,
             after_drop=after_drop,
         )
+
+    def make_script(self, with_gripper: bool, name: str='script') -> URScript:
+        body = '\n'.join(
+            ("# " + getattr(m, 'name') + '\n' if hasattr(m, 'name') else '')
+            + m.to_script()
+            for m in self
+        )
+        code = f'''
+            def {name}():
+                {URScript.prelude}
+                {URScript.gripper_code(with_gripper)}
+                {body}
+                textmsg("log {name} done")
+            end
+        '''
+        return URScript.make(name=name, code=code)
 
 @dataclass(frozen=True)
 class MoveListParts:
