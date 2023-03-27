@@ -3,6 +3,7 @@ from typing import *
 
 from pathlib import Path
 from ftplib import FTP
+from pprint import pp
 import io
 import os
 import shlex
@@ -15,6 +16,7 @@ def ftp_store(ftp: FTP, filename: str, data: bytes):
 def flash(fifo_file: str='pf23.fifo', host: str=DEFAULT_HOST, port: int | str=23):
     if isinstance(port, str):
         port = int(port)
+    pp(locals())
     fifo_path = Path(fifo_file)
     if fifo_path.exists() and not fifo_path.is_fifo():
         raise ValueError(f'{fifo_path} exists but is not a fifo.')
