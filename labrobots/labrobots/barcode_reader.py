@@ -19,23 +19,23 @@ class BarcodeReader(Machine):
         Thread(target=self._scanner_thread, daemon=True).start()
 
     def _scanner_thread(self):
-        log = make_log_handle('barcode')
+        self_log = make_log_handle('barcode')
         scanner: Any = Serial(self.com_port, timeout=60)
-        log('using com_port', self.com_port)
+        self_log('using com_port', self.com_port)
         while True:
             try:
                 b: bytes = scanner.read_until(b'\r')
                 line = b.decode('ascii')
             except Exception as e:
                 self.current_barcode.value = str(e)
-                lines = traceback.format_exc().splitlines(keepends=False)
-                for line in lines:
-                    log(line)
+                err_lines = traceback.format_exc().splitlines(keepends=False)
+                for err_line in err_lines:
+                    self_log('error:', err_line, err_line=err_line)
                 continue
             line = line.strip()
             if line:
                 self.current_barcode.value = line
-                log(f'recv({line!r})', line=line)
+                self_log(f'barcode.read() = {line!r}', line=line)
 
     def read(self):
         return self.current_barcode.value

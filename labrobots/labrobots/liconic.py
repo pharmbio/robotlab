@@ -14,6 +14,7 @@ class STX(Machine):
     id: str = "STX"
     host: str = "localhost"
     port: int = 3333
+    mode: Literal['noop', 'execute'] = 'execute'
 
     def call(self, command_name: str, *args: Union[str, float, int]):
         '''
@@ -25,28 +26,23 @@ class STX(Machine):
         csv_args = ",".join(str(arg) for arg in args)
         return self._send(f'{command_name}({csv_args})')
 
-    def _send(self, cmd: str) -> str:
+    def _send(self, line: str) -> str:
         with self.atomic():
-            RECEIVE_BUFFER_SIZE = 8192 # Also max response length since we are not looping response if buffer gets full
+            msg = line.strip().encode('ascii') + b'\r'
+            self.log(f'stx.write({msg!r})')
 
-            cmd_as_bytes = (cmd + '\r').encode("ascii")
+            if self.mode == 'execute':
+                with socket.create_connection((self.host, self.port), timeout=5) as s:
+                    s.sendall(msg)
+                    reply_bytes = s.recv(8192) # replies are only a few bytes
+            elif self.mode == 'noop':
+                reply_bytes = b'1\r\n'
+            else:
+                raise ValueError('Invalid {self.mode=!r}')
 
-            # send and recieve
-            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            s.connect((self.host, self.port))
-            s.sendall(cmd_as_bytes)
-            self.log("sent", cmd_as_bytes)
-            received = s.recv(RECEIVE_BUFFER_SIZE)
-            self.log("received", repr(received))
-            s.close()
-
-            # decode recieved byte array to ascii
-            response = received.decode('ascii')
-            response = response.strip()
-
-            self.log("response", response)
-
-            return response
+            self.log(f'stx.read() = {reply_bytes!r}')
+            reply = reply_bytes.decode('ascii').strip()
+            return reply
 
     def _parse_pos(self, pos: str) -> Tuple[int, int]:
         if pos[0] == "L":
@@ -187,6 +183,8 @@ class FridgeSlot(TypedDict):
     plate: str
     project: str
 
+empty_slot = FridgeSlot(plate='', project='')
+
 FridgeSlots = dict[str, FridgeSlot]
 
 @dataclass(frozen=True)
@@ -248,55 +246,65 @@ class Fridge(STX):
         '''
         with self._get_db() as db:
             db_current = db.read()
+            current = db.normalize(current)
             if bypass_db_check:
                 pass
-            else:
-                assert db.normalize(db_current) == db.normalize(current)
+            elif db_current != current:
+                raise ValueError('Current value mismatch: {db_current=} != {current=}')
             db.write(next)
             return next
 
-    def add_capacity(self, loc: str) -> tuple[str, FridgeSlot]:
+    def add_capacity(self, locs: list[str]):
         '''
-        Makes sure the location is registered in the fridge database,
+        Makes sure the locations are registered in the fridge database,
         adding a new entry to an empty slot if necessary.
         '''
         with self._get_db() as db:
-            if slot := db.get_by_loc(loc):
-                return loc, slot
-            else:
-                slot = FridgeSlot(plate='', project='')
-                db[loc] = slot
-                return loc, slot
+            for loc in locs:
+                if db.get_by_loc(loc) is None:
+                    db[loc] = empty_slot
 
-    def insert(self, plate: str, project: str, loc: str | None=None, bypass_db_check: bool=False) -> FridgeSlot:
+    def insert(self, plate: str, project: str) -> tuple[str, FridgeSlot]:
         '''
-        Inserts a plate on either some empty location or a location specified as argument.
+        Inserts a plate on either some empty location.
 
         Returns info about the plate and the new location, or raises an error if it was not possible to complete the action.
         '''
         with self.atomic():
             with self._get_db() as db:
-                if loc:
-                    slot = db.get_by_loc(loc)
-                    if not slot:
-                        raise ValueError('No slot with {loc=}')
-                else:
-                    loc_slot = db.get_empty()
-                    if not loc_slot:
-                        raise ValueError('No empty slot')
-                    loc, slot = loc_slot
-                if bypass_db_check:
-                    pass
-                else:
-                    if slot['plate'] or slot['project']:
-                        raise ValueError('Target slot not empty {slot=}')
-                slot = FridgeSlot(plate=plate, project=project)
+                loc_slot = db.get_empty()
+                if not loc_slot:
+                    raise ValueError('No empty slot')
+                loc, _old_slot = loc_slot
 
             self.put(loc)
 
             with self._get_db() as db:
+                slot = FridgeSlot(plate=plate, project=project)
                 db[loc] = slot
-                return slot
+                return loc, slot
+
+    def insert_by_loc(self, loc: str, plate: str, project: str) -> tuple[str, FridgeSlot]:
+        '''
+        Inserts a plate on a location specified as argument.
+
+        Returns info about the plate and the new location, or raises an error if it was not possible to complete the action.
+        '''
+        with self.atomic():
+            with self._get_db() as db:
+                old_slot = db.get_by_loc(loc)
+                if not old_slot:
+                    raise ValueError('No slot with {loc=}')
+                if old_slot['plate'] or old_slot['project']:
+                    raise ValueError('Target slot not empty {slot=}')
+
+            self.put(loc)
+
+            with self._get_db() as db:
+                slot = FridgeSlot(plate=plate, project=project)
+                db[loc] = slot
+                return loc, slot
+
 
     def eject(self, plate: str, project: str) -> tuple[str, FridgeSlot]:
         '''
@@ -312,9 +320,11 @@ class Fridge(STX):
                 loc, slot = loc_slot
             return self._eject(loc, slot)
 
-    def eject_by_loc(self, loc: str, bypass_db_check: bool=False) -> tuple[str, FridgeSlot]:
+    def eject_by_loc(self, loc: str) -> tuple[str, FridgeSlot]:
         '''
         Ejects a plate given a location. The database will be consulted if the location contains a plate (unless using the bypass check argument).
+
+        To eject without checking the DB use the method name get.
 
         Returns info about the plate and the old location, or raises an error if it was not possible to complete the action.
         '''
@@ -323,11 +333,8 @@ class Fridge(STX):
                 slot = db.get_by_loc(loc)
                 if not slot:
                     raise ValueError('No slot with {loc=}')
-                if bypass_db_check:
-                    pass
-                else:
-                    if not slot['plate']:
-                        raise ValueError('Target slot empty {slot=}')
+                if not slot['plate']:
+                    raise ValueError('Target slot empty {slot=}')
             return self._eject(loc, slot)
 
     def _eject(self, loc: str, slot: FridgeSlot) -> tuple[str, FridgeSlot]:
@@ -338,31 +345,84 @@ class Fridge(STX):
                 db[loc] = empty_slot
                 return loc, slot
 
-def test_fridge_db():
+@contextlib.contextmanager
+def get_test_fridge():
     import tempfile
-    with tempfile.NamedTemporaryFile(suffix='.db', prefix='fridge') as tmp:
-        fridge = Fridge(fridge_db=tmp.name)
-        fridge.add_capacity('1x1')
-        fridge.add_capacity('1x2')
-        empty = FridgeSlot(plate='', project='')
-        assert fridge.contents() == {'1x1': empty, '1x2': empty}
-        with fridge._get_db() as db: # type: ignore
-            plate1 = FridgeSlot(plate='PB1701', project='ambi-40k')
-            plate2 = FridgeSlot(plate='PB1703', project='ambi-40k')
-            assert db.get_empty() == ('1x1', empty)
-            db['1x1'] = plate1
-            assert db.get_empty() == ('1x2', empty)
-            db['1x2'] = plate2
-            assert db.get_empty() is None
-            assert db['1x1'] == plate1
-            assert db['1x2'] == plate2
-            assert db.get_by_plate_project(plate1['plate'], plate1['project']) == ('1x1', plate1)
-            assert db.get_by_plate_project(plate2['plate'], plate2['project']) == ('1x2', plate2)
-        assert fridge.contents() == {'1x1': plate1, '1x2': plate2}
-        fridge.rewrite_contents({'1x1': plate1, '1x2': plate2}, {'1x1': {'plate': '', 'project': ''}, '1x2': plate2})
-        with fridge._get_db() as db: # type: ignore
-            assert db.get_empty() == ('1x1', empty)
-            assert db['1x1'] == empty
-            assert db['1x2'] == plate2
-            assert db.get_by_plate_project(plate1['plate'], plate1['project']) is None
-            assert db.get_by_plate_project(plate2['plate'], plate2['project']) == ('1x2', plate2)
+    from flask import Flask
+    from pathlib import Path
+    app = Flask(__name__) # need a test context for .log to work with Machines
+    with app.test_request_context():
+        with tempfile.TemporaryDirectory(prefix='fridge-') as tmpdir:
+            fridge_db=str(Path(tmpdir)/'fridge.db')
+            yield Fridge(fridge_db=fridge_db, mode='noop')
+
+def test_fridge():
+    import pytest
+    with get_test_fridge() as fridge:
+        fridge.add_capacity(['1x1', '1x2'])
+        assert fridge.contents() == {'1x1': empty_slot, '1x2': empty_slot}
+
+        slot1 = FridgeSlot(plate=(plate1 := 'PB1701'), project=(project1 := 'ambi-40k'))
+        slot2 = FridgeSlot(plate=(plate2 := 'PB1703'), project=(project2 := 'ambi-40k'))
+
+        loc, slot = fridge.insert(plate1, project1)
+        assert loc == '1x1'
+        assert slot == slot1
+        assert fridge.contents() == {'1x1': slot1, '1x2': empty_slot}
+
+        loc, slot = fridge.insert(plate2, project2)
+        assert loc == '1x2'
+        assert slot == slot2
+        assert fridge.contents() == {'1x1': slot1, '1x2': slot2}
+
+        with pytest.raises(ValueError):
+            # full
+            loc, slot = fridge.insert('PB1705', 'ambi-40k')
+
+        loc, slot = fridge.eject(plate1, project1)
+        assert loc == '1x1'
+        assert slot == slot1
+        assert fridge.contents() == {'1x1': empty_slot, '1x2': slot2}
+
+        loc, slot = fridge.eject_by_loc('1x2')
+        assert loc == '1x2'
+        assert slot == slot2
+        assert fridge.contents() == {'1x1': empty_slot, '1x2': empty_slot}
+
+        with pytest.raises(ValueError):
+            # loc empty
+            loc, slot = fridge.eject_by_loc('1x2')
+
+        with pytest.raises(ValueError):
+            # no such loc
+            loc, slot = fridge.eject_by_loc('41x2')
+
+        with pytest.raises(ValueError):
+            # no such plate
+            loc, slot = fridge.eject(plate1, project1)
+
+        loc, slot = fridge.insert_by_loc('1x1', plate1, project1)
+        assert loc == '1x1'
+        assert slot == slot1
+        assert fridge.contents() == {'1x1': slot1, '1x2': empty_slot}
+
+        with pytest.raises(ValueError):
+            # loc taken
+            loc, slot = fridge.insert_by_loc('1x1', plate1, project1)
+
+        with pytest.raises(ValueError):
+            # no such loc
+            loc, slot = fridge.insert_by_loc('41x1', plate1, project1)
+
+        fridge.rewrite_contents(
+            current=fridge.contents(),
+            next={'1x1': slot1, '1x2': slot2}
+        )
+        assert fridge.contents() == {'1x1': slot1, '1x2': slot2}
+
+        with pytest.raises(ValueError):
+            # wrong current
+            fridge.rewrite_contents(
+                current={},
+                next={'1x1': slot1, '1x2': slot2}
+            )

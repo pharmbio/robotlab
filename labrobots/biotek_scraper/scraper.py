@@ -15,10 +15,10 @@ def mkdir(p):
     if not p.exists():
         p.mkdir(parents=True)
 
-dest_path = Path(r"C:\pharmbio\scratch")
-mkdir(dest_path)
-
 def save(filename):
+    dest_path = Path(r"C:\pharmbio\scratch")
+    mkdir(dest_path)
+
     os.chdir(Path(lhc_bin).parent)
 
     LHC_NAME = filename.name

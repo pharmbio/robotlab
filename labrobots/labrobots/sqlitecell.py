@@ -12,6 +12,32 @@ A = TypeVar('A')
 
 @dataclass(frozen=True)
 class SqliteCell(Generic[A]):
+    """
+    A class that provides a wrapper around a SQLite database cell that stores
+    JSON-serialized data in a specific table with a unique key. The class
+    provides methods to read and write the data, as well as retrieve the
+    log of changes made to the data.
+
+    The class is defined as a generic class with a type parameter A that
+    indicates the type of data stored in the cell.  The class has four
+    attributes:
+
+    con: A SQLite database connection object.
+
+    table: The name of the table in the database where the cell is stored.
+
+    key: The unique key that identifies the cell within the table.
+
+    default: The default value to use for the cell if it has not been initialized.
+
+    In the __post_init__ method, the cell is initialized by creating the
+    table if it does not exist and inserting the default value if the cell
+    has not been initialized.
+
+    Use the exclusive method to acquire an exclusive lock on the cell to
+    prevent other processes from accessing or modifying it while it is
+    being updated.
+    """
     con: sqlite3.Connection
     table: str
     key: str
@@ -105,19 +131,21 @@ def test_memory():
 
 def test_file():
     import tempfile
-    with tempfile.NamedTemporaryFile(suffix='.db') as tmp:
-        with contextlib.closing(sqlite3.connect(tmp.name)) as con:
+    from pathlib import Path
+    with tempfile.TemporaryDirectory(prefix='sqlitecell-') as tmpdir:
+        db_name=str(Path(tmpdir)/'cell.db')
+        with contextlib.closing(sqlite3.connect(db_name)) as con:
             with con:
                 cell = SqliteCell(con, 'Data', 'test', 0)
                 cell.write(1)
                 assert cell.read() == 1
-        with contextlib.closing(sqlite3.connect(tmp.name)) as con:
+        with contextlib.closing(sqlite3.connect(db_name)) as con:
             with con:
                 cell = SqliteCell(con, 'Data', 'test', 0)
                 assert cell.read() == 1
                 cell.write(2)
                 assert cell.read() == 2
-        with contextlib.closing(sqlite3.connect(tmp.name)) as con:
+        with contextlib.closing(sqlite3.connect(db_name)) as con:
             with con:
                 cell = SqliteCell(con, 'Data', 'test', 0)
                 assert cell.read() == 2
