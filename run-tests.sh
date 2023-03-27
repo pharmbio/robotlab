@@ -6,5 +6,6 @@ set -o pipefail
 ( cd labrobots; pytest )
 ( cd pbutils; pytest; )
 ( cd viable; pytest; )
+( cd cellpainter; pytest; )
 python gui-tests.py
 ( cd cellpainter; ./cli-tests.sh )

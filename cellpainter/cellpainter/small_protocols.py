@@ -1,27 +1,7 @@
 from __future__ import annotations
 from typing import *
 from dataclasses import *
-
-from .commands import (
-    Program,               # type: ignore
-    Command,               # type: ignore
-    Fork,                  # type: ignore
-    Meta,                  # type: ignore
-    Checkpoint,            # type: ignore
-    Duration,              # type: ignore
-    Idle,                  # type: ignore
-    Seq,                   # type: ignore
-    WashCmd,               # type: ignore
-    DispCmd,               # type: ignore
-    IncuCmd,               # type: ignore
-    BlueCmd,               # type: ignore
-    BiotekCmd,             # type: ignore
-    ValidateThenRun,       # type: ignore
-    RobotarmCmd,           # type: ignore
-    WaitForCheckpoint,     # type: ignore
-    WaitForResource,       # type: ignore
-    Max, Min,              # type: ignore
-)
+from .commands import *
 
 from .moves import World
 from . import moves
@@ -124,7 +104,7 @@ def test_comm(_: SmallProtocolArgs):
     '''
     Test communication with robotarm, washer, dispenser and incubator.
     '''
-    return Program(protocol.test_comm_program().add(Metadata(gui_force_show=True)))
+    return Program(protocol.program_test_comm().add(Metadata(gui_force_show=True)))
 
 @small_protocols.append
 def test_circuit(args: SmallProtocolArgs):
@@ -291,7 +271,7 @@ def measure_liquids(args: SmallProtocolArgs):
 
     cmds = [
         Checkpoint('start'),
-        protocol.test_comm_program(with_incu=False, with_blue=True),
+        protocol.program_test_comm(with_incu=False, with_blue=True),
         *cmds,
         Duration('start', Min(1)),
     ]
@@ -730,8 +710,11 @@ def fill_estimates(cmd: Command):
                 # print(i, est)
 
 
-@small_protocols.append
+# @small_protocols.append
 def example(args: SmallProtocolArgs):
+    '''
+    Example prepared for presentation for BRICs
+    '''
     args.params
     params = [int(p) for p in args.params if p.isdigit()]
     time_pfa, *_ = [*params, 15]
@@ -822,6 +805,112 @@ def example(args: SmallProtocolArgs):
     cmd = Seq(*cmds)
     fill_estimates(cmd)
     return Program(cmd)
+
+def squid_from_hotel(args: SmallProtocolArgs) -> Program:
+    '''
+
+        Images the plate at H12. Params are:
+
+        protocol, project, plate
+
+    '''
+    cmds: list[Command] = []
+    config_path, project, plate = args.params
+    cmds += [
+        WithLock('Squid', [
+            WithLock('PF and Fridge', [
+                SquidStageCmd('goto_loading'),
+                PFCmd('H12-to-squid'),
+            ]),
+            SquidStageCmd('leave_loading'),
+            SquidAcquire(config_path, project=project, plate=plate),
+            WithLock('PF and Fridge', [
+                SquidStageCmd('goto_loading'),
+                PFCmd('squid-to-H12'),
+            ]),
+            SquidStageCmd('leave_loading'),
+        ])
+    ]
+    return Program(Seq(*cmds))
+
+def load_fridge(args: SmallProtocolArgs) -> Program:
+    '''
+
+        Loads --num-plates from hotel to fridge.
+
+        Specify the project of the plates in params[0].
+
+    '''
+    cmds: list[Command] = []
+    project, *_ = args.params
+    for i in range(args.num_plates):
+        assert i+1 <= 12
+        cmds += [
+            BarcodeClear(),
+            PFCmd(f'H{i+1}-to-fridge'),
+            FridgeInsert(project),
+        ]
+    cmds = [
+        WithLock('PF and Fridge', cmds),
+    ]
+    return Program(Seq(*cmds))
+
+def pf_fridge_program(cmds: list[Command]) -> Program:
+    cmds = [
+        WithLock('PF and Fridge', cmds),
+    ]
+    return Program(Seq(*cmds))
+
+def fridge_reset_and_activate(args: SmallProtocolArgs) -> Program:
+    return pf_fridge_program([FridgeCmd('reset_and_activate')])
+
+def pf_home(args: SmallProtocolArgs) -> Program:
+    return pf_fridge_program([PFCmd('home')])
+
+def pf_freedrive(args: SmallProtocolArgs) -> Program:
+    return pf_fridge_program([PFCmd('freedrive')])
+
+def pf_reset_and_activate(args: SmallProtocolArgs) -> Program:
+    return pf_fridge_program([PFCmd('stop-freedrive')])
+
+def squid_from_fridge(args: SmallProtocolArgs) -> Program:
+    '''
+
+        Images plates in the fridge. Params are:
+
+        protocol, project, plate1_barcode, plate2_barcode, ..., plateN_barcode
+
+    '''
+    cmds: list[Command] = []
+    config_path, project, *plates = args.params
+    RT_time_secs = 5.0
+    for i, plate in enumerate(plates):
+        cmds += [
+            WithLock('PF and Fridge', [
+                FridgeEject(plate=plate, project=project),
+                Checkpoint(f'RT {i}'),
+                PFCmd(f'fridge-to-H12'),
+            ]),
+            WaitForCheckpoint(f'RT {i}', plus_secs=RT_time_secs),
+            WithLock('PF and Fridge', [
+                SquidStageCmd('goto_loading'),
+                PFCmd(f'H12-to-squid'),
+            ]),
+            SquidStageCmd('leave_loading'),
+            SquidAcquire(config_path, project=project, plate=plate),
+            WithLock('PF and Fridge', [
+                SquidStageCmd('goto_loading'),
+                PFCmd(f'squid-to-H12'),
+                SquidStageCmd('leave_loading'),
+                BarcodeClear(),
+                PFCmd(f'H12-to-fridge'),
+                FridgeInsert(project, expected_barcode=plate),
+            ])
+        ]
+    cmds = [
+        WithLock('Squid', cmds),
+    ]
+    return Program(Seq(*cmds))
 
 
 @dataclass(frozen=True)

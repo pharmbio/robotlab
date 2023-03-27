@@ -225,7 +225,6 @@ class MoveList(list[Move]):
             if not section:
                 raise ValueError(f'Move {move} not in a section {self}')
 
-
         out: dict[str, MoveList] = {}
         for section in sections:
             pos = {i for i, (active, _) in enumerate(with_section) if section == active[:len(section)]}

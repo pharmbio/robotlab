@@ -7,7 +7,7 @@ import signal
 import sys
 import threading
 import traceback
-
+import functools
 
 from contextlib import contextmanager
 from datetime import datetime, timedelta
@@ -18,6 +18,7 @@ import pbutils
 from pbutils.mixins import DB, DBMixin
 
 from .ur import UR
+from .pf import PF
 from .timelike import Timelike, WallTime, SimulatedTime
 from .moves import World, Effect
 from .log import Message, CommandState, CommandWithMetadata, Log
@@ -27,6 +28,11 @@ from labrobots import WindowsGBG, STX, BarcodeReader
 from labrobots import MikroAsus, Squid
 
 import contextlib
+
+import sqlite3
+from labrobots.sqlitecell import SqliteCell
+
+LockName = Literal['PF and Fridge', 'Squid', 'Nikon']
 
 @dataclass(frozen=True)
 class UREnv:
@@ -72,9 +78,14 @@ class RuntimeConfig(DBMixin):
         )
 
     def make_runtime(self) -> Runtime:
+        if self.run_fridge_squid_nikon or self.pf_env.mode == 'execute':
+            locks_db_filepath = 'locks.db'
+        else:
+            locks_db_filepath = ResourceLock.make_temp_db_filepath()
         return Runtime(
             config=self,
             time=self.make_timelike(),
+            locks_db_filepath=locks_db_filepath,
             log_db=DB.connect(self.log_filename if self.log_filename else ':memory:'),
         )
 
@@ -106,6 +117,15 @@ def config_lookup(name: str) -> RuntimeConfig:
 
 simulate = config_lookup('simulate')
 
+def make_process_name():
+    import platform
+    import os
+    pid = os.getpid()
+    node = platform.node()
+    return f'{pid}@{node}'
+
+process_name = make_process_name()
+
 A = TypeVar('A')
 
 @dataclass
@@ -113,6 +133,8 @@ class Runtime:
     config: RuntimeConfig
 
     time: Timelike
+
+    locks_db_filepath: str
 
     log_db: DB = field(default_factory=lambda: DB.connect(':memory:'))
 
@@ -126,6 +148,7 @@ class Runtime:
     )
 
     ur: UR | None = None
+    pf: PF | None = None
 
     incu: STX      | None = None
     wash: Biotek   | None = None
@@ -135,6 +158,7 @@ class Runtime:
     fridge: Fridge | None = None
     barcode_reader: BarcodeReader | None = None
     squid: Squid | None = None
+    nikon: None = None
 
     @property
     def fridge_and_barcode_reader(self):
@@ -395,3 +419,112 @@ class Runtime:
         self.time.queue_get(q)
         with self.lock:
             return self.checkpoint_times[name]
+
+    def process_name(self):
+        parts = [
+            self.start_time.replace(microsecond=0).isoformat(sep=' '),
+            self.config.name,
+            process_name,
+        ]
+        return ' '.join(parts)
+
+    def resource_lock(self, lock_name: LockName):
+        return ResourceLock(
+            db_filepath=self.locks_db_filepath,
+            process_name=self.process_name(),
+            lock_name=lock_name,
+        )
+
+    def acquire_lock(self, lock_name: LockName, num_tries: int = -1):
+        while num_tries != 0:
+            if self.resource_lock(lock_name).acquire_lock():
+                return
+            self.sleep(1.0)
+            num_tries -= 1
+        raise ValueError(f'Failed to acquire {lock_name!r}')
+
+    def assert_lock(self, lock_name: LockName):
+        self.resource_lock(lock_name).assert_lock()
+
+    def release_lock(self, lock_name: LockName):
+        self.resource_lock(lock_name).release_lock()
+
+@dataclass(frozen=True, kw_only=True)
+class ResourceLock:
+    db_filepath: str
+    process_name: str
+    lock_name: LockName
+
+    @contextlib.contextmanager
+    def open_exclusive(self):
+        con = sqlite3.connect(self.db_filepath, isolation_level=None)
+        with contextlib.closing(con):
+            lock = SqliteCell(con, table='Lock', key=self.lock_name, default='')
+            with lock.exclusive():
+                yield lock
+
+    def acquire_lock(self) -> bool:
+        with self.open_exclusive() as lock:
+            current = lock.read()
+            if current:
+                # raise ValueError('Trying to acquire lock {name!r} but {current=!r} is holding it')
+                return False
+            else:
+                lock.write(self.process_name)
+                return True
+
+    def assert_lock(self):
+        with self.open_exclusive() as lock:
+            current = lock.read()
+            if current != self.process_name:
+                raise ValueError('Expected to hold {name!r} but {current=!r} is holding it (!= {self.process_name=!r})')
+
+    def release_lock(self):
+        with self.open_exclusive() as lock:
+            current = lock.read()
+            if current != self.process_name:
+                raise ValueError('Trying to release lock {name!r} but {current=!r} is holding it (!= {self.process_name=!r})')
+            else:
+                lock.write('')
+
+    @staticmethod
+    def make_temp_db_filepath():
+        import tempfile
+        import atexit
+        import shutil
+        from pathlib import Path
+        tmpdir = tempfile.mkdtemp(prefix='robotlab-locks-db-')
+        atexit.register(lambda: shutil.rmtree(tmpdir, ignore_errors=True))
+        return str(Path(tmpdir) / 'locks.db')
+
+def test_resource_locks():
+    import pytest
+    runtime = simulate.make_runtime()
+
+    runtime.acquire_lock('Squid')
+    runtime.assert_lock('Squid')
+
+    with pytest.raises(ValueError):
+        runtime.acquire_lock('Squid', num_tries=1)
+
+    runtime.release_lock('Squid')
+
+    with pytest.raises(ValueError):
+        runtime.assert_lock('Squid')
+
+    with pytest.raises(ValueError):
+        runtime.release_lock('Squid')
+
+    runtime.acquire_lock('Squid')
+    with pytest.raises(ValueError):
+        runtime.assert_lock('Nikon')
+    runtime.acquire_lock('Nikon')
+
+    runtime.assert_lock('Squid')
+    runtime.assert_lock('Nikon')
+    with pytest.raises(ValueError):
+        runtime.assert_lock('PF and Fridge')
+    runtime.release_lock('Nikon')
+    with pytest.raises(ValueError):
+        runtime.assert_lock('Nikon')
+    runtime.release_lock('Squid')

@@ -79,7 +79,7 @@ class Command(ReplaceMixin, abc.ABC):
             nonlocal did_transform
             if did_transform:
                 return cmd
-            elif isinstance(cmd, BiotekCmd | RobotarmCmd | IncuCmd):
+            elif isinstance(cmd, PhysicalCommand):
                 did_transform = True
                 return f(cmd)
             else:
@@ -818,3 +818,21 @@ class BarcodeClear(PhysicalCommand):
     '''
     pass
 
+LockName = Literal['PF and Fridge', 'Squid', 'Nikon']
+
+@dataclass(frozen=True)
+class AcquireLock(Command):
+    name: LockName
+
+@dataclass(frozen=True)
+class ReleaseLock(Command):
+    name: LockName
+
+def WithLock(name: LockName, cmd: Command | list[Command]) -> Command:
+    if isinstance(cmd, list):
+        cmd = Seq(*cmd)
+    return Seq(
+        AcquireLock(name),
+        cmd,
+        ReleaseLock(name),
+    )

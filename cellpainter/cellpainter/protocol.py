@@ -429,7 +429,7 @@ def test_make_protocol_config():
 
 test_make_protocol_config()
 
-def test_comm_program(with_incu: bool=True, with_blue: bool=True) -> Command:
+def program_test_comm(with_incu: bool=True, with_blue: bool=True) -> Command:
     '''
     Test communication with robotarm, washer, dispenser and incubator.
     '''
@@ -935,7 +935,7 @@ def cell_paint_program(batch_sizes: list[int], protocol_config: ProtocolConfig) 
     program = Seq(*cmds)
     program = Seq(
         Checkpoint('run'),
-        test_comm_program(with_blue=protocol_config.use_blue),
+        program_test_comm(with_blue=protocol_config.use_blue),
         # Idle(0) + 'sep',
         program,
         Duration('run', OptPrio.batch_time)

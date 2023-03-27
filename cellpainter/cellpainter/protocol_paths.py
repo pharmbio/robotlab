@@ -3,7 +3,7 @@ from typing import *
 
 import labrobots
 from labrobots.dir_list import PathInfo
-from cellpainter.log import Log, DB
+from .log import Log, DB
 
 import pbutils
 import base64

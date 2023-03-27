@@ -15,8 +15,7 @@ import socket
 @dataclass(frozen=True)
 class ConnectedUR:
     sock: socket.socket
-    quiet: bool
-    log: Log = field(default_factory=lambda: Log.make('ur', stdout=False))
+    log: Log
 
     def send(self, prog_str: str) -> None:
         if not prog_str.endswith('\n'):
@@ -32,8 +31,6 @@ class ConnectedUR:
             for m in re.findall(pattern.encode('ascii'), data, re.IGNORECASE):
                 msg: str = m.decode()
                 self.log('arm.read() = {msg!r}')
-                if not self.quiet:
-                    print(f'{msg = }')
                 if 'fatal' in msg:
                     self.send('textmsg("log panic stop")\n')
                     raise RuntimeError(msg)
@@ -43,8 +40,6 @@ class ConnectedUR:
         for data in self.recv():
             if needle.encode() in data:
                 self.log('received {needle} in {data}')
-                if not self.quiet:
-                    print(f'received {needle}')
                 return
 
     def close(self) -> None:
@@ -58,11 +53,11 @@ class UR:
     @contextlib.contextmanager
     def connect(self, quiet: bool=True):
         with socket.create_connection((self.host, self.port), timeout=60) as sock:
-            yield ConnectedUR(sock, quiet=quiet)
+            yield ConnectedUR(sock, log=Log.make('ur', stdout=not quiet))
 
     def set_speed(self, value: int):
         if not (0 < value <= 100):
-            raise ValueError
+            raise ValueError('Speed out of range: {value=}')
         with self.connect() as arm:
             # The speed is set on the RTDE interface on port 30003:
             arm.send(URScript.reindent(f'''

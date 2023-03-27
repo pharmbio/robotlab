@@ -96,12 +96,26 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
         case WaitForResource():
             raise ValueError('Cannot execute WaitForResource, run Command.make_resource_checkpoints first')
 
+        case AcquireLock(name=name):
+            runtime.acquire_lock(name)
+            runtime.assert_lock(name)
+
+        case ReleaseLock(name=name):
+            runtime.assert_lock(name)
+            runtime.release_lock(name)
+
         case PFCmd():
+            runtime.assert_lock('PF and Fridge')
             raise ValueError('TODO: execute PF')
 
         case SquidAcquire():
+            runtime.assert_lock('Squid')
             for squid in runtime.time_resource_use(entry, runtime.squid):
-                squid.load_config(cmd.config_path, cmd.project, cmd.plate)
+                squid.load_config(
+                    file_path=cmd.config_path,
+                    project_override=cmd.project,
+                    plate_override=cmd.plate
+                )
                 ok = squid.acquire()
                 if not ok:
                     raise ValueError(f'Failed to start squid acquire, is squid busy?')
@@ -115,6 +129,7 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
                     runtime.sleep(1.0)
 
         case SquidStageCmd() as cmd:
+            runtime.assert_lock('Squid')
             for squid in runtime.time_resource_use(entry, runtime.squid):
                 match cmd.action:
                     case 'goto_loading':
@@ -123,6 +138,7 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
                         squid.leave_loading()
 
         case FridgeInsert():
+            runtime.assert_lock('PF and Fridge')
             for fridge, barcode_reader in runtime.time_resource_use(entry, runtime.fridge_and_barcode_reader):
                 barcode = barcode_reader.read_and_clear()
                 if cmd.expected_barcode and cmd.expected_barcode != barcode:
@@ -130,6 +146,7 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
                 fridge.insert(barcode, cmd.project)
 
         case FridgeEject():
+            runtime.assert_lock('PF and Fridge')
             for fridge, barcode_reader in runtime.time_resource_use(entry, runtime.fridge_and_barcode_reader):
                 barcode_reader.clear()
                 fridge.eject(plate=cmd.plate, project=cmd.project)
@@ -139,6 +156,7 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
                     raise ValueError(f'Plate has {barcode=!r} but expected {cmd.plate=!r}')
 
         case FridgeCmd(action=action):
+            runtime.assert_lock('PF and Fridge')
             for fridge in runtime.time_resource_use(entry, runtime.fridge):
                 match action:
                     case 'get_status':
@@ -147,6 +165,7 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
                         fridge.reset_and_activate()
 
         case BarcodeClear():
+            runtime.assert_lock('PF and Fridge')
             for barcode_reader in runtime.time_resource_use(entry, runtime.barcode_reader):
                 barcode_reader.clear()
 
