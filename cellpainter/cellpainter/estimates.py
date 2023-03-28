@@ -17,39 +17,33 @@ from .commands import (
 
 class EstEntry(TypedDict):
     cmd: PhysicalCommand
-    times: dict[str, float]
+    datetime: str
+    duration: float
+
+def entry_order(entry: EstEntry):
+    return pbutils.serializer.dumps(entry['cmd']), entry['datetime']
 
 def avg(xs: Iterable[float]) -> float:
     xs = list(xs)
     return sum(xs) / len(xs)
 
 estimates_json_path = 'estimates.json'
+estimates_jsonl_path = 'estimates.jsonl'
 
-def read_estimates(path: str=estimates_json_path) -> dict[PhysicalCommand, float]:
-    entries: list[EstEntry] = pbutils.serializer.read_json(path)
+def read_estimates(path: str=estimates_jsonl_path) -> dict[PhysicalCommand, float]:
+    entries: list[EstEntry] = list(pbutils.serializer.read_jsonl(path))
+    groups = pbutils.group_by(entries, key=lambda entry: entry['cmd'])
     return {
-        e['cmd']: round(avg(e['times'].values()), 3)
-        for e in entries
+        cmd: round(avg(ent['duration'] for ent in ents), 3)
+        for cmd, ents in groups.items()
     }
 
 from datetime import timedelta
 
-def add_estimates_from(log_path: str, *, path: str=estimates_json_path):
-    entries: list[EstEntry] = pbutils.serializer.read_json(path)
-    ests: dict[PhysicalCommand, dict[str, float]] = DefaultDict(dict)
+def add_estimates_from(log_path: str, *, path: str=estimates_jsonl_path):
+    entries: list[EstEntry] = list(pbutils.serializer.read_jsonl(path))
 
-    def size(x: Dict[Any, dict[Any, Any]]) -> int:
-        return sum(
-            1
-            for _, d in x.items()
-            for _, _ in d.items()
-        )
-
-    for e in entries:
-        cmd = e['cmd'].normalize()
-        ests[cmd] = e['times']
-
-    size_0 = size(ests)
+    size_0 = len(entries)
 
     if log_path == 'normalize':
         print(f'normalize: Adding no new entries, only normalizing the estimates file.')
@@ -64,21 +58,55 @@ def add_estimates_from(log_path: str, *, path: str=estimates_json_path):
                         cmd = cmd.normalize()
                         t_datetime = rt.start_time + timedelta(seconds=e.t)
                         t_str = t_datetime.replace(microsecond=0).isoformat(sep=' ')
-                        ests[cmd][t_str] = e.duration
+                        entries += [
+                            EstEntry(
+                                cmd=cmd,
+                                datetime=t_str,
+                                duration=e.duration,
+                            )
+                        ]
 
-    size_after = size(ests)
+    size_after = len(entries)
 
-    m = [
-        {
-            'cmd': cmd,
-            'times': times,
-        }
-        for cmd, times in sorted(ests.items(), key=str)
+    entries = [
+        EstEntry(
+            cmd=entry['cmd'].normalize(),
+            datetime=entry['datetime'],
+            duration=entry['duration'],
+        )
+        for entry in entries
     ]
-    pbutils.serializer.write_json(m, path, indent=2)
+    entries = sorted(entries, key=entry_order)
+    pbutils.serializer.write_jsonl(entries, path)
     print(f'Wrote {size_after - size_0} new estimates to {path} from {log_path}.')
 
-estimates = read_estimates('estimates.json')
+def rewrite_estimates(in_path: str=estimates_json_path, out_path: str=estimates_jsonl_path):
+    '''
+    Converter from the old format to the new flat format
+    '''
+    class EstEntryGrouped(TypedDict):
+        cmd: PhysicalCommand
+        times: dict[str, float]
+
+    entries: list[EstEntryGrouped] = pbutils.serializer.read_json(in_path)
+    ests: dict[PhysicalCommand, dict[str, float]] = DefaultDict(dict)
+    flat: list[EstEntry] = []
+
+    for e in entries:
+        cmd = e['cmd'].normalize()
+        ests[cmd] = e['times']
+        for datetime, duration in e['times'].items():
+            flat += [
+                EstEntry(
+                    cmd=cmd,
+                    datetime=datetime,
+                    duration=duration,
+                )
+            ]
+    flat = sorted(flat, key=entry_order)
+    pbutils.serializer.write_jsonl(flat, out_path)
+
+estimates = read_estimates()
 guesses: dict[PhysicalCommand, float] = {}
 
 estimates = {

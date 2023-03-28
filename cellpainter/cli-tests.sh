@@ -32,18 +32,24 @@ test_cellpainter() {
 }
 
 test_add_estimates() {
-    tmp_json=$(mktemp --suffix -cellpainter-estimates.json)
+    tmp_jsonl=$(mktemp --suffix -cellpainter-estimates.jsonl)
     tmp_db=$(mktemp --suffix -cellpainter-log.db)
-    trap "rm -f $tmp_db $tmp_json" EXIT
-    printf '%s' '{}' > "$tmp_json"
+    trap "rm -f $tmp_db $tmp_jsonl" EXIT
+    touch "$tmp_jsonl"
     with-tail cellpainter --run-robotarm 'gripper init and check' --log-filename "$tmp_db"
-    with-tail cellpainter --add-estimates-from "$tmp_db" --add-estimates-dest "$tmp_json"
-    cat "$tmp_json"
-    printf '\n'
+    with-tail cellpainter --add-estimates-from "$tmp_db" --add-estimates-dest "$tmp_jsonl"
+    cat "$tmp_jsonl"
     {
         set -x
-        test "$(grep -c times "$tmp_json")" = 1
-        test "$(grep -c 'gripper init and check' "$tmp_json")" = 1
+        set -e
+        test "$(grep -c 'gripper init and check' "$tmp_jsonl")" = 1
+    }
+    with-tail cellpainter --add-estimates-from "$tmp_db" --add-estimates-dest "$tmp_jsonl"
+    cat "$tmp_jsonl"
+    {
+        set -x
+        set -e
+        test "$(grep -c 'gripper init and check' "$tmp_jsonl")" = 2
     }
 }
 
