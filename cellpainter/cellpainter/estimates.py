@@ -47,6 +47,20 @@ def add_estimates_from(log_path: str, *, path: str=estimates_jsonl_path):
 
     if log_path == 'normalize':
         print(f'normalize: Adding no new entries, only normalizing the estimates file.')
+    elif log_path == 'trim':
+        print(f'trim: Adding no new entries, only trimming the estimates file (keep last 5 of each)')
+        trimmed: list[EstEntry] = []
+        for cmd, ents in pbutils.group_by(entries, key=lambda entry: entry['cmd']).items():
+            ents = sorted(ents, key=lambda ent: ent['datetime'])
+            for ent in ents[-5:]:
+                trimmed += [
+                    EstEntry(
+                        cmd=cmd,
+                        datetime=ent['datetime'],
+                        duration=ent['duration'],
+                    )
+                ]
+        entries = trimmed
     else:
         with Log.open(log_path) as log:
             rt = log.runtime_metadata()

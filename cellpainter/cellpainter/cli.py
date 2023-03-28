@@ -71,7 +71,7 @@ class Args:
     list_imports:              bool = arg(help='Print the imported python modules for type checking.')
 
     add_estimates_from:        str  = arg(help='Add timing estimates from a log file')
-    add_estimates_dest:        str  = arg(default='estimates.json', help='Add timing estimates to this file (default: estimates.json)')
+    add_estimates_dest:        str  = arg(default='estimates.jsonl', help='Add timing estimates to this file (default: estimates.jsonl)')
 
     list_robotarm_programs:    bool = arg(help='List the robot arm programs')
     inspect_robotarm_programs: bool = arg(help='Inspect steps of robotarm programs')
@@ -143,8 +143,8 @@ def main_with_args(args: Args, parser: argparse.ArgumentParser | None=None):
         log_filename=args.log_filename,
     )
 
-    print('config =', show(config))
-    print('args =', show(args))
+    # print('config =', show(config))
+    # print('args =', show(args))
 
     em = ExperimentMetadata(desc=args.desc, operators=args.operators)
 
