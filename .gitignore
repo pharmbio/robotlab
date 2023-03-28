@@ -1,6 +1,10 @@
-imager*.db
 *egg-info*
 build
 __pycache__
 cache
 .sw*
+io.db
+fridge.db
+docs/
+labrobots/docs
+viable/examples
