@@ -359,7 +359,7 @@ class Git(Machine):
             self.log(res := run(['git', 'checkout', '-t', f'origin/{branch}'], text=True, capture_output=True))
             res.check_returncode()
         self.log(res := check_output(['git', 'pull'], text=True))
-        if res.strip() == 'Already up to date.':
+        if res and res.strip() == 'Already up to date.':
             return
         self.log('killing process...')
         os.kill(os.getpid(), signal.SIGTERM)
