@@ -115,8 +115,10 @@ def snap_many(desc: str):
     capture('t1')
 
 def poll_pf(pf: PF):
+    i = 0
     while True:
-        with pf.connect(quiet=False, mode='ro') as arm:
+        i += 1
+        with pf.connect(quiet=bool(i >= 3), mode='ro') as arm:
             info_str = arm.send_and_recv('wherejson')
             info = json.loads(info_str)
             info['xyz'] = [info[k] for k in 'xyz']
@@ -169,6 +171,7 @@ def poll_ur(ur: UR):
                     break
 
 def arm_do(*ms: Move):
+    print('arm_do', ur, pf, ms)
     ur and ur.execute_moves(list(ms), name='gui', allow_partial_completion=True)
     pf and pf.execute_moves(list(ms))
 
@@ -408,6 +411,7 @@ def index() -> Iterator[Tag | dict[str, str]]:
     info = {
         k: [pbutils.round_nnz(v, 2) for v in vs]
         for k, vs in polled_info.items()
+        if isinstance(cast(Any, vs), list)
     }
 
     # info['server_age'] = round((datetime.now() - server_start).total_seconds()) # type: ignore
@@ -726,13 +730,8 @@ def main():
     else:
         raise ValueError('Start with one of ' + ', '.join('--' + c.name for c in configs))
 
-    print(f'Running with {config.name=}', config)
-
-    if config.name in ('simulate', 'forward'):
-        host = 'localhost'
-    else:
-        host = '10.10.0.55'
-        host = 'localhost'
+    import pprint
+    pprint.pprint(config)
 
     runtime = config.only_arm().make_runtime()
     global ur; ur = runtime.ur
@@ -742,6 +741,11 @@ def main():
     def poll() -> None:
         ur and poll_ur(ur)
         pf and poll_pf(pf)
+
+    if ur and 'forward' not in config.name:
+        host = '10.10.0.55'
+    else:
+        host = 'localhost'
 
     serve.run(
         port=5000,

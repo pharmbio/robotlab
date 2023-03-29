@@ -144,7 +144,7 @@ class GripperMove(Move):
         return ur_call('GripperMove', self.pos, **keep_true(soft=self.soft))
 
     def to_pf_script(self) -> str:
-        return pf_call('MoveJ', self.pos)
+        return pf_call('MoveGripper', '1', self.pos)
 
 @dataclass(frozen=True)
 class Section(Move):
@@ -217,14 +217,14 @@ class MoveList(list[Move]):
         if 'A' in name:
             hotel_locs = HotelLocs_A
             hotel_dist: float = 70.94 / 2
-        elif 'B' in name or 'C' in name:
-            hotel_locs = HotelLocs_B_C
-            hotel_dist: float = 70.94 / 2
-        elif 'H' in name:
+        elif guess_robot(name) == 'pf':
             hotel_locs = HotelLocs_H
             hotel_dist: float = 70.94 / 2.0 - 3 / 11.0
+        elif guess_robot(name) == 'ur':
+            hotel_locs = HotelLocs_B_C
+            hotel_dist: float = 70.94 / 2
         else:
-            raise ValueError('Unknown hotel in: {name}')
+            raise ValueError(f'Unknown hotel in: {name}')
         for tag in set(self.tags()):
             if m := re.match(r'(\d+)/(12|21)$', tag):
                 ref_h = int(m.group(1))

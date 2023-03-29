@@ -56,7 +56,7 @@ class PFEnv:
 
 class PFEnvs:
     live      = PFEnv('execute', '10.10.0.98', port_rw=10100, port_ro=10000)
-    forward   = PFEnv('execute', '127.0.0.1',  port_rw=10100, port_ro=10000)
+    forward   = PFEnv('execute', 'localhost',  port_rw=10100, port_ro=10000)
     dry       = PFEnv('noop', '', port_rw=0, port_ro=0)
 
 @dataclass(frozen=True)
@@ -228,6 +228,7 @@ class Runtime:
                 port_rw=self.config.pf_env.port_rw,
                 port_ro=self.config.pf_env.port_ro,
             )
+            0 and self.pf.set_speed(self.config.pf_speed)
 
         if self.config.run_fridge_squid_nikon:
             gbg = WindowsGBG.remote()
@@ -235,10 +236,6 @@ class Runtime:
             self.fridge = gbg.fridge
             self.barcode_reader = gbg.barcode
             self.squid = mikro_asus.squid
-
-        if self.config.pf_env.mode != 'noop':
-            raise ValueError('todo: set pf speed')
-            # self.set_pf_speed(self.config.pf_speed)
 
     def stop_arms(self):
         sync = Queue[None]()

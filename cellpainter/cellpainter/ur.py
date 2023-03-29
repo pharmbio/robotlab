@@ -52,7 +52,7 @@ class UR:
 
     @contextlib.contextmanager
     def connect(self, quiet: bool=True):
-        with socket.create_connection((self.host, self.port), timeout=60) as sock:
+        with contextlib.closing(socket.create_connection((self.host, self.port), timeout=60)) as sock:
             yield ConnectedUR(sock, log=Log.make('ur', stdout=not quiet))
 
     def set_speed(self, value: int):

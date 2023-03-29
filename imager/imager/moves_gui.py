@@ -115,7 +115,7 @@ def keydown(program_name: str, args: dict[str, Any]):
         print(m)
         arm_do(m)
 
-def update(program_name: str, i: int, grouped: bool=False):
+def update(program_name: str, i: int | None, grouped: bool=False):
     if i is None:
         return
 

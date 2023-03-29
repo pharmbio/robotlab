@@ -32,9 +32,9 @@ class STX(Machine):
             self.log(f'stx.write({msg!r})')
 
             if self.mode == 'execute':
-                with socket.create_connection((self.host, self.port), timeout=5) as s:
-                    s.sendall(msg)
-                    reply_bytes = s.recv(8192) # replies are only a few bytes
+                with contextlib.closing(socket.create_connection((self.host, self.port), timeout=5)) as sock:
+                    sock.sendall(msg)
+                    reply_bytes = sock.recv(8192) # replies are only a few bytes
             elif self.mode == 'noop':
                 reply_bytes = b'1\r\n'
             else:

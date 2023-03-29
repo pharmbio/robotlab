@@ -27,13 +27,16 @@ class ConnectedPF:
             lines = msg.splitlines(keepends=True)
             for line in lines:
                 self.log(f'pf.read() = {line.strip()!r}')
+            if not lines:
+                continue
             if lines[-1].endswith('\n'):
                 return lines[-1]
             else:
                 msg = lines[-1]
-                self.log(f'Last line {msg!r} did not end with newline, continuing...')
+                # self.log(f'Last line {msg!r} did not end with newline, continuing...')
 
     def send(self, msg: str):
+        msg = msg.strip() + '\n'
         self.log(f'pf.send({msg!r})')
         return self.sock.send(msg.encode('ascii'))
 
@@ -43,31 +46,31 @@ class ConnectedPF:
 
 @dataclass(frozen=True)
 class PF:
-    host: str    # '10.10.0.98'
-    port_rw: int # 10100
-    port_ro: int # 10000
+    host: str    # = 'localhost' # '10.10.0.98'
+    port_rw: int = 10100
+    port_ro: int = 10000
 
     @contextlib.contextmanager
     def connect(self, quiet: bool=True, mode: Literal['ro', 'rw'] = 'rw'):
         port = self.port_rw if mode == 'rw' else self.port_ro
-        with socket.create_connection((self.host, port), timeout=60) as sock:
+        with contextlib.closing(socket.create_connection((self.host, port), timeout=60)) as sock:
             yield ConnectedPF(sock, log=Log.make('pf', stdout=not quiet))
 
     def set_speed(self, value: int):
         if not (0 < value <= 100):
             raise ValueError('Speed out of range: {value=}')
-        with self.connect() as arm:
+        with self.connect(quiet=False) as arm:
             arm.send_and_recv(f'mspeed {value}')
 
     def execute_moves(self, ms: list[Move]):
-        with self.connect() as arm:
+        with self.connect(quiet=False) as arm:
             for m in ms:
                 for line in m.to_pf_script().split('\n'):
                     arm.send_and_recv(line)
                 arm.send_and_recv('WaitForEOM')
 
     def init(self):
-        with self.connect(quiet=False) as arm:
+        with self.connect() as arm:
             arm.send_and_recv('hp 1')
             arm.send_and_recv('attach 1')
             arm.send_and_recv('home 1')
