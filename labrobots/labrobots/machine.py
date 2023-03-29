@@ -15,6 +15,7 @@ import sqlite3
 import tempfile
 import textwrap
 import time
+import os
 import traceback as tb
 
 from flask import Flask, jsonify, request
@@ -417,7 +418,7 @@ class Machines:
             assert name.isascii() and name.isidentifier()
             with tempfile.NamedTemporaryFile(prefix='name', suffix='.db') as tmp:
                 with contextlib.closing(sqlite3.connect(f'{name}.db')) as con:
-                    with contextlib.closing(sqlite3.connect(tmp.name)) as dest:
+                    with contextlib.closing(sqlite3.connect(os.path.abspath(tmp.name))) as dest:
                         con.backup(dest)
                 return flask.send_file( # type: ignore
                     tmp.name,
