@@ -416,7 +416,7 @@ class Machines:
         @app.route('/<string:name>.db')
         def get_db(name: str):
             assert name.isascii() and name.isidentifier()
-            with tempfile.NamedTemporaryFile(prefix='name', suffix='.db') as tmp:
+            with tempfile.NamedTemporaryFile(prefix=f'temp-{name}', suffix='.db', dir=os.getcwd()) as tmp:
                 with contextlib.closing(sqlite3.connect(f'{name}.db')) as con:
                     with contextlib.closing(sqlite3.connect(os.path.abspath(tmp.name))) as dest:
                         con.backup(dest)
