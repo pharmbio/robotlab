@@ -38,7 +38,7 @@ class STX(Machine):
             elif self.mode == 'noop':
                 reply_bytes = b'1\r\n'
             else:
-                raise ValueError('Invalid {self.mode=!r}')
+                raise ValueError(f'Invalid {self.mode=!r}')
 
             self.log(f'stx.read() = {reply_bytes!r}')
             reply = reply_bytes.decode('ascii').strip()
@@ -52,7 +52,7 @@ class STX(Machine):
         else:
             casette_str, x, level_str = pos.partition('x')
             if x != 'x':
-                raise ValueError("pos should start with L or R indicate cassette 1 or 2, or <CASETTE>x<LEVEL>")
+                raise ValueError('pos should start with L or R indicate cassette 1 or 2, or <CASETTE>x<LEVEL>')
             slot = int(casette_str)
             level = int(level_str)
             return slot, level
@@ -250,7 +250,7 @@ class Fridge(STX):
             if bypass_db_check:
                 pass
             elif db_current != current:
-                raise ValueError('Current value mismatch: {db_current=} != {current=}')
+                raise ValueError(f'Current value mismatch: {db_current=} != {current=}')
             db.write(next)
             return next
 
@@ -294,9 +294,9 @@ class Fridge(STX):
             with self._get_db() as db:
                 old_slot = db.get_by_loc(loc)
                 if not old_slot:
-                    raise ValueError('No slot with {loc=}')
+                    raise ValueError(f'No slot with {loc=}')
                 if old_slot['plate'] or old_slot['project']:
-                    raise ValueError('Target slot not empty {slot=}')
+                    raise ValueError(f'Target slot not empty {old_slot=}')
 
             self.put(loc)
 
@@ -316,7 +316,7 @@ class Fridge(STX):
             with self._get_db() as db:
                 loc_slot = db.get_by_plate_project(plate, project)
                 if not loc_slot:
-                    raise ValueError('No slot with {plate=} and {project=}')
+                    raise ValueError(f'No slot with {plate=} and {project=}')
                 loc, slot = loc_slot
             return self._eject(loc, slot)
 
@@ -332,9 +332,9 @@ class Fridge(STX):
             with self._get_db() as db:
                 slot = db.get_by_loc(loc)
                 if not slot:
-                    raise ValueError('No slot with {loc=}')
+                    raise ValueError(f'No slot with {loc=}')
                 if not slot['plate']:
-                    raise ValueError('Target slot empty {slot=}')
+                    raise ValueError(f'Target slot empty {slot=}')
             return self._eject(loc, slot)
 
     def _eject(self, loc: str, slot: FridgeSlot) -> tuple[str, FridgeSlot]:
