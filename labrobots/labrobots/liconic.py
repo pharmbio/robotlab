@@ -254,7 +254,7 @@ class Fridge(STX):
             db.write(next)
             return next
 
-    def add_capacity(self, locs: list[str]):
+    def add_capacity(self, *locs: str):
         '''
         Makes sure the locations are registered in the fridge database,
         adding a new entry to an empty slot if necessary.
