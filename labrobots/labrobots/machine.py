@@ -2,19 +2,20 @@ from __future__ import annotations
 from typing import *
 from dataclasses import *
 
-from contextlib import contextmanager
 from datetime import datetime
+from pathlib import Path
 from subprocess import check_output
 from threading import RLock
 from typing_extensions import Self
 from urllib.request import urlopen, Request
-from pathlib import Path
+import contextlib
 import inspect
 import json
-import traceback as tb
+import sqlite3
+import tempfile
 import textwrap
 import time
-import sqlite3
+import traceback as tb
 
 from flask import Flask, jsonify, request
 import flask
@@ -69,7 +70,7 @@ class Proxy(Generic[R]):
 class ResourceLock:
     rlock: RLock = field(default_factory=RLock)
 
-    @contextmanager
+    @contextlib.contextmanager
     def ensure_available(self):
         ok = self.rlock.acquire(blocking=False)
         if not ok:
@@ -183,19 +184,20 @@ class Machine:
 
     default_log: ClassVar[Log] = system_default_log
 
-    @contextmanager
+    @contextlib.contextmanager
     def atomic(self):
         with self.resource_lock.ensure_available():
             yield
 
     def help(self):
         out: dict[str, list[str]] = {}
-        for name, fn in self.__class__.__dict__.items():
+        for name in dir(self):
+            fn = getattr(self, name)
             if not callable(fn):
                 continue
             if name.startswith('_'):
                 continue
-            if name == 'init':
+            if name in 'init help remote routes timeit default_log log atomic'.split():
                 continue
             sig = inspect.signature(fn)
             doc = fn.__doc__ or ""
@@ -206,7 +208,7 @@ class Machine:
         return out
 
     def timeit(self, desc: str=''):
-        @contextmanager
+        @contextlib.contextmanager
         def worker():
             t0 = time.monotonic_ns()
             yield
@@ -348,9 +350,16 @@ class Echo(Machine):
 
 @dataclass(frozen=True)
 class Git(Machine):
-    def pull_and_shutdown(self):
+    def pull_and_shutdown(self, branch: None | str):
         import os
         import signal
+        if branch:
+            self.log(
+                check_output(['git', 'fetch']).decode().strip()
+            )
+            self.log(
+                check_output(['git', 'checkout', '-t', f'origin/{branch}']).decode().strip()
+            )
         res = check_output(['git', 'pull']).decode().strip()
         self.log(res)
         if res == 'Already up to date.':
@@ -406,11 +415,24 @@ class Machines:
             m.init()
             m.routes(name, app)
 
-        @app.route('/io.db')
-        def io_db():
-            return flask.send_file( # type: ignore
-                (Path.cwd() / 'io.db').resolve()
-            )
+        @app.route('/<string:name>.db')
+        def get_db(name: str):
+            assert name.isascii() and name.isidentifier()
+            with tempfile.NamedTemporaryFile(prefix='name', suffix='.db') as tmp:
+                with contextlib.closing(sqlite3.connect(f'{name}.db')) as con:
+                    with contextlib.closing(sqlite3.connect(tmp.name)) as dest:
+                        con.backup(dest)
+                return flask.send_file( # type: ignore
+                    tmp.name,
+                    download_name=f'{name}.db',
+                    as_attachment=True
+                )
+
+        @app.route('/<string:name>.sql')
+        def get_sql(name: str):
+            assert name.isascii() and name.isidentifier()
+            with contextlib.closing(sqlite3.connect(f'{name}.db')) as con:
+                return '\n'.join(con.iterdump()) + '\n'
 
         @app.get('/tail/<int:n>') # type: ignore
         @app.get('/tail/') # type: ignore
