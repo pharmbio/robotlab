@@ -7,6 +7,7 @@ from subprocess import check_output, run
 from threading import RLock
 from typing_extensions import Self
 from urllib.request import urlopen, Request
+from pathlib import Path
 import contextlib
 import inspect
 import json
@@ -417,7 +418,7 @@ class Machines:
             with contextlib.closing(sqlite3.connect(name_db)) as con:
                 con.execute('pragma wal_checkpoint(full);')
                 return flask.send_file( # type: ignore
-                    name_db,
+                    Path(name_db).resolve(),
                     download_name=name_db,
                     as_attachment=True
                 )
