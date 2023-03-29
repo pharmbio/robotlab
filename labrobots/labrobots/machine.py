@@ -4,7 +4,7 @@ from dataclasses import *
 
 from datetime import datetime
 from pathlib import Path
-from subprocess import check_output
+from subprocess import check_output, run, STDOUT
 from threading import RLock
 from typing_extensions import Self
 from urllib.request import urlopen, Request
@@ -350,29 +350,27 @@ class Echo(Machine):
 
 @dataclass(frozen=True)
 class Git(Machine):
-    def pull_and_shutdown(self, branch: None | str):
+    def pull_and_shutdown(self, branch: None | str=None):
         import os
         import signal
         if branch:
-            self.log(
-                check_output(['git', 'fetch']).decode().strip()
-            )
-            self.log(
-                check_output(['git', 'checkout', '-t', f'origin/{branch}']).decode().strip()
-            )
-        res = check_output(['git', 'pull']).decode().strip()
-        self.log(res)
-        if res == 'Already up to date.':
+            self.log(res := run(['git', 'fetch'], text=True))
+            res.check_returncode()
+            self.log(res := run(['git', 'checkout', '-t', f'origin/{branch}'], text=True))
+            res.check_returncode()
+        self.log(res := run(['git', 'pull'], text=True))
+        if res.stdout.strip() == 'Already up to date.':
             return
+        res.check_returncode()
         self.log('killing process...')
         os.kill(os.getpid(), signal.SIGTERM)
         self.log('killed.')
 
     def head(self) -> str:
-        return check_output(['git', 'rev-parse', 'HEAD']).decode().strip()
+        return check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
 
     def show(self) -> list[str]:
-        return check_output(['git', 'show', '--stat']).decode().strip().splitlines()
+        return check_output(['git', 'show', '--stat'], text=True).strip().splitlines()
 
 @dataclass
 class Machines:
