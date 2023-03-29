@@ -3,22 +3,7 @@ from typing import *
 from dataclasses import *
 
 from .symbolic import Symbolic
-from .commands import (
-    Command,
-    SeqCmd,
-    Fork,
-    Meta,
-    Checkpoint,
-    Duration,
-    Idle,
-
-    RobotarmCmd,
-    BiotekCmd,
-    IncuCmd,
-    BlueCmd,
-    WaitForCheckpoint,
-    Max,
-)
+from .commands import *
 
 def import_z3():
     # z3 messes with the sys.path and writes an error message on stderr, so we silent it here
@@ -41,8 +26,6 @@ def import_z3():
 import_z3()
 
 from z3 import Sum, If, Optimize, Solver, Real, Int, And, Or # type: ignore
-
-
 
 from . import estimates
 from .estimates import estimate
@@ -156,13 +139,15 @@ def optimal_env(cmd: Command, unsat_core: bool=False) -> OptimalResult:
             case Idle():
                 constrain(cmd.seconds, '>=', 0, cmd=cmd)
                 return begin + cmd.seconds
-
+            case AcquireLock() | ReleaseLock():
                 return begin
-            case RobotarmCmd():
-                assert is_main
+            case BarcodeClear():
                 return begin + estimate(cmd)
-            case BiotekCmd() | IncuCmd() | BlueCmd():
-                assert not is_main
+            case RobotarmCmd() | PFCmd():
+                assert is_main, f'Must be run in main thread {cmd=}'
+                return begin + estimate(cmd)
+            case PhysicalCommand():
+                assert not is_main, f'Cannot run in main thread {cmd=}'
                 return begin + estimate(cmd)
             case Checkpoint():
                 checkpoint = Symbolic.var(cmd.name)
@@ -209,7 +194,7 @@ def optimal_env(cmd: Command, unsat_core: bool=False) -> OptimalResult:
                 _ = run(cmd.command, begin, is_main=False)
                 return begin
             case _:
-                raise ValueError(type(cmd))
+                raise ValueError(f'No case for {cmd=}')
 
     run(cmd, Symbolic.const(0), is_main=True)
 
@@ -266,7 +251,7 @@ def optimal_env(cmd: Command, unsat_core: bool=False) -> OptimalResult:
         for a in sorted(variables)
     }
 
-    pbutils.pr({
+    0 and pbutils.pr({
         k: v
         for k, v in env.items()
         if not k.startswith('residue')

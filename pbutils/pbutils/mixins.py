@@ -54,6 +54,7 @@ class Select(Generic[R], PrivateReplaceMixin):
     _order: tuple[Any, str] | None = None
     _limit: int | None             = None
     _offset: int | None            = None
+    _distinct: bool                = False
 
     def where(self, *cond: bool):
         return self._replace(_where=[*self._where, *cond]) # type: ignore
@@ -93,6 +94,8 @@ class Select(Generic[R], PrivateReplaceMixin):
                     to_sql(conv.conv_to_sql(conv.default))
                 ]
         select = ', '.join(selects)
+        if self._distinct:
+            select = f'distinct {select}'
         where = [to_sql(w) for w in self._where]
         stmt = {
             'select': select,
@@ -129,9 +132,9 @@ class Select(Generic[R], PrivateReplaceMixin):
     def json_group_array(self, v: A) -> list[A]: return self._agg('json_group_array', v)
     def group_concat(self, v: Any, sep: str=',') -> str: return self._agg('group_concat', v, sep)
 
-    def select(self, v: A) -> Select[A]:
+    def select(self, v: A, distinct: bool=False) -> Select[A]:
         if isinstance(v, Var):
-            return self._replace(_focus=v)
+            return self._replace(_focus=v, _distinct=distinct)
         else:
             raise ValueError(f'Can only select variables, not {v}')
 

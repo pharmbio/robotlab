@@ -1,18 +1,17 @@
 from __future__ import annotations
 from typing import *
+from dataclasses import *
 
 from viable import js, Int, Tag, div
 
-from dataclasses import *
 from datetime import datetime, timedelta
 
 import math
-import re
 
 from ..log import ExperimentMetadata, Log
 
 from .. import commands
-from ..commands import IncuCmd, BiotekCmd, BlueCmd, ProgramMetadata
+from ..commands import *
 import pbutils
 from ..log import CommandState, Message, VisRow, RuntimeMetadata, countdown
 
@@ -27,6 +26,8 @@ class AnalyzeResult:
     program_metadata: ProgramMetadata
     completed: bool
     running_state: list[CommandState]
+    progress_texts: dict[int, str]
+    resources: list[str | None]
     errors: list[Message]
     world: dict[str, str]
     process_is_alive: bool
@@ -69,6 +70,21 @@ class AnalyzeResult:
         sections = m.section_starts_with_endpoints()
         program_metadata = m.program_metadata() or ProgramMetadata()
 
+        progress_texts = {
+            state.id: text
+            for state in running_state
+            if drop_after is None
+            if (text := m.progress_text(state.id))
+        }
+
+        resources = (
+            m.db.get(CommandState)
+            .select(CommandState.metadata.thread_resource, distinct=True)
+            .order(by=CommandState.metadata.thread_resource)
+            .list()
+        )
+
+
         return AnalyzeResult(
             zero_time=zero_time,
             t_now=t_now,
@@ -77,6 +93,8 @@ class AnalyzeResult:
             experiment_metadata=m.experiment_metadata() or ExperimentMetadata(),
             program_metadata=program_metadata,
             running_state=running_state,
+            progress_texts=progress_texts,
+            resources=resources,
             errors=errors,
             world=world,
             process_is_alive=alive,
@@ -105,9 +123,18 @@ class AnalyzeResult:
                 return str(cmd)
 
     def entry_desc_for_table(self, e: CommandState):
+        res = self.entry_desc_for_table_inner(e)
+        if (text := self.progress_texts.get(e.metadata.id)):
+            return res + ', ' + text
+        else:
+            return res
+
+    def entry_desc_for_table_inner(self, e: CommandState):
         cmd = e.cmd
         match cmd:
             case commands.RobotarmCmd():
+                return cmd.program_name
+            case commands.PFCmd():
                 return cmd.program_name
             case BiotekCmd() | BlueCmd():
                 if cmd.action == 'TestCommunications':
@@ -118,6 +145,19 @@ class AnalyzeResult:
                     path = path.removesuffix('.LHC')
                     path = path.removesuffix('.prog')
                     return path
+            case FridgeInsert():
+                if cmd.expected_barcode:
+                    return f'insert {cmd.expected_barcode} with project: {cmd.project}'
+                else:
+                    return f'insert with project: {cmd.project}'
+            case FridgeEject():
+                return f'eject {cmd.plate} with project: {cmd.project}'
+            case FridgeCmd():
+                return cmd.action
+            case SquidAcquire():
+                return f'acquire {cmd.plate}'
+            case SquidStageCmd():
+                return cmd.action
             case IncuCmd():
                 if cmd.incu_loc:
                     return cmd.action + ' ' + cmd.incu_loc
@@ -134,23 +174,27 @@ class AnalyzeResult:
 
     def running(self):
         d: dict[str, CommandState | None] = {}
-        resources = 'main disp wash blue incu'.split()
         G = pbutils.group_by(self.running_state, key=lambda e: e.metadata.thread_resource)
-        G['main'] = G[None]
-        for resource in resources:
+        for resource in self.resources:
             es = G.get(resource, [])
             if es:
-                d[resource] = es[0]
+                d[resource or 'main'] = es[0]
             else:
-                d[resource] = None
+                d[resource or 'main'] = None
             if len(es) > 2:
-                print(f'{len(es)} from {resource=}?')
+                print(f'{len(es)} from {resource=}? ({[e.cmd for e in es]})')
 
         table: list[dict[str, str | float | int | None]] = []
         for resource, e in d.items():
             table.append({
                 'resource':  resource,
-                'countdown': e and common.pp_secs(e.countdown(self.t_now)),
+                'countdown': (
+                    e and (
+                        ''
+                        if self.progress_texts.get(e.metadata.id)
+                        else common.pp_secs(e.countdown(self.t_now))
+                    )
+                ),
                 'desc':      e and self.entry_desc_for_table(e),
                 'plate':     e and e.metadata.plate_id,
             })
@@ -264,6 +308,8 @@ class AnalyzeResult:
                 'blue': 'var(--blue)',
                 'disp': 'var(--purple)',
                 'incu': 'var(--green)',
+                'fridge': 'var(--cyan)',
+                'squid': 'var(--red)',
                 'now': '#fff',
                 'bg': 'var(--bg-bright)',
             }[source]
@@ -282,6 +328,8 @@ class AnalyzeResult:
                     info = f'{action} {loc}'
                 else:
                     info = action
+            elif row.state and isinstance(row.state.cmd, PhysicalCommand):
+                info = str(row.state.cmd)
             else:
                 info = ''
             title: dict[str, Any] | div = {}

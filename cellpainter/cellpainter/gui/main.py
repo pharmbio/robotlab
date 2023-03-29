@@ -65,12 +65,6 @@ def robotarm_set_speed(pct: int):
     with runtime.get_ur(quiet=False, include_gripper=True) as arm:
         arm.set_speed(pct)
 
-def robotarm_to_neutral():
-    '''
-    Slowly moves in joint space to the neutral position by B21
-    '''
-    robotarm_do(moves.movelists['to neu'])
-
 def robotarm_open_gripper():
     '''
     Opens the robotarm gripper

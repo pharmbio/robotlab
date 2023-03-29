@@ -474,7 +474,7 @@ def robotarm_small_cycle(args: SmallProtocolArgs):
     '''
     N = args.num_plates or 4
     cmds = [
-        RobotarmCmd('gripper init and check'),
+        RobotarmCmd('ur gripper init and check'),
     ]
     for _i in range(N):
         cmds += [
@@ -806,54 +806,7 @@ def example(args: SmallProtocolArgs):
     fill_estimates(cmd)
     return Program(cmd)
 
-def squid_from_hotel(args: SmallProtocolArgs) -> Program:
-    '''
-
-        Images the plate at H12. Params are:
-
-        protocol, project, plate
-
-    '''
-    cmds: list[Command] = []
-    config_path, project, plate = args.params
-    cmds += [
-        WithLock('Squid', [
-            WithLock('PF and Fridge', [
-                SquidStageCmd('goto_loading'),
-                PFCmd('H12-to-squid'),
-            ]),
-            SquidStageCmd('leave_loading'),
-            SquidAcquire(config_path, project=project, plate=plate),
-            WithLock('PF and Fridge', [
-                SquidStageCmd('goto_loading'),
-                PFCmd('squid-to-H12'),
-            ]),
-            SquidStageCmd('leave_loading'),
-        ])
-    ]
-    return Program(Seq(*cmds))
-
-def load_fridge(args: SmallProtocolArgs) -> Program:
-    '''
-
-        Loads --num-plates from hotel to fridge.
-
-        Specify the project of the plates in params[0].
-
-    '''
-    cmds: list[Command] = []
-    project, *_ = args.params
-    for i in range(args.num_plates):
-        assert i+1 <= 12
-        cmds += [
-            BarcodeClear(),
-            PFCmd(f'H{i+1}-to-fridge'),
-            FridgeInsert(project),
-        ]
-    cmds = [
-        WithLock('PF and Fridge', cmds),
-    ]
-    return Program(Seq(*cmds))
+imager = small_protocols
 
 def pf_fridge_program(cmds: list[Command]) -> Program:
     cmds = [
@@ -861,50 +814,151 @@ def pf_fridge_program(cmds: list[Command]) -> Program:
     ]
     return Program(Seq(*cmds))
 
+@imager.append
 def fridge_reset_and_activate(args: SmallProtocolArgs) -> Program:
-    return pf_fridge_program([FridgeCmd('reset_and_activate')])
+    return pf_fridge_program([FridgeCmd('reset_and_activate').fork().wait()])
 
+@imager.append
 def pf_home(args: SmallProtocolArgs) -> Program:
     return pf_fridge_program([PFCmd('home')])
 
+@imager.append
 def pf_freedrive(args: SmallProtocolArgs) -> Program:
     return pf_fridge_program([PFCmd('freedrive')])
 
+@imager.append
 def pf_reset_and_activate(args: SmallProtocolArgs) -> Program:
     return pf_fridge_program([PFCmd('stop-freedrive')])
 
-def squid_from_fridge(args: SmallProtocolArgs) -> Program:
+@imager.append
+def fridge_load(args: SmallProtocolArgs) -> Program:
     '''
 
-        Images plates in the fridge. Params are:
-
-        protocol, project, plate1_barcode, plate2_barcode, ..., plateN_barcode
+        Loads --num-plates from hotel to fridge. Specify the project of the plates in params[0].
 
     '''
     cmds: list[Command] = []
+    args.num_plates
+    if len(args.params) != 1:
+        return Program(Seq())
+    project, *_ = args.params
+    for i, _ in enumerate(range(args.num_plates), start=1):
+        assert i <= 12
+        cmds += [
+            BarcodeClear(),
+            PFCmd(f'H{i}-to-fridge'),
+            FridgeInsert(project).fork().wait(),
+        ]
+    cmds = [
+        WithLock('PF and Fridge', cmds),
+    ]
+    return Program(Seq(*cmds))
+
+@imager.append
+def fridge_unload(args: SmallProtocolArgs) -> Program:
+    '''
+
+        Unloads --num-plates from fridge to hotel in dictionary order. Specify the project of the plates in params[0].
+
+    '''
+    cmds: list[Command] = []
+    args.num_plates
+    if len(args.params) != 1:
+        return Program(Seq())
+    import labrobots
+    import platform
+    if platform.node() == 'mikro-asus':
+        try:
+            contents = labrobots.WindowsGBG().remote().fridge.contents()
+        except:
+            contents = {}
+    else:
+        contents = {}
+    project, *_ = args.params
+    plates = sorted(
+        [
+            slot['plate']
+            for slot in contents.values()
+            if slot['project'] == project
+        ]
+    )
+    for i, plate in enumerate(plates[:args.num_plates], start=1):
+        assert i <= 12
+        cmds += [
+            FridgeEject(plate=plate, project=project).fork().wait(),
+            PFCmd(f'fridge-to-H{i}'),
+        ]
+    cmds = [
+        WithLock('PF and Fridge', cmds),
+    ]
+    return Program(Seq(*cmds))
+
+
+@imager.append
+def squid_from_hotel(args: SmallProtocolArgs) -> Program:
+    '''
+
+        Images the plate at H12. Params are: protocol, project, plate
+
+    '''
+    cmds: list[Command] = []
+    if len(args.params) != 3:
+        return Program(Seq())
+    config_path, project, plate = args.params
+    cmds += [
+        WithLock('Squid', [
+            WithLock('PF and Fridge', [
+                SquidStageCmd('goto_loading').fork().wait(),
+                PFCmd('H12-to-squid'),
+            ]),
+            Seq(
+                SquidStageCmd('leave_loading'),
+                SquidAcquire(config_path, project=project, plate=plate),
+            ).fork().wait(),
+            WithLock('PF and Fridge', [
+                SquidStageCmd('goto_loading').fork().wait(),
+                PFCmd('squid-to-H12'),
+            ]),
+            SquidStageCmd('leave_loading').fork().wait(),
+        ])
+    ]
+    return Program(Seq(*cmds))
+
+@imager.append
+def squid_from_fridge(args: SmallProtocolArgs) -> Program:
+    '''
+
+        Images plates in the fridge. Params are: protocol, project, plate1_barcode, plate2_barcode, ..., plateN_barcode
+
+    '''
+    cmds: list[Command] = []
+    if len(args.params) < 3:
+        return Program(Seq())
     config_path, project, *plates = args.params
     RT_time_secs = 5.0
-    for i, plate in enumerate(plates):
+    for i, plate in enumerate(plates, start=1):
         cmds += [
             WithLock('PF and Fridge', [
-                FridgeEject(plate=plate, project=project),
+                FridgeEject(plate=plate, project=project).fork().wait(),
                 Checkpoint(f'RT {i}'),
                 PFCmd(f'fridge-to-H12'),
             ]),
-            WaitForCheckpoint(f'RT {i}', plus_secs=RT_time_secs),
+            WaitForCheckpoint(f'RT {i}', plus_secs=RT_time_secs, assume='nothing'),
             WithLock('PF and Fridge', [
-                SquidStageCmd('goto_loading'),
+                SquidStageCmd('goto_loading').fork().wait(),
                 PFCmd(f'H12-to-squid'),
             ]),
-            SquidStageCmd('leave_loading'),
-            SquidAcquire(config_path, project=project, plate=plate),
-            WithLock('PF and Fridge', [
-                SquidStageCmd('goto_loading'),
-                PFCmd(f'squid-to-H12'),
+            Seq(
                 SquidStageCmd('leave_loading'),
+                SquidAcquire(config_path, project=project, plate=plate),
+            ).fork().wait(),
+            WithLock('PF and Fridge', [
+                SquidStageCmd('goto_loading').fork().wait(),
+                PFCmd(f'squid-to-H12'),
+                SquidStageCmd('leave_loading').fork().wait(),
                 BarcodeClear(),
                 PFCmd(f'H12-to-fridge'),
-                FridgeInsert(project, expected_barcode=plate),
+                FridgeInsert(project, expected_barcode=plate).fork().wait(),
             ])
         ]
     cmds = [

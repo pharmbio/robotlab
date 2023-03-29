@@ -7,11 +7,11 @@ from pathlib import Path
 import ast
 import math
 import re
+import json
 
-from .moves import Move, MoveList
-from .runtime import RuntimeConfig
+from .moves import Move, MoveList, guess_robot
+from .runtime import RuntimeConfig, configs, simulate, UR, PF
 from . import moves
-from . import runtime
 from .ur_script import URScript
 import pbutils
 
@@ -20,23 +20,16 @@ from viable import Tag, div, button, pre, input
 import viable as V
 
 import sys
+from datetime import datetime
 
-config: RuntimeConfig
-for c in runtime.configs:
-    if '--' + c.name in sys.argv:
-        config = c
-        break
-else:
-    raise ValueError('Start with one of ' + ', '.join('--' + c.name for c in runtime.configs))
-
-print(f'Running with {config.name=}', config)
+ur: UR | None = None
+pf: PF | None = None
 
 serve = Serve(Flask(__name__))
 serve.suppress_flask_logging()
 
 polled_info: dict[str, list[float]] = {}
 
-from datetime import datetime
 server_start = datetime.now()
 
 def snap(desc: str=''):
@@ -121,12 +114,19 @@ def snap_many(desc: str):
 
     capture('t1')
 
-runtime = config.only_arm().make_runtime()
+def poll_pf(pf: PF):
+    while True:
+        with pf.connect(quiet=False, mode='ro') as arm:
+            info_str = arm.send_and_recv('wherejson')
+            info = json.loads(info_str)
+            info['xyz'] = [info[k] for k in 'xyz']
+            info['rpy'] = [0, 0, info['yaw']]
+            info['joints'] = [info[k] for k in 'q1 q2 q3 q4'.split()]
+            info['pos'] = [info['q5']]
+            polled_info.update(info)
+        time.sleep(0.1)
 
-@pbutils.spawn
-def poll() -> None:
-    ur = runtime.ur
-    if not ur: return
+def poll_ur(ur: UR):
     with ur.connect(quiet=False) as arm:
         arm.send('write_output_integer_register(1, 0)\n')
         arm.recv_until('PROGRAM_XXX_STOPPED')
@@ -169,12 +169,12 @@ def poll() -> None:
                     break
 
 def arm_do(*ms: Move):
-    ur = runtime.ur
     ur and ur.execute_moves(list(ms), name='gui', allow_partial_completion=True)
+    pf and pf.execute_moves(list(ms))
 
 def arm_set_speed(value: int) -> None:
-    ur = runtime.ur
     ur and ur.set_speed(value)
+    pf and pf.set_speed(value)
 
 def edit_at(program_name: str, i: int, changes: dict[str, Any], action: None | Literal['duplicate', 'delete']=None):
     filename = get_programs()[program_name]
@@ -218,27 +218,43 @@ def keydown(program_name: str, args: dict[str, Any]):
         deg = 90.0
     k = str(args['key'])
     _, _, yaw = polled_info.get('rpy', [0, 0, 0])
-    yaw += 180
-    keymap = {
-        'ArrowDown':  moves.MoveRel(xyz=[mm * cos(yaw + 180), mm * sin(yaw + 180), 0], rpy=[0, 0, 0]),
-        'ArrowUp':    moves.MoveRel(xyz=[mm * cos(yaw),       mm * sin(yaw),       0], rpy=[0, 0, 0]),
-        'ArrowLeft':  moves.MoveRel(xyz=[mm * cos(yaw + 90),  mm * sin(yaw + 90),  0], rpy=[0, 0, 0]),
-        'ArrowRight': moves.MoveRel(xyz=[mm * cos(yaw - 90),  mm * sin(yaw - 90),  0], rpy=[0, 0, 0]),
-        'PageUp':     moves.MoveRel(xyz=[0, 0,  mm], rpy=[0, 0, 0]),
-        'PageDown':   moves.MoveRel(xyz=[0, 0, -mm], rpy=[0, 0, 0]),
-        'F7':         moves.MoveRel(xyz=[0, 0, 0], rpy=[0, 0,  deg]),
-        'F8':         moves.MoveRel(xyz=[0, 0, 0], rpy=[0, 0, -deg]),
-        'F9':         moves.MoveRel(xyz=[0, 0, 0], rpy=[ deg, 0, 0]),
-        'F10':        moves.MoveRel(xyz=[0, 0, 0], rpy=[-deg, 0, 0]),
-        '[':          moves.MoveRel(xyz=[0, 0, 0], rpy=[ deg, 0, 0]),
-        ']':          moves.MoveRel(xyz=[0, 0, 0], rpy=[-deg, 0, 0]),
-        '-':          moves.RawCode(f'GripperMove(read_output_integer_register(0) - {int(mm)})'),
-        '+':          moves.RawCode(f'GripperMove(read_output_integer_register(0) + {int(mm)})'),
-        'Home':       moves.MoveRel(xyz=[0, 0, 0], rpy=[0, 0,  deg]),
-        'End':        moves.MoveRel(xyz=[0, 0, 0], rpy=[0, 0, -deg]),
-        'Delete':     moves.MoveRel(xyz=[0, 0, 0], rpy=[0,  deg, 0]),
-        'Insert':     moves.MoveRel(xyz=[0, 0, 0], rpy=[0, -deg, 0]),
-    }
+    if pf:
+        keymap = {
+            'ArrowDown':  moves.MoveRel(xyz=[mm * cos(yaw + 180), mm * sin(yaw + 180), 0], rpy=[0, 0, 0]),
+            'ArrowUp':    moves.MoveRel(xyz=[mm * cos(yaw),       mm * sin(yaw),       0], rpy=[0, 0, 0]),
+            'ArrowLeft':  moves.MoveRel(xyz=[mm * cos(yaw + 90),  mm * sin(yaw + 90),  0], rpy=[0, 0, 0]),
+            'ArrowRight': moves.MoveRel(xyz=[mm * cos(yaw - 90),  mm * sin(yaw - 90),  0], rpy=[0, 0, 0]),
+            'PageUp':     moves.MoveRel(xyz=[0, 0,  mm], rpy=[0, 0, 0]),
+            'PageDown':   moves.MoveRel(xyz=[0, 0, -mm], rpy=[0, 0, 0]),
+            '[':          moves.MoveRel(xyz=[0, 0, 0],   rpy=[0, 0,  deg]),
+            ']':          moves.MoveRel(xyz=[0, 0, 0],   rpy=[0, 0, -deg]),
+            ',':          moves.MoveRel(xyz=[0, 0, 0],   rpy=[0, 0,  deg]),
+            '.':          moves.MoveRel(xyz=[0, 0, 0],   rpy=[0, 0, -deg]),
+            '-':          moves.RawCode(f'MoveJ_Rel 1 0 0 0 0 {-int(mm)}'),
+            '+':          moves.RawCode(f'MoveJ_Rel 1 0 0 0 0 {int(mm)}'),
+        }
+    else:
+        yaw += 180
+        keymap = {
+            'ArrowDown':  moves.MoveRel(xyz=[mm * cos(yaw + 180), mm * sin(yaw + 180), 0], rpy=[0, 0, 0]),
+            'ArrowUp':    moves.MoveRel(xyz=[mm * cos(yaw),       mm * sin(yaw),       0], rpy=[0, 0, 0]),
+            'ArrowLeft':  moves.MoveRel(xyz=[mm * cos(yaw + 90),  mm * sin(yaw + 90),  0], rpy=[0, 0, 0]),
+            'ArrowRight': moves.MoveRel(xyz=[mm * cos(yaw - 90),  mm * sin(yaw - 90),  0], rpy=[0, 0, 0]),
+            'PageUp':     moves.MoveRel(xyz=[0, 0,  mm], rpy=[0, 0, 0]),
+            'PageDown':   moves.MoveRel(xyz=[0, 0, -mm], rpy=[0, 0, 0]),
+            'F7':         moves.MoveRel(xyz=[0, 0, 0], rpy=[0, 0,  deg]),
+            'F8':         moves.MoveRel(xyz=[0, 0, 0], rpy=[0, 0, -deg]),
+            'F9':         moves.MoveRel(xyz=[0, 0, 0], rpy=[ deg, 0, 0]),
+            'F10':        moves.MoveRel(xyz=[0, 0, 0], rpy=[-deg, 0, 0]),
+            '[':          moves.MoveRel(xyz=[0, 0, 0], rpy=[ deg, 0, 0]),
+            ']':          moves.MoveRel(xyz=[0, 0, 0], rpy=[-deg, 0, 0]),
+            '-':          moves.RawCode(f'GripperMove(read_output_integer_register(0) - {int(mm)})'),
+            '+':          moves.RawCode(f'GripperMove(read_output_integer_register(0) + {int(mm)})'),
+            'Home':       moves.MoveRel(xyz=[0, 0, 0], rpy=[0, 0,  deg]),
+            'End':        moves.MoveRel(xyz=[0, 0, 0], rpy=[0, 0, -deg]),
+            'Delete':     moves.MoveRel(xyz=[0, 0, 0], rpy=[0,  deg, 0]),
+            'Insert':     moves.MoveRel(xyz=[0, 0, 0], rpy=[0, -deg, 0]),
+        }
     def norm(k: str):
         tr: dict[str, str] = cast(Any, dict)(['[{', ']}', '+=', '-_', ',<', '.>'])
         return tr.get(k) or k.upper()
@@ -246,10 +262,10 @@ def keydown(program_name: str, args: dict[str, Any]):
     pbutils.pr(k)
     if m := keymap.get(k):
         pbutils.pr(m)
-        arm_do( # type: ignore
-            moves.RawCode("EnsureRelPos()"),
-            m,
-        )
+        ms = [m]
+        if ur:
+            ms = [moves.RawCode("EnsureRelPos()")] + ms
+        arm_do(*ms)
 
 def update(program_name: str, i: int | None, grouped: bool=False):
     if i is None:
@@ -287,9 +303,16 @@ def update(program_name: str, i: int | None, grouped: bool=False):
     ml.write_jsonl(filename)
 
 def get_programs() -> dict[str, Path]:
+    if pf:
+        filter = 'pf'
+    elif ur:
+        filter = 'ur'
+    else:
+        filter = ''
     return {
         path.with_suffix('').name: path
         for path in sorted(Path('./movelists').glob('*.jsonl'))
+        if filter in guess_robot(path.stem)
     }
 
 @serve.route('/')
@@ -583,7 +606,7 @@ def index() -> Iterator[Tag | dict[str, str]]:
             oninput=call(edit_at, program_name, i, js("{name:event.target.value}")),
         )
         if not isinstance(m, moves.Section):
-            script = m.to_script()
+            script = m.to_ur_script()
             if isinstance(m, moves.MoveLin):
                 script = f'''MoveLin({
                     m.xyz[0]:7.1f},{
@@ -619,12 +642,13 @@ def index() -> Iterator[Tag | dict[str, str]]:
         """).append(
             button('run program',   tabindex='-1', onclick=call(arm_do, *visible_program),
                                                    oncontextmenu='event.preventDefault();' + call(arm_do, *(visible_program * 100)), css='width: 160px'),
-            button('freedrive',     tabindex='-1', onclick=call(arm_do, moves.RawCode("freedrive_mode() sleep(3600)"))),
-            button('snap',          tabindex='-1', onclick=call(snap)),
-            button('snap many',     tabindex='-1', onclick=call(snap_many, js('prompt("desc", "")'))),
-            button('stop robot',    tabindex='-1', onclick=call(arm_do, )                                              , css='flex-grow: 1; color: red; font-size: 48px'),
-            button('gripper open',  tabindex='-1', onclick=call(arm_do, moves.RawCode("GripperMove(88)"))),
-            button('gripper close', tabindex='-1', onclick=call(arm_do, moves.RawCode("GripperMove(255)"))),
+            button('init arm',      tabindex='-1', onclick=call(pf.init)) if pf else '',
+            button('freedrive',     tabindex='-1', onclick=call(arm_do, moves.RawCode("freedrive_mode() sleep(3600)" if ur else "Freedrive"))),
+            # button('snap',          tabindex='-1', onclick=call(snap)),
+            # button('snap many',     tabindex='-1', onclick=call(snap_many, js('prompt("desc", "")'))),
+            button('stop robot',    tabindex='-1', onclick=call(arm_do, *([] if ur else [moves.RawCode("halt\nStopFreedrive")])), css='flex-grow: 1; color: red; font-size: 48px'),
+            button('gripper open',  tabindex='-1', onclick=call(arm_do, moves.RawCode("GripperMove(88)") if ur else moves.GripperMove(100))),
+            button('gripper close', tabindex='-1', onclick=call(arm_do, moves.RawCode("GripperMove(255)") if ur else moves.GripperMove(75))),
             button('grip test',     tabindex='-1', onclick=call(arm_do, moves.RawCode("GripperTest()"))),
     )
 
@@ -652,10 +676,18 @@ def index() -> Iterator[Tag | dict[str, str]]:
                 text-align: left;
             }
         """)
-        btns += button('roll -> 0° (level roll)',                  tabindex='-1', onclick=call(arm_do, EnsureRelPos, moves.MoveRel([0, 0, 0], [-r,  0,       0     ])))
-        btns += button('pitch -> 0° (face horizontally)',          tabindex='-1', onclick=call(arm_do, EnsureRelPos, moves.MoveRel([0, 0, 0], [ 0, -p,       0     ])))
-        btns += button('yaw -> 0° (towards washer and dispenser)', tabindex='-1', onclick=call(arm_do, EnsureRelPos, moves.MoveRel([0, 0, 0], [ 0,  0,      -y     ])))
-        btns += button('yaw -> 90° (towards hotels and incu)',     tabindex='-1', onclick=call(arm_do, EnsureRelPos, moves.MoveRel([0, 0, 0], [ 0,  0,      -y + 90])))
+        if ur:
+            btns += button('roll -> 0° (level roll)',                  tabindex='-1', onclick=call(arm_do, EnsureRelPos, moves.MoveRel([0, 0, 0], [-r,  0,       0     ])))
+            btns += button('pitch -> 0° (face horizontally)',          tabindex='-1', onclick=call(arm_do, EnsureRelPos, moves.MoveRel([0, 0, 0], [ 0, -p,       0     ])))
+            btns += button('yaw -> 0° (towards washer and dispenser)', tabindex='-1', onclick=call(arm_do, EnsureRelPos, moves.MoveRel([0, 0, 0], [ 0,  0,      -y     ])))
+            btns += button('yaw -> 90° (towards hotels and incu)',     tabindex='-1', onclick=call(arm_do, EnsureRelPos, moves.MoveRel([0, 0, 0], [ 0,  0,      -y + 90])))
+        if pf:
+            for deg in [0, 90, 180, 270]:
+                btns += button(
+                    f'yaw -> {deg}°',
+                    tabindex='-1',
+                    onclick=call(arm_do, moves.MoveRel([0,0,0], [0,0,-polled_info.get('rpy', [0,0,0])[-1] + deg]))
+                )
         foot += btns
 
     foot += pre(
@@ -687,11 +719,30 @@ def index() -> Iterator[Tag | dict[str, str]]:
     yield V.queue_refresh(150)
 
 def main():
+    for c in configs:
+        if '--' + c.name in sys.argv:
+            config = c
+            break
+    else:
+        raise ValueError('Start with one of ' + ', '.join('--' + c.name for c in configs))
+
+    print(f'Running with {config.name=}', config)
+
     if config.name in ('simulate', 'forward'):
         host = 'localhost'
     else:
         host = '10.10.0.55'
         host = 'localhost'
+
+    runtime = config.only_arm().make_runtime()
+    global ur; ur = runtime.ur
+    global pf; pf = runtime.pf
+
+    @pbutils.spawn
+    def poll() -> None:
+        ur and poll_ur(ur)
+        pf and poll_pf(pf)
+
     serve.run(
         port=5000,
         host=host,

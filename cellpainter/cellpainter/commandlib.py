@@ -4,20 +4,7 @@ from typing import *
 
 import pbutils
 
-from .commands import (
-    Command,
-    RobotarmCmd,
-    Program,
-    Metadata,
-    Meta,
-    Checkpoint,
-    WaitForCheckpoint,
-    Fork,
-    Idle,
-    Duration,
-    Seq,
-    SeqCmd,
-)
+from .commands import *
 from . import commands
 from . import moves
 from . import constraints
@@ -76,18 +63,20 @@ def quicksim(program: Command, checkpoints: dict[str, float], estimate: Callable
                 thread.running = hd.add(meta), hd.seconds.unwrap()
                 # running pseudo-physical command (these could be replaced with checkpoint...wait)
                 return [thread]
-            case Duration():
+            case Duration() | AcquireLock() | ReleaseLock():
                 # nothing to do
                 t_end[meta.id] = t
                 thread.todo = tl
                 return advance_thread(t, thread)
-            case _:
+            case PhysicalCommand():
                 # print(hd)
                 thread.todo = tl
                 est = estimate(hd)
                 thread.running = hd.add(meta), est
                 # running physical command
                 return [thread]
+            case _:
+                raise ValueError(f'No case for cmd={hd}')
 
     def go(t: float, threads: list[Thread]) -> None:
         while True:
@@ -238,11 +227,16 @@ def check_correspondence(command: Command, **ends: dict[int, float]):
         for k in sorted({*ends_a.keys(), *ends_b.keys()}):
             end_a = round(ends_a.get(k, -1), 0)
             end_b = round(ends_b.get(k, -1), 0)
+            if end_a == -1: end_a = 'missing'
+            if end_b == -1: end_b = 'missing'
             if end_a != end_b:
                 cmd = by_id.get(k)
-                if not cmd or not isinstance(cmd.peel_meta(), Checkpoint):
+                if cmd and isinstance(cmd.peel_meta(), AcquireLock | ReleaseLock):
+                    pass
+                else:
                     pbutils.pr({src_a: end_a, src_b: end_b, 'cmd': cmd})
                     mismatches += 1
+                # if not cmd or not isinstance(cmd.peel_meta(), Checkpoint):
 
     if mismatches:
         raise ValueError(f'Correspondence check failed {mismatches=} ({" ".join(ends.keys())})')

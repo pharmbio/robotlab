@@ -49,6 +49,11 @@ class Message(DBMixin):
     id: int = -1
 
 @dataclass(frozen=True)
+class ProgressText(DBMixin):
+    text: str = ''
+    id: int = -1
+
+@dataclass(frozen=True)
 class CommandWithMetadata:
     cmd: Command
     metadata: Metadata
@@ -173,6 +178,9 @@ class Log:
                 t <= CommandState.t,
             ).list()
 
+    def progress_text(self, id: int) -> str | None:
+        return self.db.get(ProgressText).where(ProgressText.id == id).select(ProgressText.text).one_or(None)
+
     def section_starts(self) -> dict[str, float]:
         q = self.gui_query()
         out: dict[str, float] = {}
@@ -250,10 +258,15 @@ class Log:
             CommandState.resource == 'disp',
             CommandState.resource == 'wash',
             CommandState.resource == 'blue',
+            CommandState.resource == 'squid',
         )
         if not states.list():
             # show incu if no bioteks (for incu load)
-            states = q.where_some(CommandState.resource == 'incu')
+            # show fridge if no microscopes (for fridge load)
+            states = q.where_some(
+                CommandState.resource == 'fridge',
+                CommandState.resource == 'incu',
+            )
         for state in states:
             if 0:
                 # this cannot be right, the runtime should update the states

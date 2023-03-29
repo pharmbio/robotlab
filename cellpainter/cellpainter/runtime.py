@@ -21,7 +21,7 @@ from .ur import UR
 from .pf import PF
 from .timelike import Timelike, WallTime, SimulatedTime
 from .moves import World, Effect
-from .log import Message, CommandState, CommandWithMetadata, Log
+from .log import Message, CommandState, CommandWithMetadata, ProgressText, Log
 
 from labrobots import WindowsNUC, Biotek, Fridge, BlueWash, BarcodeReader
 from labrobots import WindowsGBG, STX, BarcodeReader
@@ -50,12 +50,14 @@ class UREnvs:
 class PFEnv:
     mode: Literal['noop', 'execute']
     host: str
-    port: int
+    _: KW_ONLY
+    port_rw: int
+    port_ro: int
 
 class PFEnvs:
-    live      = PFEnv('execute', '10.10.0.98', 10100)
-    forward   = PFEnv('execute', '127.0.0.1', 10100)
-    dry       = PFEnv('noop', '', 0)
+    live      = PFEnv('execute', '10.10.0.98', port_rw=10100, port_ro=10000)
+    forward   = PFEnv('execute', '127.0.0.1',  port_rw=10100, port_ro=10000)
+    dry       = PFEnv('noop', '', port_rw=0, port_ro=0)
 
 @dataclass(frozen=True)
 class RuntimeConfig(DBMixin):
@@ -78,16 +80,19 @@ class RuntimeConfig(DBMixin):
         )
 
     def make_runtime(self) -> Runtime:
+        import weakref
         if self.run_fridge_squid_nikon or self.pf_env.mode == 'execute':
-            locks_db_filepath = 'locks.db'
+            locks_db_filepath, cleanup = 'locks.db', lambda: None
         else:
-            locks_db_filepath = ResourceLock.make_temp_db_filepath()
-        return Runtime(
+            locks_db_filepath, cleanup = ResourceLock.make_temp_db_filepath()
+        runtime = Runtime(
             config=self,
             time=self.make_timelike(),
             locks_db_filepath=locks_db_filepath,
             log_db=DB.connect(self.log_filename if self.log_filename else ':memory:'),
         )
+        weakref.finalize(runtime, cleanup)
+        return runtime
 
     def make_timelike(self) -> Timelike:
         if self.timelike == 'WallTime':
@@ -105,11 +110,18 @@ class RuntimeConfig(DBMixin):
 
 configs: list[RuntimeConfig]
 configs = [
-    RuntimeConfig('live',           'WallTime',      UREnvs.live,      PFEnvs.dry, run_incu_wash_disp=True,  run_fridge_squid_nikon=False),
-    RuntimeConfig('ur-simulator',   'WallTime',      UREnvs.simulator, PFEnvs.dry, run_incu_wash_disp=False, run_fridge_squid_nikon=False),
-    RuntimeConfig('forward',        'WallTime',      UREnvs.forward,   PFEnvs.dry, run_incu_wash_disp=False, run_fridge_squid_nikon=False),
-    RuntimeConfig('simulate-wall',  'WallTime',      UREnvs.dry,       PFEnvs.dry, run_incu_wash_disp=False, run_fridge_squid_nikon=False),
-    RuntimeConfig('simulate',       'SimulatedTime', UREnvs.dry,       PFEnvs.dry, run_incu_wash_disp=False, run_fridge_squid_nikon=False),
+    # UR:
+    RuntimeConfig('live',          'WallTime',      UREnvs.live,      PFEnvs.dry,     run_incu_wash_disp=True,   run_fridge_squid_nikon=False),
+    RuntimeConfig('ur-simulator',  'WallTime',      UREnvs.simulator, PFEnvs.dry,     run_incu_wash_disp=False,  run_fridge_squid_nikon=False),
+    RuntimeConfig('forward',       'WallTime',      UREnvs.forward,   PFEnvs.dry,     run_incu_wash_disp=False,  run_fridge_squid_nikon=False),
+
+    # PF:
+    RuntimeConfig('pf-live',       'WallTime',      UREnvs.dry,       PFEnvs.live,    run_incu_wash_disp=False,  run_fridge_squid_nikon=True),
+    RuntimeConfig('pf-forward',    'WallTime',      UREnvs.dry,       PFEnvs.forward, run_incu_wash_disp=False,  run_fridge_squid_nikon=False),
+
+    # Simulate:
+    RuntimeConfig('simulate-wall', 'WallTime',      UREnvs.dry,       PFEnvs.dry,     run_incu_wash_disp=False,  run_fridge_squid_nikon=False),
+    RuntimeConfig('simulate',      'SimulatedTime', UREnvs.dry,       PFEnvs.dry,     run_incu_wash_disp=False,  run_fridge_squid_nikon=False),
 ]
 
 def config_lookup(name: str) -> RuntimeConfig:
@@ -176,7 +188,7 @@ class Runtime:
         if self.log_db:
             self.log_db.con.execute('pragma synchronous=OFF;')
 
-        install_handlers=self.config.name != 'simulate'
+        install_handlers='simulate' not in self.config.name
 
         if install_handlers:
             def handle_signal(signum: int, _frame: Any):
@@ -205,10 +217,17 @@ class Runtime:
 
         if self.config.ur_env.mode != 'noop':
             self.ur = UR(
-                self.config.ur_env.host,
-                self.config.ur_env.port,
+                host=self.config.ur_env.host,
+                port=self.config.ur_env.port,
             )
             self.ur.set_speed(self.config.ur_speed)
+
+        if self.config.pf_env.mode != 'noop':
+            self.pf = PF(
+                host=self.config.pf_env.host,
+                port_rw=self.config.pf_env.port_rw,
+                port_ro=self.config.pf_env.port_ro,
+            )
 
         if self.config.run_fridge_squid_nikon:
             gbg = WindowsGBG.remote()
@@ -323,8 +342,20 @@ class Runtime:
                 est = entry.metadata.est
                 if est is None:
                     raise ValueError(f'No estimate for {entry}')
-                self.sleep(est)
-                self.sleep(entry.metadata.sim_delay or 0.0)
+                total = est + (entry.metadata.sim_delay or 0.0)
+                if self.config.name == 'simulate-wall':
+                    t0 = self.monotonic()
+                    while True:
+                        elapsed = self.monotonic() - t0
+                        remain = total - elapsed
+                        self.set_progress_text(entry, f'progress: {round(100 * elapsed / total)}%')
+                        if remain > 1.0:
+                            self.sleep(1.0)
+                        else:
+                            self.sleep(remain)
+                            break
+                else:
+                    self.sleep(total)
 
     def timeit(self, entry: CommandWithMetadata) -> ContextManager[None]:
         # The inferred type for the decorated function is wrong hence this wrapper to get the correct type
@@ -400,10 +431,11 @@ class Runtime:
     def checkpoint(self, name: str, entry: CommandWithMetadata):
         with self.lock:
             assert name not in self.checkpoint_times, f'{name!r} already checkpointed in {pbutils.show(self.checkpoint_times, use_color=False)}'
-            self.checkpoint_times[name] = self.monotonic()
+            self.checkpoint_times[name] = t = self.monotonic()
             for q in self.checkpoint_waits[name]:
                 self.time.queue_put_nowait(q, None)
             self.checkpoint_waits[name].clear()
+            return t
 
     def enqueue_for_checkpoint(self, name: str):
         q: Queue[None] = Queue()
@@ -420,10 +452,16 @@ class Runtime:
         with self.lock:
             return self.checkpoint_times[name]
 
-    def process_name(self):
+    def set_progress_text(self, entry: CommandWithMetadata, text: str):
+        id = int(entry.metadata.id)
+        assert id >= 0
+        with self.lock:
+            ProgressText(text=text, id=id).save(self.log_db)
+
+    def runtime_name(self):
         parts = [
-            self.start_time.replace(microsecond=0).isoformat(sep=' '),
-            self.config.name,
+            self.config.log_filename or
+            self.start_time.replace(microsecond=0).isoformat(sep=' ') + ' ' + self.config.name,
             process_name,
         ]
         return ' '.join(parts)
@@ -431,7 +469,7 @@ class Runtime:
     def resource_lock(self, lock_name: LockName):
         return ResourceLock(
             db_filepath=self.locks_db_filepath,
-            process_name=self.process_name(),
+            process_name=self.runtime_name(),
             lock_name=lock_name,
         )
 
@@ -494,8 +532,17 @@ class ResourceLock:
         import shutil
         from pathlib import Path
         tmpdir = tempfile.mkdtemp(prefix='robotlab-locks-db-')
-        atexit.register(lambda: shutil.rmtree(tmpdir, ignore_errors=True))
-        return str(Path(tmpdir) / 'locks.db')
+        todo = True
+        def cleanup():
+            nonlocal todo
+            if todo:
+                todo = False
+                shutil.rmtree(tmpdir, ignore_errors=True)
+                0 and print('Cleaned up', tmpdir)
+            else:
+                0 and print('Already cleaned up', tmpdir)
+        atexit.register(cleanup)
+        return str(Path(tmpdir) / 'locks.db'), cleanup
 
 def test_resource_locks():
     import pytest

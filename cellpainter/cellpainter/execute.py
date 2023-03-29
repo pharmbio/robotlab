@@ -46,7 +46,8 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
                 runtime.sleep(secs)
 
         case Checkpoint():
-            runtime.checkpoint(cmd.name, entry)
+            with runtime.timeit(entry):
+                runtime.checkpoint(cmd.name, entry)
 
         case WaitForCheckpoint():
             plus_secs = cmd.plus_secs
@@ -75,14 +76,30 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
                 execute(cmd.command, runtime, thread_metadata)
                 runtime.thread_done()
 
+        case AcquireLock(name=name):
+            runtime.acquire_lock(name)
+            runtime.assert_lock(name)
+
+        case ReleaseLock(name=name):
+            runtime.assert_lock(name)
+            runtime.release_lock(name)
+
         case RobotarmCmd():
             movelist = movelists.get(cmd.program_name)
             if movelist is None:
                 raise ValueError(f'Missing robotarm move {cmd.program_name}')
-            with_gripper = movelist.has_gripper() and runtime.config.ur_env.mode != 'execute no gripper'
-            script = movelist.make_script(with_gripper=with_gripper, name=cmd.program_name)
+            with_gripper = runtime.config.ur_env.mode != 'execute no gripper'
+            script = movelist.make_ur_script(with_gripper=with_gripper, name=cmd.program_name)
             for ur in runtime.time_resource_use(entry, runtime.ur):
                 ur.execute_script(script)
+
+        case PFCmd():
+            movelist = movelists.get(cmd.program_name)
+            if movelist is None:
+                raise ValueError(f'Missing robotarm move {cmd.program_name}')
+            runtime.assert_lock('PF and Fridge')
+            for pf in runtime.time_resource_use(entry, runtime.pf):
+                pf.execute_moves(movelist)
 
         case BiotekCmd():
             bioteks.execute(runtime, entry, cmd.machine, cmd.protocol_path, cmd.action)
@@ -92,21 +109,6 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
 
         case IncuCmd(action=action):
             incubator.execute(runtime, entry, action, cmd.incu_loc)
-
-        case WaitForResource():
-            raise ValueError('Cannot execute WaitForResource, run Command.make_resource_checkpoints first')
-
-        case AcquireLock(name=name):
-            runtime.acquire_lock(name)
-            runtime.assert_lock(name)
-
-        case ReleaseLock(name=name):
-            runtime.assert_lock(name)
-            runtime.release_lock(name)
-
-        case PFCmd():
-            runtime.assert_lock('PF and Fridge')
-            raise ValueError('TODO: execute PF')
 
         case SquidAcquire():
             runtime.assert_lock('Squid')
@@ -126,6 +128,9 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
 
                 # wait until it has finished running:
                 while not squid.status().get('interactive'):
+                    if (progress_bar_text := squid.status().get('progress')):
+                        runtime.set_progress_text(entry, text=progress_bar_text)
+
                     runtime.sleep(1.0)
 
         case SquidStageCmd() as cmd:
@@ -168,6 +173,9 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
             runtime.assert_lock('PF and Fridge')
             for barcode_reader in runtime.time_resource_use(entry, runtime.barcode_reader):
                 barcode_reader.clear()
+
+        case WaitForResource():
+            raise ValueError('Cannot execute WaitForResource, run Command.make_resource_checkpoints first')
 
         case _:
             raise ValueError(f'Unknown command {cmd}')

@@ -9,22 +9,25 @@ from pathlib import Path
 import abc
 import re
 import pbutils
+import textwrap
 from pbutils.mixins import DBMixin
 
 from .ur_script import URScript
 
-class Move(abc.ABC):
-    def to_dict(self) -> dict[str, Any]:
-        res = pbutils.to_json(self)
-        assert isinstance(res, dict)
-        return res
+# UR room:
+HotelLocs_A = [h+1 for h in range(21)]
+HotelLocs_B_C = [h for h in HotelLocs_A if h % 2 == 1]
 
-    @classmethod
-    def from_dict(cls, d: dict[str, Any]) -> Move:
-        return pbutils.from_json(d)
+# PF room:
+HotelLocs_H = [h+1 for h in range(12)]
+
+class Move(abc.ABC):
+    @abc.abstractmethod
+    def to_ur_script(self) -> str:
+        raise NotImplementedError
 
     @abc.abstractmethod
-    def to_script(self) -> str:
+    def to_pf_script(self) -> str:
         raise NotImplementedError
 
     def try_name(self) -> str:
@@ -34,7 +37,7 @@ class Move(abc.ABC):
             return ""
 
     def is_gripper(self) -> bool:
-        return isinstance(self, (GripperMove, GripperInitAndCheck))
+        return isinstance(self, GripperMove)
 
     def is_close(self) -> bool:
         if isinstance(self, GripperMove):
@@ -48,10 +51,14 @@ class Move(abc.ABC):
         else:
             return False
 
-def call(name: str, *args: Any, **kwargs: Any) -> str:
+def ur_call(name: str, *args: Any, **kwargs: Any) -> str:
     strs = [str(arg) for arg in args]
     strs += [k + '=' + str(v) for k, v in kwargs.items()]
     return name + '(' + ', '.join(strs) + ')'
+
+def pf_call(name: str, *args: Any) -> str:
+    strs = [str(arg) for arg in args]
+    return ' '.join([name, *strs])
 
 def keep_true(**kvs: Any) -> dict[str, Any]:
     return {k: v for k, v in kvs.items() if v}
@@ -67,6 +74,8 @@ class MoveLin(Move):
     roll:  gripper twist. 0°: horizontal
     pitch: gripper incline. 0°: horizontal, -90° pointing straight down
     yaw:   gripper rotation in room XY, CCW. 0°: to x+, 90°: to y+
+
+    For PF: only yaw of rpy is used.
     '''
     xyz: list[float]
     rpy: list[float]
@@ -74,8 +83,11 @@ class MoveLin(Move):
     name: str = ""
     slow: bool = False
 
-    def to_script(self) -> str:
-        return call('MoveLin', *self.xyz, *self.rpy, **keep_true(slow=self.slow))
+    def to_ur_script(self) -> str:
+        return ur_call('MoveLin', *self.xyz, *self.rpy, **keep_true(slow=self.slow))
+
+    def to_pf_script(self) -> str:
+        return pf_call('MoveC', '1', *self.xyz, self.rpy[-1], 90, 180)
 
 @dataclass(frozen=True)
 class MoveRel(Move):
@@ -89,6 +101,8 @@ class MoveRel(Move):
 
     xyz' = xyz + Δxyz
     rpy' = rpy + Δrpy
+
+    For PF: only yaw of rpy is used.
     '''
     xyz: list[float]
     rpy: list[float]
@@ -96,38 +110,50 @@ class MoveRel(Move):
     name: str = ""
     slow: bool = False
 
-    def to_script(self) -> str:
-        return call('MoveRel', *self.xyz, *self.rpy, **keep_true(slow=self.slow))
+    def to_ur_script(self) -> str:
+        return ur_call('MoveRel', *self.xyz, *self.rpy, **keep_true(slow=self.slow))
+
+    def to_pf_script(self) -> str:
+        return pf_call('MoveC_Rel', '1', *self.xyz, self.rpy[-1], 0, 0)
 
 @dataclass(frozen=True)
 class MoveJoint(Move):
     '''
     Joint rotations in degrees
+
+    For UR: All 6 are used
+    For PF: Only the 4 first are used
     '''
     joints: list[float]
     name: str = ""
     slow: bool = False
 
-    def to_script(self) -> str:
-        return call('MoveJoint', *self.joints, **keep_true(slow=self.slow))
+    def to_ur_script(self) -> str:
+        return ur_call('MoveJoint', *self.joints, **keep_true(slow=self.slow))
+
+    def to_pf_script(self) -> str:
+        joints = self.joints[:4]
+        assert len(joints) == 4
+        return pf_call('MoveJ', *joints)
 
 @dataclass(frozen=True)
 class GripperMove(Move):
     pos: int
     soft: bool = False
-    def to_script(self) -> str:
-        return call('GripperMove', self.pos, **keep_true(soft=self.soft))
+    def to_ur_script(self) -> str:
+        return ur_call('GripperMove', self.pos, **keep_true(soft=self.soft))
 
-@dataclass(frozen=True)
-class GripperInitAndCheck(Move):
-    def to_script(self) -> str:
-        return call('GripperInitAndCheck')
+    def to_pf_script(self) -> str:
+        return pf_call('MoveJ', self.pos)
 
 @dataclass(frozen=True)
 class Section(Move):
     section: str
-    def to_script(self) -> str:
+    def to_ur_script(self) -> str:
         return f'# {self.section}'
+
+    def to_pf_script(self) -> str:
+        return ''
 
 @dataclass(frozen=True)
 class RawCode(Move):
@@ -135,15 +161,15 @@ class RawCode(Move):
     Send a raw piece of code, used only in the gui and available at the cli.
     '''
     code: str
-    def to_script(self) -> str:
+    def to_ur_script(self) -> str:
         return self.code
+
+    def to_pf_script(self) -> str:
+        return textwrap.dedent(self.code).strip()
 
     def is_gripper(self) -> bool: raise ValueError
     def is_open(self) -> bool: raise ValueError
     def is_close(self) -> bool: raise ValueError
-
-HotelLocs = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21]
-HotelLocs_B_C = [x for x in HotelLocs if x % 2 == 1]
 
 class MoveList(list[Move]):
     '''
@@ -187,16 +213,25 @@ class MoveList(list[Move]):
         The first occurence of 19 in the name is replaced with 1, 3, .., 21, so
         "lid_B19_put" becomes "lid_B1_put" and so on.
         '''
-        hotel_dist: float = 70.94
         out: dict[str, MoveList] = {}
-        hotel_locs = HotelLocs if 'A' in name else HotelLocs_B_C
+        if 'A' in name:
+            hotel_locs = HotelLocs_A
+            hotel_dist: float = 70.94 / 2
+        elif 'B' in name or 'C' in name:
+            hotel_locs = HotelLocs_B_C
+            hotel_dist: float = 70.94 / 2
+        elif 'H' in name:
+            hotel_locs = HotelLocs_H
+            hotel_dist: float = 70.94 / 2.0 - 3 / 11.0
+        else:
+            raise ValueError('Unknown hotel in: {name}')
         for tag in set(self.tags()):
-            if m := re.match(r'(\d+)/21$', tag):
+            if m := re.match(r'(\d+)/(12|21)$', tag):
                 ref_h = int(m.group(1))
                 assert str(ref_h) in name
                 assert ref_h in hotel_locs
                 for h in hotel_locs:
-                    dz = (h - ref_h) / 2 * hotel_dist
+                    dz = (h - ref_h) * hotel_dist
                     name_h = name.replace(str(ref_h), str(h), 1)
                     out[name_h] = self.adjust_tagged(tag, dname=str(h), dz=dz)
         return out
@@ -270,10 +305,10 @@ class MoveList(list[Move]):
             after_drop=after_drop,
         )
 
-    def make_script(self, with_gripper: bool, name: str='script') -> URScript:
+    def make_ur_script(self, with_gripper: bool, name: str='script') -> URScript:
         body = '\n'.join(
             ("# " + getattr(m, 'name') + '\n' if hasattr(m, 'name') else '')
-            + m.to_script()
+            + m.to_ur_script()
             for m in self
         )
         code = f'''
@@ -363,6 +398,33 @@ def sleek_movements(
         if i not in rm
     ]
 
+def raw(s: str) -> MoveList:
+    return MoveList([RawCode(s)])
+
+static: dict[str, MoveList] = {
+    'noop': MoveList(),
+    'pf test comm': raw('version'),
+    'pf freedrive': raw('Freedrive'),
+    'pf stop freedrive': raw('StopFreedrive'),
+    'pf init': raw('''
+        hp 1
+        attach 1
+        home 1
+    '''),
+    'ur gripper init and check': raw('GripperInitAndCheck()'),
+}
+
+def guess_robot(name: str) -> Literal['ur', 'pf', 'ur or pf']:
+    if name == 'noop':
+        return 'ur or pf'
+    for x in 'ur A B C wash disp blue incu lid wave calib'.split():
+        if x in name:
+            return 'ur'
+    for x in 'pf squid fridge nikon H'.split():
+        if x in name:
+            return 'pf'
+    raise ValueError(f'Cannot guess: {name}')
+
 @dataclass(frozen=True)
 class NamedMoveList:
     base: str
@@ -440,19 +502,11 @@ def read_movelists() -> dict[str, MoveList]:
                 from_drop,
             ]
 
-    out += [
-        NamedMoveList('noop', 'full', MoveList()),
-        NamedMoveList('gripper init and check', 'full', MoveList([GripperInitAndCheck()])),
-    ]
+    for k, v in static.items():
+        out += [
+            NamedMoveList(k, 'full', v),
+        ]
 
-    to_neu = {v.name: v for v in out}['lid-B19 put prep'].movelist[0]
-    assert isinstance(to_neu, MoveJoint)
-    assert to_neu.name == 'B neu'
-    to_neu_slow = replace(to_neu, slow=True)
-
-    out += [
-        NamedMoveList('to neu', 'full', MoveList([to_neu_slow])),
-    ]
     return {v.name: v.movelist for v in out}
 
 @dataclass(frozen=True)
@@ -523,7 +577,7 @@ for k, v in movelists.items():
         source, target = m.groups()
         effects[k] = MovePlate(source=source, target=target)
 
-for i in HotelLocs:
+for i in HotelLocs_A:
     Ai = f'A{i}'
     Bi = f'B{i}'
     Ci = f'C{i}'
@@ -542,7 +596,7 @@ for i in HotelLocs:
 for k in list(effects.keys()):
     effects[k + ' transfer'] = effects[k]
 
-for i in HotelLocs:
+for i in HotelLocs_A:
     Ai = f'A{i}'
     effects[f'{Ai}-to-incu transfer from drop neu'] = MovePlate(source=Ai, target='incu')
 

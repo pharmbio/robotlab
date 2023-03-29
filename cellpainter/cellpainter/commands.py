@@ -29,6 +29,8 @@ class Metadata:
 
     gui_force_show: bool = False
 
+    progress_text: str | None = None
+
     def merge(self, *others: Metadata) -> Metadata:
         repl: dict[str, Any] = {}
         for other in others:
@@ -457,6 +459,10 @@ class Fork(Command):
             )
         )
 
+    def wait(self, assume: WaitAssumption = 'will wait') -> Command:
+        assert self.resource
+        return self >> WaitForResource(self.resource, assume=assume)
+
 @dataclass(frozen=True)
 class WaitForResource(Command):
     '''
@@ -557,8 +563,6 @@ class ProgramMetadata(DBMixin):
     batch_sizes: str = ''
     from_stage: str | None = None
     id: int = -1
-
-pbutils.serializer.register(globals())
 
 '''
 
@@ -814,7 +818,7 @@ class FridgeCmd(FridgeABC):
 @dataclass(frozen=True)
 class BarcodeClear(PhysicalCommand):
     '''
-    Clears the last seen barcode from the barcode reader memory
+    Clears the last seen barcode from the barcode reader memory, synchronously (waits for completion)
     '''
     pass
 
@@ -836,3 +840,5 @@ def WithLock(name: LockName, cmd: Command | list[Command]) -> Command:
         cmd,
         ReleaseLock(name),
     )
+
+pbutils.serializer.register(globals())

@@ -75,7 +75,7 @@ class UR:
             arm.recv_until('quit')
 
     def execute_moves(self, movelist: list[Move], name: str='script', allow_partial_completion: bool=False, with_gripper: bool=True) -> None:
-        script = MoveList(movelist).make_script(with_gripper=with_gripper, name=name)
+        script = MoveList(movelist).make_ur_script(with_gripper=with_gripper, name=name)
         return self.execute_script(script, allow_partial_completion=allow_partial_completion)
 
     def execute_script(self, script: URScript, allow_partial_completion: bool=False) -> None:

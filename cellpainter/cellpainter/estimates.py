@@ -2,18 +2,12 @@ from __future__ import annotations
 from dataclasses import *
 from typing import *
 
-import pbutils
+from datetime import timedelta
+
 from .log import Log
+from .commands import *
 
-
-
-from .commands import (
-    PhysicalCommand,
-    RobotarmCmd,
-    IncuCmd,
-    BiotekCmd,
-    BlueCmd,
-)
+import pbutils
 
 class EstEntry(TypedDict):
     cmd: PhysicalCommand
@@ -38,7 +32,6 @@ def read_estimates(path: str=estimates_jsonl_path) -> dict[PhysicalCommand, floa
         for cmd, ents in groups.items()
     }
 
-from datetime import timedelta
 
 def add_estimates_from(log_path: str, *, path: str=estimates_jsonl_path):
     entries: list[EstEntry] = list(pbutils.serializer.read_jsonl(path))
@@ -50,7 +43,8 @@ def add_estimates_from(log_path: str, *, path: str=estimates_jsonl_path):
     elif log_path == 'trim':
         print(f'trim: Adding no new entries, only trimming the estimates file (keep last 5 of each)')
         trimmed: list[EstEntry] = []
-        for cmd, ents in pbutils.group_by(entries, key=lambda entry: entry['cmd']).items():
+        groups = pbutils.group_by(entries, key=lambda entry: entry['cmd'])
+        for cmd, ents in groups.items():
             ents = sorted(ents, key=lambda ent: ent['datetime'])
             for ent in ents[-5:]:
                 trimmed += [
@@ -166,6 +160,16 @@ def estimate(cmd: PhysicalCommand) -> float:
                 guess = 60.0
             case BiotekCmd(machine='disp'):
                 guess = 30.0
+            case PFCmd():
+                guess = 10.0
+            case FridgeCmd(action='reset_and_activate'):
+                guess = 60.0
+            case FridgeInsert() | FridgeEject():
+                guess = 20.0
+            case SquidStageCmd():
+                guess = 5.0
+            case SquidAcquire():
+                guess = 3 * 3600.0
             case RobotarmCmd():
                 test = cmd.program_name
                 test = test.replace('B21-to-disp', 'disp-to-B21')

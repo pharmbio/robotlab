@@ -8,7 +8,7 @@ import contextlib
 
 from labrobots.machine import Log
 
-# from .moves import Move, MoveList, movelists
+from .moves import Move, MoveList
 
 DEFAULT_HOST='10.10.0.98'
 DEFAULT_HOST='127.0.0.1'
@@ -43,12 +43,14 @@ class ConnectedPF:
 
 @dataclass(frozen=True)
 class PF:
-    host: str = '10.10.0.98'
-    port: int = 10100
+    host: str    # '10.10.0.98'
+    port_rw: int # 10100
+    port_ro: int # 10000
 
     @contextlib.contextmanager
-    def connect(self, quiet: bool=True):
-        with socket.create_connection((self.host, self.port), timeout=60) as sock:
+    def connect(self, quiet: bool=True, mode: Literal['ro', 'rw'] = 'rw'):
+        port = self.port_rw if mode == 'rw' else self.port_ro
+        with socket.create_connection((self.host, port), timeout=60) as sock:
             yield ConnectedPF(sock, log=Log.make('pf', stdout=not quiet))
 
     def set_speed(self, value: int):
@@ -60,9 +62,12 @@ class PF:
     def execute_moves(self, ms: list[Move]):
         with self.connect() as arm:
             for m in ms:
-                arm.send_and_recv(m.to_script())
+                for line in m.to_pf_script().split('\n'):
+                    arm.send_and_recv(line)
                 arm.send_and_recv('WaitForEOM')
 
-    def execute_movelist(self, name: str):
-        self.execute_moves(movelists[name])
-
+    def init(self):
+        with self.connect(quiet=False) as arm:
+            arm.send_and_recv('hp 1')
+            arm.send_and_recv('attach 1')
+            arm.send_and_recv('home 1')
