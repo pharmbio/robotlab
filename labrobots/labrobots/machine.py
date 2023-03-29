@@ -401,9 +401,6 @@ class Machines:
         app = Flask(__name__)
         app.json.compact = False    # type: ignore
         app.json.sort_keys = False  # type: ignore
-        # # The deprecated configs:
-        # app.config['JSONIFY_PRETTYPRINT_REGULAR'] = True # type: ignore
-        # app.config['JSON_SORT_KEYS'] = False             # type: ignore
 
         for name, m in self.items():
             m.init()
