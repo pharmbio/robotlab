@@ -475,6 +475,7 @@ class Machines:
             d: dict[str, str] = {}
             for name, m in self.items():
                 d[url + '/' + name] = str(m)
+            d[url + '/io.sql'] = 'Download the IO database as sqlite dump'
             d[url + '/io.db'] = 'Download the IO database in binary sqlite'
             d[url + '/tail'] = 'Show last 10 lines from the IO database'
             d[url + '/tail/<N>'] = 'Show last N lines from the IO database'
