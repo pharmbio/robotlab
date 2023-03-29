@@ -354,14 +354,13 @@ class Git(Machine):
         import os
         import signal
         if branch:
-            self.log(res := run(['git', 'fetch'], text=True))
+            self.log(res := run(['git', 'fetch'], text=True, capture_output=True))
             res.check_returncode()
-            self.log(res := run(['git', 'checkout', '-t', f'origin/{branch}'], text=True))
+            self.log(res := run(['git', 'checkout', '-t', f'origin/{branch}'], text=True, capture_output=True))
             res.check_returncode()
-        self.log(res := run(['git', 'pull'], text=True))
-        if res.stdout.strip() == 'Already up to date.':
+        self.log(res := check_output(['git', 'pull'], text=True))
+        if res.strip() == 'Already up to date.':
             return
-        res.check_returncode()
         self.log('killing process...')
         os.kill(os.getpid(), signal.SIGTERM)
         self.log('killed.')
