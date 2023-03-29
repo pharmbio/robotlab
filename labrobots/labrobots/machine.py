@@ -3,8 +3,7 @@ from typing import *
 from dataclasses import *
 
 from datetime import datetime
-from pathlib import Path
-from subprocess import check_output, run, STDOUT
+from subprocess import check_output, run
 from threading import RLock
 from typing_extensions import Self
 from urllib.request import urlopen, Request
@@ -12,10 +11,8 @@ import contextlib
 import inspect
 import json
 import sqlite3
-import tempfile
 import textwrap
 import time
-import os
 import traceback as tb
 
 from flask import Flask, jsonify, request
@@ -84,7 +81,7 @@ class ResourceLock:
 @dataclass(frozen=True)
 class Log:
     _log: Callable[..., None]
-    def __call__(self, *args, **kwargs):
+    def __call__(self, *args: Any, **kwargs: Any):
         self._log(*args, **kwargs)
 
     @classmethod
@@ -416,13 +413,12 @@ class Machines:
         @app.route('/<string:name>.db')
         def get_db(name: str):
             assert name.isascii() and name.isidentifier()
-            with tempfile.NamedTemporaryFile(prefix=f'temp-{name}', suffix='.db', dir=os.getcwd()) as tmp:
-                with contextlib.closing(sqlite3.connect(f'{name}.db')) as con:
-                    with contextlib.closing(sqlite3.connect(os.path.abspath(tmp.name))) as dest:
-                        con.backup(dest)
+            name_db = f'{name}.db'
+            with contextlib.closing(sqlite3.connect(name_db)) as con:
+                con.execute('pragma wal_checkpoint(full);')
                 return flask.send_file( # type: ignore
-                    tmp.name,
-                    download_name=f'{name}.db',
+                    name_db,
+                    download_name=name_db,
                     as_attachment=True
                 )
 
