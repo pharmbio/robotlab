@@ -139,7 +139,7 @@ class MoveJoint(Move):
     def to_pf_script(self) -> str:
         joints = self.joints[:4]
         assert len(joints) == 4
-        return pf_call('MoveJ', '1', *joints)
+        return pf_call('MoveJ_NoGripper', '1', *joints)
 
 @dataclass(frozen=True)
 class GripperMove(Move):

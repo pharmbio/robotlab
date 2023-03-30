@@ -1,5 +1,6 @@
 {"type":"Section","section":"H12-to-H11"}
-{"type":"MoveJoint","joints":[458.81,-86.26,315.24,-590.18],"name":"H neu"}
+{"type":"MoveJoint","joints":[601.9,-5.32,176.89,186.76],"name":"neu"}
+{"type":"MoveJoint","joints":[485.3,-80.62,315.57,124.26],"name":"H neu"}
 {"type":"MoveLin","xyz":[132.8,-525.3,458.7],"rpy":[0.0,0.0,-1.1],"name":"H12 neu"}
 {"type":"MoveLin","xyz":[132.8,-525.3,454.2],"rpy":[0.0,0.0,-1.1],"name":"H12 pick"}
 {"type":"GripperMove","pos":75.08}
