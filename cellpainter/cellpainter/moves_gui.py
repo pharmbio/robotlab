@@ -171,7 +171,6 @@ def poll_ur(ur: UR):
                     break
 
 def arm_do(*ms: Move):
-    print('arm_do', ur, pf, ms)
     ur and ur.execute_moves(list(ms), name='gui', allow_partial_completion=True)
     pf and pf.execute_moves(list(ms))
 
@@ -650,7 +649,7 @@ def index() -> Iterator[Tag | dict[str, str]]:
             button('freedrive',     tabindex='-1', onclick=call(arm_do, moves.RawCode("freedrive_mode() sleep(3600)" if ur else "Freedrive"))),
             # button('snap',          tabindex='-1', onclick=call(snap)),
             # button('snap many',     tabindex='-1', onclick=call(snap_many, js('prompt("desc", "")'))),
-            button('stop robot',    tabindex='-1', onclick=call(arm_do, *([] if ur else [moves.RawCode("halt\nStopFreedrive")])), css='flex-grow: 1; color: red; font-size: 48px'),
+            button('stop robot',    tabindex='-1', onclick=call(arm_do, *([] if ur else [moves.RawCode("StopFreedrive")])), css='flex-grow: 1; color: red; font-size: 48px'),
             button('gripper open',  tabindex='-1', onclick=call(arm_do, moves.RawCode("GripperMove(88)") if ur else moves.GripperMove(100))),
             button('gripper close', tabindex='-1', onclick=call(arm_do, moves.RawCode("GripperMove(255)") if ur else moves.GripperMove(75))),
             button('grip test',     tabindex='-1', onclick=call(arm_do, moves.RawCode("GripperTest()"))),

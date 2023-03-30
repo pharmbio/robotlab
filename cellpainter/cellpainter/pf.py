@@ -70,7 +70,7 @@ class PF:
                 arm.send_and_recv('WaitForEOM')
 
     def init(self):
-        with self.connect() as arm:
+        with self.connect(quiet=False) as arm:
             arm.send_and_recv('hp 1')
             arm.send_and_recv('attach 1')
             arm.send_and_recv('home 1')

@@ -57,7 +57,12 @@ def ur_call(name: str, *args: Any, **kwargs: Any) -> str:
     return name + '(' + ', '.join(strs) + ')'
 
 def pf_call(name: str, *args: Any) -> str:
-    strs = [str(arg) for arg in args]
+    strs = [
+        str(
+            round(arg, 6) if isinstance(arg, float) else arg
+        )
+        for arg in args
+    ]
     return ' '.join([name, *strs])
 
 def keep_true(**kvs: Any) -> dict[str, Any]:
@@ -134,7 +139,7 @@ class MoveJoint(Move):
     def to_pf_script(self) -> str:
         joints = self.joints[:4]
         assert len(joints) == 4
-        return pf_call('MoveJ', *joints)
+        return pf_call('MoveJ', '1', *joints)
 
 @dataclass(frozen=True)
 class GripperMove(Move):
@@ -476,6 +481,9 @@ def read_movelists() -> dict[str, MoveList]:
         if 'calib' in base:
             continue
         if 'wave' in base:
+            out += [NamedMoveList(base, 'full', v)]
+            continue
+        if guess_robot(base) == 'pf':
             out += [NamedMoveList(base, 'full', v)]
             continue
         out += [NamedMoveList(base, 'full', v)]
