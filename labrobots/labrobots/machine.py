@@ -296,7 +296,7 @@ class Machine:
             return jsonify(call(cmd, **req))
 
     @classmethod
-    def remote(cls, name: str, host: str) -> Self:
+    def remote(cls, name: str, host: str, skip_up_check: bool) -> Self:
         def call(attr_path: list[str], *args: Any, **kwargs: Any) -> Any:
             assert len(attr_path) == 1
             cmd = attr_path[0]
@@ -313,12 +313,16 @@ class Machine:
                 data=json.dumps(data).encode(),
                 headers={'Content-type': 'application/json'},
             )
+            from pprint import pp
+            pp((url, data, '...'))
             res = json.loads(urlopen(req, timeout=ten_minutes).read())
+            pp((url, data, '=', res))
             if 'value' in res:
                 return res['value']
             else:
                 raise ValueError(res['error'])
-        assert call(['up?'])
+        if not skip_up_check:
+            assert call(['up?'])
         return Proxy(cls, call) # type: ignore
 
 @dataclass(frozen=True)
@@ -374,6 +378,7 @@ class Git(Machine):
 class Machines:
     ip: ClassVar[str]
     node_name: ClassVar[str]
+    skip_up_check: ClassVar[bool] = False
     echo: Echo = Echo()
     git: Git = Git()
 
@@ -392,7 +397,7 @@ class Machines:
             url = f'http://{host}:{port}'
         d = {}
         for f in fields(cls):
-            d[f.name] = f.default.__class__.remote(f.name, url) # type: ignore
+            d[f.name] = f.default.__class__.remote(f.name, url, skip_up_check=cls.skip_up_check) # type: ignore
         return cls(**d)
 
     def items(self) -> list[tuple[str, Machine]]:

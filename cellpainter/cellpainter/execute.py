@@ -146,6 +146,8 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
             runtime.assert_lock('PF and Fridge')
             for fridge, barcode_reader in runtime.time_resource_use(entry, runtime.fridge_and_barcode_reader):
                 barcode = barcode_reader.read_and_clear()
+                if not barcode:
+                    raise ValueError(f'No barcode registered')
                 if cmd.expected_barcode and cmd.expected_barcode != barcode:
                     raise ValueError(f'Plate has {barcode=!r} but expected {cmd.expected_barcode=!r}')
                 fridge.insert(barcode, cmd.project)

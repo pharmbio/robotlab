@@ -70,7 +70,7 @@ class RuntimeConfig(DBMixin):
     run_fridge_squid_nikon: bool = False
 
     ur_speed: int = 100
-    pf_speed: int = 100
+    pf_speed: int = 50
     log_filename: str | None = None
 
     def only_arm(self) -> RuntimeConfig:
@@ -228,7 +228,7 @@ class Runtime:
                 port_rw=self.config.pf_env.port_rw,
                 port_ro=self.config.pf_env.port_ro,
             )
-            0 and self.pf.set_speed(self.config.pf_speed)
+            self.pf.set_speed(self.config.pf_speed)
 
         if self.config.run_fridge_squid_nikon:
             gbg = WindowsGBG.remote()
@@ -310,17 +310,16 @@ class Runtime:
                     self.set_world(next)
 
     def log_state(self, state: CommandState) -> str | None:
-        return
-        if state.cmd_type == 'RobotarmCmd':
-            # pass
-            return
-        if state.cmd_type == 'Checkpoint' and state.state == 'running':
-            return
+        if 0:
+            if state.cmd_type == 'RobotarmCmd':
+                return
+            if state.cmd_type == 'Checkpoint' and state.state == 'running':
+                return
         with self.lock:
             print(
                 f'{state.metadata.step_desc or "": >13}',
                 f'plate {state.metadata.plate_id or "": >2}',
-                f'{self.current_thread_name()   : >10}',
+                f'{self.time.current_thread_name()   : >10}',
                 f'{state.state                  : >10}',
                 state.cmd_type,
                 *astuple(state.cmd),
@@ -334,7 +333,9 @@ class Runtime:
         '''
         with self.timeit(entry):
             if resource:
+                print(entry, 'yields', resource)
                 yield resource
+                print(entry, 'finished with', resource)
             else:
                 est = entry.metadata.est
                 if est is None:
@@ -474,6 +475,7 @@ class Runtime:
         while num_tries != 0:
             if self.resource_lock(lock_name).acquire_lock():
                 return
+            print('Waiting for lock:', lock_name)
             self.sleep(1.0)
             num_tries -= 1
         raise ValueError(f'Failed to acquire {lock_name!r}')
@@ -512,13 +514,13 @@ class ResourceLock:
         with self.open_exclusive() as lock:
             current = lock.read()
             if current != self.process_name:
-                raise ValueError('Expected to hold {name!r} but {current=!r} is holding it (!= {self.process_name=!r})')
+                raise ValueError(f'Expected to hold {self.lock_name!r} but {current=!r} is holding it (!= {self.process_name=!r})')
 
     def release_lock(self):
         with self.open_exclusive() as lock:
             current = lock.read()
             if current != self.process_name:
-                raise ValueError('Trying to release lock {name!r} but {current=!r} is holding it (!= {self.process_name=!r})')
+                raise ValueError(f'Trying to release lock {self.lock_name!r} but {current=!r} is holding it (!= {self.process_name=!r})')
             else:
                 lock.write('')
 

@@ -46,6 +46,7 @@ class Example(Machines):
 class MikroAsus(Machines):
     ip = '10.10.0.95'
     node_name = 'mikro-asus'
+    skip_up_check = True
     squid: Squid = Squid()
 
 def main():

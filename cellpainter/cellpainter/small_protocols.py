@@ -459,7 +459,9 @@ def run_robotarm(args: SmallProtocolArgs):
     cmds: list[Command] = []
     for x in args.params:
         cmds += [
-            RobotarmCmd(x),
+            RobotarmCmd(x)
+            if moves.guess_robot(x) == 'ur' else
+            WithLock('PF and Fridge', [PFCmd(x)]),
         ]
     return Program(Seq(*cmds))
 
@@ -842,11 +844,12 @@ def fridge_load(args: SmallProtocolArgs) -> Program:
     if len(args.params) != 1:
         return Program(Seq())
     project, *_ = args.params
-    for i, _ in enumerate(range(args.num_plates), start=1):
+    for i, _ in reversed(list(enumerate(range(args.num_plates), start=1))):
         assert i <= 12
         cmds += [
             BarcodeClear(),
-            PFCmd(f'H{i}-to-fridge'),
+            PFCmd(f'H{i}-to-H12') if i != 12 else Seq(),
+            PFCmd(f'H12-to-fridge'),
             FridgeInsert(project).fork().wait(),
         ]
     cmds = [
@@ -867,12 +870,9 @@ def fridge_unload(args: SmallProtocolArgs) -> Program:
         return Program(Seq())
     import labrobots
     import platform
-    if platform.node() == 'mikro-asus':
-        try:
-            contents = labrobots.WindowsGBG().remote().fridge.contents()
-        except:
-            contents = {}
-    else:
+    try:
+        contents = labrobots.WindowsGBG().remote().fridge.contents()
+    except:
         contents = {}
     project, *_ = args.params
     plates = sorted(
@@ -886,7 +886,8 @@ def fridge_unload(args: SmallProtocolArgs) -> Program:
         assert i <= 12
         cmds += [
             FridgeEject(plate=plate, project=project).fork().wait(),
-            PFCmd(f'fridge-to-H{i}'),
+            PFCmd(f'fridge-to-H12'),
+            PFCmd(f'H12-to-H{i}'),
         ]
     cmds = [
         WithLock('PF and Fridge', cmds),

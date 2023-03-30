@@ -77,6 +77,7 @@ class Args:
     inspect_robotarm_programs: bool = arg(help='Inspect steps of robotarm programs')
     robotarm_send:             str  = arg(help='Send a raw program to the robot arm')
     ur_speed:                  int  = arg(default=100, help='Robot arm speed [1-100]')
+    pf_speed:                  int  = arg(default=50, help='Robot arm speed [1-100]')
     json_arg:                  str  = arg(help='Give arguments as json on the command line')
     yes:                       bool = arg(help='Assume yes in confirmation questions')
     make_uml:                  str  = arg(help='Write uml in dot format to the given path and exit')
@@ -140,6 +141,7 @@ def main_with_args(args: Args, parser: argparse.ArgumentParser | None=None):
     config: RuntimeConfig = config_lookup(args.config_name)
     config = config.replace(
         ur_speed=args.ur_speed,
+        pf_speed=args.pf_speed,
         log_filename=args.log_filename,
     )
 

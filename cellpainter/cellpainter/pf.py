@@ -66,7 +66,9 @@ class PF:
         with self.connect(quiet=False) as arm:
             for m in ms:
                 for line in m.to_pf_script().split('\n'):
-                    arm.send_and_recv(line)
+                    res = arm.send_and_recv(line)
+                    if res.strip() != '0':
+                        raise ValueError(f'PF returned {res!r} (should be {"0"!r}). Is it initialized?')
                 arm.send_and_recv('WaitForEOM')
 
     def init(self):
