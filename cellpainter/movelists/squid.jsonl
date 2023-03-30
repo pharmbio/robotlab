@@ -1,0 +1,41 @@
+{"type":"Section","section":"H12-to-squid"}
+{"type":"MoveJoint","joints":[601.9,-5.32,176.89,186.76],"name":"neu"}
+{"type":"MoveJoint","joints":[510.77,-86.26,315.24,129.82],"name":"H neu"}
+{"type":"MoveLin","xyz":[-8.0,-522.8,510.8],"rpy":[0.0,0.0,-1.2],"name":"H neu"}
+{"type":"MoveLin","xyz":[-8.1,-522.2,467.7],"rpy":[0.0,0.0,-1.1],"name":"H12 entrance"}
+{"type":"MoveLin","xyz":[166.3,-522.2,467.7],"rpy":[0.0,0.0,-1.1],"name":"H12 neu"}
+{"type":"MoveLin","xyz":[166.3,-522.2,457.7],"rpy":[0.0,0.0,-1.1],"name":"H12 pick"}
+{"type":"GripperMove","pos":75.15}
+{"type":"MoveLin","xyz":[166.3,-522.2,467.7],"rpy":[0.0,0.0,-1.1],"name":"H12 neu"}
+{"type":"MoveLin","xyz":[-8.1,-522.2,467.7],"rpy":[0.0,0.0,-1.1],"name":"H12 entrance"}
+{"type":"MoveJoint","joints":[510.76,-86.26,315.24,129.82],"name":"hotel neu"}
+{"type":"MoveJoint","joints":[501.15,-58.03,218.53,107.5],"name":"squid hotel midpoint"}
+{"type":"MoveJoint","joints":[431.71,-40.88,220.6,0.33],"name":"squid above"}
+{"type":"MoveLin","xyz":[-282.7,-196.5,355.7],"rpy":[0.0,0.0,-179.9],"name":"squid entrance"}
+{"type":"MoveLin","xyz":[-348.7,-196.5,355.7],"rpy":[0.0,0.0,-179.9],"name":"squid neu"}
+{"type":"MoveLin","xyz":[-348.7,-196.6,334.6],"rpy":[0.0,0.0,-179.9],"name":"squid drop"}
+{"type":"GripperMove","pos":99.99}
+{"type":"MoveLin","xyz":[-348.7,-196.5,355.7],"rpy":[0.0,0.0,-179.9],"name":"squid neu"}
+{"type":"MoveLin","xyz":[-282.7,-196.5,355.7],"rpy":[0.0,0.0,-179.9],"name":"squid entrance"}
+{"type":"MoveJoint","joints":[501.15,-58.03,218.53,107.5],"name":"squid hotel midpoint"}
+{"type":"MoveJoint","joints":[601.9,-5.32,176.89,186.76],"name":"neu"}
+{"type":"Section","section":"squid-to-H12"}
+{"type":"MoveJoint","joints":[601.9,-5.32,176.89,186.76],"name":"neu"}
+{"type":"MoveJoint","joints":[501.15,-58.03,218.53,107.5],"name":"squid hotel midpoint"}
+{"type":"MoveLin","xyz":[-282.7,-196.5,355.7],"rpy":[0.0,0.0,-179.9],"name":"squid entrance"}
+{"type":"MoveLin","xyz":[-348.7,-196.5,355.7],"rpy":[0.0,0.0,-179.9],"name":"squid neu"}
+{"type":"MoveLin","xyz":[-348.7,-196.6,334.6],"rpy":[0.0,0.0,-179.9],"name":"squid pick"}
+{"type":"GripperMove","pos":75.08}
+{"type":"MoveLin","xyz":[-348.7,-196.5,355.7],"rpy":[0.0,0.0,-179.9],"name":"squid neu"}
+{"type":"MoveLin","xyz":[-282.7,-196.5,355.7],"rpy":[0.0,0.0,-179.9],"name":"squid entrance"}
+{"type":"MoveJoint","joints":[431.71,-40.88,220.6,0.33],"name":"squid above"}
+{"type":"MoveJoint","joints":[501.15,-58.03,218.53,107.5],"name":"squid hotel midpoint"}
+{"type":"MoveJoint","joints":[510.76,-86.26,315.24,129.82],"name":"hotel neu"}
+{"type":"MoveLin","xyz":[-8.1,-522.2,467.7],"rpy":[0.0,0.0,-1.1],"name":"H12 entrance"}
+{"type":"MoveLin","xyz":[166.3,-522.2,467.7],"rpy":[0.0,0.0,-1.1],"name":"H12 neu"}
+{"type":"MoveLin","xyz":[166.3,-522.2,460.7],"rpy":[0.0,0.0,-1.1],"name":"H12 drop"}
+{"type":"GripperMove","pos":88}
+{"type":"MoveLin","xyz":[166.3,-522.2,467.7],"rpy":[0.0,0.0,-1.1],"name":"H12 neu"}
+{"type":"MoveLin","xyz":[-8.1,-522.2,467.7],"rpy":[0.0,0.0,-1.1],"name":"H12 entrance"}
+{"type":"MoveLin","xyz":[-8.0,-522.8,510.8],"rpy":[0.0,0.0,-1.2],"name":"H neu"}
+{"type":"MoveJoint","joints":[601.9,-5.32,176.89,186.76],"name":"neu"}
