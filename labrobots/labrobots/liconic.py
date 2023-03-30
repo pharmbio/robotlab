@@ -259,6 +259,11 @@ class Fridge(STX):
         Makes sure the locations are registered in the fridge database,
         adding a new entry to an empty slot if necessary.
         '''
+        for loc in locs:
+            a, x, b = loc.partition('x')
+            assert a.isdigit()
+            assert x == 'x'
+            assert b.isdigit()
         with self._get_db() as db:
             for loc in locs:
                 if db.get_by_loc(loc) is None:
@@ -270,6 +275,7 @@ class Fridge(STX):
 
         Returns info about the plate and the new location, or raises an error if it was not possible to complete the action.
         '''
+        assert plate and project
         with self.atomic():
             with self._get_db() as db:
                 loc_slot = db.get_empty()
