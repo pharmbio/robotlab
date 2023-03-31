@@ -77,8 +77,9 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
                 runtime.thread_done()
 
         case AcquireLock(name=name):
-            runtime.acquire_lock(name)
-            runtime.assert_lock(name)
+            with runtime.timeit(entry):
+                runtime.acquire_lock(name, entry=entry)
+                runtime.assert_lock(name)
 
         case ReleaseLock(name=name):
             runtime.assert_lock(name)

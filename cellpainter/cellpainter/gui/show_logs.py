@@ -45,7 +45,7 @@ def show_logs() -> Iterator[Tag | V.Node | dict[str, str]]:
             edit_em = Edit(log, em, tabindexes=tabindexes, enable_edit=enable_edit.value, echo=echo.value)
             edit_pm = Edit(log, pm, tabindexes=tabindexes, enable_edit=enable_edit.value, echo=echo.value)
             if (rt := g.runtime_metadata()):
-                if rt.config_name != 'live':
+                if 'live' not in rt.config_name:
                     continue
                 row.wkd = rt.start_time.strftime('%a')
                 row.datetime = rt.start_time.strftime('%Y-%m-%d %H:%M') #  + '-' + (rt.start_time + timedelta(seconds=g.time_end(only_completed=True))).strftime('%H:%M')

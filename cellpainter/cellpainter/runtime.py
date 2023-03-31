@@ -471,11 +471,14 @@ class Runtime:
             lock_name=lock_name,
         )
 
-    def acquire_lock(self, lock_name: LockName, num_tries: int = -1):
+    def acquire_lock(self, lock_name: LockName, num_tries: int = -1, entry: CommandWithMetadata | None = None):
         while num_tries != 0:
             if self.resource_lock(lock_name).acquire_lock():
                 return
-            print('Waiting for lock:', lock_name)
+            text = f'Waiting for lock: {lock_name} ({abs(num_tries)}...)'
+            print(text)
+            if entry:
+                self.set_progress_text(entry, text=text)
             self.sleep(1.0)
             num_tries -= 1
         raise ValueError(f'Failed to acquire {lock_name!r}')

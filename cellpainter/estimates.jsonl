@@ -1,3 +1,5 @@
+{"cmd":{"type":"BarcodeClear"},"datetime":"2023-03-31 10:28:39","duration":0.062}
+{"cmd":{"type":"BarcodeClear"},"datetime":"2023-03-31 10:44:24","duration":0.082}
 {"cmd":{"type":"BiotekCmd","machine":"disp","action":"Run","protocol_path":"automation_v4.0/2.0_D_SB_PRIME_Mito.LHC"},"datetime":"2022-01-19 10:42:32","duration":14.315}
 {"cmd":{"type":"BiotekCmd","machine":"disp","action":"Run","protocol_path":"automation_v4.0/2.0_D_SB_PRIME_Mito.LHC"},"datetime":"2022-01-19 14:02:45","duration":12.894}
 {"cmd":{"type":"BiotekCmd","machine":"disp","action":"Run","protocol_path":"automation_v4.0/4.0_D_SA_PRIME_PFA.LHC"},"datetime":"2022-01-19 10:45:02","duration":17.537}
@@ -798,6 +800,8 @@
 {"cmd":{"type":"BlueCmd","action":"Validate","protocol_path":"evacuate/HardDecant.prog"},"datetime":"2023-03-16 11:29:59","duration":4.576}
 {"cmd":{"type":"BlueCmd","action":"Validate","protocol_path":"evacuate/HardDecant.prog"},"datetime":"2023-03-16 11:44:10","duration":4.527}
 {"cmd":{"type":"BlueCmd","action":"reset_and_activate"},"datetime":"2023-03-16 10:32:27","duration":17.505}
+{"cmd":{"type":"FridgeEject","plate":"","project":""},"datetime":"2023-03-31 10:42:23","duration":30.685}
+{"cmd":{"type":"FridgeInsert","project":""},"datetime":"2023-03-31 10:45:11","duration":27.873}
 {"cmd":{"type":"IncuCmd","action":"get"},"datetime":"2023-03-09 13:59:58","duration":18.277}
 {"cmd":{"type":"IncuCmd","action":"get"},"datetime":"2023-03-09 14:02:14","duration":19.364}
 {"cmd":{"type":"IncuCmd","action":"get"},"datetime":"2023-03-09 14:04:28","duration":18.6}
@@ -815,6 +819,21 @@
 {"cmd":{"type":"IncuCmd","action":"put"},"datetime":"2023-03-09 13:48:25","duration":18.212}
 {"cmd":{"type":"IncuCmd","action":"put"},"datetime":"2023-03-09 13:50:38","duration":17.705}
 {"cmd":{"type":"IncuCmd","action":"reset_and_activate"},"datetime":"2022-02-17 14:00:40","duration":29.981}
+{"cmd":{"type":"PFCmd","program_name":"H1-to-H12"},"datetime":"2023-03-30 14:06:18","duration":22.046}
+{"cmd":{"type":"PFCmd","program_name":"H1-to-H12"},"datetime":"2023-03-31 10:29:00","duration":20.197}
+{"cmd":{"type":"PFCmd","program_name":"H12-to-fridge"},"datetime":"2023-03-31 10:29:18","duration":18.37}
+{"cmd":{"type":"PFCmd","program_name":"H12-to-fridge"},"datetime":"2023-03-31 10:44:43","duration":18.488}
+{"cmd":{"type":"PFCmd","program_name":"H12-to-squid"},"datetime":"2023-03-30 14:23:52","duration":19.674}
+{"cmd":{"type":"PFCmd","program_name":"H12-to-squid"},"datetime":"2023-03-31 10:11:45","duration":19.171}
+{"cmd":{"type":"PFCmd","program_name":"H12-to-squid"},"datetime":"2023-03-31 10:43:05","duration":19.432}
+{"cmd":{"type":"PFCmd","program_name":"fridge-to-H12"},"datetime":"2023-03-30 14:09:54","duration":18.035}
+{"cmd":{"type":"PFCmd","program_name":"fridge-to-H12"},"datetime":"2023-03-31 10:42:40","duration":17.699}
+{"cmd":{"type":"PFCmd","program_name":"pf freedrive"},"datetime":"2023-03-30 14:05:37","duration":0.27}
+{"cmd":{"type":"PFCmd","program_name":"pf init"},"datetime":"2023-03-30 14:04:58","duration":17.203}
+{"cmd":{"type":"PFCmd","program_name":"pf stop freedrive"},"datetime":"2023-03-30 14:05:47","duration":0.316}
+{"cmd":{"type":"PFCmd","program_name":"squid-to-H12"},"datetime":"2023-03-30 14:24:58","duration":19.421}
+{"cmd":{"type":"PFCmd","program_name":"squid-to-H12"},"datetime":"2023-03-31 10:13:00","duration":19.155}
+{"cmd":{"type":"PFCmd","program_name":"squid-to-H12"},"datetime":"2023-03-31 10:44:21","duration":19.14}
 {"cmd":{"type":"RobotarmCmd","program_name":"A-neu-to-B-neu"},"datetime":"2023-02-02 09:59:15","duration":4.112}
 {"cmd":{"type":"RobotarmCmd","program_name":"A1 get prep"},"datetime":"2023-01-12 13:55:16","duration":4.817}
 {"cmd":{"type":"RobotarmCmd","program_name":"A1 get prep"},"datetime":"2023-01-12 14:31:25","duration":4.819}
@@ -1522,7 +1541,6 @@
 {"cmd":{"type":"RobotarmCmd","program_name":"disp-to-blue transfer"},"datetime":"2023-03-16 12:23:42","duration":8.88}
 {"cmd":{"type":"RobotarmCmd","program_name":"disp-to-blue transfer"},"datetime":"2023-03-16 12:25:40","duration":8.832}
 {"cmd":{"type":"RobotarmCmd","program_name":"disp-to-blue transfer"},"datetime":"2023-03-16 12:27:38","duration":8.62}
-{"cmd":{"type":"RobotarmCmd","program_name":"ur gripper init and check"},"datetime":"2023-03-16 11:29:54","duration":6.053}
 {"cmd":{"type":"RobotarmCmd","program_name":"incu-to-B21 prep"},"datetime":"2023-03-09 13:59:25","duration":4.605}
 {"cmd":{"type":"RobotarmCmd","program_name":"incu-to-B21 prep"},"datetime":"2023-03-09 14:01:42","duration":5.078}
 {"cmd":{"type":"RobotarmCmd","program_name":"incu-to-B21 prep"},"datetime":"2023-03-09 14:03:55","duration":5.04}
@@ -1643,6 +1661,9 @@
 {"cmd":{"type":"RobotarmCmd","program_name":"lid_B19 put transfer"},"datetime":"2023-01-18 17:00:47","duration":7.227}
 {"cmd":{"type":"RobotarmCmd","program_name":"lid_B19 put transfer"},"datetime":"2023-01-18 17:03:53","duration":7.327}
 {"cmd":{"type":"RobotarmCmd","program_name":"lid_B19 put transfer"},"datetime":"2023-01-18 17:07:00","duration":6.928}
+{"cmd":{"type":"RobotarmCmd","program_name":"pf init"},"datetime":"2023-03-30 14:01:00","duration":2.503}
+{"cmd":{"type":"RobotarmCmd","program_name":"pf init"},"datetime":"2023-03-30 14:01:06","duration":2.504}
+{"cmd":{"type":"RobotarmCmd","program_name":"ur gripper init and check"},"datetime":"2023-03-16 11:29:54","duration":6.053}
 {"cmd":{"type":"RobotarmCmd","program_name":"wash-to-B15 prep"},"datetime":"2023-03-09 15:10:44","duration":5.518}
 {"cmd":{"type":"RobotarmCmd","program_name":"wash-to-B15 prep"},"datetime":"2023-03-09 15:12:59","duration":5.22}
 {"cmd":{"type":"RobotarmCmd","program_name":"wash-to-B15 prep"},"datetime":"2023-03-09 15:15:16","duration":5.421}
@@ -1675,3 +1696,15 @@
 {"cmd":{"type":"RobotarmCmd","program_name":"wash-to-disp transfer"},"datetime":"2023-03-09 14:57:07","duration":7.826}
 {"cmd":{"type":"RobotarmCmd","program_name":"wave"},"datetime":"2023-02-06 11:41:22","duration":20.862}
 {"cmd":{"type":"RobotarmCmd","program_name":"wave"},"datetime":"2023-02-06 11:41:39","duration":17.567}
+{"cmd":{"type":"SquidAcquire","config_path":"384.json","project":"","plate":""},"datetime":"2023-03-31 10:12:32","duration":43.849}
+{"cmd":{"type":"SquidAcquire","config_path":"384.json","project":"","plate":""},"datetime":"2023-03-31 10:43:53","duration":45.349}
+{"cmd":{"type":"SquidStageCmd","action":"goto_loading"},"datetime":"2023-03-30 14:23:33","duration":8.33}
+{"cmd":{"type":"SquidStageCmd","action":"goto_loading"},"datetime":"2023-03-30 14:24:39","duration":8.789}
+{"cmd":{"type":"SquidStageCmd","action":"goto_loading"},"datetime":"2023-03-31 10:12:41","duration":8.796}
+{"cmd":{"type":"SquidStageCmd","action":"goto_loading"},"datetime":"2023-03-31 10:44:02","duration":8.795}
+{"cmd":{"type":"SquidStageCmd","action":"leave_loading"},"datetime":"2023-03-30 14:23:55","duration":3.061}
+{"cmd":{"type":"SquidStageCmd","action":"leave_loading"},"datetime":"2023-03-30 14:25:01","duration":3.048}
+{"cmd":{"type":"SquidStageCmd","action":"leave_loading"},"datetime":"2023-03-31 10:11:48","duration":3.057}
+{"cmd":{"type":"SquidStageCmd","action":"leave_loading"},"datetime":"2023-03-31 10:13:03","duration":3.07}
+{"cmd":{"type":"SquidStageCmd","action":"leave_loading"},"datetime":"2023-03-31 10:43:08","duration":3.058}
+{"cmd":{"type":"SquidStageCmd","action":"leave_loading"},"datetime":"2023-03-31 10:44:24","duration":3.049}

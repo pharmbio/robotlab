@@ -33,9 +33,12 @@ class SmallProtocolArgs:
 
 SmallProtocol: TypeAlias = Callable[[SmallProtocolArgs], Program]
 
-small_protocols: list[SmallProtocol] = []
+ur_protocols: list[SmallProtocol] = []
+pf_protocols: list[SmallProtocol] = []
 
-def protocol_args(small_protocol: SmallProtocol) -> set[str]:
+small_protocols: list[SmallProtocol] = pf_protocols
+
+def protocol_args(ur_protocol: SmallProtocol) -> set[str]:
     out: set[str] = set()
     args = SmallProtocolArgs()
     missing = object()
@@ -48,10 +51,10 @@ def protocol_args(small_protocol: SmallProtocol) -> set[str]:
             else:
                 raise AttributeError
     intercepted_args: Any = Intercept()
-    _ = small_protocol(intercepted_args)
+    _ = ur_protocol(intercepted_args)
     return out
 
-@small_protocols.append
+@ur_protocols.append
 def incu_load(args: SmallProtocolArgs):
     '''
     Load incubator from A hotel, starting at the bottom, to incubator positions L1, ...
@@ -99,14 +102,14 @@ def incu_load(args: SmallProtocolArgs):
     ])
     return Program(program, World(world0))
 
-@small_protocols.append
+@ur_protocols.append
 def test_comm(_: SmallProtocolArgs):
     '''
     Test communication with robotarm, washer, dispenser and incubator.
     '''
     return Program(protocol.program_test_comm().add(Metadata(gui_force_show=True)))
 
-@small_protocols.append
+@ur_protocols.append
 def test_circuit(args: SmallProtocolArgs):
     '''
     Move one plate around to all its positions using the robotarm, without running incubator, bluewasher or bioteks.
@@ -138,7 +141,7 @@ def test_circuit(args: SmallProtocolArgs):
     )
     return Program(cmds, World({'incu': plate.id}))
 
-@small_protocols.append
+@ur_protocols.append
 def test_circuit_with_incubator(args: SmallProtocolArgs):
     '''
     Move plates around to all its positions using the robotarm and incubator, without running bluewasher or bioteks.
@@ -164,7 +167,7 @@ def test_circuit_with_incubator(args: SmallProtocolArgs):
     )
     return Program(cmds, world0=program.world0)
 
-@small_protocols.append
+@ur_protocols.append
 def measure_liquids(args: SmallProtocolArgs):
     '''
     Measure liquids from dispenser and washers by moving one plate several times around running all the protocols.
@@ -280,7 +283,7 @@ def measure_liquids(args: SmallProtocolArgs):
     prog = Program(cmd, world0=World({'B21': '1'}))
     return prog
 
-@small_protocols.append
+@ur_protocols.append
 def incu_reset_and_activate(_: SmallProtocolArgs):
     '''
     Reset and activate the incubator.
@@ -293,7 +296,7 @@ def incu_reset_and_activate(_: SmallProtocolArgs):
     )
     return Program(program.add(Metadata(gui_force_show=True)))
 
-@small_protocols.append
+@ur_protocols.append
 def wash_plates_clean(args: SmallProtocolArgs):
     '''
     Wash test plates clean using ethanol.
@@ -368,7 +371,7 @@ def wash_plates_clean(args: SmallProtocolArgs):
     program = Seq(*cmds)
     return Program(program, world0)
 
-@small_protocols.append
+@ur_protocols.append
 def validate_all_protocols(args: SmallProtocolArgs):
     '''
     Validate all biotek protocols.
@@ -390,7 +393,7 @@ def validate_all_protocols(args: SmallProtocolArgs):
     )
     return Program(program.add(Metadata(gui_force_show=True)))
 
-@small_protocols.append
+@ur_protocols.append
 def run_biotek(args: SmallProtocolArgs):
     '''
     Run protocols on the bioteks from the protocol dir.
@@ -419,7 +422,7 @@ def run_biotek(args: SmallProtocolArgs):
                 ]
     return Program(Seq(*cmds))
 
-@small_protocols.append
+@ur_protocols.append
 def incu_put(args: SmallProtocolArgs):
     '''
     Insert a plate into the incubator.
@@ -434,7 +437,7 @@ def incu_put(args: SmallProtocolArgs):
         ]
     return Program(Seq(*cmds))
 
-@small_protocols.append
+@ur_protocols.append
 def incu_get(args: SmallProtocolArgs):
     '''
     Eject a plate from the incubator.
@@ -449,7 +452,7 @@ def incu_get(args: SmallProtocolArgs):
         ]
     return Program(Seq(*cmds))
 
-@small_protocols.append
+@ur_protocols.append
 def run_robotarm(args: SmallProtocolArgs):
     '''
     Run robotarm programs.
@@ -465,8 +468,8 @@ def run_robotarm(args: SmallProtocolArgs):
         ]
     return Program(Seq(*cmds))
 
-@small_protocols.append
-def robotarm_small_cycle(args: SmallProtocolArgs):
+@ur_protocols.append
+def robotarm_ur_cycle(args: SmallProtocolArgs):
     '''
     Small stress test on robotarm on B21 and B19. Set number of cycles with num_plates.
 
@@ -488,7 +491,7 @@ def robotarm_small_cycle(args: SmallProtocolArgs):
     program = Seq(*cmds)
     return Program(program)
 
-@small_protocols.append
+@ur_protocols.append
 def time_robotarm(_: SmallProtocolArgs):
     '''
     Timing for robotarm.
@@ -542,7 +545,7 @@ def time_robotarm(_: SmallProtocolArgs):
     program = Seq(*arm)
     return Program(program, world0=World({'incu': '1'}))
 
-# @small_protocols.append
+# @ur_protocols.append
 def lid_stress_test(_: SmallProtocolArgs):
     '''
     Do a lid stress test
@@ -570,7 +573,7 @@ def lid_stress_test(_: SmallProtocolArgs):
     program = Seq(*cmds)
     return Program(program)
 
-# @small_protocols.append
+# @ur_protocols.append
 def incu_unload(args: SmallProtocolArgs):
     '''
     Unload plates from incubator positions L1, ..., to A hotel, starting at the bottom.
@@ -608,7 +611,7 @@ def incu_unload(args: SmallProtocolArgs):
         ]
     return Program(Seq(*cmds))
 
-# @small_protocols.append
+# @ur_protocols.append
 def plate_shuffle(_: SmallProtocolArgs):
     '''
     Shuffle plates around in the incubator. L7-L12 goes to L1-L6
@@ -629,7 +632,7 @@ def plate_shuffle(_: SmallProtocolArgs):
     program = Seq(*cmds)
     return program
 
-# @small_protocols.append
+# @ur_protocols.append
 def add_missing_timings(_: SmallProtocolArgs):
     '''
     Do some timings that were missing.
@@ -644,7 +647,7 @@ def add_missing_timings(_: SmallProtocolArgs):
     program = Seq(*cmds)
     return Program(program)
 
-@small_protocols.append
+@ur_protocols.append
 def time_protocols(args: SmallProtocolArgs):
     '''
     Timing for biotek and bluewasher protocols.
@@ -679,7 +682,7 @@ def time_protocols(args: SmallProtocolArgs):
     )
     return Program(program)
 
-@small_protocols.append
+@ur_protocols.append
 def bluewash_reset_and_activate(args: SmallProtocolArgs):
     '''
     Required to run before using BlueWasher:
@@ -693,7 +696,7 @@ def bluewash_reset_and_activate(args: SmallProtocolArgs):
         )
     )
 
-@small_protocols.append
+@ur_protocols.append
 def wave(args: SmallProtocolArgs):
     '''
     Makes the robot wave a handful of times.
@@ -712,7 +715,7 @@ def fill_estimates(cmd: Command):
                 # print(i, est)
 
 
-# @small_protocols.append
+# @ur_protocols.append
 def example(args: SmallProtocolArgs):
     '''
     Example prepared for presentation for BRICs
@@ -808,31 +811,29 @@ def example(args: SmallProtocolArgs):
     fill_estimates(cmd)
     return Program(cmd)
 
-imager = small_protocols
-
 def pf_fridge_program(cmds: list[Command]) -> Program:
     cmds = [
         WithLock('PF and Fridge', cmds),
     ]
     return Program(Seq(*cmds))
 
-@imager.append
+@pf_protocols.append
 def fridge_reset_and_activate(args: SmallProtocolArgs) -> Program:
     return pf_fridge_program([FridgeCmd('reset_and_activate').fork().wait()])
 
-@imager.append
+@pf_protocols.append
 def pf_home(args: SmallProtocolArgs) -> Program:
     return pf_fridge_program([PFCmd('home')])
 
-@imager.append
+@pf_protocols.append
 def pf_freedrive(args: SmallProtocolArgs) -> Program:
     return pf_fridge_program([PFCmd('freedrive')])
 
-@imager.append
+@pf_protocols.append
 def pf_reset_and_activate(args: SmallProtocolArgs) -> Program:
     return pf_fridge_program([PFCmd('stop-freedrive')])
 
-@imager.append
+@pf_protocols.append
 def fridge_load(args: SmallProtocolArgs) -> Program:
     '''
 
@@ -857,7 +858,7 @@ def fridge_load(args: SmallProtocolArgs) -> Program:
     ]
     return Program(Seq(*cmds))
 
-@imager.append
+@pf_protocols.append
 def fridge_unload(args: SmallProtocolArgs) -> Program:
     '''
 
@@ -895,7 +896,7 @@ def fridge_unload(args: SmallProtocolArgs) -> Program:
     return Program(Seq(*cmds))
 
 
-@imager.append
+@pf_protocols.append
 def squid_from_hotel(args: SmallProtocolArgs) -> Program:
     '''
 
@@ -925,7 +926,7 @@ def squid_from_hotel(args: SmallProtocolArgs) -> Program:
     ]
     return Program(Seq(*cmds))
 
-@imager.append
+@pf_protocols.append
 def squid_from_fridge(args: SmallProtocolArgs) -> Program:
     '''
 
@@ -966,7 +967,6 @@ def squid_from_fridge(args: SmallProtocolArgs) -> Program:
         WithLock('Squid', cmds),
     ]
     return Program(Seq(*cmds))
-
 
 @dataclass(frozen=True)
 class SmallProtocolData:
