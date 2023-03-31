@@ -930,18 +930,20 @@ def squid_from_hotel(args: SmallProtocolArgs) -> Program:
 def squid_from_fridge(args: SmallProtocolArgs) -> Program:
     '''
 
-        Images plates in the fridge. Params are: protocol, project, plate1_barcode, plate2_barcode, ..., plateN_barcode
+        Images plates in the fridge. Params are: protocol, project, plate1_barcode, plate1_name, plate2_barcode, plate2_name,..., plateN_barcode, plate2_name
 
     '''
     cmds: list[Command] = []
     if len(args.params) < 3:
         return Program(Seq())
-    config_path, project, *plates = args.params
+    config_path, project, *barcode_and_plates = args.params
+    barcodes = barcode_and_plates[0::2]
+    plates = barcode_and_plates[1::2]
     RT_time_secs = 5.0
-    for i, plate in enumerate(plates, start=1):
+    for i, (barcode, plate) in enumerate(zip(barcodes, plates, strict=True), start=1):
         cmds += [
             WithLock('PF and Fridge', [
-                FridgeEject(plate=plate, project=project).fork().wait(),
+                FridgeEject(plate=barcode, project=project).fork().wait(),
                 Checkpoint(f'RT {i}'),
                 PFCmd(f'fridge-to-H12'),
             ]),
@@ -960,7 +962,7 @@ def squid_from_fridge(args: SmallProtocolArgs) -> Program:
                 SquidStageCmd('leave_loading').fork().wait(),
                 BarcodeClear(),
                 PFCmd(f'H12-to-fridge'),
-                FridgeInsert(project, expected_barcode=plate).fork().wait(),
+                FridgeInsert(project, expected_barcode=barcode).fork().wait(),
             ])
         ]
     cmds = [

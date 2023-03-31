@@ -129,7 +129,7 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
 
                 # wait until it has finished running:
                 while not squid.status().get('interactive'):
-                    if (progress_bar_text := squid.status().get('progress')):
+                    if (progress_bar_text := squid.status().get('progress_bar_text')):
                         runtime.set_progress_text(entry, text=progress_bar_text)
 
                     runtime.sleep(1.0)

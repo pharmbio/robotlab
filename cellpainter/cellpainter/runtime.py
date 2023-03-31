@@ -82,7 +82,9 @@ class RuntimeConfig(DBMixin):
     def make_runtime(self) -> Runtime:
         import weakref
         if self.run_fridge_squid_nikon or self.pf_env.mode == 'execute':
-            locks_db_filepath, cleanup = 'locks.db', lambda: None
+            # Activate this when Nikon is relevant:
+            # # locks_db_filepath, cleanup = 'locks.db', lambda: None
+            locks_db_filepath, cleanup = ResourceLock.make_temp_db_filepath()
         else:
             locks_db_filepath, cleanup = ResourceLock.make_temp_db_filepath()
         runtime = Runtime(
