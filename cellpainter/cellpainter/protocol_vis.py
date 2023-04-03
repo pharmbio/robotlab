@@ -171,7 +171,11 @@ def add_to_serve(serve: Serve, cmdline0: str, cmdline_to_log: Callable[[str], Lo
                 sim_delay = f' --sim-delay {delay_ids.value}:{delay_secs.value}'
             else:
                 sim_delay = ''
-            log = cmdline_to_log(cmdline.value + sim_delay + f' {pfa_duration.value}')
+            if 'example' in cmdline.value:
+                line = cmdline.value + sim_delay + f' {pfa_duration.value}'
+            else:
+                line = cmdline.value + sim_delay
+            log = cmdline_to_log(line)
             entries = log.command_states().list()
         except:
             import traceback
