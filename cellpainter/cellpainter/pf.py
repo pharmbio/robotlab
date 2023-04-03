@@ -73,6 +73,6 @@ class PF:
 
     def init(self):
         with self.connect(quiet=False) as arm:
-            arm.send_and_recv('hp 1')
+            arm.send_and_recv('hp 1 60')
             arm.send_and_recv('attach 1')
             arm.send_and_recv('home 1')

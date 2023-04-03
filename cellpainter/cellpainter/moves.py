@@ -412,9 +412,9 @@ static: dict[str, MoveList] = {
     'pf freedrive': raw('Freedrive'),
     'pf stop freedrive': raw('StopFreedrive'),
     'pf init': raw('''
-        hp 1
+        hp 1 60
         attach 1
-        home 1
+        home
     '''),
     'ur gripper init and check': raw('GripperInitAndCheck()'),
 }

@@ -822,16 +822,16 @@ def fridge_reset_and_activate(args: SmallProtocolArgs) -> Program:
     return pf_fridge_program([FridgeCmd('reset_and_activate').fork().wait()])
 
 @pf_protocols.append
-def pf_home(args: SmallProtocolArgs) -> Program:
-    return pf_fridge_program([PFCmd('home')])
+def pf_init(args: SmallProtocolArgs) -> Program:
+    return pf_fridge_program([PFCmd('pf init')])
 
 @pf_protocols.append
 def pf_freedrive(args: SmallProtocolArgs) -> Program:
-    return pf_fridge_program([PFCmd('freedrive')])
+    return pf_fridge_program([PFCmd('pf freedrive')])
 
 @pf_protocols.append
-def pf_reset_and_activate(args: SmallProtocolArgs) -> Program:
-    return pf_fridge_program([PFCmd('stop-freedrive')])
+def pf_stop_freedrive(args: SmallProtocolArgs) -> Program:
+    return pf_fridge_program([PFCmd('pf stop freedrive')])
 
 @pf_protocols.append
 def fridge_load(args: SmallProtocolArgs) -> Program:
