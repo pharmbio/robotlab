@@ -258,12 +258,12 @@ class Log:
             CommandState.resource == 'disp',
             CommandState.resource == 'wash',
             CommandState.resource == 'blue',
-            CommandState.resource == 'squid',
         )
         if not states.list():
             # show incu if no bioteks (for incu load)
             # show fridge if no microscopes (for fridge load)
             states = q.where_some(
+                CommandState.resource == 'squid',
                 CommandState.resource == 'fridge',
                 CommandState.resource == 'incu',
             )

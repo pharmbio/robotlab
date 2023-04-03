@@ -1717,11 +1717,11 @@
 {"cmd":{"type":"RobotarmCmd","program_name":"wash-to-disp transfer"},"datetime":"2023-03-09 14:57:07","duration":7.826}
 {"cmd":{"type":"RobotarmCmd","program_name":"wave"},"datetime":"2023-02-06 11:41:22","duration":20.862}
 {"cmd":{"type":"RobotarmCmd","program_name":"wave"},"datetime":"2023-02-06 11:41:39","duration":17.567}
-{"cmd":{"type":"SquidAcquire","config_path":"/home/pharmbio/Documents/Squid_protocols/short_pe.json","project":"","plate":""},"datetime":"2023-03-31 12:39:50","duration":59.061}
-{"cmd":{"type":"SquidAcquire","config_path":"/home/pharmbio/Documents/Squid_protocols/short_pe.json","project":"","plate":""},"datetime":"2023-03-31 12:43:25","duration":65.134}
-{"cmd":{"type":"SquidAcquire","config_path":"/home/pharmbio/Documents/Squid_protocols/short_pe.json","project":"","plate":""},"datetime":"2023-03-31 12:47:04","duration":67.244}
-{"cmd":{"type":"SquidAcquire","config_path":"/home/pharmbio/Documents/Squid_protocols/short_pe.json","project":"","plate":""},"datetime":"2023-03-31 12:50:43","duration":62.776}
-{"cmd":{"type":"SquidAcquire","config_path":"/home/pharmbio/Documents/Squid_protocols/short_pe.json","project":"","plate":""},"datetime":"2023-03-31 12:54:17","duration":60.732}
+{"cmd":{"type":"SquidAcquire","config_path":"protocols/short_pe.json","project":"","plate":""},"datetime":"2023-03-31 12:39:50","duration":59.061}
+{"cmd":{"type":"SquidAcquire","config_path":"protocols/short_pe.json","project":"","plate":""},"datetime":"2023-03-31 12:43:25","duration":65.134}
+{"cmd":{"type":"SquidAcquire","config_path":"protocols/short_pe.json","project":"","plate":""},"datetime":"2023-03-31 12:47:04","duration":67.244}
+{"cmd":{"type":"SquidAcquire","config_path":"protocols/short_pe.json","project":"","plate":""},"datetime":"2023-03-31 12:50:43","duration":62.776}
+{"cmd":{"type":"SquidAcquire","config_path":"protocols/short_pe.json","project":"","plate":""},"datetime":"2023-03-31 12:54:17","duration":60.732}
 {"cmd":{"type":"SquidAcquire","config_path":"384.json","project":"","plate":""},"datetime":"2023-03-31 10:56:21","duration":46.202}
 {"cmd":{"type":"SquidAcquire","config_path":"384.json","project":"","plate":""},"datetime":"2023-03-31 10:59:47","duration":48.877}
 {"cmd":{"type":"SquidAcquire","config_path":"384.json","project":"","plate":""},"datetime":"2023-03-31 11:29:12","duration":43.146}

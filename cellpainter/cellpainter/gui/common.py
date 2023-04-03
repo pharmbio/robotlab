@@ -10,6 +10,7 @@ import signal
 import json
 
 import viable as V
+import viable.provenance as Vp
 from viable import label, span
 from viable.provenance import Int, Str, Bool
 
@@ -89,21 +90,29 @@ def make_table(rows: list[dict[str, Any]], header: bool=True):
     else:
         return V.table(body)
 
-def form(*vs: Int | Str | Bool):
+def form(*vs: Int | Str | Bool | Vp.List[str]):
     for v in vs:
-        inp = v.input()
-        inp.extend(id_=v.name, spellcheck="false", autocomplete="off")
-        if len(getattr(v, 'options', []) or []) == 2:
-            inp.extend(
-                class_='two',
-                size='2',
-                overflow='hidden'
+        if isinstance(v, Vp.List):
+            inp = v.select([
+                V.option(x, value=x, selected=x in v.value)
+                for x in v.options
+            ])
+            inp.extend(grid_column='1 / -1', width='100%', height='100%', grid_row='span 4')
+            yield inp
+        else:
+            inp = v.input()
+            inp.extend(id_=v.name, spellcheck="false", autocomplete="off")
+            if len(getattr(v, 'options', []) or []) == 2:
+                inp.extend(
+                    class_='two',
+                    size='2',
+                    overflow='hidden'
+                )
+            yield label(
+                span(f"{v.name or ''}:"),
+                inp,
+                title=v.desc,
             )
-        yield label(
-            span(f"{v.name or ''}:"),
-            inp,
-            title=v.desc,
-        )
 
 path_var = Str(name='log', _provenance='query')
 

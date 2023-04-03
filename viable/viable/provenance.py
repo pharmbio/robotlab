@@ -182,25 +182,22 @@ class Var(Generic[A], abc.ABC):
 SomeVar = TypeVar('SomeVar', bound=Var[Any])
 
 @dataclass
-class List(Var[list[A]]):
-    default: list[A] = field(default_factory=list)
-    options: list[A] = field(default_factory=lambda: cast(Any, 'specify some options!'[404]))
+class List(Var[list[str]]):
+    default: list[str] = field(default_factory=list)
+    options: list[str] = field(default_factory=list)
 
-    def from_str(self, s: str | Any) -> list[A]:
-        return [self.options[i] for i in self._indicies(s)]
+    def from_str(self, s: str | Any) -> list[str]:
+        print(s)
+        if not isinstance(s, str):
+            s = json.dumps(s)
+        return [
+            v
+            for v in json.loads(s)
+            if v in self.options
+        ]
 
-    def to_str(self, value: list[A]) -> str:
-        return json.dumps([self.options.index(v) for v in value])
-
-    def _indicies(self, s: str |  Any) -> list[int]:
-        try:
-            ixs = json.loads(s)
-        except:
-            return []
-        if isinstance(ixs, list):
-            return [int(i) for i in ixs] # type: ignore
-        else:
-            return []
+    def to_str(self, value: list[str]) -> str:
+        return json.dumps(value)
 
     def select(self, options: list[Tags.option]):
         return Tags.select(

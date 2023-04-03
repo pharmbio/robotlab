@@ -930,16 +930,16 @@ def squid_from_hotel(args: SmallProtocolArgs) -> Program:
 def squid_from_fridge(args: SmallProtocolArgs) -> Program:
     '''
 
-        Images plates in the fridge. Params are: protocol, project, plate1_barcode, plate1_name, plate2_barcode, plate2_name,..., plateN_barcode, plate2_name
+        Images plates in the fridge. Params are: protocol, project, RT_time_secs, plate1_barcode, plate1_name, plate2_barcode, plate2_name,..., plateN_barcode, plate2_name
 
     '''
     cmds: list[Command] = []
-    if len(args.params) < 3:
+    if len(args.params) < 5:
         return Program(Seq())
-    config_path, project, *barcode_and_plates = args.params
+    config_path, project, RT_time_secs_str, *barcode_and_plates = args.params
     barcodes = barcode_and_plates[0::2]
     plates = barcode_and_plates[1::2]
-    RT_time_secs = 5.0
+    RT_time_secs = float(RT_time_secs_str)
     for i, (barcode, plate) in enumerate(zip(barcodes, plates, strict=True), start=1):
         cmds += [
             WithLock('PF and Fridge', [

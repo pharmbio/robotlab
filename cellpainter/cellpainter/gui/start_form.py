@@ -3,7 +3,9 @@ from typing import *
 from dataclasses import *
 
 from viable import store, call, Str, Bool, div, button
+from ..specs3k import renames
 import viable as V
+import viable.provenance as Vp
 
 from pathlib import Path
 from subprocess import Popen, DEVNULL
@@ -110,15 +112,20 @@ form_css = '''
 ''' + common.inverted_inputs_css
 
 def start_form(*, config: RuntimeConfig):
+
+    imager = config.name != 'live'
+    painter = config.name != 'pf-live'
+
     options = {
-        'cell-paint': 'cell-paint',
+        **({'cell-paint': 'cell-paint'} if painter else {}),
+        **({'squid-from-fridge-v1': 'squid-from-fridge-v1'} if imager else {}),
         **{
             k.replace('_', '-'): v
             for k, v in small_protocols_dict.items()
         }
     }
 
-    protocol = store.str(default='cell-paint', options=tuple(options.keys()))
+    protocol = store.str(default=tuple(options.keys())[0], options=tuple(options.keys()))
     store.assign_names(locals())
 
     desc = store.str(name='description', desc='Example: "specs395-v1"')
@@ -128,13 +135,26 @@ def start_form(*, config: RuntimeConfig):
     protocol_dir = store.str(default='automation_v5.0', name='protocol dir', desc='Directory on the windows computer to read biotek LHC files from')
     final_washes = store.str(name='final wash rounds', options=['one', 'two'], desc='Number of final wash rounds. Either run 9_W_*.LHC once or run 9_10_W_*.LHC twice.')
 
+    squid_project = store.str(name='squid project', default='')
+    squid_protocol = store.str(name='squid protocol', default='protocols/short_pe.json')
+    squid_RT_time_secs = store.str(name='RT time secs', default='1800')
+    store.assign_names(locals())
+    filtered_renames = {
+        name: barcode
+        for (project, barcode), name in renames.items()
+        if project == squid_project.value
+    }
+    squid_plates = store.var(Vp.List(name='squid plates', default=[], options=list(filtered_renames.keys())))
+    store.assign_names(locals())
+    print('plates:', squid_plates.value)
+
     num_plates = store.str(name='plates', desc='The number of plates')
     params = store.str(name='params', desc=f'Additional parameters to protocol "{protocol.value}"')
     store.assign_names(locals())
 
     small_data = options.get(protocol.value)
 
-    form_fields: list[Str | Bool] = []
+    form_fields: list[Str | Bool | Vp.List] = []
     if protocol.value == 'cell-paint':
         form_fields = [
             desc,
@@ -155,6 +175,26 @@ def start_form(*, config: RuntimeConfig):
             protocol_dir=protocol_dir.value,
             desc=desc.value,
             operators=operators.value,
+        )
+    elif protocol.value == 'squid-from-fridge-v1':
+        form_fields = [
+            squid_project,
+            squid_protocol,
+            squid_RT_time_secs,
+            squid_plates,
+        ]
+        args = Args(
+            small_protocol='squid_from_fridge',
+            params=[
+                squid_protocol.value,
+                squid_project.value,
+                squid_RT_time_secs.value,
+                *[
+                    param
+                    for name in squid_plates.value
+                    for param in [filtered_renames[name], name]
+                ]
+            ]
         )
     elif isinstance(small_data, SmallProtocolData):
         if 'num_plates' in small_data.args:
