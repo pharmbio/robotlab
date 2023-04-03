@@ -5,6 +5,7 @@ from typing import *
 
 import socket
 import contextlib
+import time
 
 from labrobots.machine import Log
 
@@ -53,8 +54,22 @@ class PF:
     @contextlib.contextmanager
     def connect(self, quiet: bool=True, mode: Literal['ro', 'rw'] = 'rw'):
         port = self.port_rw if mode == 'rw' else self.port_ro
-        with contextlib.closing(socket.create_connection((self.host, port), timeout=60)) as sock:
-            yield ConnectedPF(sock, log=Log.make('pf', stdout=not quiet))
+        for _retries in range(10):
+            try:
+                with contextlib.closing(socket.create_connection((self.host, port))) as sock:
+                    yield ConnectedPF(sock, log=Log.make('pf', stdout=not quiet))
+                    break
+            except ConnectionRefusedError:
+                import traceback as tb
+                import sys
+                print(
+                    'PF connection error:',
+                    tb.format_exc(),
+                    'Retrying in 1s',
+                    sep='\n',
+                    file=sys.stderr,
+                )
+                time.sleep(1)
 
     def set_speed(self, value: int):
         if not (0 < value <= 100):
