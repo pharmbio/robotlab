@@ -947,13 +947,13 @@ def squid_from_fridge(args: SmallProtocolArgs) -> Program:
                 Checkpoint(f'RT {i}'),
                 PFCmd(f'fridge-to-H12'),
             ]),
-            WaitForCheckpoint(f'RT {i}', plus_secs=RT_time_secs, assume='nothing'),
             WithLock('PF and Fridge', [
                 SquidStageCmd('goto_loading').fork().wait(),
                 PFCmd(f'H12-to-squid'),
             ]),
             Seq(
                 SquidStageCmd('leave_loading'),
+                WaitForCheckpoint(f'RT {i}', plus_secs=RT_time_secs, assume='nothing'),
                 SquidAcquire(config_path, project=project, plate=plate),
             ).fork().wait(),
             WithLock('PF and Fridge', [
