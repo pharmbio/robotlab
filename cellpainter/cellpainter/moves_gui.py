@@ -525,7 +525,10 @@ def index() -> Iterator[Tag | dict[str, str]]:
                             }
                         ''',
                         title=col,
-                        onclick=call(arm_do, moves.RawCode("EnsureRelPos()"), v),
+                        onclick=
+                            call(arm_do, moves.RawCode("EnsureRelPos()"), v) if ur else
+                            call(arm_do, v)
+                        ,
                     )
             else:
                 row += div(f'{dist: 5.0f}',
