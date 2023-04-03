@@ -2,12 +2,12 @@
 {"type":"MoveJoint","joints":[601.89,-5.32,176.89,186.76],"name":"neu"}
 {"type":"GripperMove","pos":100}
 {"type":"MoveJoint","joints":[555.28,-83.77,317.86,125.13],"name":"hotel neu"}
-{"type":"MoveLin","xyz":[25.3,-536.5,467.7],"rpy":[0.0,0.0,-0.8],"name":"H12 entrance","tag":"12/12"}
-{"type":"MoveLin","xyz":[167.8,-521.6,464.7],"rpy":[0.0,0.0,-1],"name":"H12 neu","tag":"12/12"}
-{"type":"MoveLin","xyz":[167.8,-521.6,457.7],"rpy":[0.0,0.0,-1],"name":"H12 pick","tag":"12/12"}
+{"type":"MoveLin","xyz":[25.3,-536.5,467.7],"rpy":[0.0,0.0,-0.8],"tag":"12/12","name":"H12 entrance"}
+{"type":"MoveLin","xyz":[167.8,-521.6,464.7],"rpy":[0.0,0.0,-1],"tag":"12/12","name":"H12 neu"}
+{"type":"MoveLin","xyz":[167.8,-521.6,457.7],"rpy":[0.0,0.0,-1],"tag":"12/12","name":"H12 pick"}
 {"type":"GripperMove","pos":75}
-{"type":"MoveLin","xyz":[167.8,-521.6,464.7],"rpy":[0.0,0.0,-1],"name":"H12 neu","tag":"12/12"}
-{"type":"MoveLin","xyz":[25.3,-536.5,467.7],"rpy":[0.0,0.0,-0.8],"name":"H12 entrance","tag":"12/12"}
+{"type":"MoveLin","xyz":[167.8,-521.6,464.7],"rpy":[0.0,0.0,-1],"tag":"12/12","name":"H12 neu"}
+{"type":"MoveLin","xyz":[25.3,-536.5,467.7],"rpy":[0.0,0.0,-0.8],"tag":"12/12","name":"H12 entrance"}
 {"type":"MoveJoint","joints":[555.28,-83.77,317.86,125.13],"name":"hotel neu"}
 {"type":"MoveJoint","joints":[551.98,69.74,38.9,432.17],"name":"fridge neu"}
 {"type":"MoveLin","xyz":[-149.8,554.84,552],"rpy":[0,0,-179.19],"name":"fridge above"}
@@ -26,11 +26,11 @@
 {"type":"MoveLin","xyz":[-149.79,554.86,552],"rpy":[0,0,-179.19],"name":"fridge above"}
 {"type":"MoveJoint","joints":[551.99,69.74,38.9,432.17],"name":"fridge neu"}
 {"type":"MoveJoint","joints":[555.28,-83.77,317.86,125.13],"name":"hotel neu"}
-{"type":"MoveLin","xyz":[25.3,-536.5,467.7],"rpy":[0.0,0.0,-0.8],"name":"H12 entrance","tag":"12/12"}
-{"type":"MoveLin","xyz":[167.8,-521.6,464.7],"rpy":[0.0,0.0,-1],"name":"H12 neu","tag":"12/12"}
-{"type":"MoveLin","xyz":[167.8,-521.6,460.6],"rpy":[0.0,0.0,-1],"name":"H12 drop","tag":"12/12"}
+{"type":"MoveLin","xyz":[25.3,-536.5,467.7],"rpy":[0.0,0.0,-0.8],"tag":"12/12","name":"H12 entrance"}
+{"type":"MoveLin","xyz":[168.5,-522.9,464.7],"rpy":[0.0,0.0,-0.8],"tag":"12/12","name":"H12 neu"}
+{"type":"MoveLin","xyz":[168.5,-522.9,459.9],"rpy":[0.0,0.0,-0.8],"tag":"12/12","name":"H12 drop"}
 {"type":"GripperMove","pos":100}
-{"type":"MoveLin","xyz":[167.8,-521.6,464.7],"rpy":[0.0,0.0,-1],"name":"H12 neu","tag":"12/12"}
-{"type":"MoveLin","xyz":[25.3,-536.5,467.7],"rpy":[0.0,0.0,-0.8],"name":"H12 entrance","tag":"12/12"}
+{"type":"MoveLin","xyz":[168.5,-522.9,464.7],"rpy":[0.0,0.0,-0.8],"tag":"12/12","name":"H12 neu"}
+{"type":"MoveLin","xyz":[25.3,-536.5,467.7],"rpy":[0.0,0.0,-0.8],"tag":"12/12","name":"H12 entrance"}
 {"type":"MoveJoint","joints":[555.28,-83.77,317.86,125.13],"name":"hotel neu"}
 {"type":"MoveJoint","joints":[601.89,-5.32,176.89,186.76],"name":"neu"}
