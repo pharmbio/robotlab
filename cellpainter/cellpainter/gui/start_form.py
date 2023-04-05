@@ -288,13 +288,13 @@ def start_form(*, config: RuntimeConfig):
             grid_row='-1',
         ) if args else '',
         height='100%',
-        padding='80px 0',
+        padding='40px 0',
         grid_area='form',
         user_select='none',
         css_=form_css,
         css='''
             & {
-                grid-template-rows: repeat(8, 40px);
+                grid-template-rows: repeat(14, 40px);
                 grid-template-columns: 160px 300px;
             }
             & label > span {

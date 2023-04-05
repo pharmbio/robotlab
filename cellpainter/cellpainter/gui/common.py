@@ -97,7 +97,7 @@ def form(*vs: Int | Str | Bool | Vp.List[str]):
                 V.option(x, value=x, selected=x in v.value)
                 for x in v.options
             ])
-            inp.extend(grid_column='1 / -1', width='100%', height='100%', grid_row='span 4')
+            inp.extend(grid_column='1 / -1', width='100%', height='100%', grid_row='span 10', font_size='91%')
             yield inp
         else:
             inp = v.input()
