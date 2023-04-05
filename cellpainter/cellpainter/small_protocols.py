@@ -939,6 +939,19 @@ def squid_from_fridge(args: SmallProtocolArgs) -> Program:
     config_path, project, RT_time_secs_str, *barcode_and_plates = args.params
     barcodes = barcode_and_plates[0::2]
     plates = barcode_and_plates[1::2]
+    import labrobots
+    try:
+        contents = labrobots.WindowsGBG().remote().fridge.contents()
+        for barcode in barcodes:
+            if sum(
+                1
+                for _loc, slot in contents.items()
+                if slot['project'] == project
+                if slot['plate'] == barcode
+            ) != 1:
+                raise ValueError(f'Could not find {barcode=} from {project=} in fridge!')
+    except:
+        contents = {}
     RT_time_secs = float(RT_time_secs_str)
     for i, (barcode, plate) in enumerate(zip(barcodes, plates, strict=True), start=1):
         cmds += [
