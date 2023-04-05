@@ -942,6 +942,9 @@ def squid_from_fridge(args: SmallProtocolArgs) -> Program:
     import labrobots
     try:
         contents = labrobots.WindowsGBG().remote().fridge.contents()
+    except:
+        contents = None
+    if contents is not None:
         for barcode in barcodes:
             if sum(
                 1
@@ -950,8 +953,6 @@ def squid_from_fridge(args: SmallProtocolArgs) -> Program:
                 if slot['plate'] == barcode
             ) != 1:
                 raise ValueError(f'Could not find {barcode=} from {project=} in fridge!')
-    except:
-        contents = {}
     RT_time_secs = float(RT_time_secs_str)
     for i, (barcode, plate) in enumerate(zip(barcodes, plates, strict=True), start=1):
         cmds += [
