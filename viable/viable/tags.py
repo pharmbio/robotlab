@@ -1,8 +1,252 @@
 from __future__ import annotations
+from dataclasses import *
 from typing import *
 import typing_extensions as tx
 
 import abc
+
+def make_aliases():
+    aliases=dict(
+        w='width'.split(),
+        h='height'.split(),
+        z='z-index'.split(),
+        c='color'.split(),
+        bg='background-color'.split(),
+    )
+    for box in 'border padding margin outline'.split():
+        b = box[0]
+        aliases |= {
+            f'{b}': f'{box}'.split(),
+            f'{b}x': f'{box}-left {box}-right'.split(),
+            f'{b}y': f'{box}-top {box}-bottom'.split(),
+            f'{b}l': f'{box}-left'.split(),
+            f'{b}r': f'{box}-right'.split(),
+            f'{b}t': f'{box}-top'.split(),
+            f'{b}d': f'{box}-down'.split(),
+        }
+    return aliases
+
+aliases = make_aliases()
+
+@dataclass(frozen=True)
+class Css:
+    literal: str = ''
+    values: dict[str, str] = field(default_factory=dict)
+    nested: dict[str, Css] = field(default_factory=dict)
+    is_style: bool = False
+
+    def to_css_parts(self, name: str = '&', tidy: bool = True) -> Iterator[tuple[str, str]]:
+        literal = [self.literal] if self.literal else []
+        items = literal + [f'{k}:{v}' for k, v in self.values.items()]
+        if items:
+            if tidy:
+                yield name, '\n'.join(f'  {item};' for item in items)
+            else:
+                yield name, ';'.join(items)
+        for selector, child in self.nested.items():
+            yield from child.to_css_parts(selector.replace('&', name), tidy=tidy)
+
+    def __call__(self, literal: str = '', **kwargs: int | str | None) -> Css:
+        values = {}
+        for k, v in kwargs.items():
+            if v is None:
+                continue
+            if isinstance(v, int):
+                v = f'{v}px'
+            else:
+                v = str(v)
+            if ks := aliases.get(k):
+                for ka in ks:
+                    values[ka] = v
+            else:
+                k = k.replace('_', '-')
+                values[k] = v
+        return self.merge(Css(literal, values, is_style=True))
+
+    add = __call__
+
+    def nest(self, children: dict[str, Css]) -> Css:
+        return self.merge(Css('', {}, children))
+
+    def merge(self, other: Css) -> Css:
+        '''other-biased merge'''
+        values = {
+            **self.values,
+            **other.values,
+        }
+        nested = {
+            k: self.nested.get(k, Css()).merge(other.nested.get(k, Css()))
+            for k in {*self.nested.keys(), *other.nested.keys()}
+        }
+        return Css(
+            self.literal + other.literal,
+            values,
+            nested,
+            self.is_style and other.is_style and not nested
+        )
+
+    def grid(
+        self,
+        template_columns: None | str = None,
+        template_rows:    None | str = None,
+        template_areas:   None | str = None,
+        auto_rows:        None | str = None,
+        auto_columns:     None | str = None,
+        auto_flow:        None | Literal['row', 'column', 'dense', 'row dense', 'column dense'] = None,
+        row_gap:          None | str | int = None,
+        column_gap:       None | str | int = None,
+        gap:              None | str | int = None,
+        justify_items:    None | Literal['start', 'end', 'center', 'stretch', 'baseline'] = None,
+        align_items:      None | Literal['start', 'end', 'center', 'stretch', 'baseline'] = None,
+        justify_content:  None | Literal['start', 'end', 'center', 'stretch', 'space-between', 'space-around', 'space-evenly'] = None,
+        align_content:    None | Literal['start', 'end', 'center', 'stretch', 'space-between', 'space-around', 'space-evenly'] = None,
+    ) -> 'Css':
+        '''
+        sets display: grid and some other common values
+
+        'grid-template-rows', 'grid-template-columns'
+        Defines the line names and track sizing functions of the grid columns and rows.
+
+        Examples: '100px minmax(100px, 1fr)' or 'repeat(auto-fit, 100px)'
+
+        'grid-template-areas'
+        Defines a grid template by referencing the names of the grid areas which are specified with the grid-area property.
+
+        Examples:
+        '. header header header .'
+        'sidebar main main main sidebar'
+        '. footer footer footer .'
+
+        'grid-auto-rows', 'grid-auto-columns'
+        Defines the size of any implicitly-created columns and rows in the grid.
+
+        Examples: '100px' or 'minmax(100px, auto)'
+
+        'grid-auto-flow'
+        Controls how auto-placed items are placed in the grid.
+
+        Examples: 'row', 'column', 'dense', 'row dense', or 'column dense'
+
+        'grid-row-gap', 'grid-column-gap', 'grid-gap'
+        Defines the size of the gap in the grid.
+
+        Examples: '20px' or '1em 0'
+
+        'justify-items'
+        Aligns grid items along the inline (row) axis.
+        'align-items'
+        Aligns grid items along the block (column) axis.
+
+        Examples: 'start', 'end', 'center', 'stretch', or 'baseline'
+
+        'justify-content'
+        Aligns grid items along the inline (row) axis when there is extra space in the grid container.
+        'align-content'
+        Aligns grid items along the block (column) axis when there is extra space in the grid container.
+
+        Examples: 'start', 'end', 'center', 'stretch', 'space-around', or 'space-between'
+
+        '''
+        return self(
+            display               = 'grid',
+            grid_template_columns = template_columns,
+            grid_template_rows    = template_rows,
+            grid_template_areas   = template_areas,
+            grid_auto_rows        = auto_rows,
+            grid_auto_columns     = auto_columns,
+            grid_auto_flow        = auto_flow,
+            grid_row_gap          = row_gap,
+            grid_column_gap       = column_gap,
+            grid_gap              = gap,
+            justify_items         = justify_items,
+            align_items           = align_items,
+            justify_content       = justify_content,
+            align_content         = align_content,
+        )
+
+    def item(
+        self,
+        row:          str | int | None = None,
+        column:       str | int | None = None,
+        area:         str | None = None,
+        justify_self: Literal['start', 'end', 'center', 'stretch', 'baseline'] | None = None,
+        align_self:   Literal['start', 'end', 'center', 'stretch', 'baseline'] | None = None,
+        place_self:   Literal['auto', 'start', 'end', 'center', 'stretch'] | None = None,
+    ) -> Css:
+        '''
+        Grid Item Properties
+        '''
+        if row and column and area is None:
+            area = f'{row} / {column}'
+            row = None
+            column = None
+        return self(
+            grid_area=area,
+            grid_row=str(row) if isinstance(row, int) else row,
+            grid_column=str(column) if isinstance(column, int) else column,
+            justify_self=justify_self,
+            align_self=align_self,
+            place_self=place_self,
+        )
+
+    def text(
+        self,
+        family:         str | None = None,
+        size:           str | None = None,
+        weight:         str | None = None,
+        letter_spacing: str | None = None,
+        line_height:    str | None = None,
+        decoration:     Literal['none', 'underline', 'overline', 'line-through', 'underline overline', 'underline line-through', 'overline line-through', 'underline overline line-through'] | None = None,
+        transform:      Literal['none', 'capitalize', 'uppercase', 'lowercase', 'full-width', 'full-size-kana'] | None = None,
+        align:          Literal['left', 'right', 'center', 'justify', 'justify-all', 'start', 'end', 'match-parent'] | None = None,
+        overflow:       Literal['clip', 'ellipsis', 'auto', 'hidden', 'scroll'] | None = None,
+        word_break:     Literal['normal', 'break-all', 'keep-all', 'break-word'] | None = None
+    ) -> Css:
+        '''
+        Font and text properties.
+        '''
+        return self(
+            font_family     = family,
+            font_size       = size,
+            font_weight     = weight,
+            letter_spacing  = letter_spacing,
+            line_height     = line_height,
+            text_decoration = decoration,
+            text_transform  = transform,
+            text_align      = align,
+            text_overflow   = overflow,
+            word_break      = word_break,
+        )
+
+    font = text
+
+    @property
+    def pointer(self):
+        'cursor: pointer'
+        return self(cursor='pointer')
+
+    @property
+    def user_select_none(self):
+        'user-select: none'
+        return self(user_select='none')
+
+    @property
+    def translate(self, x: int | str | None = None, y: int | str | None = None):
+        def px(v: int | str | None) -> str:
+            if v is None:
+                return '0'
+            elif isinstance(v, int):
+                return f'{v}px'
+            else:
+                return v
+        return self(transform=f'translate({px(x)},{px(y)})')
+
+    @property
+    def border_box(self):
+        return self.nest({'& *,& *::before,& *::after': Css()(box_sizing='border-box')})
+
+css = Css()
+style = Css(is_style=True)
 
 AttrValue: TypeAlias = None | bool | str | int
 
@@ -108,18 +352,19 @@ css_props = {
 }
 for m, margin in {'m': 'margin', 'p': 'padding', 'b': 'border'}.items():
     css_props[m] = [margin]
-    for x, left_right in {'t': 'top', 'b': 'bottom', 'l': 'left', 'r': 'right', 'x': 'left right', 'y': 'top bottom'}.items():
-        css_props[m+x] = [margin + '-' + left for left in left_right.split()]
+    for v, left_right in {'t': 'top', 'b': 'bottom', 'l': 'left', 'r': 'right', 'x': 'left right', 'y': 'top bottom'}.items():
+        css_props[m+v] = [margin + '-' + left for left in left_right.split()]
 css_props['d'] = ['display']
 css_props['bg'] = ['background']
 
-Child = TypeVar('Child', Node, str, dict[str, AttrValue])
+Child = TypeVar('Child', Node, str, Css, dict[str, AttrValue])
 
 class Tag(Node):
-    _attributes_ = {'children', 'attrs', 'inline_css', 'inline_sheet'}
-    def __init__(self, *children: Node | str | dict[str, AttrValue], **attrs: AttrValue):
+    _attributes_ = {'children', 'attrs', 'inline_css', 'inline_Css', 'inline_sheet'}
+    def __init__(self, *children: Node | str | Css | dict[str, AttrValue], **attrs: AttrValue):
         self.children: list[Node] = []
         self.attrs: dict[str, AttrValue] = {}
+        self.inline_Css: list[Css] = []
         self.inline_css: list[str] = []
         self.inline_sheet: list[str] = []
         self.append(*children)
@@ -129,16 +374,16 @@ class Tag(Node):
         self.append(child)
         return child
 
-    def append(self, *children: Node | str | dict[str, AttrValue], **kws: AttrValue) -> tx.Self:
-        self.children += [
-            text(child) if isinstance(child, str) else child
-            for child in children
-            if not isinstance(child, dict)
-        ]
+    def append(self, *children: Node | str | Css | dict[str, AttrValue], **kws: AttrValue) -> tx.Self:
         for child in children:
-            if isinstance(child, dict):
+            if isinstance(child, Css):
+                self.inline_Css += [child]
+            elif isinstance(child, dict):
                 self.extend(child)
-        self.extend(kws)
+            elif isinstance(child, str):
+                self.children += [text(child)]
+            else:
+                self.children += [child]
         return self
 
     def extend(self, attrs: dict[str, AttrValue] = {}, **kws: AttrValue) -> tx.Self:
@@ -204,7 +449,7 @@ class Tag(Node):
             self.extend({attr: value.value})
 
     def tag_name(self) -> str:
-        return self.__class__.__name__
+        return self.__class__.__name__.removesuffix('_tag')
 
     def to_strs(self, *, indent: int=2, i: int=0) -> Iterable[str]:
         if self.attrs:
@@ -262,6 +507,20 @@ class Tag(Node):
                 classes[decls] = name, inst
             self.extend({name: True})
         self.inline_css.clear()
+        for x in self.inline_Css:
+            if x.is_style:
+                (_, decls), = list(x.to_css_parts(tidy=False))
+                self.extend({'style': decls})
+                continue
+            fingerprint = '\n'.join(f'{sel} {{{decls}}}' for sel, decls in x.to_css_parts())
+            if fingerprint in classes:
+                name, _ = classes[fingerprint]
+            else:
+                name = f'css-{len(classes)}'
+                nl = '\n'
+                inst = '\n'.join(f'{sel} {{{nl}{decls}{nl}}}' for sel, decls in x.to_css_parts(name=f'[{name}]'))
+                classes[fingerprint] = name, inst
+            self.extend({name: True})
         for child in self.children:
             if isinstance(child, Tag):
                 child.make_classes(classes)
@@ -388,7 +647,7 @@ class small(Tag): pass
 class source(Tag): pass
 class span(Tag): pass
 class strong(Tag): pass
-class style(Tag): pass
+class style_tag(Tag): pass
 class sub(Tag): pass
 class summary(Tag): pass
 class sup(Tag): pass
@@ -503,7 +762,7 @@ class Tags:
     source     = source
     span       = span
     strong     = strong
-    style      = style
+    style      = style_tag
     sub        = sub
     summary    = summary
     sup        = sup

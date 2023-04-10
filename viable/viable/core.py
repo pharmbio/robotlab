@@ -19,7 +19,7 @@ from itsdangerous import Serializer, URLSafeSerializer
 from flask import g
 from werkzeug.local import LocalProxy
 
-from .tags import Node, Tag, Tags, raw
+from .tags import Node, Tag, Tags, Css, raw
 from .minifier import minify
 from .call_js import CallJS
 from .provenance import request_data
@@ -91,7 +91,7 @@ class Serve:
             return jsonify({})
 
     def route(self, rule: str = '/'):
-        def inner(f: Callable[..., Iterable[Node | str | dict[str, str]]]):
+        def inner(f: Callable[..., Iterable[Node | Css | str | dict[str, str]]]):
 
             self._routes_added.append(f)
             endpoint = f'viable_{f.__name__}_{len(self._routes_added)}' # flask insists on getting an endpoint name
@@ -105,7 +105,7 @@ class Serve:
         return inner
 
     def one(self, rule: str = '/', host: str | None = None, port: int | None = None):
-        def inner(f: Callable[..., Iterable[Node | str | dict[str, str]]]):
+        def inner(f: Callable[..., Iterable[Node | Css | str | dict[str, str]]]):
             self.route(rule)(f)
             self.run(host, port)
         return inner
@@ -113,7 +113,7 @@ class Serve:
     def add_call_js(self):
         g.call_js = self._call_js
 
-    def view(self, f: Callable[..., Iterable[Node | str | dict[str, str]]], *args: Any, **kws: Any) -> Response:
+    def view(self, f: Callable[..., Iterable[Node | Css | str | dict[str, str]]], *args: Any, **kws: Any) -> Response:
 
         self.add_call_js()
 
