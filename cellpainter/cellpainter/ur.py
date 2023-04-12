@@ -9,6 +9,7 @@ from .ur_script import URScript
 from labrobots.machine import Log
 import contextlib
 
+import sys
 import re
 import socket
 
@@ -20,7 +21,7 @@ class ConnectedUR:
     def send(self, prog_str: str) -> None:
         if not prog_str.endswith('\n'):
             prog_str = prog_str + '\n'
-        self.log('arm.send({prog_str[:100]!r})  // length: {len(prog_str)}')
+        self.log(f'arm.send({prog_str[:100]!r})  // length: {len(prog_str)}')
         prog_bytes = prog_str.encode()
         self.sock.sendall(prog_bytes)
 
@@ -29,8 +30,10 @@ class ConnectedUR:
             data = self.sock.recv(4096)
             pattern = r'[\x20-\x7e]*(?:log|fatal|program|assert|\w+exception|error|\w+_\w+:)[\x20-\x7e]*'
             for m in re.findall(pattern.encode('ascii'), data, re.IGNORECASE):
-                msg: str = m.decode()
-                self.log('arm.read() = {msg!r}')
+                msg: str = m.decode(errors='replace')
+                self.log(f'arm.read() = {msg!r}')
+                if 'error' in msg:
+                    print('ur:', msg, file=sys.stderr)
                 if 'fatal' in msg:
                     self.send('textmsg("log panic stop")\n')
                     raise RuntimeError(msg)
@@ -39,7 +42,7 @@ class ConnectedUR:
     def recv_until(self, needle: str) -> None:
         for data in self.recv():
             if needle.encode() in data:
-                self.log('received {needle} in {data}')
+                self.log(f'received {needle}')
                 return
 
     def close(self) -> None:

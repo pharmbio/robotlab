@@ -113,9 +113,9 @@ class RuntimeConfig(DBMixin):
 configs: list[RuntimeConfig]
 configs = [
     # UR:
-    RuntimeConfig('live',          'WallTime',      UREnvs.live,      PFEnvs.dry,     run_incu_wash_disp=True,   run_fridge_squid_nikon=False),
-    RuntimeConfig('ur-simulator',  'WallTime',      UREnvs.simulator, PFEnvs.dry,     run_incu_wash_disp=False,  run_fridge_squid_nikon=False),
-    RuntimeConfig('forward',       'WallTime',      UREnvs.forward,   PFEnvs.dry,     run_incu_wash_disp=False,  run_fridge_squid_nikon=False),
+    RuntimeConfig('live',         'WallTime', UREnvs.live,      PFEnvs.dry, run_incu_wash_disp=True,  run_fridge_squid_nikon=False),
+    RuntimeConfig('ur-simulator', 'WallTime', UREnvs.simulator, PFEnvs.dry, run_incu_wash_disp=False, run_fridge_squid_nikon=False),
+    RuntimeConfig('forward',      'WallTime', UREnvs.forward,   PFEnvs.dry, run_incu_wash_disp=False, run_fridge_squid_nikon=False),
 
     # PF:
     RuntimeConfig('pf-live',       'WallTime',      UREnvs.dry,       PFEnvs.live,    run_incu_wash_disp=False,  run_fridge_squid_nikon=True),
@@ -322,7 +322,7 @@ class Runtime:
                 return
             if state.cmd_type == 'Checkpoint' and state.state == 'running':
                 return
-        if 0:
+        if 1:
             with self.lock:
                 print(
                     f'{state.metadata.step_desc or "": >13}',

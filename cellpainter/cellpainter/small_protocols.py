@@ -728,9 +728,9 @@ def bluewash_reset_and_activate(args: SmallProtocolArgs):
 @ur_protocols.append
 def wave(args: SmallProtocolArgs):
     '''
-    Makes the robot wave a handful of times.
+    Makes the robot wave.
     '''
-    waves = [RobotarmCmd('wave')] * 5
+    waves = [RobotarmCmd('wave')] * 2
     return Program(Seq(*waves))
 
 def fill_estimates(cmd: Command):

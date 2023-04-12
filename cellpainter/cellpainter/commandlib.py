@@ -172,7 +172,10 @@ def sleek_program(program: Command) -> Command:
     def get_movelist(cmd_and_metadata: tuple[Command, Metadata]) -> moves.MoveList | None:
         cmd, _ = cmd_and_metadata
         if isinstance(cmd, RobotarmCmd):
-            return moves.movelists.get(cmd.program_name)
+            if cmd.program_name in moves.sleeking_not_allowed:
+                return None
+            else:
+                return moves.movelists.get(cmd.program_name)
         else:
             return None
     def pair_ok(cmd_and_metadata1: tuple[Command, Metadata], cmd_and_metadata2: tuple[Command, Metadata]) -> bool:

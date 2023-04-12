@@ -146,15 +146,23 @@ class URScript:
     name: str
     code: str
 
+    def __post_init__(self):
+        if not (self.name.isidentifier() and self.name.isascii()):
+            raise ValueError(f'Invalid ur script name: {self.name=!r}')
+
     @classmethod
-    def make(cls, *, name: str, code: str):
+    def normalize_name(cls, name: str):
         name = ''.join(c if c.isalnum() and c.isascii() else '_' for c in name)
         if not name or name[0].isdigit():
             name = f'x{name}'
         name = name[:30]
         assert len(name) <= 30
-        assert re.match(r'(?!\d)\w+$', name)
+        assert name.isidentifier()
         assert name.isascii()
+        return name
+
+    @classmethod
+    def make(cls, *, name: str, code: str):
         code = reindent(code)
         return cls(name=name, code=code)
 

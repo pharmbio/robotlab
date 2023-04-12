@@ -314,6 +314,7 @@ class MoveList(list[Move]):
         )
 
     def make_ur_script(self, with_gripper: bool, name: str='script') -> URScript:
+        name = URScript.normalize_name(name)
         body = '\n'.join(
             ("# " + getattr(m, 'name') + '\n' if hasattr(m, 'name') else '')
             + m.to_ur_script()
@@ -426,6 +427,8 @@ static: dict[str, MoveList] = {
     'ur freedrive': raw('freedrive_mode() sleep(3600)'),
     'ur gripper init and check': raw('GripperInitAndCheck()'),
 }
+
+sleeking_not_allowed = set(static.keys())
 
 def guess_robot(name: str) -> Literal['ur', 'pf', 'ur or pf']:
     if name == 'noop':

@@ -308,16 +308,16 @@ class Machine:
                 'args': list(args),
                 'kwargs': kwargs,
             }
-            print(url)
+            # print(url)
             req = Request(
                 url,
                 data=json.dumps(data).encode(),
                 headers={'Content-type': 'application/json'},
             )
-            from pprint import pp
-            pp((url, data, '...'))
+            # from pprint import pp
+            # pp((url, data, '...'))
             res = json.loads(urlopen(req, timeout=ten_minutes).read())
-            pp((url, data, '=', res))
+            # pp((url, data, '=', res))
             if 'value' in res:
                 return res['value']
             else:
