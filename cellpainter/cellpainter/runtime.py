@@ -322,7 +322,7 @@ class Runtime:
                 return
             if state.cmd_type == 'Checkpoint' and state.state == 'running':
                 return
-        if 1:
+        if 0:
             with self.lock:
                 print(
                     f'{state.metadata.step_desc or "": >13}',
