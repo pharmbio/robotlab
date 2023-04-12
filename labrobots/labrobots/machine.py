@@ -367,10 +367,12 @@ class Git(Machine):
         return check_output(['git', 'show', '--stat'], text=True).strip().splitlines()
 
     def checkout(self, branch: str):
-        '''git fetch; git checkout -t origin/{branch}'''
-        self.log(res := run(['git', 'fetch'], text=True, capture_output=True))
+        '''git checkout -b {branch}; git branch --set-upstream-to origin/{branch} {branch}; git pull'''
+        self.log(res := run(['git', 'checkout', '-b', branch], text=True, capture_output=True))
         res.check_returncode()
-        self.log(res := run(['git', 'checkout', '-t', f'origin/{branch}'], text=True, capture_output=True))
+        self.log(res := run(['git', 'branch', '--set-upstream-to', f'origin/{branch}', branch], text=True, capture_output=True))
+        res.check_returncode()
+        self.log(res := run(['git', 'pull'], text=True, capture_output=True))
         res.check_returncode()
 
     def pull_and_shutdown(self):
