@@ -30,10 +30,9 @@ from .commands import (
     Min,
     WaitAssumption,
 )
-from .moves import movelists, World
+from .moves import World
 from .symbolic import Symbolic
 from . import commands
-from . import moves
 
 import pbutils
 

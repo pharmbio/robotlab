@@ -54,7 +54,7 @@ class Args:
     small_protocol:            str  = arg(
         enum=[
             option(name, name, help=p.doc)
-            for name, p in small_protocols_dict.items()
+            for name, p in small_protocols_dict().items()
         ]
     )
     num_plates:                int  = arg(help='For some protocols only: number of plates')
@@ -139,9 +139,12 @@ def main_with_args(args: Args, parser: argparse.ArgumentParser | None=None):
         sys.exit(0)
 
     config: RuntimeConfig = config_lookup(args.config_name)
+
+    arms = config.replace(log_filename=None).only_arm().make_runtime()
+    arms.ur and arms.ur.set_speed(args.ur_speed)
+    arms.pf and arms.pf.set_speed(args.pf_speed)
+
     config = config.replace(
-        ur_speed=args.ur_speed,
-        pf_speed=args.pf_speed,
         log_filename=args.log_filename,
     )
 
@@ -311,7 +314,7 @@ def args_to_program(args: Args) -> Program | None:
 
     elif args.small_protocol:
         name = args.small_protocol.replace('-', '_')
-        p = small_protocols_dict.get(name)
+        p = small_protocols_dict().get(name)
         if p:
             small_args = SmallProtocolArgs(
                 num_plates = args.num_plates,
@@ -327,7 +330,7 @@ def args_to_program(args: Args) -> Program | None:
                 doc=p.doc
             )
         else:
-            raise ValueError(f'Unknown protocol: {name} (available: {", ".join(small_protocols_dict.keys())})')
+            raise ValueError(f'Unknown protocol: {name} (available: {", ".join(small_protocols_dict().keys())})')
 
     if program:
         if args.start_from_stage:

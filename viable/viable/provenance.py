@@ -436,7 +436,7 @@ def test_List(with_store: ...):
     xs = store.var(List(options=['a', 'b', 'c']))
     store.assign_names(locals())
     assert xs.value == []
-    assert xs.update(['a']) == '''update({session: {'xs': '[0]'}})'''
+    assert xs.update(['a']) == '''update({session: {'xs': '["a"]'}})'''
     xs.value = ['b', 'c']
     assert xs.value == ['b', 'c']
-    assert request_data().updates() == {'session': {'xs': '[1, 2]'}}
+    assert request_data().updates() == {'session': {'xs': '["b", "c"]'}}

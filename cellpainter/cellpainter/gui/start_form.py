@@ -121,7 +121,7 @@ def start_form(*, config: RuntimeConfig):
         **({'squid-from-fridge-v1': 'squid-from-fridge-v1'} if imager else {}),
         **{
             k.replace('_', '-'): v
-            for k, v in small_protocols_dict.items()
+            for k, v in small_protocols_dict(imager=imager, painter=painter).items()
         }
     }
 
@@ -364,6 +364,7 @@ def start_form(*, config: RuntimeConfig):
             # V.li(V.a('show timings', href='/timings')),
             V.li(V.a('show logs', href='/logs')),
             V.li(V.a('show in visualizer', href=vis)),
+            V.li(V.a('edit moves', href='/moves')),
         ),
     )
     yield info

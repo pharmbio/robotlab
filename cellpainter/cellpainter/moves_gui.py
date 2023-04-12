@@ -3,14 +3,17 @@ from typing import *
 
 from dataclasses import *
 
+from datetime import datetime
 from pathlib import Path
+from threading import Lock
 import ast
+import json
 import math
 import re
-import json
+import time
 
 from .moves import Move, MoveList, guess_robot
-from .runtime import RuntimeConfig, configs, simulate, UR, PF
+from .runtime import RuntimeConfig, config_from_argv, simulate, UR, PF
 from . import moves
 from .ur_script import URScript
 import pbutils
@@ -19,100 +22,48 @@ from viable import store, js, call, Serve, Flask
 from viable import Tag, div, button, pre, input
 import viable as V
 
-import sys
-from datetime import datetime
+import labrobots
 
-ur: UR | None = None
-pf: PF | None = None
+@dataclass(frozen=False)
+class MovesGuiState:
+    init_done: bool = False
+    lock: Lock = field(default_factory=Lock)
+    ur: UR | None = None
+    pf: PF | None = None
+    config: RuntimeConfig = simulate
 
-serve = Serve(Flask(__name__))
-serve.suppress_flask_logging()
+    def set_config(self, config: RuntimeConfig):
+        with self.lock:
+            self.init_done = False
+            self.config = config
+
+    def init(self):
+        if self.init_done:
+            return
+
+        with self.lock:
+            if self.init_done:
+                return
+
+            runtime = self.config.only_arm().make_runtime()
+            self.ur = runtime.ur
+            self.pf = runtime.pf
+
+            @pbutils.spawn
+            def poll() -> None:
+                self.ur and poll_ur(self.ur)
+                self.pf and poll_pf(self.pf)
+
+            self.init_done = True
+
+state = MovesGuiState()
 
 polled_info: dict[str, list[float]] = {}
 
 server_start = datetime.now()
 
-def snap(desc: str=''):
-    from subprocess import check_call
-    # k = 2 # by incu
-    # k = 1 # by wash
-    k = 4
-    x, y, z = [pbutils.round_nnz(v, 2) for v in polled_info.get('xyz', [0, 0, 0])]
-    r, p, a = [pbutils.round_nnz(v, 2) for v in polled_info.get('rpy', [0, 0, 0])]
-    if not x:
-        filename = f'k{k}_{desc}_XXX.png'
-    else:
-        filename = f'k{k}_{desc}_x{x}_y{y}_z{z}_r{r}_p{p}_a{a}.png'
-    check_call(['curl', '-Os', f'http://localhost:1337/k{k}/{filename}'])
-
-import random
-import time
-
 def round_array(xs: list[float]):
     return [pbutils.round_nnz(v, 2) for v in xs]
-
-def snap_many(desc: str):
-    x, y, z = polled_info['xyz']
-    r, p, a = polled_info['rpy']
-
-    def capture(
-        subdesc: str,
-        X: float = x,
-        Y: float = y,
-        Z: float = z,
-        R: float = r,
-        P: float = p,
-        A: float = a,
-    ):
-        arm_do(moves.MoveLin([X, Y, Z], [R, P, A]))
-        time.sleep(0.2)
-        print(desc, subdesc, *round_array([X, Y, Z]), *round_array([R, P, A]), sep='\t')
-        print(desc, subdesc, *round_array(polled_info['xyz']), *round_array(polled_info['rpy']), sep='\t')
-        snap(f'{desc}_{subdesc.replace("=", "")}')
-
-
-    capture('t0')
-
-    for rnd in range(40):
-        s = 1
-        capture(f'{rnd=}',
-            X = x + random.uniform(-6, 6),
-            Y = y + random.uniform(-6, 6),
-            Z = z + random.uniform(-6, 6),
-            R = r + random.uniform(-2, 2),
-            P = p + random.uniform(-2, 2),
-            A = a + random.uniform(-2, 2),
-        )
-
-    N = 10
-
-    if 1:
-
-        for da in range(N):
-            s = 1
-            capture(f'{da=}', A = a + s * (da / (N - 1) - 0.5))
-
-        for dp in range(N):
-            s = 1
-            capture(f'{dp=}', P = p + s * (dp / (N - 1) - 0.5))
-
-        for dr in range(N):
-            s = 1
-            capture(f'{dr=}', R = r + s * (dr / (N - 1) - 0.5))
-
-        for dx in range(N):
-            s = 3
-            capture(f'{dx=}', X = x + s * (dx / (N - 1) - 0.5))
-
-        for dy in range(N):
-            s = 3
-            capture(f'{dy=}', Y = y + s * (dy / (N - 1) - 0.5))
-
-        for dz in range(N):
-            s = 3
-            capture(f'{dz=}', Z = z + s * (dz / (N - 1) - 0.5))
-
-    capture('t1')
 
 def poll_pf(pf: PF):
     i = 0
@@ -171,12 +122,12 @@ def poll_ur(ur: UR):
                     break
 
 def arm_do(*ms: Move):
-    ur and ur.execute_moves(list(ms), name='gui', allow_partial_completion=True)
-    pf and pf.execute_moves(list(ms))
+    state.ur and state.ur.execute_moves(list(ms), name='gui', allow_partial_completion=True)
+    state.pf and state.pf.execute_moves(list(ms))
 
 def arm_set_speed(value: int) -> None:
-    ur and ur.set_speed(value)
-    pf and pf.set_speed(value)
+    state.ur and state.ur.set_speed(value)
+    state.pf and state.pf.set_speed(value)
 
 def edit_at(program_name: str, i: int, changes: dict[str, Any], action: None | Literal['duplicate', 'delete']=None):
     filename = get_programs()[program_name]
@@ -220,7 +171,7 @@ def keydown(program_name: str, args: dict[str, Any]):
         deg = 90.0
     k = str(args['key'])
     _, _, yaw = polled_info.get('rpy', [0, 0, 0])
-    if pf:
+    if state.pf:
         keymap = {
             'ArrowDown':  moves.MoveRel(xyz=[mm * cos(yaw + 180), mm * sin(yaw + 180), 0], rpy=[0, 0, 0]),
             'ArrowUp':    moves.MoveRel(xyz=[mm * cos(yaw),       mm * sin(yaw),       0], rpy=[0, 0, 0]),
@@ -265,7 +216,7 @@ def keydown(program_name: str, args: dict[str, Any]):
     if m := keymap.get(k):
         pbutils.pr(m)
         ms = [m]
-        if ur:
+        if state.ur:
             ms = [moves.RawCode("EnsureRelPos()")] + ms
         arm_do(*ms)
 
@@ -305,9 +256,9 @@ def update(program_name: str, i: int | None, grouped: bool=False):
     ml.write_jsonl(filename)
 
 def get_programs() -> dict[str, Path]:
-    if pf:
+    if state.pf:
         filter = 'pf'
-    elif ur:
+    elif state.ur:
         filter = 'ur'
     else:
         filter = ''
@@ -317,8 +268,8 @@ def get_programs() -> dict[str, Path]:
         if filter in guess_robot(path.stem)
     }
 
-@serve.route('/')
 def index() -> Iterator[Tag | dict[str, str]]:
+    state.init()
     programs = get_programs()
     program_var = store.query.str(name='program')
     section_var = store.query.str(name='section')
@@ -526,7 +477,7 @@ def index() -> Iterator[Tag | dict[str, str]]:
                         ''',
                         title=col,
                         onclick=
-                            call(arm_do, moves.RawCode("EnsureRelPos()"), v) if ur else
+                            call(arm_do, moves.RawCode("EnsureRelPos()"), v) if state.ur else
                             call(arm_do, v)
                         ,
                     )
@@ -648,13 +599,13 @@ def index() -> Iterator[Tag | dict[str, str]]:
         """).append(
             button('run program',   tabindex='-1', onclick=call(arm_do, *visible_program),
                                                    oncontextmenu='event.preventDefault();' + call(arm_do, *(visible_program * 100)), css='width: 160px'),
-            button('init arm',      tabindex='-1', onclick=call(pf.init)) if pf else '',
-            button('freedrive',     tabindex='-1', onclick=call(arm_do, moves.RawCode("freedrive_mode() sleep(3600)" if ur else "Freedrive"))),
+            button('init arm',      tabindex='-1', onclick=call(state.pf.init)) if state.pf else '',
+            button('freedrive',     tabindex='-1', onclick=call(arm_do, moves.RawCode("freedrive_mode() sleep(3600)" if state.ur else "Freedrive"))),
             # button('snap',          tabindex='-1', onclick=call(snap)),
             # button('snap many',     tabindex='-1', onclick=call(snap_many, js('prompt("desc", "")'))),
-            button('stop robot',    tabindex='-1', onclick=call(arm_do, *([] if ur else [moves.RawCode("StopFreedrive")])), css='flex-grow: 1; color: red; font-size: 48px'),
-            button('gripper open',  tabindex='-1', onclick=call(arm_do, moves.RawCode("GripperMove(88)") if ur else moves.GripperMove(100))),
-            button('gripper close', tabindex='-1', onclick=call(arm_do, moves.RawCode("GripperMove(255)") if ur else moves.GripperMove(75))),
+            button('stop robot',    tabindex='-1', onclick=call(arm_do, *([] if state.ur else [moves.RawCode("StopFreedrive")])), css='flex-grow: 1; color: red; font-size: 48px'),
+            button('gripper open',  tabindex='-1', onclick=call(arm_do, moves.RawCode("GripperMove(88)") if state.ur else moves.GripperMove(100))),
+            button('gripper close', tabindex='-1', onclick=call(arm_do, moves.RawCode("GripperMove(255)") if state.ur else moves.GripperMove(75))),
             button('grip test',     tabindex='-1', onclick=call(arm_do, moves.RawCode("GripperTest()"))),
     )
 
@@ -682,12 +633,12 @@ def index() -> Iterator[Tag | dict[str, str]]:
                 text-align: left;
             }
         """)
-        if ur:
+        if state.ur:
             btns += button('roll -> 0° (level roll)',                  tabindex='-1', onclick=call(arm_do, EnsureRelPos, moves.MoveRel([0, 0, 0], [-r,  0,       0     ])))
             btns += button('pitch -> 0° (face horizontally)',          tabindex='-1', onclick=call(arm_do, EnsureRelPos, moves.MoveRel([0, 0, 0], [ 0, -p,       0     ])))
             btns += button('yaw -> 0° (towards washer and dispenser)', tabindex='-1', onclick=call(arm_do, EnsureRelPos, moves.MoveRel([0, 0, 0], [ 0,  0,      -y     ])))
             btns += button('yaw -> 90° (towards hotels and incu)',     tabindex='-1', onclick=call(arm_do, EnsureRelPos, moves.MoveRel([0, 0, 0], [ 0,  0,      -y + 90])))
-        if pf:
+        if state.pf:
             for deg in [0, 90, 180, 270]:
                 btns += button(
                     f'yaw -> {deg}°',
@@ -725,34 +676,23 @@ def index() -> Iterator[Tag | dict[str, str]]:
     yield V.queue_refresh(150)
 
 def main():
-    for c in configs:
-        if '--' + c.name in sys.argv:
-            config = c
-            break
-    else:
-        raise ValueError('Start with one of ' + ', '.join('--' + c.name for c in configs))
+    config = config_from_argv()
 
-    import pprint
-    pprint.pprint(config)
+    host = labrobots.Machines.ip_from_node_name() or 'localhost'
 
-    runtime = config.only_arm().make_runtime()
-    global ur; ur = runtime.ur
-    global pf; pf = runtime.pf
+    serve = Serve(_app := Flask(__name__))
+    serve.suppress_flask_logging()
 
-    @pbutils.spawn
-    def poll() -> None:
-        ur and poll_ur(ur)
-        pf and poll_pf(pf)
-
-    if ur and 'forward' not in config.name:
-        host = '10.10.0.55'
-    else:
-        host = 'localhost'
+    add_to_serve(serve, config)
 
     serve.run(
         port=5000,
         host=host,
     )
+
+def add_to_serve(serve: Serve, config: RuntimeConfig, route: str='/'):
+    state.set_config(config)
+    serve.route(route)(index)
 
 if __name__ == '__main__':
     main()

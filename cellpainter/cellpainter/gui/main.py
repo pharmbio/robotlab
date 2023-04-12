@@ -10,18 +10,16 @@ from datetime import timedelta
 
 from pathlib import Path
 import platform
-import sys
 import re
 
 from ..log import Log
 from ..cli import Args
 from .. import cli
 from .. import protocol_vis
+from .. import moves_gui
 
 from .. import moves
 from .. import runtime
-from ..moves import RawCode, Move
-from ..runtime import RuntimeConfig
 
 from .start_form import start_form, start
 from .vis import AnalyzeResult
@@ -30,46 +28,38 @@ from .show_logs import show_logs
 from . import common
 from .db_edit import Edit
 
-config: RuntimeConfig
-for c in runtime.configs:
-    if '--' + c.name in sys.argv:
-        config = c
-        break
-else:
-    raise ValueError('Start with one of ' + ', '.join('--' + c.name for c in runtime.configs))
-
+config = runtime.config_from_argv()
 print(f'Running with {config.name=}')
 
 serve = Serve(Flask(__name__))
 serve.suppress_flask_logging()
 
 protocol_vis.add_to_serve(serve, '', cli.cmdline_to_log, route='/vis')
-
-runtime = config.only_arm().make_runtime()
-
-def robotarm_do(ms: list[Move]):
-    with runtime.get_ur(quiet=False, include_gripper=True) as arm:
-        arm.execute_moves(ms, name='gui', allow_partial_completion=True)
+moves_gui.add_to_serve(serve, config, route='/moves')
 
 def robotarm_freedrive():
     '''
     Sets the robotarm in freedrive
     '''
-    robotarm_do([RawCode("freedrive_mode() sleep(3600)")])
+    arms = config.only_arm().make_runtime()
+    arms.ur and arms.ur.execute_moves(moves.static['ur freedrive'])
+    arms.pf and arms.pf.execute_moves(moves.static['pf freedrive'])
 
 def robotarm_set_speed(pct: int):
     '''
     Sets the robotarm speed, in percentages
     '''
-    print(pct)
-    with runtime.get_ur(quiet=False, include_gripper=True) as arm:
-        arm.set_speed(pct)
+    arms = config.only_arm().make_runtime()
+    arms.ur and arms.ur.set_speed(pct)
+    arms.pf and arms.pf.set_speed(pct)
 
 def robotarm_open_gripper():
     '''
     Opens the robotarm gripper
     '''
-    robotarm_do([RawCode("GripperMove(88)")])
+    arms = config.only_arm().make_runtime()
+    arms.ur and arms.ur.execute_moves(moves.static['ur open gripper'])
+    arms.pf and arms.pf.execute_moves(moves.static['pf open gripper'])
 
 sheet = '''
     *, *::before, *::after {

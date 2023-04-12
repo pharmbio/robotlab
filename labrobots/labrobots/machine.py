@@ -14,6 +14,7 @@ import json
 import sqlite3
 import textwrap
 import time
+import platform
 import traceback as tb
 
 from flask import Flask, jsonify, request
@@ -353,26 +354,35 @@ class Echo(Machine):
 
 @dataclass(frozen=True)
 class Git(Machine):
-    def pull_and_shutdown(self, branch: None | str=None):
+    def head(self) -> str:
+        '''git rev-parse HEAD'''
+        return check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
+
+    def branch(self) -> list[str]:
+        '''git branch --show-current'''
+        return check_output(['git', 'branch', '--show-current'], text=True).strip().splitlines()
+
+    def show(self) -> list[str]:
+        '''git show --stat'''
+        return check_output(['git', 'show', '--stat'], text=True).strip().splitlines()
+
+    def checkout(self, branch: str):
+        '''git fetch; git checkout -t origin/{branch}'''
+        self.log(res := run(['git', 'fetch'], text=True, capture_output=True))
+        res.check_returncode()
+        self.log(res := run(['git', 'checkout', '-t', f'origin/{branch}'], text=True, capture_output=True))
+        res.check_returncode()
+
+    def pull_and_shutdown(self):
+        '''git pull && kill -TERM {os.getpid()}'''
         import os
         import signal
-        if branch:
-            self.log(res := run(['git', 'fetch'], text=True, capture_output=True))
-            res.check_returncode()
-            self.log(res := run(['git', 'checkout', '-t', f'origin/{branch}'], text=True, capture_output=True))
-            res.check_returncode()
         self.log(res := check_output(['git', 'pull'], text=True))
         if res.strip() == 'Already up to date.':
             return
         self.log('killing process...')
         os.kill(os.getpid(), signal.SIGTERM)
         self.log('killed.')
-
-    def head(self) -> str:
-        return check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
-
-    def show(self) -> list[str]:
-        return check_output(['git', 'show', '--stat'], text=True).strip().splitlines()
 
 @dataclass
 class Machines:
@@ -383,11 +393,20 @@ class Machines:
     git: Git = Git()
 
     @staticmethod
-    def lookup_node_name(node_name: str) -> Machines:
+    def lookup_node_name(node_name: str | None=None) -> Machines:
+        if node_name is None:
+            node_name = platform.node()
         for m in Machines.__subclasses__():
             if m.node_name == node_name:
                 return m()
         raise ValueError(f'{node_name} not configured (did you want to run with --test?)')
+
+    @staticmethod
+    def ip_from_node_name(node_name: str | None=None) -> str | None:
+        try:
+            return Machines.lookup_node_name(node_name=node_name).ip
+        except ValueError:
+            return None
 
     @classmethod
     def remote(cls, host: str | None = None, port: int = 5050) -> Self:

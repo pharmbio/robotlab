@@ -36,8 +36,6 @@ SmallProtocol: TypeAlias = Callable[[SmallProtocolArgs], Program]
 ur_protocols: list[SmallProtocol] = []
 pf_protocols: list[SmallProtocol] = []
 
-small_protocols: list[SmallProtocol] = pf_protocols
-
 def protocol_args(ur_protocol: SmallProtocol) -> set[str]:
     out: set[str] = set()
     args = SmallProtocolArgs()
@@ -870,7 +868,6 @@ def fridge_unload(args: SmallProtocolArgs) -> Program:
     if len(args.params) != 1:
         return Program(Seq())
     import labrobots
-    import platform
     try:
         contents = labrobots.WindowsGBG().remote().fridge.contents()
     except:
@@ -991,12 +988,18 @@ class SmallProtocolData:
     args: set[str]
     doc: str
 
-small_protocols_dict = {
-    p.__name__: SmallProtocolData(
-        p.__name__,
-        p,
-        protocol_args(p),
-        pbutils.doc_header(p)
-    )
-    for p in small_protocols
-}
+small_protocols: list[SmallProtocol] = ur_protocols + pf_protocols
+
+def small_protocols_dict(imager: bool=True, painter: bool=True):
+    return {
+        p.__name__: SmallProtocolData(
+            p.__name__,
+            p,
+            protocol_args(p),
+            pbutils.doc_header(p)
+        )
+        for p in [
+            *(ur_protocols if painter else []),
+            *(pf_protocols if imager else []),
+        ]
+    }

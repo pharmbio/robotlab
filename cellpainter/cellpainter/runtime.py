@@ -69,8 +69,8 @@ class RuntimeConfig(DBMixin):
     run_incu_wash_disp:     bool = False
     run_fridge_squid_nikon: bool = False
 
-    ur_speed: int = 100
-    pf_speed: int = 50
+    # ur_speed: int = 100
+    # pf_speed: int = 50
     log_filename: str | None = None
 
     def only_arm(self) -> RuntimeConfig:
@@ -125,6 +125,13 @@ configs = [
     RuntimeConfig('simulate-wall', 'WallTime',      UREnvs.dry,       PFEnvs.dry,     run_incu_wash_disp=False,  run_fridge_squid_nikon=False),
     RuntimeConfig('simulate',      'SimulatedTime', UREnvs.dry,       PFEnvs.dry,     run_incu_wash_disp=False,  run_fridge_squid_nikon=False),
 ]
+
+def config_from_argv(argv: list[str]=sys.argv) -> RuntimeConfig:
+    for c in configs:
+        if '--' + c.name in sys.argv:
+            return c
+    else:
+        raise ValueError('Start with one of ' + ', '.join('--' + c.name for c in configs))
 
 def config_lookup(name: str) -> RuntimeConfig:
     return {c.name: c for c in configs}[name]
@@ -222,7 +229,6 @@ class Runtime:
                 host=self.config.ur_env.host,
                 port=self.config.ur_env.port,
             )
-            self.ur.set_speed(self.config.ur_speed)
 
         if self.config.pf_env.mode != 'noop':
             self.pf = PF(
@@ -230,7 +236,6 @@ class Runtime:
                 port_rw=self.config.pf_env.port_rw,
                 port_ro=self.config.pf_env.port_ro,
             )
-            self.pf.set_speed(self.config.pf_speed)
 
         if self.config.run_fridge_squid_nikon:
             gbg = WindowsGBG.remote()
@@ -317,17 +322,18 @@ class Runtime:
                 return
             if state.cmd_type == 'Checkpoint' and state.state == 'running':
                 return
-        with self.lock:
-            print(
-                f'{state.metadata.step_desc or "": >13}',
-                f'plate {state.metadata.plate_id or "": >2}',
-                f'{self.time.current_thread_name()   : >10}',
-                f'{state.state                  : >10}',
-                state.cmd_type,
-                *astuple(state.cmd),
-                f'{self.world}',
-                sep=' | ',
-            )
+        if 0:
+            with self.lock:
+                print(
+                    f'{state.metadata.step_desc or "": >13}',
+                    f'plate {state.metadata.plate_id or "": >2}',
+                    f'{self.time.current_thread_name()   : >10}',
+                    f'{state.state                  : >10}',
+                    state.cmd_type,
+                    *astuple(state.cmd), # type: ignore
+                    f'{self.world}',
+                    sep=' | ',
+                )
 
     def time_resource_use(self, entry: CommandWithMetadata, resource: A | None) -> Iterator[A]:
         '''
@@ -343,7 +349,7 @@ class Runtime:
                 if est is None:
                     raise ValueError(f'No estimate for {entry}')
                 total = est + (entry.metadata.sim_delay or 0.0)
-                if self.config.name == 'simulate-wall':
+                if self.config.name == 'simulate-wall' and 'squid' in entry.cmd.type.lower():
                     t0 = self.monotonic()
                     while True:
                         elapsed = self.monotonic() - t0

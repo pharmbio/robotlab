@@ -365,7 +365,7 @@ def get_test_fridge():
 def test_fridge():
     import pytest
     with get_test_fridge() as fridge:
-        fridge.add_capacity(['1x1', '1x2'])
+        fridge.add_capacity('1x1', '1x2')
         assert fridge.contents() == {'1x1': empty_slot, '1x2': empty_slot}
 
         slot1 = FridgeSlot(plate=(plate1 := 'PB1701'), project=(project1 := 'ambi-40k'))

@@ -251,7 +251,7 @@ def optimal_env(cmd: Command, unsat_core: bool=False) -> OptimalResult:
         for a in sorted(variables)
     }
 
-    0 and pbutils.pr({
+    if 0: pbutils.pr({
         k: v
         for k, v in env.items()
         if not k.startswith('residue')

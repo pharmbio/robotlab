@@ -289,6 +289,9 @@ class MoveList(list[Move]):
     def has_close(self) -> bool:
         return any(m.is_close() for m in self)
 
+    def has_raw(self) -> bool:
+        return any(isinstance(m, RawCode) for m in self)
+
     def has_gripper(self) -> bool:
         return any(m.is_gripper() for m in self)
 
@@ -392,6 +395,8 @@ def sleek_movements(
     for (i, a), (j, b) in zip(ms, ms[1:]):
         a_first = a[0].try_name().replace('drop', 'pick')
         b_last = b[-1].try_name().replace('drop', 'pick')
+        if a.has_raw() or b.has_raw():
+            continue
         if a.has_gripper() or b.has_gripper():
             continue
         if a_first and a_first == b_last and pair_ok(xs[i], xs[j]):
@@ -416,6 +421,9 @@ static: dict[str, MoveList] = {
         attach 1
         home
     '''),
+    'pf open gripper': raw('MoveGripper 1 100'),
+    'ur open gripper': raw('GripperMove(88)'),
+    'ur freedrive': raw('freedrive_mode() sleep(3600)'),
     'ur gripper init and check': raw('GripperInitAndCheck()'),
 }
 
