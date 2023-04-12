@@ -17,8 +17,8 @@ class WindowsNUC(Machines):
     ip = '10.10.0.56'
     node_name = 'WINDOWS-NUC'
     incu: STX = STX()
-    wash: Biotek = Biotek(name='wash', args=[LHC_CALLER_CLI_PATH, "405 TS/LS", "USB 405 TS/LS sn:191107F", LHC_PROTOCOLS_ROOT])
-    disp: Biotek = Biotek(name='disp', args=[LHC_CALLER_CLI_PATH, "MultiFloFX", "USB MultiFloFX sn:19041612", LHC_PROTOCOLS_ROOT])
+    wash: Biotek = Biotek(name='wash', args=[LHC_CALLER_CLI_PATH, "405 TS/LS", "COM4", LHC_PROTOCOLS_ROOT])
+    disp: Biotek = Biotek(name='disp', args=[LHC_CALLER_CLI_PATH, "MultiFloFX", "COM3", LHC_PROTOCOLS_ROOT])
     dir_list: DirList = DirList(root_dir=LHC_PROTOCOLS_ROOT, ext=['LHC', 'prog'])
     blue: BlueWash = BlueWash(root_dir=LHC_PROTOCOLS_ROOT, com_port='COM6')
 

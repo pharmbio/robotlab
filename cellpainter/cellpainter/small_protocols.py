@@ -36,7 +36,7 @@ SmallProtocol: TypeAlias = Callable[[SmallProtocolArgs], Program]
 ur_protocols: list[SmallProtocol] = []
 pf_protocols: list[SmallProtocol] = []
 
-def protocol_args(ur_protocol: SmallProtocol) -> set[str]:
+def protocol_args(small_protocol: SmallProtocol) -> set[str]:
     out: set[str] = set()
     args = SmallProtocolArgs()
     missing = object()
@@ -49,8 +49,39 @@ def protocol_args(ur_protocol: SmallProtocol) -> set[str]:
             else:
                 raise AttributeError
     intercepted_args: Any = Intercept()
-    _ = ur_protocol(intercepted_args)
+    _ = small_protocol(intercepted_args)
     return out
+
+# @ur_protocols.append
+def trigger_biotek_comm_issue(args: SmallProtocolArgs):
+    '''
+
+        This should trigger Error code: 6058 Unable to open the COM port
+
+        2023-04-12 10:16:42.521  disp  1504  RunValidated('automation_v4.0_colo52', '4.0_D_SA_PRIME_PFA.LHC')
+        2023-04-12 10:16:42.527  disp  1504  0.0 disp message protocol begin
+        2023-04-12 10:16:43.540  disp  1504  1.016 disp message protocol done
+        2023-04-12 10:16:43.548  disp  1504  1.031 disp status 4
+        2023-04-12 10:16:43.557  disp  1504  1.031 disp message ErrorCode: 6, ErrorString: Error starting run. Error code: 6058
+        2023-04-12 10:16:43.565  disp  1504  1.047 disp Unable to open the COM port
+
+        Note: this seems to be fixed now: the COM ports are directly specified in labrobots/__init__.py:class WindowsNUC:
+        "COM4" instead of "USB 405 TS/LS sn:191107F" and "COM3" instead of "USB MultiFloFX sn:19041612".
+
+    '''
+    cmds: list[Command] = [
+        DispCmd('Validate', pfa := 'automation_v4.0_colo52/4.0_D_SA_PRIME_PFA.LHC').fork(),
+        WaitForResource('disp'),
+    ]
+    for i in range(100):
+        cmds += [
+            WashCmd('Validate', 'automation_v4.0_colo52/7_W_3X_beforeStains_leaves10ul_PBS.LHC').fork(),
+            Idle((i % 10 + 15) * 0.01),
+            DispCmd('RunValidated', pfa).fork(),
+            WaitForResource('disp'),
+            WaitForResource('wash'),
+        ]
+    return Program(Seq(*cmds).add(Metadata(gui_force_show=True)))
 
 @ur_protocols.append
 def incu_load(args: SmallProtocolArgs):
