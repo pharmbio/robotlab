@@ -366,8 +366,14 @@ class Git(Machine):
         '''git show --stat'''
         return check_output(['git', 'show', '--stat'], text=True).strip().splitlines()
 
+    def status(self) -> list[str]:
+        '''git status -s'''
+        return check_output(['git', 'status', '-s'], text=True).strip().splitlines()
+
     def checkout(self, branch: str):
         '''git checkout -B {branch}; git branch --set-upstream-to origin/{branch} {branch}; git pull'''
+        self.log(res := run(['git', 'fetch'], text=True, capture_output=True))
+        res.check_returncode()
         self.log(res := run(['git', 'checkout', '-B', branch], text=True, capture_output=True))
         res.check_returncode()
         self.log(res := run(['git', 'branch', '--set-upstream-to', f'origin/{branch}', branch], text=True, capture_output=True))
