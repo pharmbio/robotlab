@@ -221,6 +221,7 @@ def add_to_serve(serve: Serve, cmdline0: str, cmdline_to_log: Callable[[str], Lo
                 continue
             if slot == 0:
                 slot = {
+                    'fridge': 2,
                     'incu': 2,
                     'wash': 3,
                     'blue': 3,
