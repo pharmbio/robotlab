@@ -49,7 +49,9 @@ def index():
         'html,body': css(h='100%'),
         'body': css(p=5).font(family='sans'),
     })
-    g = div(css.grid(auto_columns='1fr', gap='0px 12px'))
+    g = div(
+        css.grid(auto_columns='1fr', gap='0px 12px'),
+    )
     for col, days in flat.items():
         g += div(days[0].strftime('%B'), style.item(1, col), css.item(justify_self='center'))
         for i, day in enumerate(days):

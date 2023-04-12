@@ -16,6 +16,10 @@ from .provenance import (
     Str,   # type: ignore
     Bool,  # type: ignore
 )
+from .css_dsl import (
+    css,   # type: ignore
+    style, # type: ignore
+)
 from .tags import *
 import flask
 Flask = flask.Flask # reexport
