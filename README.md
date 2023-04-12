@@ -9,12 +9,6 @@ It consists of three packages:
 <th>cellpainter</th>
 <td>
 Cell painter program and control of the Universal Robot (UR) robotarm.
-</td>
-</tr>
-
-<tr>
-<th>imager</th>
-<td>
 Microscope imager program and control of the PreciseFlex (PF) robotarm.
 </td>
 </tr>
@@ -22,9 +16,17 @@ Microscope imager program and control of the PreciseFlex (PF) robotarm.
 <tr>
 <th>labrobots</th>
 <td>
-Remote control of non-robotarm robots: liquid handling machines from BioTek, incubator and fridge from Liconic, microscope and barcode scanner.
+Remote control of non-robotarm robots: liquid handling machines, incubator, fridge, microscopes and barcode scanners.
 </td>
 </tr>
+
+<tr>
+<th>flash_pf</th>
+<td>
+Code to flash the PreciseFlex (PF) robotarm with our modified software.
+</td>
+</tr>
+
 
 </table>
 
@@ -62,7 +64,7 @@ Micro framework for building web applications.
 <tr>
 <td>z3-solver</td>
 <td>
-SMT-solver used in the cellpainter scheduler.
+SMT-solver used in the robotlab scheduler.
 </td>
 </tr>
 

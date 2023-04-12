@@ -13,7 +13,6 @@ packages='
     pbutils
     viable
     labrobots
-    imager
     cellpainter
 '
 CDPATH=

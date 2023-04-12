@@ -817,7 +817,7 @@ def type_as_sql(t: SQLType | Converter[Any, Any] | Converters) -> str:
 
 def te_st():
     '''
-    python -m imager.utils.mixins
+    python -m pbutils.mixins
     '''
     from pprint import pp
 
@@ -975,4 +975,4 @@ def te_st():
             print(out)
 
 if __name__ == '__main__':
-    test()
+    te_st()

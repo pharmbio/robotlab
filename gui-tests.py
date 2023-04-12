@@ -15,15 +15,11 @@ import time
 
 def main():
     with chdir('cellpainter'):
-        test('cellpainter-gui --simulate',              'http://localhost:5000',               'incubation times:')
-        test('cellpainter-moves --simulate',            'http://localhost:5000',               'wash-to-disp')
-        test('cellpainter-gui --simulate', 'http://localhost:5000/vis?cmdline=--cell-paint+2', 'plate  1 incubation')
-        test('cellpainter-gui --simulate', 'http://localhost:5000/vis?cmdline=--cell-paint+3', 'plate  3 incubation')
-
-    with chdir('imager'):
-        test('pf-moves --simulate', 'http://localhost:5000',             'fridge-to-H12')
-        if 0:
-            test('imager-gui',         'http://localhost:5051?page=system', 'test-comm:')
+        test('cellpainter-gui --simulate',    'http://localhost:5000',       'incubation times:')
+        test('cellpainter-moves --simulate',  'http://localhost:5000',       'wash-to-disp')
+        test('cellpainter-gui --simulate',    'http://localhost:5000/moves', 'wash-to-disp')
+        test('cellpainter-gui --simulate',    'http://localhost:5000/vis?cmdline=--cell-paint+2', 'plate  1 incubation')
+        test('cellpainter-gui --simulate',    'http://localhost:5000/vis?cmdline=--cell-paint+3', 'plate  3 incubation')
 
     test('labrobots --test', 'http://localhost:5050/echo/echo?apa=1.2&bepa=true&cepa=[3,4]',
                              "echo () {'apa': 1.2, 'bepa': True, 'cepa': [3, 4]}")

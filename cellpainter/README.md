@@ -1,5 +1,8 @@
 # robot-cellpainter
 
+This directory contains the code for the robotlab protocols, and their scheduler and executor.
+The directory contains the code for both the cell painter system and the imager system.
+
 dependencies: python 3.10
 
 optional dev dependencies: pyright, entr
@@ -17,22 +20,30 @@ pip install --editable .
 ## Test
 
 ```
+./run-tests.sh
+```
+
+or, for example:
+
+```
 cellpainter --cell-paint 6,6 --simulate
 ```
 
-Github actions is set up, check .github/workflows/test.yml. One way to run this locally is to use [`act`](https://github.com/nektos/act).
+Github actions is set up, check .github/workflows/test.yml.
+Run this locally using [`act`](https://github.com/nektos/act).
 
 ## Network
 
-machine        | ip
----            | ---
-Ubuntu NUC     | 10.0.0.55
-Windows NUC    | 10.0.0.56
-UR control box | 10.0.0.112
+machine                 | os      | room     | ip
+---                     | ---     |          | ---
+Ubuntu NUC              | ubuntu  | the cage | 10.10.0.55
+Windows NUC             | windows | the cage | 10.10.0.56
+"GBG" computer          | windows | squikon  | 10.10.0.97
+Squid Mikro Asus        | ubuntu  | squikon  | 10.10.0.95
+PF robotarm             | -       | squikon  | 10.10.0.98
+UR robotarm control box | linux   | the cage | 10.10.0.112
 
-The windows nuc runs the labrobots http endpoint on `10.10.0.56:5050`.
-
-## 8-bot gripper
+## 8-bot gripper for UR
 
 We use the rs485-1.0.urcap from the UR ROS driver project.
 This driver exposes the RS485-communication on port 54321.
