@@ -379,8 +379,8 @@ class Git(Machine):
         '''git show --stat'''
         return check_output(['git', 'show', '--stat'], text=True).strip().splitlines()
 
-    def show_at_startup(self) -> str:
-        return git_head_show_at_startup()[1]
+    def show_at_startup(self) -> list[str]:
+        return git_head_show_at_startup()[1].splitlines()
 
     def branch(self) -> list[str]:
         '''git branch --show-current'''
