@@ -352,19 +352,39 @@ class Echo(Machine):
             time.sleep(float(secs))
             self.log(datetime.now().isoformat(sep=' '))
 
+import functools
+
+@functools.cache
+def git_head_show_at_startup():
+    try:
+        return (
+            check_output(['git', 'rev-parse', 'HEAD'], text=True).strip(),
+            check_output(['git', 'show', '--stat'], text=True).strip(),
+        )
+    except Exception as e:
+        return (str(e), str(e))
+
+print(git_head_show_at_startup()[-1])
+
 @dataclass(frozen=True)
 class Git(Machine):
     def head(self) -> str:
         '''git rev-parse HEAD'''
         return check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
 
-    def branch(self) -> list[str]:
-        '''git branch --show-current'''
-        return check_output(['git', 'branch', '--show-current'], text=True).strip().splitlines()
+    def head_at_startup(self) -> str:
+        return git_head_show_at_startup()[0]
 
     def show(self) -> list[str]:
         '''git show --stat'''
         return check_output(['git', 'show', '--stat'], text=True).strip().splitlines()
+
+    def show_at_startup(self) -> str:
+        return git_head_show_at_startup()[1]
+
+    def branch(self) -> list[str]:
+        '''git branch --show-current'''
+        return check_output(['git', 'branch', '--show-current'], text=True).strip().splitlines()
 
     def status(self) -> list[str]:
         '''git status -s'''
