@@ -6,7 +6,7 @@ from typing import *
 from .moves import Move, MoveList
 from .ur_script import URScript
 
-from labrobots.machine import Log
+from labrobots.log import Log
 import contextlib
 
 import sys

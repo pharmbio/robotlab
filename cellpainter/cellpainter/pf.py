@@ -7,7 +7,7 @@ import socket
 import contextlib
 import time
 
-from labrobots.machine import Log
+from labrobots.log import Log
 
 from .moves import Move, MoveList
 

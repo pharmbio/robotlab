@@ -23,9 +23,17 @@ from .timelike import Timelike, WallTime, SimulatedTime
 from .moves import World, Effect
 from .log import Message, CommandState, CommandWithMetadata, ProgressText, Log
 
-from labrobots import WindowsNUC, Biotek, Fridge, BlueWash, BarcodeReader
-from labrobots import WindowsGBG, STX, BarcodeReader
-from labrobots import MikroAsus, Squid
+from labrobots import (
+    BarcodeReader,
+    Biotek,
+    BlueWash,
+    Fridge,
+    MikroAsus,
+    Squid,
+    STX,
+    WindowsGBG,
+    WindowsNUC,
+)
 
 import contextlib
 

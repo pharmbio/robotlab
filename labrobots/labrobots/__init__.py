@@ -1,4 +1,4 @@
-from .machine import Machines
+from .machines import Machines
 from .liconic import STX, Fridge
 from .barcode_reader import BarcodeReader
 from .dir_list import DirList

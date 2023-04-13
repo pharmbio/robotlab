@@ -3,22 +3,20 @@ from typing import *
 from dataclasses import *
 
 from datetime import datetime
-from subprocess import check_output, run
 from threading import RLock
 from typing_extensions import Self
 from urllib.request import urlopen, Request
-from pathlib import Path
 import contextlib
 import inspect
 import json
-import sqlite3
 import textwrap
 import time
-import platform
 import traceback as tb
 
-from flask import Flask, jsonify, request
+from flask import jsonify, request
 import flask
+
+from .log import Log, try_json_dumps, system_default_log
 
 R = TypeVar('R')
 A = TypeVar('A')
@@ -28,12 +26,6 @@ def try_json_loads(s: str) -> Any:
         return json.loads(s)
     except:
         return s
-
-def try_json_dumps(s: Any) -> str:
-    try:
-        return json.dumps(s)
-    except:
-        return json.dumps({'repr': repr(s)})
 
 def small(x: Any) -> Any:
     if len(try_json_dumps(x)) > 80:
@@ -79,59 +71,6 @@ class ResourceLock:
             yield
         finally:
             self.rlock.release()
-
-@dataclass(frozen=True)
-class Log:
-    _log: Callable[..., None]
-    def __call__(self, *args: Any, **kwargs: Any):
-        self._log(*args, **kwargs)
-
-    @classmethod
-    def make(cls, name: str, xs: List[str] | None = None, stdout: bool=True) -> Log:
-        with sqlite3.connect('io.db') as con:
-            con.executescript('''
-                pragma synchronous=OFF;
-                pragma journal_mode=WAL;
-                create table if not exists io (
-                    t     timestamp default (strftime('%Y-%m-%d %H:%M:%f', 'now', 'localtime')),
-                    name  text,
-                    id    int,
-                    data  json
-                );
-                create index if not exists io_name_id on io(name, id);
-            ''')
-        id: None | int = None
-        def log(*args: Any, **kwargs: Any):
-            nonlocal id
-            msg = ' '.join(map(str, args))
-            if msg:
-                if stdout:
-                    print(f'{name}:', msg)
-                if xs is not None:
-                    xs.append(msg)
-            with sqlite3.connect('io.db', isolation_level=None) as con:
-                con.executescript('''
-                    pragma synchronous=OFF;
-                    pragma journal_mode=WAL;
-                ''')
-                if msg:
-                    data = {'msg': msg, **kwargs}
-                else:
-                    data = kwargs
-                needs_commit = False
-                if id is None:
-                    con.execute('begin exclusive')
-                    [id] = con.execute('select ifnull(max(id) + 1, 0) from io where name = ?', [name]).fetchone()
-                    needs_commit = True
-                con.execute(
-                    'insert into io (name, id, data) values (?, ?, json(?));',
-                    [name, id, try_json_dumps(data)],
-                )
-                if needs_commit:
-                    con.execute('commit')
-        return Log(log)
-
-system_default_log = Log.make('system')
 
 @dataclass(frozen=False)
 class Cell(Generic[A]):
@@ -351,194 +290,3 @@ class Echo(Machine):
             self.log(datetime.now().isoformat(sep=' '))
             time.sleep(float(secs))
             self.log(datetime.now().isoformat(sep=' '))
-
-import functools
-
-@functools.cache
-def git_head_show_at_startup():
-    try:
-        return (
-            check_output(['git', 'rev-parse', 'HEAD'], text=True).strip(),
-            check_output(['git', 'show', '--stat'], text=True).strip(),
-        )
-    except Exception as e:
-        return (str(e), str(e))
-
-git_head_show_at_startup()
-
-@dataclass(frozen=True)
-class Git(Machine):
-    def head(self) -> str:
-        '''git rev-parse HEAD'''
-        return check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
-
-    def head_at_startup(self) -> str:
-        return git_head_show_at_startup()[0]
-
-    def show(self) -> list[str]:
-        '''git show --stat'''
-        return check_output(['git', 'show', '--stat'], text=True).strip().splitlines()
-
-    def show_at_startup(self) -> list[str]:
-        return git_head_show_at_startup()[1].splitlines()
-
-    def branch(self) -> str:
-        '''git branch --show-current'''
-        return check_output(['git', 'branch', '--show-current'], text=True).strip()
-
-    def status(self) -> list[str]:
-        '''git status -s'''
-        return check_output(['git', 'status', '-s'], text=True).strip().splitlines()
-
-    def checkout(self, branch: str):
-        '''git checkout -B {branch}; git branch --set-upstream-to origin/{branch} {branch}; git pull && kill -TERM {os.getpid()}'''
-        self.log(res := run(['git', 'fetch'], text=True, capture_output=True))
-        res.check_returncode()
-        self.log(res := run(['git', 'checkout', '-B', branch], text=True, capture_output=True))
-        res.check_returncode()
-        self.log(res := run(['git', 'branch', '--set-upstream-to', f'origin/{branch}', branch], text=True, capture_output=True))
-        res.check_returncode()
-        self.pull_and_shutdown()
-
-    def pull_and_shutdown(self):
-        '''git pull && kill -TERM {os.getpid()}'''
-        self.log(res := check_output(['git', 'pull'], text=True))
-        if res.strip() != 'Already up to date.':
-            self.shutdown()
-
-    def shutdown(self):
-        '''kill -TERM {os.getpid()}'''
-        import os
-        import signal
-        self.log('killing process...')
-        os.kill(os.getpid(), signal.SIGTERM)
-        self.log('killed.')
-
-@dataclass
-class Machines:
-    ip: ClassVar[str]
-    node_name: ClassVar[str]
-    skip_up_check: ClassVar[bool] = False
-    echo: Echo = Echo()
-    git: Git = Git()
-
-    @staticmethod
-    def lookup_node_name(node_name: str | None=None) -> Machines:
-        if node_name is None:
-            node_name = platform.node()
-        for m in Machines.__subclasses__():
-            if m.node_name == node_name:
-                return m()
-        raise ValueError(f'{node_name} not configured (did you want to run with --test?)')
-
-    @staticmethod
-    def ip_from_node_name(node_name: str | None=None) -> str | None:
-        try:
-            return Machines.lookup_node_name(node_name=node_name).ip
-        except ValueError:
-            return None
-
-    @classmethod
-    def remote(cls, host: str | None = None, port: int = 5050) -> Self:
-        if host is None:
-            url = f'http://{cls.ip}:{port}'
-        else:
-            url = f'http://{host}:{port}'
-        d = {}
-        for f in fields(cls):
-            d[f.name] = f.default.__class__.remote(f.name, url, skip_up_check=cls.skip_up_check) # type: ignore
-        return cls(**d)
-
-    def items(self) -> list[tuple[str, Machine]]:
-        return list(self.__dict__.items())
-
-    def serve(self, host: str | None = None, port: int = 5050):
-        print('machines:')
-        for k, v in self.items():
-            print('    ' + k + ':', v)
-
-        app = Flask(__name__)
-        try:
-            app.json.compact = False    # type: ignore
-            app.json.sort_keys = False  # type: ignore
-        except AttributeError:
-            app.config['JSONIFY_PRETTYPRINT_REGULAR'] = True # type: ignore
-            app.config['JSON_SORT_KEYS'] = False             # type: ignore
-
-        for name, m in self.items():
-            m.init()
-            m.routes(name, app)
-
-        @app.route('/<string:name>.db')
-        def get_db(name: str):
-            assert name.isascii() and name.isidentifier()
-            name_db = f'{name}.db'
-            with contextlib.closing(sqlite3.connect(name_db)) as con:
-                con.execute('pragma wal_checkpoint(full);')
-                return flask.send_file( # type: ignore
-                    Path(name_db).resolve(),
-                    download_name=name_db,
-                    as_attachment=True
-                )
-
-        @app.route('/<string:name>.sql')
-        def get_sql(name: str):
-            assert name.isascii() and name.isidentifier()
-            with contextlib.closing(sqlite3.connect(f'{name}.db')) as con:
-                return '\n'.join(con.iterdump()) + '\n'
-
-        @app.get('/tail/<int:n>') # type: ignore
-        @app.get('/tail/') # type: ignore
-        @app.get('/tail') # type: ignore
-        def tail(n: int=10):
-            assert isinstance(n, int)
-            args = json_request_args()
-            raw = args.pop('raw', None)
-            sep = str(args.pop('sep', '  ')).replace('tab', '\t')
-            where = ''
-            if name := args.pop('name', None):
-                where = f'where name = {name!r}'
-            if args:
-                return f'Unsupported arguments: {", ".join(args.keys())}\n', 400
-            if raw is not None:
-                select = 'select rowid as row, t, name, id, data'
-            else:
-                select = 'select rowid as row, t, name, id, coalesce(json_extract(data, "$.msg"), data) as data'
-            sql = f'''
-                select * from (
-                    {select} from io {where} order by t desc limit {n}
-                ) order by t asc
-            '''
-            with sqlite3.connect('io.db') as con:
-                rows = ['row t name id data'.split()] + [
-                    [str(x) for x in row]
-                    for row in con.execute(sql).fetchall()
-                ]
-            lengths = [
-                max(len(x) for x in col)
-                for col in zip(*rows)
-            ]
-            lengths[-1] = 0
-            lines = [
-                sep.join(x.ljust(n) for n, x in zip(lengths, row))
-                for row in rows
-            ]
-            return '\n'.join(lines) + '\n'
-
-        @app.get('/') # type: ignore
-        def root():
-            url = request.url
-            while url.endswith('/'):
-                url = url[:-1]
-            d: dict[str, str] = {}
-            for name, m in self.items():
-                d[url + '/' + name] = str(m)
-            d[url + '/io.sql'] = 'Download the IO database as sqlite dump'
-            d[url + '/io.db'] = 'Download the IO database in binary sqlite'
-            d[url + '/tail'] = 'Show last 10 lines from the IO database'
-            d[url + '/tail/<N>'] = 'Show last N lines from the IO database'
-            return jsonify(d)
-
-        if host is None:
-            host = self.ip
-        app.run(host=host, port=port, threaded=True, processes=1)
