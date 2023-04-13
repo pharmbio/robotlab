@@ -5,6 +5,7 @@ from .dir_list import DirList
 from .biotek import Biotek
 from .squid import Squid
 from .bluewash import BlueWash
+from .nikon_nis import NikonNIS
 
 from dataclasses import *
 
@@ -48,6 +49,12 @@ class MikroAsus(Machines):
     node_name = 'mikro-asus'
     skip_up_check = True
     squid: Squid = Squid()
+
+@dataclass
+class Nikon(Machines):
+    ip = '10.10.0.72'
+    node_name = 'NIKON-72'
+    nikon: NikonNIS = NikonNIS()
 
 def main():
     import sys
