@@ -788,6 +788,22 @@ class SquidAcquire(SquidABC):
 class SquidStageCmd(SquidABC):
     action: Literal['goto_loading', 'leave_loading']
 
+class NikonABC(PhysicalCommand, abc.ABC):
+    def required_resource(self):
+        return 'nikon'
+
+@dataclass(frozen=True)
+class NikonAcquire(NikonABC):
+    job_name: str
+    project: str
+    plate: str
+    def normalize(self):
+        return NikonAcquire(job_name=self.job_name, project='', plate='')
+
+@dataclass(frozen=True)
+class NikonStageCmd(NikonABC):
+    action: Literal['goto_loading', 'leave_loading', 'init_laser']
+
 class FridgeABC(PhysicalCommand, abc.ABC):
     def required_resource(self):
         return 'fridge'

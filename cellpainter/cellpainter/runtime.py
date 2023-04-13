@@ -33,6 +33,10 @@ from labrobots import (
     STX,
     WindowsGBG,
     WindowsNUC,
+    Nikon,
+    NikonPi,
+    NikonNIS,
+    NikonStage,
 )
 
 import contextlib
@@ -184,15 +188,23 @@ class Runtime:
     disp: Biotek   | None = None
     blue: BlueWash | None = None
 
-    fridge: Fridge | None = None
+    fridge: Fridge                | None = None
     barcode_reader: BarcodeReader | None = None
-    squid: Squid | None = None
-    nikon: None = None
+    squid: Squid                  | None = None
+    nikon: NikonNIS               | None = None
+    nikon_stage: NikonStage       | None = None
 
     @property
     def fridge_and_barcode_reader(self):
         if self.fridge and self.barcode_reader:
             return self.fridge, self.barcode_reader
+        else:
+            return None
+
+    @property
+    def nikon_and_stage(self):
+        if self.nikon and self.nikon_stage:
+            return self.nikon, self.nikon_stage
         else:
             return None
 
@@ -247,10 +259,14 @@ class Runtime:
 
         if self.config.run_fridge_squid_nikon:
             gbg = WindowsGBG.remote()
-            mikro_asus = MikroAsus.remote()
             self.fridge = gbg.fridge
             self.barcode_reader = gbg.barcode
+
+            mikro_asus = MikroAsus.remote()
             self.squid = mikro_asus.squid
+
+            self.nikon = Nikon.remote().nikon
+            self.nikon_stage = NikonPi.remote().nikon
 
     def stop_arms(self):
         sync = Queue[None]()
@@ -441,6 +457,10 @@ class Runtime:
 
     def thread_done(self):
         self.time.thread_done()
+
+    def wait_while(self, k: Callable[[], bool]):
+        while k():
+            self.sleep(1.0)
 
     def checkpoint(self, name: str, entry: CommandWithMetadata):
         with self.lock:

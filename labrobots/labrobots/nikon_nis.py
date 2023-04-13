@@ -27,7 +27,7 @@ class NikonNIS(Machine):
     nis_exe_path: str = r'C:\Program Files\NIS-Elements\nis_ar.exe'
     current_process: Cell[Popen[bytes] | None] = field(default_factory=lambda: Cell(None))
 
-    def macro_wait(self, macro: str, name_prefix: str='macro'):
+    def run_macro(self, macro: str, name_prefix: str='macro'):
         '''
         Call a macro, given as a string, and wait for it to complete (in the background).
 
@@ -44,6 +44,7 @@ class NikonNIS(Machine):
             macro_dir.mkdir(parents=True, exist_ok=True)
             macro_path = macro_dir / f'{name_prefix}_{macro_hash}.mac'
             macro_path.write_bytes(macro_bytes)
+            self.current_process.value = None
             def start_process():
                 # -mw: run macro and wait for completion
                 p = Popen([self.nis_exe_path, '-mw', str(macro_path.resolve())])
@@ -55,11 +56,11 @@ class NikonNIS(Machine):
 
     def StgMoveZ(self, z_um: float | int):
         '''Absolute move of stage in Z direction. Unit: micrometers, range: [0, 10000]'''
-        return self.macro_wait(f'StgMoveZ({z_um},0)', 'StgMoveZ')
+        return self.run_macro(f'StgMoveZ({z_um},0)', 'StgMoveZ')
 
     def StgMoveXY(self, x_um: float | int, y_um: float | int):
         '''Absolute move of stage in XY direction. Unit: micrometers, range x: [-57000, 57000], range y: [-37500, 37500]'''
-        return self.macro_wait(f'StgMoveXY({x_um},{y_um},0)', 'StgMoveXY')
+        return self.run_macro(f'StgMoveXY({x_um},{y_um},0)', 'StgMoveXY')
 
     def StgMoveToA01(self):
         '''Move to about the center of the A01 well. This is the neutral position for the robotarm.'''
@@ -67,7 +68,7 @@ class NikonNIS(Machine):
 
     def InitLaser(self, duration_secs: int = 30):
         '''Initialize the laser to avoid bleaching in the ramp-up phase. Default duration: 30s'''
-        return self.macro_wait(f'''
+        return self.run_macro(f'''
             Live();
             Wait({duration_secs});
             Freeze();
@@ -75,9 +76,9 @@ class NikonNIS(Machine):
 
     def CloseAllDocuments(self):
         '''Close all documents without saving'''
-        return self.macro_wait('CloseAllDocuments(QUERYSAVE_NO)', 'CloseAllDocuments')
+        return self.run_macro('CloseAllDocuments(QUERYSAVE_NO)', 'CloseAllDocuments')
 
-    def run_job(self, job_name: str, project: str, plate: str):
+    def RunJob(self, job_name: str, project: str, plate: str):
         '''Run a job by name, saving it to a directory based on the project and plate.'''
         ok = string.ascii_letters + string.digits + '_-'
         for s, ok_for_s in {job_name: ok + ' ', project: ok, plate: ok}.items():
@@ -101,7 +102,7 @@ class NikonNIS(Machine):
         prefix = f'run-job-{job_name}-{project}-{plate}'
         prefix = prefix.replace('-', '_')
         prefix = prefix.replace(' ', '_')
-        return self.macro_wait(macro, prefix)
+        return self.run_macro(macro, prefix)
 
     def status(self) -> Status:
         p = self.current_process.value

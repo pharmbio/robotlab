@@ -134,6 +134,41 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
 
                     runtime.sleep(1.0)
 
+        case NikonAcquire():
+            runtime.assert_lock('Nikon')
+            for nikon in runtime.time_resource_use(entry, runtime.nikon):
+                nikon.RunJob(
+                    job_name=cmd.job_name,
+                    project=cmd.project,
+                    plate=cmd.plate,
+                )
+                runtime.wait_while(nikon.is_running)
+
+        case NikonStageCmd() as cmd:
+            runtime.assert_lock('Nikon')
+            for nikon, nikon_stage in runtime.time_resource_use(entry, runtime.nikon_and_stage):
+                match cmd.action:
+                    case 'goto_loading':
+                        nikon.StgMoveZ(0)
+                        runtime.wait_while(nikon.is_running)
+                        nikon.StgMoveToA01()
+                        runtime.wait_while(nikon.is_running)
+
+                        nikon_stage.open()
+                        runtime.sleep(1.0)
+                        runtime.wait_while(nikon_stage.is_busy)
+
+                    case 'leave_loading':
+                        nikon_stage.close()
+                        runtime.sleep(1.0)
+                        runtime.wait_while(nikon_stage.is_busy)
+
+                    case 'init_laser':
+                        nikon.InitLaser()
+                        runtime.wait_while(nikon.is_running)
+                        nikon.CloseAllDocuments()
+                        runtime.wait_while(nikon.is_running)
+
         case SquidStageCmd() as cmd:
             runtime.assert_lock('Squid')
             for squid in runtime.time_resource_use(entry, runtime.squid):
