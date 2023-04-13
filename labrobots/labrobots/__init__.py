@@ -28,7 +28,7 @@ class WindowsNUC(Machines):
 class WindowsGBG(Machines):
     ip = '10.10.0.97'
     node_name = 'WINDOWS-GBG'
-    fridge: Fridge= Fridge()
+    fridge: Fridge = Fridge()
     barcode: BarcodeReader = BarcodeReader(com_port='COM3')
     # imx: IMX = IMX()
 
