@@ -78,7 +78,14 @@ Another python sqlite3 wrapper, needed for precise control of sqlite3 version. W
 <tr>
 <td>pyserial</td>
 <td>
-COM-port communication with IMX and barcode scanner.
+COM-port communication with barcode scanner and bluewasher.
+</td>
+</tr>
+
+<tr>
+<td>RPi.GPIO</td>
+<td>
+GPIO-communication with RPi for the Nikon automated stage.
 </td>
 </tr>
 

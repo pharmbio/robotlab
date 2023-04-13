@@ -9,7 +9,6 @@ import string
 from subprocess import Popen
 
 from .machine import Machine, Cell
-from .sqlitecell import SqliteCell
 
 from hashlib import sha256
 from pathlib import Path
@@ -22,6 +21,9 @@ class Status(TypedDict):
 
 @dataclass(frozen=True)
 class NikonNIS(Machine):
+    '''
+    Communication with the Nikon NIS Elements software, by calling the gui exe with a macro argument.
+    '''
     nis_exe_path: str = r'C:\Program Files\NIS-Elements\nis_ar.exe'
     current_process: Cell[Popen[bytes] | None] = field(default_factory=lambda: Cell(None))
 
@@ -29,7 +31,7 @@ class NikonNIS(Machine):
         '''
         Call a macro, given as a string, and wait for it to complete (in the background).
 
-        Use is_running to see if it completed.
+        Use status or is_running to see if it completed.
         '''
         with self.atomic():
             if self.is_running():
@@ -43,13 +45,13 @@ class NikonNIS(Machine):
             macro_path = macro_dir / f'{name_prefix}_{macro_hash}.mac'
             macro_path.write_bytes(macro_bytes)
             def start_process():
+                # -mw: run macro and wait for completion
                 p = Popen([self.nis_exe_path, '-mw', str(macro_path.resolve())])
                 self.current_process.value = p
             t = threading.Thread(target=start_process)
             t.start()
             while self.current_process.value is None:
                 time.sleep(0.1)
-
 
     def StgMoveZ(self, z_um: float | int):
         '''Absolute move of stage in Z direction. Unit: micrometers, range: [0, 10000]'''
@@ -58,6 +60,10 @@ class NikonNIS(Machine):
     def StgMoveXY(self, x_um: float | int, y_um: float | int):
         '''Absolute move of stage in XY direction. Unit: micrometers, range x: [-57000, 57000], range y: [-37500, 37500]'''
         return self.macro_wait(f'StgMoveXY({x_um},{y_um},0)', 'StgMoveXY')
+
+    def StgMoveToA01(self):
+        '''Move to about the center of the A01 well. This is the neutral position for the robotarm.'''
+        return self.StgMoveXY(51884, -34132)
 
     def InitLaser(self, duration_secs: int = 30):
         '''Initialize the laser to avoid bleaching in the ramp-up phase. Default duration: 30s'''
@@ -72,11 +78,18 @@ class NikonNIS(Machine):
         return self.macro_wait('CloseAllDocuments(QUERYSAVE_NO)', 'CloseAllDocuments')
 
     def run_job(self, job_name: str, project: str, plate: str):
-        ok = string.ascii_letters + string.digits + ' _-'
-        for s in (job_name, project, plate):
+        '''Run a job by name, saving it to a directory based on the project and plate.'''
+        ok = string.ascii_letters + string.digits + '_-'
+        for s, ok_for_s in {job_name: ok + ' ', project: ok, plate: ok}.items():
             for c in s:
-                if c not in ok:
+                if c not in ok_for_s:
                     raise ValueError(f'Input {s!r} contains illegal character {c!r}')
+            if not s:
+                raise ValueError(f'Input {s!r} is empty')
+            if s[0].isalpha():
+                raise ValueError(f'Input {s!r} does not start with alpha')
+            if s.strip() != s:
+                raise ValueError(f'Input {s!r} contains trailing whitespace')
         assert len(project + plate) < 900
         macro: str = f'''
             int64 job_key;
