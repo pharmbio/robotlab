@@ -5,7 +5,7 @@ from typing import *
 import atexit
 
 @dataclass(frozen=True)
-class Stage:
+class NikonStage:
     def init(self):
         atexit.register(self.GPIO.cleanup)
         self.GPIO.setmode(self.GPIO.BCM)

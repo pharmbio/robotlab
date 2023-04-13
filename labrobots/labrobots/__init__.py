@@ -6,6 +6,7 @@ from .biotek import Biotek
 from .squid import Squid
 from .bluewash import BlueWash
 from .nikon_nis import NikonNIS
+from .nikon_stage import NikonStage
 
 from dataclasses import *
 
@@ -55,6 +56,12 @@ class Nikon(Machines):
     ip = '10.10.0.72'
     node_name = 'NIKON-72'
     nikon: NikonNIS = NikonNIS()
+
+@dataclass
+class NikonPi(Machines):
+    ip = '10.10.0.76'
+    node_name = 'nikonpi'
+    nikon: NikonStage = NikonStage()
 
 def main():
     import sys
