@@ -364,7 +364,7 @@ def git_head_show_at_startup():
     except Exception as e:
         return (str(e), str(e))
 
-print(git_head_show_at_startup()[-1])
+git_head_show_at_startup()
 
 @dataclass(frozen=True)
 class Git(Machine):
@@ -382,31 +382,29 @@ class Git(Machine):
     def show_at_startup(self) -> list[str]:
         return git_head_show_at_startup()[1].splitlines()
 
-    def branch(self) -> list[str]:
+    def branch(self) -> str:
         '''git branch --show-current'''
-        return check_output(['git', 'branch', '--show-current'], text=True).strip().splitlines()
+        return check_output(['git', 'branch', '--show-current'], text=True).strip()
 
     def status(self) -> list[str]:
         '''git status -s'''
         return check_output(['git', 'status', '-s'], text=True).strip().splitlines()
 
     def checkout(self, branch: str):
-        '''git checkout -B {branch}; git branch --set-upstream-to origin/{branch} {branch}; git pull'''
+        '''git checkout -B {branch}; git branch --set-upstream-to origin/{branch} {branch}; git pull && kill -TERM {os.getpid()}'''
         self.log(res := run(['git', 'fetch'], text=True, capture_output=True))
         res.check_returncode()
         self.log(res := run(['git', 'checkout', '-B', branch], text=True, capture_output=True))
         res.check_returncode()
         self.log(res := run(['git', 'branch', '--set-upstream-to', f'origin/{branch}', branch], text=True, capture_output=True))
         res.check_returncode()
-        self.log(res := run(['git', 'pull'], text=True, capture_output=True))
-        res.check_returncode()
+        self.pull_and_shutdown()
 
     def pull_and_shutdown(self):
         '''git pull && kill -TERM {os.getpid()}'''
         self.log(res := check_output(['git', 'pull'], text=True))
-        if res.strip() == 'Already up to date.':
-            return
-        self.shutdown()
+        if res.strip() != 'Already up to date.':
+            self.shutdown()
 
     def shutdown(self):
         '''kill -TERM {os.getpid()}'''
