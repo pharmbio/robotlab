@@ -310,6 +310,7 @@ class AnalyzeResult:
                 'incu': 'var(--green)',
                 'fridge': 'var(--cyan)',
                 'squid': 'var(--red)',
+                'nikon': 'var(--orange)',
                 'now': '#fff',
                 'bg': 'var(--bg-bright)',
             }[source]

@@ -264,6 +264,7 @@ class Log:
             # show fridge if no microscopes (for fridge load)
             states = q.where_some(
                 CommandState.resource == 'squid',
+                CommandState.resource == 'nikon',
                 CommandState.resource == 'fridge',
                 CommandState.resource == 'incu',
             )
