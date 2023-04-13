@@ -2,7 +2,6 @@ from __future__ import annotations
 from typing import *
 from dataclasses import *
 
-from typing_extensions import Self
 from pathlib import Path
 import contextlib
 import sqlite3
@@ -13,6 +12,8 @@ import flask
 
 from .machine import Machine, Echo, json_request_args
 from .git import Git
+
+T = TypeVar('T', bound='Machines')
 
 @dataclass
 class Machines:
@@ -39,7 +40,7 @@ class Machines:
             return None
 
     @classmethod
-    def remote(cls, host: str | None = None, port: int = 5050) -> Self:
+    def remote(cls: Type[T], host: str | None = None, port: int = 5050) -> T:
         if host is None:
             url = f'http://{cls.ip}:{port}'
         else:

@@ -3,7 +3,6 @@ from setuptools import setup
 requirements = '''
     flask>=2.2.3
     pyserial>=3.4
-    typing_extensions
 '''
 
 console_scripts = '''

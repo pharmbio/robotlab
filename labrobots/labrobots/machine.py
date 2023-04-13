@@ -4,7 +4,6 @@ from dataclasses import *
 
 from datetime import datetime
 from threading import RLock
-from typing_extensions import Self
 from urllib.request import urlopen, Request
 import contextlib
 import inspect
@@ -78,6 +77,8 @@ class Cell(Generic[A]):
     A mutable cell.
     '''
     value: A
+
+T = TypeVar('T', bound='Machine')
 
 @dataclass(frozen=True, kw_only=True)
 class Machine:
@@ -236,7 +237,7 @@ class Machine:
             return jsonify(call(cmd, **req))
 
     @classmethod
-    def remote(cls, name: str, host: str, skip_up_check: bool) -> Self:
+    def remote(cls: Type[T], name: str, host: str, skip_up_check: bool) -> T:
         def call(attr_path: list[str], *args: Any, **kwargs: Any) -> Any:
             assert len(attr_path) == 1
             cmd = attr_path[0]
