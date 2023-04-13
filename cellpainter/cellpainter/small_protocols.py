@@ -954,6 +954,38 @@ def squid_from_hotel(args: SmallProtocolArgs) -> Program:
     ]
     return Program(Seq(*cmds))
 
+
+@pf_protocols.append
+def nikon_from_hotel(args: SmallProtocolArgs) -> Program:
+    '''
+
+        Images the plate at H12. Params are: job name, project, plate
+
+    '''
+    cmds: list[Command] = []
+    if len(args.params) != 3:
+        return Program(Seq())
+    job_name, project, plate = args.params
+    cmds += [
+        WithLock('Nikon', [
+            WithLock('PF and Fridge', [
+                NikonStageCmd('goto_loading').fork().wait(),
+                PFCmd('H12-to-nikon'),
+            ]),
+            Seq(
+                NikonStageCmd('leave_loading'),
+                NikonAcquire(job_name=job_name, project=project, plate=plate),
+            ).fork().wait(),
+            WithLock('PF and Fridge', [
+                NikonStageCmd('goto_loading').fork().wait(),
+                PFCmd('nikon-to-H12'),
+            ]),
+            NikonStageCmd('leave_loading').fork().wait(),
+        ])
+    ]
+    return Program(Seq(*cmds))
+
+
 @pf_protocols.append
 def squid_from_fridge(args: SmallProtocolArgs) -> Program:
     '''
