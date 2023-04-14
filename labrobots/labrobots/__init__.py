@@ -61,7 +61,7 @@ class Nikon(Machines):
 class NikonPi(Machines):
     ip = '10.10.0.76'
     node_name = 'nikonpi'
-    nikon: NikonStage = NikonStage()
+    nikon_stage: NikonStage = NikonStage()
 
 def main():
     import sys

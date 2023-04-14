@@ -6,10 +6,15 @@ from .machine import Machine
 
 import atexit
 import time
+import textwrap
 
 import RPi.GPIO as GPIO
 
 GPIO: Any = GPIO # make pyright quiet
+
+Green = 17
+Blue = 3
+Orange = 2
 
 class StageStatus(TypedDict):
     busy: bool
@@ -20,31 +25,31 @@ class NikonStage(Machine):
     def init(self):
         atexit.register(GPIO.cleanup)
         GPIO.setmode(GPIO.BCM)
-        GPIO.setup(2, GPIO.OUT)
-        GPIO.setup(3, GPIO.IN)
-        GPIO.setup(4, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+        GPIO.setup(Green, GPIO.OUT)
+        GPIO.setup(Blue, GPIO.IN)
+        GPIO.setup(Orange, GPIO.IN)
 
     def close(self):
         # The logic looks for transitions rather than states
         # (so the button and the command input can override each other).
-        GPIO.output(2, GPIO.HIGH)
+        GPIO.output(Green, GPIO.HIGH)
         self.delay()
-        GPIO.output(2, GPIO.LOW)
+        GPIO.output(Green, GPIO.LOW)
         self.delay() # Ensure that the holder has time to react and set the status signal
 
     def open(self):
-        GPIO.output(2, GPIO.LOW)
+        GPIO.output(Green, GPIO.LOW)
         self.delay()
-        GPIO.output(2, GPIO.HIGH)
+        GPIO.output(Green, GPIO.HIGH)
         self.delay()
 
     def delay(self):
-        time.sleep(0.25)
+        time.sleep(0.20)
 
     def status(self) -> StageStatus:
         return StageStatus(
-            busy = bool(not GPIO.input(3)),
-            plate = bool(GPIO.input(4)),
+            busy = bool(not GPIO.input(Blue)),
+            plate = bool(GPIO.input(Orange)),
         )
 
     def is_busy(self) -> bool:
@@ -57,3 +62,25 @@ class NikonStage(Machine):
         for _ in range(10):
             self.log(self.status())
             time.sleep(0.5)
+
+    def high(self):
+        '''For troubleshooting: set GPIO 2 high'''
+        GPIO.output(Green, GPIO.HIGH)
+
+    def low(self):
+        '''For troubleshooting: set GPIO 2 low'''
+        GPIO.output(Green, GPIO.LOW)
+
+    def pinout(self):
+        '''See how the cables should be attached to the RPi pinout'''
+        s = '''
+                         [-]  1   2 [-]
+            [GPIO 2: orange]  3   4 [-]
+            [GPIO 3: blue  ]  5   6 [ground: brown ]
+                         [-]  7   8 [-]
+            [ ground: grey ]  9  10 [-]
+            [GPIO 17: green] 11  12 [-]
+                         [-] 13  14 [ground: yellow]
+        '''
+        s = textwrap.dedent(s).splitlines()
+        return s
