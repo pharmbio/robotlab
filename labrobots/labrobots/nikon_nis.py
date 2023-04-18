@@ -132,6 +132,9 @@ class NikonNIS(Machine):
         import sqlite3
         import json
         with contextlib.closing(sqlite3.connect('ocr.db', isolation_level=None)) as c:
-            data = c.execute('select t, data from ocr order by t desc limit 1').fetchone()
-            return json.loads(data)
+            c.execute('pragma busy_timeout=1000')
+            t, data_str = c.execute('select t, data from ocr order by t desc limit 1').fetchone()
+            data = json.loads(data_str)
+            data['t'] = t
+            return data
 
