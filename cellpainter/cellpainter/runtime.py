@@ -77,6 +77,7 @@ class RuntimeConfig(DBMixin):
     timelike:               Literal['WallTime', 'SimulatedTime'] = 'SimulatedTime'
     ur_env:                 UREnv = UREnvs.dry
     pf_env:                 PFEnv = PFEnvs.dry
+    signal_handlers:               Literal['install', 'noop'] = 'noop'
     _: KW_ONLY
     run_incu_wash_disp:     bool = False
     run_fridge_squid_nikon: bool = False
@@ -89,6 +90,7 @@ class RuntimeConfig(DBMixin):
         return self.replace(
             run_incu_wash_disp=False,
             run_fridge_squid_nikon=False,
+            signal_handlers='noop',
         )
 
     def make_runtime(self) -> Runtime:
@@ -125,13 +127,13 @@ class RuntimeConfig(DBMixin):
 configs: list[RuntimeConfig]
 configs = [
     # UR:
-    RuntimeConfig('live',         'WallTime', UREnvs.live,      PFEnvs.dry, run_incu_wash_disp=True,  run_fridge_squid_nikon=False),
+    RuntimeConfig('live',         'WallTime', UREnvs.live,      PFEnvs.dry, run_incu_wash_disp=True,  run_fridge_squid_nikon=False, signal_handlers='install'),
     RuntimeConfig('ur-simulator', 'WallTime', UREnvs.simulator, PFEnvs.dry, run_incu_wash_disp=False, run_fridge_squid_nikon=False),
-    RuntimeConfig('forward',      'WallTime', UREnvs.forward,   PFEnvs.dry, run_incu_wash_disp=False, run_fridge_squid_nikon=False),
+    RuntimeConfig('forward',      'WallTime', UREnvs.forward,   PFEnvs.dry, run_incu_wash_disp=False, run_fridge_squid_nikon=False, signal_handlers='install'),
 
     # PF:
-    RuntimeConfig('pf-live',       'WallTime',      UREnvs.dry,       PFEnvs.live,    run_incu_wash_disp=False,  run_fridge_squid_nikon=True),
-    RuntimeConfig('pf-forward',    'WallTime',      UREnvs.dry,       PFEnvs.forward, run_incu_wash_disp=False,  run_fridge_squid_nikon=False),
+    RuntimeConfig('pf-live',       'WallTime',      UREnvs.dry,       PFEnvs.live,    run_incu_wash_disp=False,  run_fridge_squid_nikon=True, signal_handlers='install'),
+    RuntimeConfig('pf-forward',    'WallTime',      UREnvs.dry,       PFEnvs.forward, run_incu_wash_disp=False,  run_fridge_squid_nikon=False, signal_handlers='install'),
 
     # Simulate:
     RuntimeConfig('simulate-wall', 'WallTime',      UREnvs.dry,       PFEnvs.dry,     run_incu_wash_disp=False,  run_fridge_squid_nikon=False),
@@ -217,9 +219,7 @@ class Runtime:
         if self.log_db:
             self.log_db.con.execute('pragma synchronous=OFF;')
 
-        install_handlers='simulate' not in self.config.name
-
-        if install_handlers:
+        if self.config.signal_handlers == 'install':
             def handle_signal(signum: int, _frame: Any):
                 signal.signal(signal.SIGINT, signal.SIG_DFL)
                 signal.signal(signal.SIGQUIT, signal.SIG_DFL)
@@ -235,7 +235,7 @@ class Runtime:
             signal.signal(signal.SIGTERM, handle_signal)
             signal.signal(signal.SIGABRT, handle_signal)
 
-            print('Signal handlers installed')
+            print('Signal signal_handlers installed')
 
         if self.config.run_incu_wash_disp:
             nuc = WindowsNUC.remote()
@@ -266,7 +266,7 @@ class Runtime:
             self.squid = mikro_asus.squid
 
             self.nikon = Nikon.remote().nikon
-            self.nikon_stage = NikonPi.remote().nikon
+            self.nikon_stage = NikonPi.remote().nikon_stage
 
     def stop_arms(self):
         sync = Queue[None]()
