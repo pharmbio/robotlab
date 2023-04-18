@@ -73,7 +73,6 @@ def read_progress_text(img: Image) -> 'tuple[Union[Image, None], dict[str, str]]
     )
     text = text.replace('well', 'Well')
     text = text.replace('points', 'Points')
-                 #Well(2, 2): A2
     res: dict[str, str] = {}
     for line in text.splitlines():
         match re.findall('[\w\d][\w\d:/]*', line):

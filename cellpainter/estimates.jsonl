@@ -877,6 +877,11 @@
 {"cmd":{"type":"IncuCmd","action":"put"},"datetime":"2023-04-05 10:06:53","duration":18.099}
 {"cmd":{"type":"IncuCmd","action":"put"},"datetime":"2023-04-05 10:08:59","duration":17.341}
 {"cmd":{"type":"IncuCmd","action":"reset_and_activate"},"datetime":"2022-02-17 14:00:40","duration":29.981}
+{"cmd":{"type":"NikonAcquire","job_name":"dan","project":"","plate":""},"datetime":"2023-04-18 13:09:13","duration":43.569}
+{"cmd":{"type":"NikonStageCmd","action":"goto_loading"},"datetime":"2023-04-18 13:08:09","duration":3.794}
+{"cmd":{"type":"NikonStageCmd","action":"goto_loading"},"datetime":"2023-04-18 13:09:20","duration":6.972}
+{"cmd":{"type":"NikonStageCmd","action":"leave_loading"},"datetime":"2023-04-18 13:08:29","duration":4.542}
+{"cmd":{"type":"NikonStageCmd","action":"leave_loading"},"datetime":"2023-04-18 13:09:40","duration":4.554}
 {"cmd":{"type":"PFCmd","program_name":"H1-to-H12"},"datetime":"2023-03-30 14:06:18","duration":22.046}
 {"cmd":{"type":"PFCmd","program_name":"H1-to-H12"},"datetime":"2023-03-31 10:29:00","duration":20.197}
 {"cmd":{"type":"PFCmd","program_name":"H12-to-fridge"},"datetime":"2023-03-31 12:40:37","duration":18.47}
@@ -884,6 +889,7 @@
 {"cmd":{"type":"PFCmd","program_name":"H12-to-fridge"},"datetime":"2023-03-31 12:47:51","duration":18.486}
 {"cmd":{"type":"PFCmd","program_name":"H12-to-fridge"},"datetime":"2023-03-31 12:51:31","duration":18.48}
 {"cmd":{"type":"PFCmd","program_name":"H12-to-fridge"},"datetime":"2023-03-31 12:55:05","duration":18.466}
+{"cmd":{"type":"PFCmd","program_name":"H12-to-nikon"},"datetime":"2023-04-18 13:08:25","duration":15.591}
 {"cmd":{"type":"PFCmd","program_name":"H12-to-squid"},"datetime":"2023-03-31 12:38:48","duration":19.428}
 {"cmd":{"type":"PFCmd","program_name":"H12-to-squid"},"datetime":"2023-03-31 12:42:17","duration":19.406}
 {"cmd":{"type":"PFCmd","program_name":"H12-to-squid"},"datetime":"2023-03-31 12:45:53","duration":19.431}
@@ -894,6 +900,7 @@
 {"cmd":{"type":"PFCmd","program_name":"fridge-to-H12"},"datetime":"2023-03-31 12:45:29","duration":17.989}
 {"cmd":{"type":"PFCmd","program_name":"fridge-to-H12"},"datetime":"2023-03-31 12:49:13","duration":17.765}
 {"cmd":{"type":"PFCmd","program_name":"fridge-to-H12"},"datetime":"2023-03-31 12:52:49","duration":17.766}
+{"cmd":{"type":"PFCmd","program_name":"nikon-to-H12"},"datetime":"2023-04-18 13:09:35","duration":15.415}
 {"cmd":{"type":"PFCmd","program_name":"pf freedrive"},"datetime":"2023-03-30 14:05:37","duration":0.27}
 {"cmd":{"type":"PFCmd","program_name":"pf init"},"datetime":"2023-03-30 14:04:58","duration":17.203}
 {"cmd":{"type":"PFCmd","program_name":"pf stop freedrive"},"datetime":"2023-03-30 14:05:47","duration":0.316}

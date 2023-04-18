@@ -142,7 +142,13 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
                     project=cmd.project,
                     plate=cmd.plate,
                 )
-                runtime.wait_while(nikon.is_running)
+                while nikon.is_running():
+                    status = nikon.screen_scraper_status()
+                    well, countdown = status.get('well'), status.get('countdown')
+                    if well and countdown:
+                        text = f'{well}, time remaining: {countdown}'
+                        runtime.set_progress_text(entry, text=text)
+                    runtime.sleep(1.0)
 
         case NikonStageCmd() as cmd:
             runtime.assert_lock('Nikon')
