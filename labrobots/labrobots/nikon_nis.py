@@ -14,6 +14,7 @@ from hashlib import sha256
 from pathlib import Path
 
 import threading
+from threading import RLock
 
 class Status(TypedDict):
     running: bool
@@ -26,6 +27,7 @@ class NikonNIS(Machine):
     '''
     nis_exe_path: str = r'C:\Program Files\NIS-Elements\nis_ar.exe'
     current_process: Cell[Popen[bytes] | None] = field(default_factory=lambda: Cell(None))
+    lock: RLock = field(default_factory=RLock)
 
     def run_macro(self, macro: str, name_prefix: str='macro'):
         '''
@@ -33,7 +35,7 @@ class NikonNIS(Machine):
 
         Use status or is_running to see if it completed.
         '''
-        with self.atomic():
+        with self.lock:
             if self.is_running():
                 raise ValueError('Already running')
             macro = textwrap.dedent(macro)
@@ -47,6 +49,7 @@ class NikonNIS(Machine):
             self.current_process.value = None
             def start_process():
                 # -mw: run macro and wait for completion
+                # I had to use a thread or else the Windows subprocess sometimes blocked the main process
                 p = Popen([self.nis_exe_path, '-mw', str(macro_path.resolve())])
                 self.current_process.value = p
             t = threading.Thread(target=start_process)
@@ -94,7 +97,7 @@ class NikonNIS(Machine):
         assert len(project + plate) < 900
         macro: str = f'''
             int64 job_key;
-            char json[1000] = "{{'StoreToFsOnly.Folder':'C:/tmp/{project}/{plate}/'}}";
+            char json[1000] = "{{'StoreToFsOnly.Folder':'Z:/{project}/{plate}/'}}";
             StrExchangeChar(json, 34, 39); //Exchange single to double quotes - ASCII codes: 34 = ["], 39 = [']
             Jobs_GetJobKey("Demo", "{job_name}", &job_key, NULL, 0);
             Jobs_RunJobInitParam(job_key, json);
@@ -105,19 +108,21 @@ class NikonNIS(Machine):
         return self.run_macro(macro, prefix)
 
     def status(self) -> Status:
-        p = self.current_process.value
-        if p is None:
-            return {'running': False, 'returncode': None}
-        else:
-            returncode = p.poll()
-            return {'running': returncode is None, 'returncode': returncode}
+        with self.lock:
+            p = self.current_process.value
+            if p is None:
+                return {'running': False, 'returncode': None}
+            else:
+                returncode = p.poll()
+                return {'running': returncode is None, 'returncode': returncode}
 
     def is_running(self) -> bool:
         return self.status()['running']
 
     def kill(self):
-        p = self.current_process.value
-        if p:
-            p.kill()
-        time.sleep(1.0)
-        return self.status()
+        with self.lock:
+            p = self.current_process.value
+            if p:
+                p.kill()
+            time.sleep(1.0)
+            return self.status()
