@@ -30,8 +30,8 @@
 {"type":"MoveLin","xyz":[394.7,-276.8,397.4],"rpy":[0.0,0.0,50.4],"name":"nikon entrance"}
 {"type":"MoveLin","xyz":[277.7,-258.2,408.5],"rpy":[0.0,0.0,-1.4],"name":"nikon safe"}
 {"type":"MoveLin","xyz":[277.7,-258.2,502.0],"rpy":[0.0,0.0,-1.4],"name":"nikon above"}
-{"type":"MoveLin","xyz":[168.3,-523.2,502.0],"rpy":[0.0,0.0,-1.0],"name":"H12 above"}
-{"type":"MoveLin","xyz":[168.3,-523.2,459.0],"rpy":[0.0,0.0,-1.0],"name":"H12 drop"}
+{"type":"MoveLin","xyz":[168.6,-522.7,502.0],"rpy":[0.0,0.0,-0.7],"name":"H12 above"}
+{"type":"MoveLin","xyz":[168.6,-522.7,459.0],"rpy":[0.0,0.0,-0.7],"name":"H12 drop"}
 {"type":"GripperMove","pos":81.68}
-{"type":"MoveLin","xyz":[168.3,-523.2,502.0],"rpy":[0.0,0.0,-1.0],"name":"H12 neu"}
+{"type":"MoveLin","xyz":[168.6,-522.7,502.0],"rpy":[0.0,0.0,-0.7],"name":"H12 neu"}
 {"type":"MoveJoint","joints":[601.9,-5.32,176.89,186.76],"name":"neu"}
