@@ -106,6 +106,7 @@ def main():
     c = sqlite3.connect('ocr.db', isolation_level=None)
     c.executescript('''
         pragma WAL=true;
+        pragma busy_timeout=1000;
         create table if not exists ocr (
             t     timestamp default (strftime('%Y-%m-%d %H:%M:%f', 'now', 'localtime')),
             data  json

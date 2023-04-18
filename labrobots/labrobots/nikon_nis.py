@@ -27,7 +27,7 @@ class NikonNIS(Machine):
     '''
     nis_exe_path: str = r'C:\Program Files\NIS-Elements\nis_ar.exe'
     current_process: Cell[Popen[bytes] | None] = field(default_factory=lambda: Cell(None))
-    lock: RLock = field(default_factory=RLock)
+    lock: RLock = field(default_factory=RLock, repr=False)
 
     def run_macro(self, macro: str, name_prefix: str='macro'):
         '''
@@ -126,3 +126,12 @@ class NikonNIS(Machine):
                 p.kill()
             time.sleep(1.0)
             return self.status()
+
+    def screen_scraper_status(self) -> dict[str, str]:
+        import contextlib
+        import sqlite3
+        import json
+        with contextlib.closing(sqlite3.connect('ocr.db', isolation_level=None)) as c:
+            data = c.execute('select t, data from ocr order by t desc limit 1').fetchone()
+            return json.loads(data)
+
