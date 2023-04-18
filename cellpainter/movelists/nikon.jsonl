@@ -1,0 +1,37 @@
+{"type":"Section","section":"H12-to-nikon"}
+{"type":"GripperMove","pos":81.68}
+{"type":"MoveJoint","joints":[601.9,-5.32,176.89,186.76],"name":"neu"}
+{"type":"MoveJoint","joints":[477.69,-61.46,302.92,117.43],"name":"H neu"}
+{"type":"MoveLin","xyz":[168.2,-522.3,477.7],"rpy":[0.0,0.0,-1.1],"name":"H12 neu"}
+{"type":"MoveLin","xyz":[168.3,-522.2,459.4],"rpy":[0.0,0.0,-1.1],"name":"H12 pick"}
+{"type":"GripperMove","pos":75.08}
+{"type":"MoveLin","xyz":[168.3,-522.2,502.0],"rpy":[0.0,0.0,-1.1],"name":"H12 above"}
+{"type":"MoveLin","xyz":[277.7,-258.2,502.0],"rpy":[0.0,0.0,-1.4],"name":"nikon above"}
+{"type":"MoveLin","xyz":[277.7,-258.2,408.5],"rpy":[0.0,0.0,-1.4],"name":"nikon safe"}
+{"type":"MoveLin","xyz":[394.7,-276.8,397.4],"rpy":[0.0,0.0,50.4],"name":"nikon entrance"}
+{"type":"MoveLin","xyz":[426.6,-238.3,397.4],"rpy":[0.0,0.0,50.4],"name":"nikon drop above"}
+{"type":"MoveLin","xyz":[426.6,-238.3,367.4],"rpy":[0.0,0.0,50.4],"name":"nikon drop"}
+{"type":"GripperMove","pos":81.68}
+{"type":"MoveLin","xyz":[426.6,-238.3,397.4],"rpy":[0.0,0.0,50.4],"name":"nikon drop above"}
+{"type":"MoveLin","xyz":[394.7,-276.8,397.4],"rpy":[0.0,0.0,50.4],"name":"nikon entrance"}
+{"type":"MoveLin","xyz":[277.7,-258.2,502.0],"rpy":[0.0,0.0,-1.4],"name":"nikon above"}
+{"type":"MoveJoint","joints":[501.99,-6.05,236.36,128.29],"name":"nikon above"}
+{"type":"MoveJoint","joints":[601.9,-5.32,176.89,186.76],"name":"neu"}
+{"type":"Section","section":"nikon-to-H12"}
+{"type":"GripperMove","pos":81.68}
+{"type":"MoveJoint","joints":[601.9,-5.32,176.89,186.76],"name":"neu"}
+{"type":"MoveJoint","joints":[501.99,-6.05,236.36,128.29],"name":"nikon above"}
+{"type":"MoveLin","xyz":[277.7,-258.2,502.0],"rpy":[0.0,0.0,-1.4],"name":"nikon above"}
+{"type":"MoveLin","xyz":[394.7,-276.8,397.4],"rpy":[0.0,0.0,50.4],"name":"nikon entrance"}
+{"type":"MoveLin","xyz":[426.6,-238.3,397.4],"rpy":[0.0,0.0,50.4],"name":"nikon pick above"}
+{"type":"MoveLin","xyz":[426.6,-238.3,367.4],"rpy":[0.0,0.0,50.4],"name":"nikon pick"}
+{"type":"GripperMove","pos":75.08}
+{"type":"MoveLin","xyz":[426.6,-238.3,397.4],"rpy":[0.0,0.0,50.4],"name":"nikon pick above"}
+{"type":"MoveLin","xyz":[394.7,-276.8,397.4],"rpy":[0.0,0.0,50.4],"name":"nikon entrance"}
+{"type":"MoveLin","xyz":[277.7,-258.2,408.5],"rpy":[0.0,0.0,-1.4],"name":"nikon safe"}
+{"type":"MoveLin","xyz":[277.7,-258.2,502.0],"rpy":[0.0,0.0,-1.4],"name":"nikon above"}
+{"type":"MoveLin","xyz":[168.3,-522.2,502.0],"rpy":[0.0,0.0,-1.1],"name":"H12 above"}
+{"type":"MoveLin","xyz":[168.3,-522.2,460.4],"rpy":[0.0,0.0,-1.1],"name":"H12 drop"}
+{"type":"GripperMove","pos":81.68}
+{"type":"MoveLin","xyz":[168.2,-522.3,477.7],"rpy":[0.0,0.0,-1.1],"name":"H12 neu"}
+{"type":"MoveJoint","joints":[601.9,-5.32,176.89,186.76],"name":"neu"}
