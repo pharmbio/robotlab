@@ -458,7 +458,7 @@ def index(path_from_route: str | None = None) -> Iterator[Tag | V.Node | dict[st
                     *[
                         button(name, title=f'{pct}%', onclick=call(robotarm_set_speed, pct))
                         for name, pct in {
-                            'normal': 100,
+                            'normal': 100 if config.pf_env.mode == 'noop' else 50,
                             'slow': 25,
                             'slowest': 1,
                         }.items()

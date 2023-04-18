@@ -119,6 +119,7 @@ def start_form(*, config: RuntimeConfig):
     options = {
         **({'cell-paint': 'cell-paint'} if painter else {}),
         **({'squid-from-fridge-v1': 'squid-from-fridge-v1'} if imager else {}),
+        **({'nikon-from-fridge-v1': 'nikon-from-fridge-v1'} if imager else {}),
         **{
             k.replace('_', '-'): v
             for k, v in small_protocols_dict(imager=imager, painter=painter).items()
@@ -135,18 +136,19 @@ def start_form(*, config: RuntimeConfig):
     protocol_dir = store.str(default='automation_v5.0', name='protocol dir', desc='Directory on the windows computer to read biotek LHC files from')
     final_washes = store.str(name='final wash rounds', options=['one', 'two'], desc='Number of final wash rounds. Either run 9_W_*.LHC once or run 9_10_W_*.LHC twice.')
 
-    squid_project = store.str(name='squid project', default='')
+    fridge_project = store.str(name='project', default='')
     squid_protocol = store.str(name='squid protocol', default='protocols/short_pe.json')
-    squid_RT_time_secs = store.str(name='RT time secs', default='1800')
+    nikon_job_names = store.str(name='nikon job names', default='CellPainting_Automation_FA', desc='Separate by comma.')
+    fridge_RT_time_secs = store.str(name='RT time secs', default='1800')
     store.assign_names(locals())
     filtered_renames = {
         name: barcode
         for (project, barcode), name in renames.items()
-        if project == squid_project.value
+        if project == fridge_project.value
     }
-    squid_plates = store.var(Vp.List(name='squid plates', default=[], options=list(filtered_renames.keys())))
+    fridge_plates = store.var(Vp.List(name='squid plates', default=[], options=list(filtered_renames.keys())))
     store.assign_names(locals())
-    print('plates:', squid_plates.value)
+    print('plates:', fridge_plates.value)
 
     num_plates = store.str(name='plates', desc='The number of plates')
     params = store.str(name='params', desc=f'Additional parameters to protocol "{protocol.value}"')
@@ -178,20 +180,40 @@ def start_form(*, config: RuntimeConfig):
         )
     elif protocol.value == 'squid-from-fridge-v1':
         form_fields = [
-            squid_project,
+            fridge_project,
             squid_protocol,
-            squid_RT_time_secs,
-            squid_plates,
+            fridge_RT_time_secs,
+            fridge_plates,
         ]
         args = Args(
             small_protocol='squid_from_fridge',
             params=[
                 squid_protocol.value,
-                squid_project.value,
-                squid_RT_time_secs.value,
+                fridge_project.value,
+                fridge_RT_time_secs.value,
                 *[
                     param
-                    for name in squid_plates.value
+                    for name in fridge_plates.value
+                    for param in [filtered_renames[name], name]
+                ]
+            ]
+        )
+    elif protocol.value == 'nikon-from-fridge-v1':
+        form_fields = [
+            fridge_project,
+            nikon_job_names,
+            fridge_RT_time_secs,
+            fridge_plates,
+        ]
+        args = Args(
+            small_protocol='nikon_from_fridge',
+            params=[
+                nikon_job_names.value,
+                fridge_project.value,
+                fridge_RT_time_secs.value,
+                *[
+                    param
+                    for name in fridge_plates.value
                     for param in [filtered_renames[name], name]
                 ]
             ]

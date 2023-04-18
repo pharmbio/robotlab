@@ -57,7 +57,7 @@ rename_table = str('''
     specs3k P101387 U2OS_DMSO_L4
     moa-repro P013725 meta25
     moa-repro P013726 meta26
-    test-proj (384)P000002 meta02
+    test_proj (384)P000002 P1_L1
 ''')
 
 renames: dict[tuple[str, str], str] = {}

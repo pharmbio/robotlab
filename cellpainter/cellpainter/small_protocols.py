@@ -980,7 +980,6 @@ def nikon_from_hotel(args: SmallProtocolArgs) -> Program:
                 NikonStageCmd('goto_loading').fork().wait(),
                 PFCmd('nikon-to-H12'),
             ]),
-            NikonStageCmd('leave_loading').fork().wait(),
         ])
     ]
     return Program(Seq(*cmds))
@@ -990,7 +989,7 @@ def nikon_from_hotel(args: SmallProtocolArgs) -> Program:
 def squid_from_fridge(args: SmallProtocolArgs) -> Program:
     '''
 
-        Images plates in the fridge. Params are: protocol, project, RT_time_secs, plate1_barcode, plate1_name, plate2_barcode, plate2_name,..., plateN_barcode, plate2_name
+        Images plates in the fridge. Params are: protocol, project, RT_time_secs, plate1_barcode, plate1_name, plate2_barcode, plate2_name,..., plateN_barcode, plateN_name
 
     '''
     cmds: list[Command] = []
@@ -1043,6 +1042,68 @@ def squid_from_fridge(args: SmallProtocolArgs) -> Program:
         WithLock('Squid', cmds),
     ]
     return Program(Seq(*cmds))
+
+@pf_protocols.append
+def nikon_from_fridge(args: SmallProtocolArgs) -> Program:
+    '''
+
+        Images plates in the fridge. Params are: job names (comma-separated), project, RT_time_secs, plate1_barcode, plate1_name, plate2_barcode, plate2_name,..., plateN_barcode, plateN_name
+
+    '''
+    cmds: list[Command] = []
+    if len(args.params) < 5:
+        return Program(Seq())
+    job_names_csv, project, RT_time_secs_str, *barcode_and_plates = args.params
+    job_names = job_names_csv.split(',')
+    barcodes = barcode_and_plates[0::2]
+    plates = barcode_and_plates[1::2]
+    import labrobots
+    try:
+        contents = labrobots.WindowsGBG().remote().fridge.contents()
+    except:
+        contents = None
+    if contents is not None:
+        for barcode in barcodes:
+            if sum(
+                1
+                for _loc, slot in contents.items()
+                if slot['project'] == project
+                if slot['plate'] == barcode
+            ) != 1:
+                raise ValueError(f'Could not find {barcode=} from {project=} in fridge!')
+    RT_time_secs = float(RT_time_secs_str)
+    for i, (barcode, plate) in enumerate(zip(barcodes, plates, strict=True), start=1):
+        cmds += [
+            WithLock('PF and Fridge', [
+                FridgeEject(plate=barcode, project=project).fork().wait(),
+                Checkpoint(f'RT {i}'),
+                PFCmd(f'fridge-to-H12'),
+            ]),
+            WithLock('PF and Fridge', [
+                NikonStageCmd('goto_loading').fork().wait(),
+                PFCmd(f'H12-to-nikon'),
+            ]),
+            Seq(
+                NikonStageCmd('leave_loading'),
+                WaitForCheckpoint(f'RT {i}', plus_secs=RT_time_secs, assume='nothing'),
+                Seq(*[
+                    NikonAcquire(job_name=job_name, project=project, plate=plate)
+                    for job_name in job_names
+                ]),
+            ).fork().wait(),
+            WithLock('PF and Fridge', [
+                NikonStageCmd('goto_loading').fork().wait(),
+                PFCmd(f'nikon-to-H12'),
+                BarcodeClear(),
+                PFCmd(f'H12-to-fridge'),
+                FridgeInsert(project, expected_barcode=barcode).fork().wait(),
+            ])
+        ]
+    cmds = [
+        WithLock('Nikon', cmds),
+    ]
+    return Program(Seq(*cmds))
+
 
 @dataclass(frozen=True)
 class SmallProtocolData:
