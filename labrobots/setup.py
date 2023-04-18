@@ -2,7 +2,6 @@ from setuptools import setup
 
 requirements = '''
     flask>=2.2.3
-    RPi.GPIO>=0.7.1
     pyserial>=3.4
 '''
 

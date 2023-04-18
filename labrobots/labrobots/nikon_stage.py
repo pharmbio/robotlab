@@ -8,7 +8,10 @@ import atexit
 import time
 import textwrap
 
-import RPi.GPIO as GPIO
+try:
+    import RPi.GPIO as GPIO
+except:
+    GPIO: Any = None
 
 GPIO: Any = GPIO # make pyright quiet
 

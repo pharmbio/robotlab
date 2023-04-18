@@ -87,7 +87,7 @@ class NikonNIS(Machine):
                     raise ValueError(f'Input {s!r} contains illegal character {c!r}')
             if not s:
                 raise ValueError(f'Input {s!r} is empty')
-            if s[0].isalpha():
+            if not s[0].isalpha():
                 raise ValueError(f'Input {s!r} does not start with alpha')
             if s.strip() != s:
                 raise ValueError(f'Input {s!r} contains trailing whitespace')
