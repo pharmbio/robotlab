@@ -32,6 +32,10 @@ Before starting:
   - In doubt, stop the robot immediately using this button
   - Then press the stop button in the user interface
 
+The system does not have estimates for how long the acquisition will take which can make
+the gui visualisation look weird. All is still OK: the robotarm system will still do run
+the machines in the same sequential order.
+
 ### Running a test
 
 Use the test_proj plate. The Nikon job named `dan` can be used:
@@ -52,7 +56,7 @@ If it was holding a plate: run the pf-init once more without a plate, or it will
 
 ### Moving the robot around: robot freedrive
 
-Robot must be initialized (and emergency stop button must be released.)
+The robotarm must be initialized (and emergency stop button must be released.)
 
 If it is holding a plate: be ready to catch it. The gripper is released when starting robot freedrive.
 
@@ -64,7 +68,7 @@ Run the `pf-freedrive` protocol. When you're done press the stop button in the g
 
 ### Fridge contents
 
-The contents of the fridge at http://10.10.0.97:5050/fridge/contents
+The contents of the fridge can be viewed at http://10.10.0.97:5050/fridge/contents
 
 <img src='images/fridge-contents.png'>
 
