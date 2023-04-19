@@ -848,7 +848,7 @@ def pf_fridge_program(cmds: list[Command]) -> Program:
 
 @pf_protocols.append
 def fridge_reset_and_activate(args: SmallProtocolArgs) -> Program:
-    return pf_fridge_program([FridgeCmd('reset_and_activate').fork().wait()])
+    return pf_fridge_program([FridgeCmd('reset_and_activate').fork_and_wait()])
 
 @pf_protocols.append
 def pf_init(args: SmallProtocolArgs) -> Program:
@@ -880,7 +880,7 @@ def fridge_load(args: SmallProtocolArgs) -> Program:
             BarcodeClear(),
             PFCmd(f'H{i}-to-H12') if i != 12 else Seq(),
             PFCmd(f'H12-to-fridge'),
-            FridgeInsert(project).fork().wait(),
+            FridgeInsert(project).fork_and_wait(),
         ]
     cmds = [
         WithLock('PF and Fridge', cmds),
@@ -914,7 +914,7 @@ def fridge_unload(args: SmallProtocolArgs) -> Program:
     for i, plate in enumerate(plates[:args.num_plates], start=1):
         assert i <= 12
         cmds += [
-            FridgeEject(plate=plate, project=project).fork().wait(),
+            FridgeEject(plate=plate, project=project).fork_and_wait(),
             PFCmd(f'fridge-to-H12'),
             PFCmd(f'H12-to-H{i}'),
         ]
@@ -938,18 +938,18 @@ def squid_from_hotel(args: SmallProtocolArgs) -> Program:
     cmds += [
         WithLock('Squid', [
             WithLock('PF and Fridge', [
-                SquidStageCmd('goto_loading').fork().wait(),
+                SquidStageCmd('goto_loading').fork_and_wait(),
                 PFCmd('H12-to-squid'),
             ]),
             Seq(
                 SquidStageCmd('leave_loading'),
                 SquidAcquire(config_path, project=project, plate=plate),
-            ).fork().wait(),
+            ).fork_and_wait(),
             WithLock('PF and Fridge', [
-                SquidStageCmd('goto_loading').fork().wait(),
+                SquidStageCmd('goto_loading').fork_and_wait(),
                 PFCmd('squid-to-H12'),
             ]),
-            SquidStageCmd('leave_loading').fork().wait(),
+            SquidStageCmd('leave_loading').fork_and_wait(),
         ])
     ]
     return Program(Seq(*cmds))
@@ -969,15 +969,15 @@ def nikon_from_hotel(args: SmallProtocolArgs) -> Program:
     cmds += [
         WithLock('Nikon', [
             WithLock('PF and Fridge', [
-                NikonStageCmd('goto_loading').fork().wait(),
+                NikonStageCmd('goto_loading').fork_and_wait(),
                 PFCmd('H12-to-nikon'),
             ]),
             Seq(
                 NikonStageCmd('leave_loading'),
                 NikonAcquire(job_name=job_name, project=project, plate=plate),
-            ).fork().wait(),
+            ).fork_and_wait(),
             WithLock('PF and Fridge', [
-                NikonStageCmd('goto_loading').fork().wait(),
+                NikonStageCmd('goto_loading').fork_and_wait(),
                 PFCmd('nikon-to-H12'),
             ]),
         ])
@@ -1015,33 +1015,29 @@ def squid_from_fridge(args: SmallProtocolArgs) -> Program:
     RT_time_secs = float(RT_time_secs_str)
     for i, (barcode, plate) in enumerate(zip(barcodes, plates, strict=True), start=1):
         cmds += [
-            WithLock('PF and Fridge', [
-                FridgeEject(plate=barcode, project=project).fork().wait(),
-                Checkpoint(f'RT {i}'),
-                PFCmd(f'fridge-to-H12'),
-            ]),
-            WithLock('PF and Fridge', [
-                SquidStageCmd('goto_loading').fork().wait(),
-                PFCmd(f'H12-to-squid'),
-            ]),
+            FridgeEject(plate=barcode, project=project).fork_and_wait(),
+            Checkpoint(f'RT {i}'),
+            PFCmd(f'fridge-to-H12'),
+            SquidStageCmd('goto_loading').fork_and_wait(),
+            PFCmd(f'H12-to-squid'),
+
             Seq(
                 SquidStageCmd('leave_loading'),
                 WaitForCheckpoint(f'RT {i}', plus_secs=RT_time_secs, assume='nothing'),
                 SquidAcquire(config_path, project=project, plate=plate),
-            ).fork().wait(),
-            WithLock('PF and Fridge', [
-                SquidStageCmd('goto_loading').fork().wait(),
-                PFCmd(f'squid-to-H12'),
-                SquidStageCmd('leave_loading').fork().wait(),
-                BarcodeClear(),
-                PFCmd(f'H12-to-fridge'),
-                FridgeInsert(project, expected_barcode=barcode).fork().wait(),
-            ])
+            ).fork_and_wait(),
+
+            SquidStageCmd('goto_loading').fork_and_wait(),
+            PFCmd(f'squid-to-H12'),
+            SquidStageCmd('leave_loading').fork_and_wait(),
+            BarcodeClear(),
+            PFCmd(f'H12-to-fridge'),
+            FridgeInsert(project, expected_barcode=barcode).fork_and_wait(),
         ]
-    cmds = [
-        WithLock('Squid', cmds),
-    ]
-    return Program(Seq(*cmds))
+    cmd = Seq(*cmds)
+    cmd = cmd.with_lock('PF and Fridge')
+    cmd = cmd.with_lock('Squid')
+    return Program(cmd)
 
 @pf_protocols.append
 def nikon_from_fridge(args: SmallProtocolArgs) -> Program:
@@ -1074,35 +1070,38 @@ def nikon_from_fridge(args: SmallProtocolArgs) -> Program:
     RT_time_secs = float(RT_time_secs_str)
     for i, (barcode, plate) in enumerate(zip(barcodes, plates, strict=True), start=1):
         cmds += [
-            WithLock('PF and Fridge', [
-                FridgeEject(plate=barcode, project=project).fork().wait(),
-                Checkpoint(f'RT {i}'),
-                PFCmd(f'fridge-to-H12'),
-            ]),
-            WithLock('PF and Fridge', [
-                NikonStageCmd('goto_loading').fork().wait(),
-                PFCmd(f'H12-to-nikon'),
-            ]),
-            Seq(
-                NikonStageCmd('leave_loading'),
-                WaitForCheckpoint(f'RT {i}', plus_secs=RT_time_secs, assume='nothing'),
-                Seq(*[
-                    NikonAcquire(job_name=job_name, project=project, plate=plate)
-                    for job_name in job_names
-                ]),
-            ).fork().wait(),
-            WithLock('PF and Fridge', [
-                NikonStageCmd('goto_loading').fork().wait(),
-                PFCmd(f'nikon-to-H12'),
-                BarcodeClear(),
-                PFCmd(f'H12-to-fridge'),
-                FridgeInsert(project, expected_barcode=barcode).fork().wait(),
-            ])
+            # get from fridge
+            FridgeEject(plate=barcode, project=project).fork_and_wait(),
+            PFCmd(f'fridge-to-H12'),
+
+            # wait for RT_time_secs in hotel, location H12
+            Checkpoint(f'RT {i}'),
+            WaitForCheckpoint(f'RT {i}', plus_secs=RT_time_secs, assume='nothing'),
+
+            # move to nikon
+            NikonStageCmd('goto_loading').fork_and_wait(),
+            PFCmd(f'H12-to-nikon'),
+            NikonStageCmd('leave_loading').fork_and_wait(),
+
+            # acquire
+            *[
+                NikonAcquire(job_name=job_name, project=project, plate=plate).fork_and_wait()
+                for job_name in job_names
+            ],
+
+            # leave nikon
+            NikonStageCmd('goto_loading').fork_and_wait(),
+            PFCmd(f'nikon-to-H12'),
+
+            # back to fridge
+            BarcodeClear(),
+            PFCmd(f'H12-to-fridge'),
+            FridgeInsert(project, expected_barcode=barcode).fork_and_wait(),
         ]
-    cmds = [
-        WithLock('Nikon', cmds),
-    ]
-    return Program(Seq(*cmds))
+    cmd = Seq(*cmds)
+    cmd = cmd.with_lock('PF and Fridge')
+    cmd = cmd.with_lock('Nikon')
+    return Program(cmd)
 
 
 @dataclass(frozen=True)

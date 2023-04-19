@@ -67,6 +67,12 @@ class Command(ReplaceMixin, abc.ABC):
     def fork(self, assume: ForkAssumption = 'idle', align: Literal['begin', 'end'] = 'begin') -> Fork:
         return Fork(self, assume=assume, align=align)
 
+    def fork_and_wait(self, assume: ForkAssumption = 'idle', align: Literal['begin', 'end'] = 'begin') -> Command:
+        return self.fork(assume=assume, align=align).wait()
+
+    def with_lock(self, lock: LockName) -> Command:
+        return WithLock(lock, self)
+
     def add_to_physical_commands(self, m: Metadata):
         def Add(cmd: Command):
             if isinstance(cmd, PhysicalCommand):

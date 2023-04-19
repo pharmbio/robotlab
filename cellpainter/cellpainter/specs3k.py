@@ -58,11 +58,52 @@ rename_table = str('''
     moa-repro P013725 meta25
     moa-repro P013726 meta26
     test_proj (384)P000002 P1_L1
+    RMS-SPECS PB000041 RH30_RD_DMSO_L1
+    RMS-SPECS P101094  RH30_RD_P01_L1
+    RMS-SPECS P101096  RH30_RD_P02_L1
+    RMS-SPECS P101098  RH30_RD_P03_L1
+    RMS-SPECS P101100  RH30_RD_P04_L1
+    RMS-SPECS P101102  RH30_RD_P05_L1
+    RMS-SPECS P101104  RH30_RD_P06_L1
+    RMS-SPECS P101106  RH30_RD_P07_L1
+    RMS-SPECS P101108  RH30_RD_P08_L1
+    RMS-SPECS P101110  RH30_RD_P09_L1
+    RMS-SPECS PB000042 RH30_RD_DMSO_L2
+    RMS-SPECS P101112  RH30_RD_P10_L1
+    RMS-SPECS P101114  RH30_RD_P11_L1
+    RMS-SPECS P101116  RH30_RD_P12_L1
+    RMS-SPECS P101118  RH30_RD_P13_L1
+    RMS-SPECS P101120  RH30_RD_P14_L1
+    RMS-SPECS P101122  RH30_RD_P15_L1
+    RMS-SPECS P101124  RH30_RD_P16_L1
+    RMS-SPECS P101126  RH30_RD_P17_L1
+    RMS-SPECS PB000043 RH30_RD_DMSO_L3
+    RMS-SPECS P101095  RH30_RD_P01_L2
+    RMS-SPECS P101097  RH30_RD_P02_L2
+    RMS-SPECS P101099  RH30_RD_P03_L2
+    RMS-SPECS P101101  RH30_RD_P04_L2
+    RMS-SPECS P101103  RH30_RD_P05_L2
+    RMS-SPECS P101105  RH30_RD_P06_L2
+    RMS-SPECS P101107  RH30_RD_P07_L2
+    RMS-SPECS P101109  RH30_RD_P08_L2
+    RMS-SPECS P101111  RH30_RD_P09_L2
+    RMS-SPECS PB000044 RH30_RD_DMSO_L4
+    RMS-SPECS P101113  RH30_RD_P10_L2
+    RMS-SPECS P101115  RH30_RD_P11_L2
+    RMS-SPECS P101117  RH30_RD_P12_L2
+    RMS-SPECS P101119  RH30_RD_P13_L2
+    RMS-SPECS P101121  RH30_RD_P14_L2
+    RMS-SPECS P101123  RH30_RD_P15_L2
+    RMS-SPECS P101125  RH30_RD_P16_L2
+    RMS-SPECS P101127  RH30_RD_P17_L2
+
 ''')
 
 renames: dict[tuple[str, str], str] = {}
 for line in textwrap.dedent(rename_table).splitlines():
     if line:
         project, barcode, metadata = line.split()
-        renames[project, barcode] = f'{barcode}_{project}_{metadata}'.removeprefix('(384)').replace('-', '_')
-
+        renames[project, barcode] = f'{barcode}_{project}_{metadata}'.removeprefix('(384)')
+        # we used this normalization for specs3k,
+        # but for RMS-SPECS we won't do it anymore:
+        # .replace('-', '_')
