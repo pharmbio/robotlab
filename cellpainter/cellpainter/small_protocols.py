@@ -1074,12 +1074,19 @@ def nikon_from_fridge(args: SmallProtocolArgs) -> Program:
             FridgeEject(plate=barcode, project=project).fork_and_wait(),
             PFCmd(f'fridge-to-H12'),
 
-            # wait for RT_time_secs in hotel, location H12
+            # Start RT timer
             Checkpoint(f'RT {i}'),
+
+            # move to nikon and wait for RT_time_secs to get rid of condensation
+            NikonStageCmd('goto_loading').fork_and_wait(),
+            PFCmd(f'H12-to-nikon'),
+            NikonStageCmd('leave_loading').fork_and_wait(),
+
             WaitForCheckpoint(f'RT {i}', plus_secs=RT_time_secs, assume='nothing'),
 
-            # move to nikon
             NikonStageCmd('goto_loading').fork_and_wait(),
+            PFCmd(f'nikon-to-H12'),
+            NikonStageCmd('init_laser').fork_and_wait(),
             PFCmd(f'H12-to-nikon'),
             NikonStageCmd('leave_loading').fork_and_wait(),
 
