@@ -187,7 +187,10 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
         case FridgeInsert():
             runtime.assert_lock('PF and Fridge')
             for fridge, barcode_reader in runtime.time_resource_use(entry, runtime.fridge_and_barcode_reader):
-                barcode = barcode_reader.read_and_clear()
+                if cmd.assume_barcode:
+                    barcode = cmd.assume_barcode
+                else:
+                    barcode = barcode_reader.read_and_clear()
                 if not barcode:
                     raise ValueError(f'No barcode registered')
                 if cmd.expected_barcode and cmd.expected_barcode != barcode:
@@ -201,10 +204,10 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
                 fridge.eject(plate=cmd.plate, project=cmd.project)
                 runtime.sleep(1.0)
                 barcode = barcode_reader.read_and_clear()
-                if not barcode and cmd.project == 'RMS-SPECS':
-                    import sys
-                    print(f'No barcode seen on {cmd=}, this is ok for RMS-SPECS plates', file=sys.stderr)
-                    pass
+                if not cmd.check_barcode:
+                    if barcode != cmd.plate:
+                        import sys
+                        print(f'Plate has {barcode=!r} but expected {cmd.plate=!r}. Ignoring because {cmd=}.', file=sys.stderr)
                 elif barcode != cmd.plate:
                     raise ValueError(f'Plate has {barcode=!r} but expected {cmd.plate=!r}')
 

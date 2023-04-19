@@ -821,6 +821,7 @@ class FridgeInsert(FridgeABC):
     '''
     project: str
     expected_barcode: str | None = None
+    assume_barcode: str | None = None
 
     def normalize(self):
         return FridgeInsert('')
@@ -829,6 +830,7 @@ class FridgeInsert(FridgeABC):
 class FridgeEject(FridgeABC):
     plate: str
     project: str
+    check_barcode: bool = True
 
     def normalize(self):
         return FridgeEject('', '')

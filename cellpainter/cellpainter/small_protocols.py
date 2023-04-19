@@ -1071,7 +1071,7 @@ def nikon_from_fridge(args: SmallProtocolArgs) -> Program:
     for i, (barcode, plate) in enumerate(zip(barcodes, plates, strict=True), start=1):
         cmds += [
             # get from fridge
-            FridgeEject(plate=barcode, project=project).fork_and_wait(),
+            FridgeEject(plate=barcode, project=project, check_barcode=False).fork_and_wait(),
             PFCmd(f'fridge-to-H12'),
         ]
         if job_names_csv != '':
@@ -1111,7 +1111,7 @@ def nikon_from_fridge(args: SmallProtocolArgs) -> Program:
             FridgeInsert(
                 project,
                 # expected_barcode=barcode
-                expected_barcode=None,  # for RMS-SPECS
+                assume_barcode=barcode, # for RMS-SPECS
             ).fork_and_wait(),
         ]
     cmd = Seq(*cmds)
