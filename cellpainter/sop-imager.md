@@ -2,7 +2,9 @@
 
 Written for RMS-SPECS.
 
-The imager gui is at http://10.10.0.95:5000 (running on the squid asus computer)
+The imager gui is at http://10.10.0.95:5000
+It can be reached from the Squid computer as well as the Nikon computer.
+(technically it is running on the squid asus)
 
 To run RMS-SPECS use gui and select the protocol `nikon-from-fridge-v1`.
 

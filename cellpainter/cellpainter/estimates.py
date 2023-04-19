@@ -170,6 +170,11 @@ def estimate(cmd: PhysicalCommand) -> float:
                 guess = 5.0
             case SquidAcquire():
                 guess = 3 * 3600.0
+            case NikonAcquire():
+                if 'RD' in cmd.job_name:
+                    guess = 1200.0
+                else:
+                    guess = 3.5 * 3600.0
             case RobotarmCmd():
                 test = cmd.program_name
                 test = test.replace('B21-to-disp', 'disp-to-B21')
