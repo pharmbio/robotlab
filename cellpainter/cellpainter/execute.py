@@ -201,7 +201,11 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
                 fridge.eject(plate=cmd.plate, project=cmd.project)
                 runtime.sleep(1.0)
                 barcode = barcode_reader.read_and_clear()
-                if barcode != cmd.plate:
+                if not barcode and cmd.project == 'RMS-SPECS':
+                    import sys
+                    print(f'No barcode seen on {cmd=}, this is ok for RMS-SPECS plates', file=sys.stderr)
+                    pass
+                elif barcode != cmd.plate:
                     raise ValueError(f'Plate has {barcode=!r} but expected {cmd.plate=!r}')
 
         case FridgeCmd(action=action):

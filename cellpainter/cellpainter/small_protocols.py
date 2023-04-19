@@ -1108,7 +1108,11 @@ def nikon_from_fridge(args: SmallProtocolArgs) -> Program:
             # back to fridge
             BarcodeClear(),
             PFCmd(f'H12-to-fridge'),
-            FridgeInsert(project, expected_barcode=barcode).fork_and_wait(),
+            FridgeInsert(
+                project,
+                # expected_barcode=barcode
+                expected_barcode=None,  # for RMS-SPECS
+            ).fork_and_wait(),
         ]
     cmd = Seq(*cmds)
     cmd = cmd.with_lock('PF and Fridge')
