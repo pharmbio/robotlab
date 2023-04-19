@@ -1073,33 +1073,38 @@ def nikon_from_fridge(args: SmallProtocolArgs) -> Program:
             # get from fridge
             FridgeEject(plate=barcode, project=project).fork_and_wait(),
             PFCmd(f'fridge-to-H12'),
+        ]
+        if job_names_csv != '':
+            cmds += [
+                # Start RT timer
+                Checkpoint(f'RT {i}'),
 
-            # Start RT timer
-            Checkpoint(f'RT {i}'),
+                # move to nikon and wait for RT_time_secs to get rid of condensation
+                NikonStageCmd('goto_loading').fork_and_wait(),
+                PFCmd(f'H12-to-nikon'),
+                NikonStageCmd('leave_loading').fork_and_wait(),
 
-            # move to nikon and wait for RT_time_secs to get rid of condensation
-            NikonStageCmd('goto_loading').fork_and_wait(),
-            PFCmd(f'H12-to-nikon'),
-            NikonStageCmd('leave_loading').fork_and_wait(),
+                # wait inside the nikon to get rid of condensation
+                WaitForCheckpoint(f'RT {i}', plus_secs=RT_time_secs, assume='nothing'),
 
-            WaitForCheckpoint(f'RT {i}', plus_secs=RT_time_secs, assume='nothing'),
+                # leave nikon to initialize the laser
+                NikonStageCmd('goto_loading').fork_and_wait(),
+                PFCmd(f'nikon-to-H12'),
+                NikonStageCmd('init_laser').fork_and_wait(),
+                PFCmd(f'H12-to-nikon'),
+                NikonStageCmd('leave_loading').fork_and_wait(),
 
-            NikonStageCmd('goto_loading').fork_and_wait(),
-            PFCmd(f'nikon-to-H12'),
-            NikonStageCmd('init_laser').fork_and_wait(),
-            PFCmd(f'H12-to-nikon'),
-            NikonStageCmd('leave_loading').fork_and_wait(),
+                # acquire
+                *[
+                    NikonAcquire(job_name=job_name, project=project, plate=plate).fork_and_wait()
+                    for job_name in job_names
+                ],
 
-            # acquire
-            *[
-                NikonAcquire(job_name=job_name, project=project, plate=plate).fork_and_wait()
-                for job_name in job_names
-            ],
-
-            # leave nikon
-            NikonStageCmd('goto_loading').fork_and_wait(),
-            PFCmd(f'nikon-to-H12'),
-
+                # leave nikon
+                NikonStageCmd('goto_loading').fork_and_wait(),
+                PFCmd(f'nikon-to-H12'),
+            ]
+        cmds += [
             # back to fridge
             BarcodeClear(),
             PFCmd(f'H12-to-fridge'),
