@@ -106,6 +106,20 @@ def add_to_serve(serve: Serve, cmdline0: str, cmdline_to_log: Callable[[str], Lo
                 body > * {
                     padding: 16px;
                 }
+                html {
+                    --bg:        #2d2d2d;
+                    --bg-bright: #383838;
+                    --bg-brown:  #554535;
+                    --fg:        #d3d0c8;
+                    --red:       #f2777a;
+                    --brown:     #d27b53;
+                    --green:     #99cc99;
+                    --yellow:    #ffcc66;
+                    --blue:      #6699cc;
+                    --purple:    #cc99cc;
+                    --cyan:      #66cccc;
+                    --orange:    #f99157;
+                }
             '''
         }
         yield {
@@ -224,37 +238,45 @@ def add_to_serve(serve: Serve, cmdline0: str, cmdline_to_log: Callable[[str], Lo
                     'wash': 3,
                     'blue': 3,
                     'disp': 4,
+                    'nikon': 3,
+                    'squid': 3,
                     None: 1
                 }.get(m.thread_resource, 1)
             slot = 2 * slot
-            if machine in ('wash', 'disp', 'incu', 'blue'):
-                slot += 1
-            if m.thread_resource in ('wash', 'disp', 'incu', 'blue') and isinstance(e.cmd, commands.WaitForCheckpoint):
+            # if machine not in ('', 'robotarm', 'pf'):
+            #     slot += 1
+            if isinstance(e.cmd, commands.WaitForCheckpoint | commands.Checkpoint):
                 slot -= 1
             if source == 'duration':
                 slot = 18 + plate
             color_map = {
-                'wait': 'color3',
-                'idle': 'color3',
-                'robotarm': 'color4',
-                'wash': 'color6',
-                'blue': 'color6',
-                'disp': 'color5',
-                'incu': 'color2',
+                '':         'var(--fg)',
+                'wait':     'var(--yellow)',
+                'idle':     'var(--yellow)',
+                'robotarm': 'var(--blue)',
+                'pf':       'var(--blue)',
+                'wash':     'var(--cyan)',
+                'blue':     'var(--cyan)',
+                'disp':     'var(--purple)',
+                'incu':     'var(--green)',
+                'fridge':   'var(--cyan)',
+                'squid':    'var(--red)',
+                'nikon':    'var(--orange)',
             }
-            color = colors.get(color_map.get(source, ''), '#ccc')
+            color = color_map.get(source, '#ccc')
             fg_color = '#000'
-            if color == colors.get('color4'):
-                fg_color = '#fff'
             width = 14
             my_width = 14
             my_offset = 0
             if not vertical.value:
                 slot = {
                     'incu': 3,
+                    'fridge': 2,
                     'wash': 2,
                     'blue': 2,
                     'disp': 1,
+                    'nikon': 3,
+                    'squid': 3,
                     None: 0,
                 }.get(m.thread_resource, 0)
                 if isinstance(cmd, commands.Duration):
@@ -337,7 +359,7 @@ def add_to_serve(serve: Serve, cmdline0: str, cmdline_to_log: Callable[[str], Lo
                             position: absolute;
                             display: block;
                             left: 100%;
-                            top: 50%;
+                            top: 0;
                             margin-left: 5px;
                             content: attr(shortinfo);
                         }
@@ -358,7 +380,7 @@ def add_to_serve(serve: Serve, cmdline0: str, cmdline_to_log: Callable[[str], Lo
                             z-index: 10;
                         }
                     ''',
-                shortinfo=str(e.duration),
+                shortinfo=str(e.cmd) if vertical.value else str(e.duration),
                 css___='outline: 2px #f00a dashed; border-radius: 0;' if pct > 101 else '',
                 data_color=color,
                 data_fg_color=fg_color,

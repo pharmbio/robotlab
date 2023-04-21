@@ -2,6 +2,8 @@ from __future__ import annotations
 from dataclasses import *
 from typing import *
 
+import graphlib
+
 import pbutils
 
 from .commands import *
@@ -16,6 +18,7 @@ def quicksim(program: Command, checkpoints: dict[str, float], estimate: Callable
     class Thread:
         todo: list[tuple[Command, Metadata]]
         running: tuple[Command, float] | None = None
+        name: str = ''
 
     t_end: dict[int, float] = {}
 
@@ -56,7 +59,7 @@ def quicksim(program: Command, checkpoints: dict[str, float], estimate: Callable
                 thread.todo = tl
                 return [
                     *advance_thread(t, thread),
-                    *advance_thread(t, Thread(hd.command.collect()))
+                    *advance_thread(t, Thread(hd.command.collect(), name=hd.resource or ''))
                 ]
             case Idle():
                 thread.todo = tl
@@ -100,7 +103,12 @@ def quicksim(program: Command, checkpoints: dict[str, float], estimate: Callable
                     case None:
                         pass
             if not candidates:
-                raise ValueError('Threads blocked indefinitely')
+                import pprint
+                pprint.pprint([
+                    (th.name, 'running:', th.running, 'head:', th.todo[1])
+                    for th in threads
+                ])
+                raise ValueError(f'Threads blocked indefinitely: {t=} {[th.name for th in threads]}')
             step_t = min(candidates)
             for thread in threads:
                 match thread.running:
@@ -276,3 +284,84 @@ def SCRATCH():
                     return cmd
         return Transform(Transform(p, F1), F2)
 
+@dataclass(frozen=True)
+class Interleaving:
+    rows: list[tuple[int, str]]
+    name: str
+    @staticmethod
+    def init(s: str, name: str) -> Interleaving:
+        rows: list[tuple[int, str]] = []
+        seen: Counter[str] = Counter()
+        for line in s.strip().split('\n'):
+            sides = line.strip().split('->')
+            for a, b in zip(sides, sides[1:]):
+                arrow = f'{a.strip()} -> {b.strip()}'
+                rows += [(seen[arrow], arrow)]
+                seen[arrow] += 1
+        target = list(seen.values())[0]
+        assert target > 1, 'need at least two copies of all transitions'
+        for k, v in seen.items():
+            assert v == target, f'{k!r} occurred {v} times, should be {target} times'
+        return Interleaving(rows, name=name)
+
+A = TypeVar('A')
+
+@dataclass(frozen=True)
+class Interleaving:
+    rows: list[tuple[int, str]]
+    name: str = ''
+    @staticmethod
+    def init(s: str, name: str = '') -> Interleaving:
+        rows: list[tuple[int, str]] = []
+        seen: Counter[str] = Counter()
+        for line in s.strip().split('\n'):
+            sides = line.strip().split('->')
+            for a, b in zip(sides, sides[1:]):
+                arrow = f'{a.strip()} -> {b.strip()}'
+                rows += [(seen[arrow], arrow)]
+                seen[arrow] += 1
+        target = list(seen.values())[0]
+        assert target > 1, 'need at least two copies of all transitions'
+        for k, v in seen.items():
+            assert v == target, f'{k!r} occurred {v} times, should be {target} times'
+        return Interleaving(rows, name=name)
+
+    def inst(self, batch: list[A]) -> list[tuple[A, str]]:
+        Node = tuple[A, str]
+        g: dict[Node, list[Node]] = DefaultDict(list)
+        for offset, _ in enumerate(batch):
+            chain: list[Node] = [
+                (batch[i+offset], substep)
+                for i, substep in self.rows
+                if i + offset < len(batch)
+            ]
+            for s, t in zip(chain[1:], chain):
+                g[s] += [t]
+        return list(graphlib.TopologicalSorter(g).static_order())
+
+def test_ilv():
+    ilv = Interleaving.init('''
+        a -> b
+             b -> c
+        a -> b
+                  c -> d
+             b -> c
+        a -> b
+                  c -> d
+             b -> c
+                  c -> d
+    ''')
+    assert ilv.inst([1, 2, 3, 4]) == [
+        (1, 'a -> b'),
+        (1, 'b -> c'),
+        (2, 'a -> b'),
+        (1, 'c -> d'),
+        (2, 'b -> c'),
+        (3, 'a -> b'),
+        (2, 'c -> d'),
+        (3, 'b -> c'),
+        (4, 'a -> b'),
+        (3, 'c -> d'),
+        (4, 'b -> c'),
+        (4, 'c -> d'),
+    ]

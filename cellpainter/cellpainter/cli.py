@@ -93,7 +93,9 @@ def args_to_str(args: Args):
         v = getattr(args, k)
         k = k.replace('_', '-')
         if v != d:
-            if isinstance(v, list):
+            if k == 'params' and isinstance(v, list):
+                parts += [*v]
+            elif isinstance(v, list):
                 parts += [f'--{k}', *v]
             elif isinstance(v, bool):
                 if v:
@@ -301,11 +303,17 @@ def args_to_stages(args: Args) -> list[str] | None:
 @pbutils.cache_by(normalize_args)
 def args_to_program(args: Args) -> Program | None:
     paths = protocol_paths.get_protocol_paths()[args.protocol_dir]
-    protocol_config = protocol.make_protocol_config(paths, args)
+
+    if args.config_name == 'pf-live':
+        import labrobots
+        fridge_contents = labrobots.WindowsGBG().remote().fridge.contents()
+    else:
+        fridge_contents = None
 
     program: Program | None = None
     if args.cell_paint:
         with pbutils.timeit('generating program'):
+            protocol_config = protocol.make_protocol_config(paths, args)
             batch_sizes = pbutils.read_commasep(args.cell_paint, int)
             program = protocol.cell_paint_program(
                 batch_sizes=batch_sizes,
@@ -320,6 +328,7 @@ def args_to_program(args: Args) -> Program | None:
                 num_plates = args.num_plates,
                 params = args.params,
                 protocol_dir = args.protocol_dir,
+                fridge_contents = fridge_contents,
             )
             program = p.make(small_args)
             program = program.replace(

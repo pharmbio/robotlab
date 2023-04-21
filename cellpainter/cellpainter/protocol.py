@@ -30,6 +30,7 @@ from .commands import (
     Min,
     WaitAssumption,
 )
+from .commandlib import Interleaving
 from .moves import World
 from .symbolic import Symbolic
 from . import commands
@@ -129,7 +130,14 @@ def define_plates(batch_sizes: list[int]) -> list[list[Plate]]:
 
     return plates
 
-InterleavingKind = Literal[
+def ok_lockstep(k1: str, k2: str) -> bool:
+    match k1, k2:
+        case 'disp', 'wash -> disp' | 'blue -> disp':
+            return False
+        case _:
+            return True
+
+InterleavingName = Literal[
     'wash -> disp',
     'blue -> disp',
     'wash -> out',
@@ -139,35 +147,8 @@ InterleavingKind = Literal[
     'blue',
 ]
 
-@dataclass(frozen=True)
-class Interleaving:
-    rows: list[tuple[int, str]]
-    kind: InterleavingKind
-    @staticmethod
-    def init(s: str, kind: InterleavingKind) -> Interleaving:
-        rows: list[tuple[int, str]] = []
-        seen: Counter[str] = Counter()
-        for line in s.strip().split('\n'):
-            sides = line.strip().split('->')
-            for a, b in zip(sides, sides[1:]):
-                arrow = f'{a.strip()} -> {b.strip()}'
-                rows += [(seen[arrow], arrow)]
-                seen[arrow] += 1
-        target = list(seen.values())[0]
-        assert target > 1, 'need at least two copies of all transitions'
-        for k, v in seen.items():
-            assert v == target, f'{k!r} occurred {v} times, should be {target} times'
-        return Interleaving(rows, kind=kind)
-
-def ok_lockstep(k1: InterleavingKind, k2: InterleavingKind) -> bool:
-    match k1, k2:
-        case 'disp', 'wash -> disp' | 'blue -> disp':
-            return False
-        case _:
-            return True
-
-def make_interleaving(kind: InterleavingKind, linear: bool) -> Interleaving:
-    match kind:
+def make_interleaving(name: InterleavingName, linear: bool) -> Interleaving:
+    match name:
         case 'wash -> disp' | 'blue -> disp':
             lin = '''
                 incu -> B21 -> wash -> disp -> B21 -> incu
@@ -238,7 +219,7 @@ def make_interleaving(kind: InterleavingKind, linear: bool) -> Interleaving:
                                        B15 -> B21 -> incu
                                disp -> B15 -> B21 -> incu
             '''
-    if 'blue' in kind:
+    if 'blue' in name:
         lin = lin.replace('wash', 'blue')
         ilv = ilv.replace('wash', 'blue')
     _mix = '''
@@ -284,7 +265,7 @@ def make_interleaving(kind: InterleavingKind, linear: bool) -> Interleaving:
                                disp -> B21
                                        B21 -> incu
     '''
-    return Interleaving.init(lin if linear else ilv, kind=kind)
+    return Interleaving.init(lin if linear else ilv, name=name)
 
 class ProtocolArgsInterface(typing.Protocol):
     incu:               str
@@ -366,29 +347,29 @@ def make_protocol_config(paths: ProtocolPaths, args: ProtocolArgsInterface = Pro
         incu = dict(enumerate(incu_lengths)).get(i, incu_lengths[-1])
         name = dict(enumerate(names)).get(i, f'Step {i+1}')
         last_step = i == len(steps_proto) - 1
-        kind: InterleavingKind
+        ilv_name: InterleavingName
         if last_step:
             if wash:
-                kind = 'wash -> out'
+                ilv_name = 'wash -> out'
             elif blue:
-                kind = 'blue -> out'
+                ilv_name = 'blue -> out'
             else:
                 raise ValueError(f'Last step should be a washing step [{i=} {wash=} {blue=} {disp=}]')
         elif wash and blue:
             raise ValueError('Cannot use both biotek washer and bluewasher in the same step [{i=} {wash=} {blue=}]')
         elif wash and disp:
-            kind = 'wash -> disp'
+            ilv_name = 'wash -> disp'
         elif blue and disp:
-            kind = 'blue -> disp'
+            ilv_name = 'blue -> disp'
         elif wash:
-            kind = 'wash'
+            ilv_name = 'wash'
         elif blue:
-            kind = 'blue'
+            ilv_name = 'blue'
         elif disp:
-            kind = 'disp'
+            ilv_name = 'disp'
         else:
             raise ValueError(f'Step must have some purpose [{i=} {wash=} {blue=} {disp=}]')
-        ilv = make_interleaving(kind, linear=not args.interleave)
+        ilv = make_interleaving(ilv_name, linear=not args.interleave)
         steps += [
             Step(
                 name=name,
@@ -809,7 +790,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
         if next_step:
             ilv = step.interleaving
             next_ilv = next_step.interleaving
-            if use_lockstep and ok_lockstep(ilv.kind, next_ilv.kind):
+            if use_lockstep and ok_lockstep(ilv.name, next_ilv.name):
                 overlap = [
                     (batch[-2], step, {row_subpart for _, row_subpart in ilv.rows}),
                     (batch[-1], step, {row_subpart for _, row_subpart in ilv.rows}),

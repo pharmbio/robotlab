@@ -171,7 +171,10 @@ def estimate(cmd: PhysicalCommand) -> float:
             case SquidAcquire():
                 guess = 3 * 3600.0
             case NikonAcquire():
-                if 'RD' in cmd.job_name:
+                x, s, n = cmd.job_name.partition('s')
+                if s == 's' and not n and x.isnumeric():
+                    guess = float(x)
+                elif 'RD' in cmd.job_name:
                     guess = 1200.0
                 else:
                     guess = 3.5 * 3600.0

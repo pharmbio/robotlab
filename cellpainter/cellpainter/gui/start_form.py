@@ -235,10 +235,15 @@ def start_form(*, config: RuntimeConfig):
         form_fields = []
         args = None
 
+    err: str = ''
+    err_full: str = ''
     if args:
         try:
             stages = cli.args_to_stages(replace(args, incu='x'))
-        except:
+        except BaseException as e:
+            err = repr(e)
+            import traceback
+            err_full = traceback.format_exc()
             stages = []
         if stages:
             start_from_stage = store.str(
@@ -250,6 +255,9 @@ def start_form(*, config: RuntimeConfig):
             form_fields += [start_from_stage]
             if start_from_stage.value:
                 args = replace(args, start_from_stage=start_from_stage.value)
+
+    if err:
+        args = None
 
     if isinstance(small_data, SmallProtocolData):
         doc_full = textwrap.dedent(small_data.make.__doc__ or '').strip()
@@ -309,6 +317,23 @@ def start_form(*, config: RuntimeConfig):
                 call(start, args=args, simulate=False, config=config),
             grid_row='-1',
         ) if args else '',
+        div(
+            V.css(
+                b='2px var(--red) solid',
+                w='100%',
+                h='100%',
+                py=5,
+                px=5,
+                border_radius=2,
+                overflow='hidden',
+                text_overflow='ellipsis',
+            ),
+            V.css.grid(),
+            div(err, V.css.item(place_self='center'),
+                title=f'{err}\n\n{err_full}',
+            ),
+            grid_column='span 2',
+        ) if err else '',
         height='100%',
         padding='40px 0',
         grid_area='form',

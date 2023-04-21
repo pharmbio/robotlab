@@ -96,7 +96,9 @@ rename_table = str('''
     RMS-SPECS P101123  RH30_RD_P15_L2
     RMS-SPECS P101125  RH30_RD_P16_L2
     RMS-SPECS P101127  RH30_RD_P17_L2
-
+    HOG-kinase P015234 test_plate_1
+    HOG-kinase P015248 test_plate_2
+    HOG-kinase P015240 test_plate_3
 ''')
 
 renames: dict[tuple[str, str], str] = {}
