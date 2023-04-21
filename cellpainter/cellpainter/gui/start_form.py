@@ -239,7 +239,18 @@ def start_form(*, config: RuntimeConfig):
     err_full: str = ''
     if args:
         try:
-            stages = cli.args_to_stages(replace(args, incu='x'))
+            if config.name == 'pf-live':
+                import labrobots
+                fridge_contents = labrobots.WindowsGBG().remote().fridge.contents()
+            else:
+                fridge_contents = None
+            stages = cli.args_to_stages(
+                replace(
+                    args,
+                    incu='x',
+                    initial_fridge_contents=json.dumps(fridge_contents)
+                )
+            )
         except BaseException as e:
             err = repr(e)
             import traceback

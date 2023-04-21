@@ -299,6 +299,8 @@ class AnalyzeResult:
                 source = ''
             if source == 'disp':
                 slot = 1
+            if source in ('nikon', 'squid'):
+                slot = 2
             my_width = 1
             if source in ('now', 'bg'):
                 my_width = 2

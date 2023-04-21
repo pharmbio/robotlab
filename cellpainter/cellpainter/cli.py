@@ -82,6 +82,8 @@ class Args:
     yes:                       bool = arg(help='Assume yes in confirmation questions')
     make_uml:                  str  = arg(help='Write uml in dot format to the given path and exit')
 
+    initial_fridge_contents:   str  = arg('null', help='Initial fridge contents to check if a protocol may start')
+
     desc: str = arg(help='Experiment description metadata, example: "specs935-v1"')
     operators:  str = arg(help='Experiment metadata, example: "Amelie and Christa"')
 
@@ -304,11 +306,7 @@ def args_to_stages(args: Args) -> list[str] | None:
 def args_to_program(args: Args) -> Program | None:
     paths = protocol_paths.get_protocol_paths()[args.protocol_dir]
 
-    if args.config_name == 'pf-live':
-        import labrobots
-        fridge_contents = labrobots.WindowsGBG().remote().fridge.contents()
-    else:
-        fridge_contents = None
+    fridge_contents = json.loads(args.initial_fridge_contents)
 
     program: Program | None = None
     if args.cell_paint:
