@@ -1081,15 +1081,14 @@ def nikon_from_fridge(args: SmallProtocolArgs) -> Program:
             PFCmd(f'H12-to-H11'),
         ]
         chunks['H11 -> nikon', i] = [
+            WaitForCheckpoint(f'RT {i}', plus_secs=RT_time_secs, assume='nothing'),
+            Duration(f'RT {i}', Min(3)),
             PFCmd(f'H11-to-H12'),
-            NikonStageCmd('init_laser').fork(align='end'),
-            # WaitForResource('nikon'),
             NikonStageCmd('goto_loading').fork_and_wait(),
+            NikonStageCmd('init_laser').fork_and_wait(),
             PFCmd(f'H12-to-nikon'),
             Seq(
                 NikonStageCmd('leave_loading'),
-                WaitForCheckpoint(f'RT {i}', plus_secs=RT_time_secs, assume='nothing'),
-                Duration(f'RT {i}', Min(3)),
                 *[
                     NikonAcquire(job_name=job_name, project=project, plate=plate).add(Metadata(plate_id=str(i)))
                     for job_name in job_names
