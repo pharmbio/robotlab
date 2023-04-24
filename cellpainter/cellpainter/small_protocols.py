@@ -1046,7 +1046,9 @@ def squid_from_fridge(args: SmallProtocolArgs) -> Program:
 @pf_protocols.append
 def nikon_open_stage(_: SmallProtocolArgs) -> Program:
     return Program(
-        NikonStageCmd('goto_loading').fork_and_wait(),
+        Seq(
+            NikonStageCmd('goto_loading').fork_and_wait(),
+        ).with_lock('Nikon')
     )
 
 @pf_protocols.append
@@ -1056,7 +1058,7 @@ def H12_to_nikon(_: SmallProtocolArgs) -> Program:
             NikonStageCmd('goto_loading').fork_and_wait(),
             RobotarmCmd('H12-to-nikon'),
             NikonStageCmd('leave_loading').fork_and_wait(),
-        )
+        ).with_lock('PF and Fridge').with_lock('Nikon')
     )
 
 @pf_protocols.append
@@ -1065,7 +1067,7 @@ def nikon_to_H12(_: SmallProtocolArgs) -> Program:
         Seq(
             NikonStageCmd('goto_loading').fork_and_wait(),
             RobotarmCmd('nikon-to-H12'),
-        )
+        ).with_lock('PF and Fridge').with_lock('Nikon')
     )
 
 @pf_protocols.append
