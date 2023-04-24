@@ -963,29 +963,30 @@ def squid_from_hotel(args: SmallProtocolArgs) -> Program:
 def nikon_from_hotel(args: SmallProtocolArgs) -> Program:
     '''
 
-        Images the plate at H12. Params are: job name, project, plate
+        Images the plate at H12. Params are: job name, project, plate_name_1, ..., plate_name_N
 
     '''
     cmds: list[Command] = []
-    if len(args.params) != 3:
+    if len(args.params) < 3:
         return Program(Seq())
-    job_name, project, plate = args.params
-    cmds += [
-        WithLock('Nikon', [
-            WithLock('PF and Fridge', [
-                NikonStageCmd('goto_loading').fork_and_wait(),
-                PFCmd('H12-to-nikon'),
-            ]),
-            Seq(
-                NikonStageCmd('leave_loading'),
-                NikonAcquire(job_name=job_name, project=project, plate=plate),
-            ).fork_and_wait(),
-            WithLock('PF and Fridge', [
-                NikonStageCmd('goto_loading').fork_and_wait(),
-                PFCmd('nikon-to-H12'),
-            ]),
-        ])
-    ]
+    job_name, project, *plate_names = args.params
+    for plate_name in plate_names:
+        cmds += [
+            WithLock('Nikon', [
+                WithLock('PF and Fridge', [
+                    NikonStageCmd('goto_loading').fork_and_wait(),
+                    PFCmd('H12-to-nikon'),
+                ]),
+                Seq(
+                    NikonStageCmd('leave_loading'),
+                    NikonAcquire(job_name=job_name, project=project, plate=plate_name),
+                ).fork_and_wait(),
+                WithLock('PF and Fridge', [
+                    NikonStageCmd('goto_loading').fork_and_wait(),
+                    PFCmd('nikon-to-H12'),
+                ]),
+            ])
+        ]
     return Program(Seq(*cmds))
 
 
