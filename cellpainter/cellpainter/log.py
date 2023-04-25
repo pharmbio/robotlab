@@ -188,6 +188,7 @@ class Log:
             if k in out:
                 continue
             out[k] = q.select(CommandState.t0).order(CommandState.t0).where(CommandState.metadata.section == k).one()
+        out = dict(sorted(out.items(), key=lambda kv: kv[1]))
         if '' in out and len(out) >= 2:
             empty = out.pop('')
             first, *_ = out.keys()
@@ -206,6 +207,7 @@ class Log:
             if k in out:
                 continue
             out[k] = q.select(CommandState.t0).order(CommandState.t0, dir='desc').where(CommandState.metadata.section == k).one()
+        out = dict(sorted(out.items(), key=lambda kv: kv[1]))
         if out:
             *_, last = out.keys()
             out[last] = self.time_end()
@@ -252,6 +254,9 @@ class Log:
                 bg = True,
             )
             rows += [bg_row]
+
+        pbutils.p(section_starts)
+        pbutils.p(rows)
 
         q = self.gui_query()
         states = q.where_some(
