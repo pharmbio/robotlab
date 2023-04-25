@@ -56,6 +56,12 @@ class ProtocolPaths:
     def use_blue(self) -> bool:
         return any(self.all_blue_paths())
 
+    def empty(self) -> bool:
+        return not any([
+            *self.all_wash_paths(),
+            *self.all_blue_paths(),
+            *self.all_disp_paths(),
+        ])
 
 template_protocol_paths = ProtocolPaths(
     wash_prime = [
@@ -114,15 +120,17 @@ class Response(TypedDict):
 def get_protocol_paths() -> dict[str, ProtocolPaths]:
     return pbutils.serializer.read_json('protocol_paths.json')
 
+def update_protocol_paths():
+    path_infos = labrobots.WindowsNUC().remote().dir_list.list()
+    res: dict[str, ProtocolPaths] = {}
+    for protocol_dir, infos in pbutils.group_by(path_infos, lambda info: info['path'].partition('/')[0]).items():
+        protocol_paths = make_protocol_paths(protocol_dir, infos)
+        if not protocol_paths.empty():
+            res[protocol_dir] = protocol_paths
+    pbutils.serializer.write_json(res, 'protocol_paths.json', indent=2)
+
 def paths_v5():
     return get_protocol_paths()['automation_v5.0']
-
-def update_protocol_dir(protocol_dir: str):
-    paths = labrobots.WindowsNUC().remote().dir_list.list()
-    protocol_paths = make_protocol_paths(protocol_dir, paths)
-    all_protocol_paths = get_protocol_paths()
-    all_protocol_paths[protocol_dir] = protocol_paths
-    pbutils.serializer.write_json(all_protocol_paths, 'protocol_paths.json', indent=2)
 
 def make_protocol_paths(protocol_dir: str, infos: list[PathInfo]):
     protocol_dir = protocol_dir.rstrip('/')

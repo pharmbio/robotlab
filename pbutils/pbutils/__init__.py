@@ -16,6 +16,7 @@ from .args import doc_header # type: ignore
 
 import json
 from urllib.request import urlopen, Request
+import time
 
 import functools
 
@@ -66,6 +67,18 @@ def test_cache_by():
     assert fn(1) == 2
     assert log == [1]
 
+import queue
+
+def timeout(secs: float, f: Callable[[], A]) -> A | None:
+    q = queue.Queue[A]()
+    @spawn
+    def F():
+        q.put_nowait(f())
+    try:
+        return q.get(block=True, timeout=secs)
+    except queue.Empty:
+        return None
+
 def curl(url: str) -> Any:
     ten_minutes = 60 * 10
     res = json.loads(urlopen(url, timeout=ten_minutes).read())
@@ -101,6 +114,27 @@ def catch(m: Callable[[], A], default: B) -> A | B:
         return m()
     except:
         return default
+
+def throttle(rate_limit_secs: float):
+    def inner(f: Callable[P, R]) -> Callable[P, R]:
+        last_called = 0
+        last_result: R = cast(Any, None)
+        rlock = threading.RLock()
+
+        @functools.wraps(f)
+        def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
+            nonlocal last_called, last_result
+            with rlock:
+                elapsed = time.monotonic() - last_called
+
+                if elapsed >= rate_limit_secs:
+                    last_result = f(*args, **kwargs)
+                    last_called = time.monotonic()
+
+                return last_result
+
+        return wrapper
+    return inner
 
 @dataclass(frozen=False)
 class Mutable(Generic[A]):

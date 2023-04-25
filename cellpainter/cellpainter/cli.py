@@ -45,7 +45,7 @@ class Args:
     lockstep_threshold:        int  = arg(default=10, help='Allow steps to overlap: first plate PFA starts before last plate Mito finished and so on, required for 10 plate batches')
     log_filename:              str  = arg(help='Manually set the log filename instead of having a generated name based on date')
     protocol_dir:              str  = arg(default='automation_v5.0', help='Directory to read biotek .LHC files from on the windows server (relative to the protocol root).')
-    force_update_protocol_dir: bool = arg(help='Update the protcol dir based on the windows server even if config is not --live.')
+    force_update_protocol_paths: bool = arg(help='Update the protcol dir based on the windows server even if config is not --live.')
 
     timing_matrix:             bool = arg(help='Print a timing matrix.')
 
@@ -193,8 +193,8 @@ def main_with_args(args: Args, parser: argparse.ArgumentParser | None=None):
             print(*line, sep='\t')
         quit()
 
-    if args.force_update_protocol_dir or config.name == 'live':
-        protocol_paths.update_protocol_dir(args.protocol_dir)
+    if args.force_update_protocol_paths or config.name == 'live':
+        protocol_paths.update_protocol_paths()
 
     if args.visualize:
         from . import protocol_vis as pv

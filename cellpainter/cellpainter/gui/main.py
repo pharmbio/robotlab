@@ -186,7 +186,7 @@ def index(path_from_route: str | None = None) -> Iterator[Tag | V.Node | dict[st
             & > * {
                 width: 100%;
             }
-        '''
+        ''',
     )
     error_box: None | Tag = None
     yield info

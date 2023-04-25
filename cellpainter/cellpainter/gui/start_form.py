@@ -3,6 +3,8 @@ from typing import *
 from dataclasses import *
 
 from viable import store, call, Str, Bool, div, button
+
+from .. import protocol_paths
 from ..specs3k import renames
 import viable as V
 import viable.provenance as Vp
@@ -26,6 +28,12 @@ from . import common
 
 from urllib.parse import quote_plus
 
+@pbutils.throttle(5.0)
+def throttled_protocol_paths(config: RuntimeConfig):
+    if config.name == 'live':
+        protocol_paths.update_protocol_paths()
+    return protocol_paths.get_protocol_paths()
+
 def start(args: Args, simulate: bool, config: RuntimeConfig, push_state: bool=True):
     config_name = 'simulate' if simulate else config.name
     log_filename = cli.args_to_filename(replace(args, config_name=config_name))
@@ -33,7 +41,7 @@ def start(args: Args, simulate: bool, config: RuntimeConfig, push_state: bool=Tr
         args,
         config_name=config_name,
         log_filename=log_filename,
-        force_update_protocol_dir='live' in config.name,
+        force_update_protocol_paths=config.name == 'live',
         yes=True,
     )
     Path('cache').mkdir(exist_ok=True)
@@ -129,11 +137,20 @@ def start_form(*, config: RuntimeConfig):
     protocol = store.str(default=tuple(options.keys())[0], options=tuple(options.keys()))
     store.assign_names(locals())
 
+    protocol_paths = throttled_protocol_paths(config)
+
     desc = store.str(name='description', desc='Example: "specs395-v1"')
     operators = store.str(name='operators', desc='Example: "Amelie and Christa"')
     incu = store.str(name='incubation times', default='20:00', desc='The incubation times in seconds or minutes:seconds, separated by comma. If too few values are specified, the last value is repeated. Example: 21:00,20:00')
     batch_sizes = store.str(default='6', name='batch sizes', desc='The number of plates per batch, separated by comma. Example: 6,6')
-    protocol_dir = store.str(default='automation_v5.0', name='protocol dir', desc='Directory on the windows computer to read biotek LHC files from')
+
+    protocol_dir = store.str(
+        default='automation_v5.0',
+        name='protocol dir',
+        desc='Directory on the windows computer to read biotek LHC files from',
+        options=sorted(protocol_paths.keys()),
+    )
+
     final_washes = store.str(name='final wash rounds', options=['one', 'two'], desc='Number of final wash rounds. Either run 9_W_*.LHC once or run 9_10_W_*.LHC twice.')
 
     fridge_project = store.str(name='project', default='')
@@ -158,14 +175,20 @@ def start_form(*, config: RuntimeConfig):
 
     form_fields: list[Str | Bool | Vp.List] = []
     if protocol.value == 'cell-paint':
+
+        selected_protocol_paths = protocol_paths.get(protocol_dir.value)
+
         form_fields = [
             desc,
             operators,
             batch_sizes,
             incu,
             protocol_dir,
-            final_washes,
         ]
+        if selected_protocol_paths and selected_protocol_paths.use_wash():
+            form_fields += [
+                final_washes
+            ]
         bs = batch_sizes.value
         incu_csv = incu.value
         args = Args(
