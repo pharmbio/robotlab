@@ -255,9 +255,6 @@ class Log:
             )
             rows += [bg_row]
 
-        pbutils.p(section_starts)
-        pbutils.p(rows)
-
         q = self.gui_query()
         states = q.where_some(
             CommandState.resource == 'disp',
