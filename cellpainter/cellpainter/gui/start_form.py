@@ -127,7 +127,7 @@ def start_form(*, config: RuntimeConfig):
     options = {
         **({'cell-paint': 'cell-paint'} if painter else {}),
         **({'squid-from-fridge-v1': 'squid-from-fridge-v1'} if imager else {}),
-        **({'nikon-from-fridge-v1': 'nikon-from-fridge-v1'} if imager else {}),
+        # **({'nikon-from-fridge-v1': 'nikon-from-fridge-v1'} if imager else {}),
         **{
             k.replace('_', '-'): v
             for k, v in small_protocols_dict(imager=imager, painter=painter).items()

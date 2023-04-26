@@ -932,34 +932,35 @@ def fridge_unload(args: SmallProtocolArgs) -> Program:
 def squid_from_hotel(args: SmallProtocolArgs) -> Program:
     '''
 
-        Images the plate at H12. Params are: protocol, project, plate
+        Images the plate at H12. Params are: protocol, project, plate_name_1, ..., plate_name_N
 
     '''
     cmds: list[Command] = []
-    if len(args.params) != 3:
+    if len(args.params) < 3:
         return Program(Seq())
-    config_path, project, plate = args.params
-    cmds += [
-        WithLock('Squid', [
-            WithLock('PF and Fridge', [
-                SquidStageCmd('goto_loading').fork_and_wait(),
-                PFCmd('H12-to-squid'),
-            ]),
-            Seq(
-                SquidStageCmd('leave_loading'),
-                SquidAcquire(config_path, project=project, plate=plate),
-            ).fork_and_wait(),
-            WithLock('PF and Fridge', [
-                SquidStageCmd('goto_loading').fork_and_wait(),
-                PFCmd('squid-to-H12'),
-            ]),
-            SquidStageCmd('leave_loading').fork_and_wait(),
-        ])
-    ]
+    config_path, project, *plate_names = args.params
+    for plate_name in plate_names:
+        cmds += [
+            WithLock('Squid', [
+                WithLock('PF and Fridge', [
+                    SquidStageCmd('goto_loading').fork_and_wait(),
+                    PFCmd('H12-to-squid'),
+                ]),
+                Seq(
+                    SquidStageCmd('leave_loading'),
+                    SquidAcquire(config_path, project=project, plate=plate_name),
+                ).fork_and_wait(),
+                WithLock('PF and Fridge', [
+                    SquidStageCmd('goto_loading').fork_and_wait(),
+                    PFCmd('squid-to-H12'),
+                ]),
+                SquidStageCmd('leave_loading').fork_and_wait(),
+            ])
+        ]
     return Program(Seq(*cmds))
 
 
-@pf_protocols.append
+# @pf_protocols.append
 def nikon_from_hotel(args: SmallProtocolArgs) -> Program:
     '''
 
@@ -1044,7 +1045,7 @@ def squid_from_fridge(args: SmallProtocolArgs) -> Program:
     cmd = cmd.with_lock('Squid')
     return Program(cmd)
 
-@pf_protocols.append
+# @pf_protocols.append
 def nikon_open_stage(_: SmallProtocolArgs) -> Program:
     return Program(
         Seq(
@@ -1052,7 +1053,7 @@ def nikon_open_stage(_: SmallProtocolArgs) -> Program:
         ).with_lock('Nikon')
     )
 
-@pf_protocols.append
+# @pf_protocols.append
 def H12_to_nikon(_: SmallProtocolArgs) -> Program:
     return Program(
         Seq(
@@ -1062,7 +1063,7 @@ def H12_to_nikon(_: SmallProtocolArgs) -> Program:
         ).with_lock('PF and Fridge').with_lock('Nikon')
     )
 
-@pf_protocols.append
+# @pf_protocols.append
 def nikon_to_H12(_: SmallProtocolArgs) -> Program:
     return Program(
         Seq(
@@ -1071,7 +1072,7 @@ def nikon_to_H12(_: SmallProtocolArgs) -> Program:
         ).with_lock('PF and Fridge').with_lock('Nikon')
     )
 
-@pf_protocols.append
+# @pf_protocols.append
 def nikon_from_fridge(args: SmallProtocolArgs) -> Program:
     '''
 

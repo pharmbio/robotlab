@@ -67,18 +67,6 @@ def test_cache_by():
     assert fn(1) == 2
     assert log == [1]
 
-import queue
-
-def timeout(secs: float, f: Callable[[], A]) -> A | None:
-    q = queue.Queue[A]()
-    @spawn
-    def F():
-        q.put_nowait(f())
-    try:
-        return q.get(block=True, timeout=secs)
-    except queue.Empty:
-        return None
-
 def curl(url: str) -> Any:
     ten_minutes = 60 * 10
     res = json.loads(urlopen(url, timeout=ten_minutes).read())
