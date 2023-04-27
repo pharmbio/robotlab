@@ -26,13 +26,26 @@ from ..runtime import RuntimeConfig
 
 from . import common
 
+import viable.provenance as Vp
+from viable import label, span
+from viable.provenance import Int, Str, Bool
+
 from urllib.parse import quote_plus
+
+import labrobots
 
 @pbutils.throttle(5.0)
 def throttled_protocol_paths(config: RuntimeConfig):
     if config.name == 'live':
         protocol_paths.update_protocol_paths()
     return protocol_paths.get_protocol_paths()
+
+@pbutils.throttle(5.0)
+def throttled_fridge_contents(config: RuntimeConfig):
+    if config.name == 'pf-live':
+        return labrobots.WindowsGBG().remote().fridge.contents()
+    else:
+        return None
 
 def start(args: Args, simulate: bool, config: RuntimeConfig, push_state: bool=True):
     config_name = 'simulate' if simulate else config.name
@@ -119,6 +132,32 @@ form_css = '''
     }
 ''' + common.inverted_inputs_css
 
+def form(*vs: Int | Str | Bool | Vp.List | None):
+    for v in vs:
+        if v is None:
+            yield div(grid_column='1 / -1')
+        elif isinstance(v, Vp.List):
+            inp = v.select([
+                V.option(x, value=x, selected=x in v.value)
+                for x in v.options
+            ])
+            inp.extend(grid_column='1 / -1', width='100%', height='100%', grid_row='span 10', font_size='91%')
+            yield inp
+        else:
+            inp = v.input()
+            inp.extend(id_=v.name, spellcheck="false", autocomplete="off")
+            if len(getattr(v, 'options', []) or []) == 2:
+                inp.extend(
+                    class_='two',
+                    size='2',
+                    overflow='hidden'
+                )
+            yield label(
+                span(f"{v.name or ''}:"),
+                inp,
+                title=v.desc,
+            )
+
 def start_form(*, config: RuntimeConfig):
 
     imager = config.name != 'live'
@@ -127,6 +166,7 @@ def start_form(*, config: RuntimeConfig):
     options = {
         **({'cell-paint': 'cell-paint'} if painter else {}),
         **({'squid-from-fridge-v1': 'squid-from-fridge-v1'} if imager else {}),
+        **({'fridge-metadata': 'fridge-metadata'} if imager else {}),
         # **({'nikon-from-fridge-v1': 'nikon-from-fridge-v1'} if imager else {}),
         **{
             k.replace('_', '-'): v
@@ -151,10 +191,25 @@ def start_form(*, config: RuntimeConfig):
         options=sorted(protocol_paths.keys()),
     )
 
-    final_washes = store.str(name='final wash rounds', options=['one', 'two'], desc='Number of final wash rounds. Either run 9_W_*.LHC once or run 9_10_W_*.LHC twice.')
+    final_washes = store.str(
+        name='final wash rounds',
+        options=['one', 'two'],
+        desc='Number of final wash rounds. Either run 9_W_*.LHC once or run 9_10_W_*.LHC twice.',
+    )
 
-    fridge_project = store.str(name='project', default='')
-    squid_protocol = store.str(name='squid protocol', default='protocols/short_pe.json')
+    projects = {project for project, _barcode in renames.keys()}
+    if fridge_contents := throttled_fridge_contents(config):
+        projects |= {slot['project'] for _, slot in fridge_contents.items()}
+
+    fridge_project = store.str(
+        name='project',
+        default='',
+        suggestions=sorted(projects),
+    )
+    squid_protocol = store.str(
+        name='squid protocol',
+        default='protocols/short_pe.json',
+    )
     nikon_job_names = store.str(name='nikon job names', default='CellPainting_Automation_FA', desc='Separate by comma.')
     fridge_RT_time_secs = store.str(name='RT time secs', default='1800')
     store.assign_names(locals())
@@ -172,22 +227,29 @@ def start_form(*, config: RuntimeConfig):
 
     small_data = options.get(protocol.value)
 
-    form_fields: list[Str | Bool | Vp.List] = []
+    metadata = store.str(name='metadata')
+
+    form_fields: list[Str | Bool | Vp.List | None] = []
+    args: Args | None = None
+    custom_fields: list[V.Tag] = []
     if protocol.value == 'cell-paint':
 
         selected_protocol_paths = protocol_paths.get(protocol_dir.value)
 
+        if selected_protocol_paths and selected_protocol_paths.use_wash():
+            two = final_washes
+        else:
+            two = None
+
         form_fields = [
             desc,
             operators,
+            None,
             batch_sizes,
             incu,
             protocol_dir,
+            two,
         ]
-        if selected_protocol_paths and selected_protocol_paths.use_wash():
-            form_fields += [
-                final_washes
-            ]
         bs = batch_sizes.value
         incu_csv = incu.value
         args = Args(
@@ -200,6 +262,19 @@ def start_form(*, config: RuntimeConfig):
             desc=desc.value,
             operators=operators.value,
         )
+    elif protocol.value == 'fridge-metadata':
+        form_fields = [
+            fridge_project,
+        ]
+        custom_fields = [
+            metadata.textarea().extend(
+                grid_column='1 / -1',
+                grid_row='span 10',
+                width='100%',
+                height='100%',
+            ),
+        ]
+
     elif protocol.value == 'squid-from-fridge-v1':
         form_fields = [
             fridge_project,
@@ -261,11 +336,7 @@ def start_form(*, config: RuntimeConfig):
     err_full: str = ''
     if args:
         try:
-            if config.name == 'pf-live':
-                import labrobots
-                fridge_contents = labrobots.WindowsGBG().remote().fridge.contents()
-            else:
-                fridge_contents = None
+            fridge_contents = throttled_fridge_contents(config)
             stages = cli.args_to_stages(
                 replace(
                     args,
@@ -285,7 +356,7 @@ def start_form(*, config: RuntimeConfig):
                 desc='Stage to start from',
                 options=stages
             )
-            form_fields += [start_from_stage]
+            form_fields += [None, start_from_stage]
             if start_from_stage.value:
                 args = replace(args, start_from_stage=start_from_stage.value)
 
@@ -328,9 +399,10 @@ def start_form(*, config: RuntimeConfig):
         if confirm:
             confirm += '\nStart anyway?'
     yield div(
-        *common.form(protocol),
+        *form(protocol),
         *doc_divs,
-        *common.form(*form_fields),
+        *form(*form_fields),
+        *custom_fields,
         button(
             'simulate',
             onclick=call(start, args=args, simulate=True, config=config),
@@ -385,20 +457,6 @@ def start_form(*, config: RuntimeConfig):
             }
         '''
     )
-    running_processes: list[tuple[int, str]] = []
-    try:
-        x = subprocess.check_output(['pgrep', '^cellpainter$']).decode()
-    except:
-        x = ''
-    for pid in x.strip().split('\n'):
-        try:
-            pid = int(pid)
-            process_args = common.get_json_arg_from_argv(pid)
-            if isinstance(v := process_args.get("log_filename"), str):
-                pbutils.pr(args)
-                running_processes += [(pid, v)]
-        except:
-            pass
 
     info = div(
         grid_area='info',
@@ -412,6 +470,41 @@ def start_form(*, config: RuntimeConfig):
             }
         '''
     )
+    info += running_processes_div()
+    vis = '/vis'
+    if args:
+        vis = '/vis?cmdline=' + quote_plus(cli.args_to_str(args))
+    info += div(
+        'More:',
+        V.ul(
+            V.li(V.a('show logs', href='/logs')),
+            V.li(V.a('show in visualizer', href=vis)),
+            V.li(V.a('edit moves', href='/moves')),
+        ),
+    )
+    yield info
+    yield div(
+        f'Running on {platform.node()} with config {config.name}',
+        grid_area='info-foot',
+        opacity='0.85',
+        margin='0 auto',
+    )
+
+def running_processes_div():
+    running_processes: list[tuple[int, str]] = []
+    try:
+        x = subprocess.check_output(['pgrep', '^cellpainter$']).decode()
+    except:
+        x = ''
+    for pid in x.strip().split('\n'):
+        try:
+            pid = int(pid)
+            process_args = common.get_json_arg_from_argv(pid)
+            if isinstance(v := process_args.get("log_filename"), str):
+                running_processes += [(pid, v)]
+        except:
+            pass
+
     if running_processes:
         ul = V.ul()
         for pid, arg in running_processes:
@@ -434,23 +527,6 @@ def start_form(*, config: RuntimeConfig):
                     border_color='var(--red)',
                 ),
             )
-        info += div('Running processes:', ul)
-    vis = '/vis'
-    if args:
-        vis = '/vis?cmdline=' + quote_plus(cli.args_to_str(args))
-    info += div(
-        'More:',
-        V.ul(
-            # V.li(V.a('show timings', href='/timings')),
-            V.li(V.a('show logs', href='/logs')),
-            V.li(V.a('show in visualizer', href=vis)),
-            V.li(V.a('edit moves', href='/moves')),
-        ),
-    )
-    yield info
-    yield div(
-        f'Running on {platform.node()} with config {config.name}',
-        grid_area='info-foot',
-        opacity='0.85',
-        margin='0 auto',
-    )
+        return div('Running processes:', ul)
+    else:
+        return div()

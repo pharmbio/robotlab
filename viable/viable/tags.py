@@ -198,11 +198,16 @@ class Tag(Node):
     def __getattr__(self, attr: str) -> IAddable:
         if attr in self._attributes_:
             return self.__dict__[attr]
-        return IAddable()
+        elif attr.startswith('_'):
+            raise AttributeError
+        else:
+            return IAddable()
 
     def __setattr__(self, attr: str, value: IAddable):
         if attr in self._attributes_:
             self.__dict__[attr] = value
+        elif attr.startswith('_'):
+            raise AttributeError
         else:
             assert isinstance(value, IAddable)
             self.extend({attr: value.value})
@@ -223,26 +228,27 @@ class Tag(Node):
                 elif isinstance(v, str) and v.isalnum():
                     kvs += [f'{k}={v}']
                 else:
-                    assert isinstance(v, str)
-                    kvs += [f'{k}="{attr_esc(v)}"']
+                    assert isinstance(v, (str, int, float))
+                    kvs += [f'{k}="{attr_esc(str(v))}"']
             attrs = ' ' + ' '.join(kvs)
         else:
             attrs = ''
         name = self.tag_name()
+        open = f'<{name}{attrs}>'
         close = f'</{name}>'
         if re.match('^area|base|br|col|embed|hr|img|input|link|meta|source|track|wbr$', name):
             # https://html.spec.whatwg.org/multipage/syntax.html#void-elements
             close = ''
         if len(self.children) == 0:
-            yield ' ' * i + f'<{name}{attrs}>{close}'
+            yield ' ' * i + f'{open}{close}'
         elif len(self.children) == 1 and isinstance(self.children[0], text):
-            yield ' ' * i + f'<{name}{attrs}>{self.children[0].to_str()}{close}'
+            yield ' ' * i + f'{open}{self.children[0].to_str()}{close}'
         else:
-            yield ' ' * i + f'<{name}{attrs}>'
+            yield ' ' * i + f'{open}'
             for child in self.children:
                 if child:
                     yield from child.to_strs(indent=indent, i=i+indent)
-            yield ' ' * i + close
+            yield ' ' * i + f'{close}'
 
     def make_classes(self, classes: dict[str, tuple[str, str]]) -> dict[str, tuple[str, str]]:
         for decls in self.inline_sheet:

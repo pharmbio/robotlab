@@ -187,7 +187,6 @@ class List(Var[list[str]]):
     options: list[str] = field(default_factory=list)
 
     def from_str(self, s: str | Any) -> list[str]:
-        print(s)
         if not isinstance(s, str):
             s = json.dumps(s)
         return [
@@ -269,6 +268,7 @@ class Bool(Var[bool]):
 class Str(Var[str]):
     default: str=''
     options: None | tuple[str] | list[str] = None
+    suggestions: None | tuple[str] | list[str] = None
     desc: str | None = None
 
     def from_str(self, s: str) -> str:
@@ -298,10 +298,22 @@ class Str(Var[str]):
                     self.update(js('this.selectedOptions[0].dataset.key')),
             )
         else:
-            return Tags.input(
+            inp = Tags.input(
                 **self.bind(iff),
                 title=self.desc,
             )
+            if self.suggestions:
+                datalist_id = f'datalist_{self.full_name}'
+                datalist = Tags.datalist(
+                    *[
+                        Tags.option(value=s)
+                        for s in self.suggestions
+                    ],
+                    id=datalist_id
+                )
+                return inp.extend(list=datalist_id).append(datalist)
+            else:
+                return inp
 
     def textarea(self):
         b = self.bind()

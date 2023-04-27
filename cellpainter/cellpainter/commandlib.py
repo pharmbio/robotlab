@@ -238,9 +238,9 @@ def check_correspondence(command: Command, **ends: dict[int, float]):
         for k in sorted({*ends_a.keys(), *ends_b.keys()}):
             end_a = ends_a.get(k, -1)
             end_b = ends_b.get(k, -1)
-            if end_a == -1: end_a = 'missing'
-            if end_b == -1: end_b = 'missing'
             if abs(end_a - end_b) > 0.5:
+                if end_a == -1: end_a = 'missing'
+                if end_b == -1: end_b = 'missing'
                 cmd = by_id.get(k)
                 if cmd and isinstance(cmd.peel_meta(), AcquireLock | ReleaseLock):
                     pass

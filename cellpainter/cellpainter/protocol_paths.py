@@ -118,27 +118,33 @@ class Response(TypedDict):
     value: list[PathInfo]
 
 def get_protocol_paths() -> dict[str, ProtocolPaths]:
-    return pbutils.serializer.read_json('protocol_paths.json')
+    return {
+        k: v
+        for k, v in pbutils.serializer.read_json('protocol_paths.json').items()
+        if k not in skip
+    }
+
+skip = set('''
+    automation_prep
+    automation
+    automation_onlyDAPI
+    automation_onlyMITO
+    automation_v5.0_AW_CR_noMito
+    bloop
+    BlueWasher
+    dan-test
+    demo
+    generic-384-painting
+    generic-96-painting
+    jordi
+    test-protocols
+    automation_v2
+    automation_v3
+    automation_v3.1
+    automation_v3.2
+'''.split())
 
 def update_protocol_paths():
-    skip = '''
-        automation_prep
-        automation
-        automation_onlyDAPI
-        automation_onlyMITO
-        bloop
-        BlueWasher
-        dan-test
-        demo
-        generic-384-painting
-        generic-96-painting
-        jordi
-        test-protocols
-        automation_v2
-        automation_v3
-        automation_v3.1
-        automation_v3.2
-    '''.split()
     path_infos = labrobots.WindowsNUC().remote().dir_list.list()
     res: dict[str, ProtocolPaths] = {}
     for protocol_dir, infos in sorted(pbutils.group_by(path_infos, lambda info: info['path'].partition('/')[0]).items()):

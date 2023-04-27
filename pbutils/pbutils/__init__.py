@@ -105,19 +105,26 @@ def catch(m: Callable[[], A], default: B) -> A | B:
 
 def throttle(rate_limit_secs: float):
     def inner(f: Callable[P, R]) -> Callable[P, R]:
+        last_args: Any = None
         last_called = 0
         last_result: R = cast(Any, None)
         rlock = threading.RLock()
 
         @functools.wraps(f)
         def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
-            nonlocal last_called, last_result
+            nonlocal last_called, last_result, last_args
             with rlock:
                 elapsed = time.monotonic() - last_called
 
+                current_args = (args, kwargs)
+
                 if elapsed >= rate_limit_secs:
+                    last_args = current_args
                     last_result = f(*args, **kwargs)
                     last_called = time.monotonic()
+                else:
+                    if last_args != current_args:
+                        raise ValueError('throttle does not support changing arguments. {last_args=} {current_args=}')
 
                 return last_result
 
