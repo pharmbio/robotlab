@@ -1,3 +1,42 @@
+[ ] maintenance protocol
+    [ ] imager:
+        1. load a few different kinds of plates and squid image them
+        2. then incu unload and load
+    [ ] painter:
+        have a few plates standing in the lower parts of hotel C
+        have them run a few cycles to disp wash blue (not incu)
+[ ] imager: UI for entering metadata. use datalist suggestion for selecting protocol
+[ ] cellpainter: use quicksim to update estimates while running
+[ ] cellpainter: remove lockstep
+[ ] cellpainter: try to suggest what needs to be shorter for a given incubation time
+[ ] cellpainter: generate table for how many plates are possible for a protocol
+[ ] slack notifications. integrate into web UI
+[ ] use gbg computer to print biotek protocols
+[ ] consider using biotek hash for time estimates
+[ ] operating protocols:
+    [ ] standard painting
+    [ ] standard imaging
+    [ ] maintenance
+    [ ] wash plates clean
+[ ] monitor:
+    [ ] temperature of incubator and fridge
+    [ ] disk usage and load average on computers
+    [ ] trim logs automatically?
+[ ] PF: open gripper before moving
+[ ] test comm should only include relevant machines
+[ ] make it easier to parameterise small protocols
+    [ ] notifications: "1 protocol missing timings: DispCmd('2.0_D_20ul_etop.LHC')"
+[ ] testing:
+    [ ] pbutils.dbmixin
+    [ ] semantics of Command. cleaner errors on missing checkpoint names and deadlocks
+    [ ] infer initial world
+[ ] repo:
+    [ ] merge pbutils into cellpainter?
+    [ ] rename cellpainter to robotlab?
+[ ] gui:
+    [ ] separate tab for robot maintenance (init, freedrive, gripper open)
+[ ] show log files too crowded, too difficult to select many
+
 [x] gripper
     [x] raise gripper if close more than expected
 [ ] main gui
@@ -18,11 +57,6 @@
     [ ] Validate all protocols before starting cell paint
         [x] validate all protocols small protocol gives no feedback in the main gui
     [ ] overview before starting, make a little summary of LHC files before starting
-[ ] commands
-    [ ] Command.WaitForCheckpoint: ensure checkpoint name exists
-    [ ] improve command names:
-        [ ] Duration -> TimeSince
-        [ ] exactly ... at_least ... at_most ...
 [x] small_protocols
     [x] make a load up to 18 plates protocol
 [ ] render archive log

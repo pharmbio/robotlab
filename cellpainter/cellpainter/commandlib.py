@@ -116,7 +116,7 @@ def quicksim(program: Command, checkpoints: dict[str, float], estimate: Callable
                         thread.running = cmd, d - step_t
                     case None:
                         pass
-            t = round(t + step_t, 3)
+            t = t + step_t
 
     main = Thread(program.collect())
 
@@ -227,7 +227,7 @@ def check_correspondence(command: Command, **ends: dict[int, float]):
         if (i := c.metadata.id)
     }
 
-    mismatches = 0
+    mismatches: list[Any] = []
 
     for a, b in pbutils.iterate_with_next(list(ends.items())):
         if b is None:
@@ -236,21 +236,20 @@ def check_correspondence(command: Command, **ends: dict[int, float]):
         src_b, ends_b = b
 
         for k in sorted({*ends_a.keys(), *ends_b.keys()}):
-            end_a = round(ends_a.get(k, -1), 0)
-            end_b = round(ends_b.get(k, -1), 0)
+            end_a = ends_a.get(k, -1)
+            end_b = ends_b.get(k, -1)
             if end_a == -1: end_a = 'missing'
             if end_b == -1: end_b = 'missing'
-            if end_a != end_b:
+            if abs(end_a - end_b) > 0.5:
                 cmd = by_id.get(k)
                 if cmd and isinstance(cmd.peel_meta(), AcquireLock | ReleaseLock):
                     pass
                 else:
-                    pbutils.pr({src_a: end_a, src_b: end_b, 'cmd': cmd})
-                    mismatches += 1
+                    mismatches += [{src_a: end_a, src_b: end_b, 'cmd': cmd}]
                 # if not cmd or not isinstance(cmd.peel_meta(), Checkpoint):
 
     if mismatches:
-        raise ValueError(f'Correspondence check failed {mismatches=} ({" ".join(ends.keys())})')
+        raise ValueError(f'Correspondence check failed {len(mismatches)=} ({" ".join(ends.keys())}) {mismatches=}')
 
 def SCRATCH():
 

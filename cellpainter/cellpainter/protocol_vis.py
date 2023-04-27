@@ -243,12 +243,15 @@ def add_to_serve(serve: Serve, cmdline0: str, cmdline_to_log: Callable[[str], Lo
                     None: 1
                 }.get(m.thread_resource, 1)
             slot = 2 * slot
-            # if machine not in ('', 'robotarm', 'pf'):
-            #     slot += 1
-            if isinstance(e.cmd, commands.WaitForCheckpoint | commands.Checkpoint):
+            if machine in ('', 'robotarm', 'pf'):
                 slot -= 1
+            if isinstance(e.cmd, commands.WaitForCheckpoint):
+                slot -= 1
+            if isinstance(e.cmd, commands.Checkpoint):
+                continue
             if source == 'duration':
-                slot = 18 + plate
+                slot = 10 + plate
+            slot += 1
             color_map = {
                 '':         'var(--fg)',
                 'wait':     'var(--yellow)',

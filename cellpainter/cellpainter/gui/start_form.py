@@ -165,7 +165,6 @@ def start_form(*, config: RuntimeConfig):
     }
     fridge_plates = store.var(Vp.List(name='squid plates', default=[], options=list(filtered_renames.keys())))
     store.assign_names(locals())
-    print('plates:', fridge_plates.value)
 
     num_plates = store.str(name='plates', desc='The number of plates')
     params = store.str(name='params', desc=f'Additional parameters to protocol "{protocol.value}"')
