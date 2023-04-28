@@ -315,6 +315,7 @@ def start_form(*, config: RuntimeConfig):
                         [
                             {'loc': loc, **slot}
                             for loc, slot in throttled_fridge_contents(config).items()
+                            if slot['project'] or slot['plate']
                         ],
                         key=lambda d: (d['project'], d['plate'])
                     )
@@ -323,6 +324,7 @@ def start_form(*, config: RuntimeConfig):
                 grid_row='span 10',
                 width='100%',
                 height='100%',
+                z_index='1000',
             ),
         ]
 
