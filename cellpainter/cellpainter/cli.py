@@ -93,6 +93,8 @@ def args_to_str(args: Args):
         k = f.name
         d = f.default_factory() if callable(f.default_factory) else f.default
         v = getattr(args, k)
+        if k == 'initial_fridge_contents':
+            continue
         k = k.replace('_', '-')
         if v != d:
             if k == 'params' and isinstance(v, list):

@@ -142,6 +142,9 @@ InterleavingName = Literal[
     'blue -> disp',
     'wash -> out',
     'blue -> out',
+    'wash -> disp -> out',
+    'blue -> disp -> out',
+    'disp -> out',
     'disp',
     'wash',
     'blue',
@@ -149,6 +152,24 @@ InterleavingName = Literal[
 
 def make_interleaving(name: InterleavingName, linear: bool) -> Interleaving:
     match name:
+        case 'wash -> disp -> out' | 'blue -> disp -> out':
+            lin = '''
+                incu -> B21 -> wash -> disp -> B21 -> out
+                incu -> B21 -> wash -> disp -> B21 -> out
+            '''
+            ilv = '''
+                incu -> B21  -> wash
+                incu -> B21
+                                wash -> disp
+                        B21  -> wash
+                                        disp -> B21 -> out
+                incu -> B21
+                                wash -> disp
+                        B21  -> wash
+                                        disp -> B21 -> out
+                                wash -> disp
+                                        disp -> B21 -> out
+            '''
         case 'wash -> disp' | 'blue -> disp':
             lin = '''
                 incu -> B21 -> wash -> disp -> B21 -> incu
@@ -218,6 +239,21 @@ def make_interleaving(name: InterleavingName, linear: bool) -> Interleaving:
                 incu -> B21 -> disp
                                        B15 -> B21 -> incu
                                disp -> B15 -> B21 -> incu
+            '''
+        case 'disp -> out':
+            lin = '''
+                incu -> B21 -> disp -> B21 -> out
+                incu -> B21 -> disp -> B21 -> out
+            '''
+            ilv = '''
+                incu -> B21 -> disp
+                               disp -> B15
+                incu -> B21 -> disp
+                                       B15 -> B21 -> out
+                               disp -> B15
+                incu -> B21 -> disp
+                                       B15 -> B21 -> out
+                               disp -> B15 -> B21 -> out
             '''
     if 'blue' in name:
         lin = lin.replace('wash', 'blue')
@@ -348,15 +384,21 @@ def make_protocol_config(paths: ProtocolPaths, args: ProtocolArgsInterface = Pro
         name = dict(enumerate(names)).get(i, f'Step {i+1}')
         last_step = i == len(steps_proto) - 1
         ilv_name: InterleavingName
-        if last_step:
-            if wash:
+        if wash and blue:
+            raise ValueError('Cannot use both biotek washer and bluewasher in the same step [{i=} {wash=} {blue=}]')
+        elif last_step:
+            if wash and disp:
+                ilv_name = 'wash -> disp -> out'
+            elif blue and disp:
+                ilv_name = 'blue -> disp -> out'
+            elif wash:
                 ilv_name = 'wash -> out'
             elif blue:
                 ilv_name = 'blue -> out'
+            elif disp:
+                ilv_name = 'disp -> out'
             else:
-                raise ValueError(f'Last step should be a washing step [{i=} {wash=} {blue=} {disp=}]')
-        elif wash and blue:
-            raise ValueError('Cannot use both biotek washer and bluewasher in the same step [{i=} {wash=} {blue=}]')
+                raise ValueError(f'Invalid last step [{i=} {wash=} {blue=} {disp=}]')
         elif wash and disp:
             ilv_name = 'wash -> disp'
         elif blue and disp:
@@ -368,7 +410,8 @@ def make_protocol_config(paths: ProtocolPaths, args: ProtocolArgsInterface = Pro
         elif disp:
             ilv_name = 'disp'
         else:
-            raise ValueError(f'Step must have some purpose [{i=} {wash=} {blue=} {disp=}]')
+            continue
+            # raise ValueError(f'Step must have some purpose [{i=} {wash=} {blue=} {disp=}]')
         ilv = make_interleaving(ilv_name, linear=not args.interleave)
         steps += [
             Step(
@@ -382,6 +425,8 @@ def make_protocol_config(paths: ProtocolPaths, args: ProtocolArgsInterface = Pro
                 interleaving=ilv,
             )
         ]
+
+    pbutils.pr(steps)
 
     return ProtocolConfig(
         wash_prime = paths.wash_prime,
@@ -480,7 +525,8 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
         if prime
     ]
 
-    use_lockstep = len(batch) >= p.lockstep_threshold
+    # use_lockstep = len(batch) >= p.lockstep_threshold
+    use_lockstep = False # disabled until further notice
 
     for i, (prev_step, step, next_step) in enumerate(pbutils.iterate_with_context(p.steps)):
         for plate in batch:
@@ -540,7 +586,9 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                     Fork(
                         Seq(
                             IncuCmd('get', plate.incu_loc),
-                            Duration(f'{plate_desc} 37C', OptPrio.inside_incu) if step.name == 'PFA' else Idle(),
+                            Duration(f'{plate_desc} 37C', OptPrio.inside_incu)
+                            if step.name == 'PFA' and prev_step else
+                            Idle(),
                         ),
                         align='end',
                     ),
