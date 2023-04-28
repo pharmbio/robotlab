@@ -5,7 +5,7 @@ from dataclasses import *
 from viable import store, call, Str, Bool, div, button
 
 from .. import protocol_paths
-from ..specs3k import renames
+from ..specs3k import renames, protocols
 import viable as V
 import viable.provenance as Vp
 
@@ -231,16 +231,20 @@ def start_form(*, config: RuntimeConfig):
     fridge_RT_time_secs = store.str(name='RT time secs', default='1800')
     store.assign_names(locals())
 
-    filtered_renames = {
-        name: barcode
-        for (project, barcode), name in renames.items()
-        if project == fridge_project.value
-    }
-    for project, barcode in fridge_contents:
-        if project == fridge_project.value:
-            if (project, barcode) not in renames:
-                name = f'{barcode}_{project}'
+    filtered_renames: dict[str, str] = {}
+    for target_project in fridge_project.value.split(','):
+
+        for (project, barcode), name in renames.items():
+            if project == target_project:
+                if protocol_override := protocols.get((project, barcode)):
+                    name = f'{name}:{protocol_override}'
                 filtered_renames[name] = barcode
+
+        for project, barcode in fridge_contents:
+            if project == target_project:
+                if (project, barcode) not in renames:
+                    name = f'{barcode}_{project}'
+                    filtered_renames[name] = barcode
 
     fridge_plates = store.var(Vp.List(name='squid plates', default=[], options=list(filtered_renames.keys())))
     store.assign_names(locals())
@@ -333,7 +337,8 @@ def start_form(*, config: RuntimeConfig):
 
     elif protocol.value == 'squid-from-fridge-v1':
         form_fields = [
-            fridge_project_options,
+            # fridge_project_options,
+            fridge_project,
             squid_protocol,
             fridge_RT_time_secs,
             fridge_plates,

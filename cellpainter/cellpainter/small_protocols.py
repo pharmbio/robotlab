@@ -1014,9 +1014,12 @@ def squid_from_fridge(args: SmallProtocolArgs) -> Program:
                 if slot['project'] == project
                 if slot['plate'] == barcode
             ) != 1:
-                raise ValueError(f'Could not find {barcode=} from {project=} in fridge!')
-    RT_time_secs = float(RT_time_secs_str)
-    for i, (barcode, plate) in enumerate(zip(barcodes, plates, strict=True), start=1):
+                pass
+                # raise ValueError(f'Could not find {barcode=} from {project=} in fridge!')
+    RT_time_secs: list[float] = [float(rt) for rt in RT_time_secs_str.split(',')]
+    for i, (barcode, plate_and_config_override) in enumerate(zip(barcodes, plates, strict=True), start=1):
+        plate, sep, config_override = plate_and_config_override.partition(':')
+        plus_secs = dict(enumerate(RT_time_secs)).get(i, RT_time_secs[-1])
         cmds += [
             FridgeEject(plate=barcode, project=project).fork_and_wait(),
             Checkpoint(f'RT {i}'),
@@ -1026,8 +1029,8 @@ def squid_from_fridge(args: SmallProtocolArgs) -> Program:
 
             Seq(
                 SquidStageCmd('leave_loading'),
-                WaitForCheckpoint(f'RT {i}', plus_secs=RT_time_secs, assume='nothing'),
-                SquidAcquire(config_path, project=project, plate=plate),
+                WaitForCheckpoint(f'RT {i}', plus_secs=plus_secs, assume='nothing'),
+                SquidAcquire(config_override or config_path, project=project, plate=plate),
             ).fork_and_wait(),
 
             SquidStageCmd('goto_loading').fork_and_wait(),

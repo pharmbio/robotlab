@@ -140,13 +140,19 @@ rename_table = str('''
     colo52  PB000039  HCT116_P2_L2
     colo52  PB000040  HCT116_DMSO_L8
     sim     S01       P1_L1
+    P53  PB900001  L2  protocols/p53_PE.json
+    P53  PB900000  L1  protocols/p53_PE.json
+    YM   PB900002  L1  protocols/YM_L1.json
+    YM   PB900003  L2  protocols/YM_L2.json
 ''')
 
 renames: dict[tuple[str, str], str] = {}
+protocols: dict[tuple[str, str], str] = {}
 for line in textwrap.dedent(rename_table).splitlines():
     if line:
-        project, barcode, metadata = line.split()
+        project, barcode, metadata, *protocol = line.split()
         renames[project, barcode] = f'{barcode}_{project}_{metadata}'.removeprefix('(384)')
+        protocols[project, barcode] = ':'.join(protocol)
         # we used this normalization for specs3k,
         # but for RMS-SPECS we won't do it anymore:
         # .replace('-', '_')
