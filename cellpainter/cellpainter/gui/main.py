@@ -23,7 +23,7 @@ from .. import runtime
 
 from .start_form import start_form, start
 from .vis import AnalyzeResult
-from .show_logs import show_logs
+from .show_logs import show_logs, add_timings
 
 from . import common
 from .db_edit import Edit
@@ -399,6 +399,7 @@ def index(path_from_route: str | None = None) -> Iterator[Tag | V.Node | dict[st
             if path_is_latest:
                 # skip showing buttons for endpoint /latest
                 start_button = ''
+                store_timings_button = ''
             elif path:
                 start_button = button(
                     common.triangle(), ' ', 'start',
@@ -422,8 +423,30 @@ def index(path_from_route: str | None = None) -> Iterator[Tag | V.Node | dict[st
                         outline-offset: -1px;
                     }'''
                 )
+                store_timings_button = button(
+                    'store timings',
+                    onclick=
+                        call(
+                            add_timings,
+                            [Path(path)]
+                        ),
+                    css='''
+                        padding: 8px 20px;
+                        border-radius: 3px;
+                        background: var(--bg);
+                        color: var(--fg);
+                        margin-left: 36px;
+                    ''',
+                    css_='''&:focus, &:focus-within {
+                        outline: 2px var(--fg) solid;
+                        outline-offset: -1px;
+                    }'''
+                )
+
+                ''
             else:
                 start_button = ''
+                store_timings_button = ''
             if log and simulation_completed:
                 G = log.group_durations()
                 incubations = [times for event_name, times in G.items() if 'incubation' in event_name]
@@ -440,7 +463,10 @@ def index(path_from_route: str | None = None) -> Iterator[Tag | V.Node | dict[st
                         start_button,
                     )
                     if simulation_completed else
-                    'Finished successfully!'
+                    span(
+                        'Finished successfully!',
+                        store_timings_button,
+                    )
                 ),
                 border='2px var(--green) solid',
                 color='#eee',

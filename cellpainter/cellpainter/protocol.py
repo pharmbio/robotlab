@@ -426,7 +426,7 @@ def make_protocol_config(paths: ProtocolPaths, args: ProtocolArgsInterface = Pro
             )
         ]
 
-    pbutils.pr(steps)
+    # pbutils.pr(steps)
 
     return ProtocolConfig(
         wash_prime = paths.wash_prime,
