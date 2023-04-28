@@ -232,6 +232,7 @@ def start_form(*, config: RuntimeConfig):
     store.assign_names(locals())
 
     filtered_renames: dict[str, str] = {}
+    name_to_project: dict[str, str] = {}
     for target_project in fridge_project.value.split(','):
 
         for (project, barcode), name in renames.items():
@@ -239,12 +240,14 @@ def start_form(*, config: RuntimeConfig):
                 if protocol_override := protocols.get((project, barcode)):
                     name = f'{name}:{protocol_override}'
                 filtered_renames[name] = barcode
+                name_to_project[name] = target_project
 
         for project, barcode in fridge_contents:
             if project == target_project:
                 if (project, barcode) not in renames:
                     name = f'{barcode}_{project}'
                     filtered_renames[name] = barcode
+                    name_to_project[name] = target_project
 
     fridge_plates = store.var(Vp.List(name='squid plates', default=[], options=list(filtered_renames.keys())))
     store.assign_names(locals())
@@ -334,7 +337,6 @@ def start_form(*, config: RuntimeConfig):
             ),
         ]
 
-
     elif protocol.value == 'squid-from-fridge-v1':
         form_fields = [
             # fridge_project_options,
@@ -343,17 +345,19 @@ def start_form(*, config: RuntimeConfig):
             fridge_RT_time_secs,
             fridge_plates,
         ]
+        plates: list[str] = []
+        for full_name in fridge_plates.value:
+            name, _sep, squid_config = full_name.partition(':')
+            if not squid_config:
+                squid_config = squid_protocol.value
+            project = name_to_project[full_name]
+            barcode = filtered_renames[full_name]
+            plates += [f'{squid_config}:{project}:{barcode}:{name}']
         args = Args(
             small_protocol='squid_from_fridge',
             params=[
-                squid_protocol.value,
-                fridge_project.value,
                 fridge_RT_time_secs.value,
-                *[
-                    param
-                    for name in fridge_plates.value
-                    for param in [filtered_renames[name], name]
-                ]
+                *plates,
             ]
         )
     elif protocol.value == 'nikon-from-fridge-v1':

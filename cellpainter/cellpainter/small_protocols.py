@@ -996,18 +996,20 @@ def nikon_from_hotel(args: SmallProtocolArgs) -> Program:
 def squid_from_fridge(args: SmallProtocolArgs) -> Program:
     '''
 
-        Images plates in the fridge. Params are: protocol, project, RT_time_secs, plate1_barcode, plate1_name, plate2_barcode, plate2_name,..., plateN_barcode, plateN_name
+        Images plates in the fridge.  Params are:
+            RT_time_secs_csv
+            plate1_config:project:barcode:name
+            plate2_config:project:barcode:name
 
     '''
     cmds: list[Command] = []
     if len(args.params) < 5:
         return Program(Seq())
-    config_path, project, RT_time_secs_str, *barcode_and_plates = args.params
-    barcodes = barcode_and_plates[0::2]
-    plates = barcode_and_plates[1::2]
+    RT_time_secs_csv, *plates = args.params
     contents = args.fridge_contents
     if contents is not None:
-        for barcode in barcodes:
+        for plate in plates:
+            config, project, barcode, name = plate.split(':')
             if sum(
                 1
                 for _loc, slot in contents.items()
@@ -1016,10 +1018,10 @@ def squid_from_fridge(args: SmallProtocolArgs) -> Program:
             ) != 1:
                 pass
                 # raise ValueError(f'Could not find {barcode=} from {project=} in fridge!')
-    RT_time_secs: list[float] = [float(rt) for rt in RT_time_secs_str.split(',')]
-    for i, (barcode, plate_and_config_override) in enumerate(zip(barcodes, plates, strict=True), start=1):
-        plate, sep, config_override = plate_and_config_override.partition(':')
-        plus_secs = dict(enumerate(RT_time_secs)).get(i, RT_time_secs[-1])
+    RT_time_secs: list[float] = [float(rt) for rt in RT_time_secs_csv.split(',')]
+    for i, plate in enumerate(plates, start=1):
+        config, project, barcode, name = plate.split(':')
+        plus_secs = dict(enumerate(RT_time_secs, start=1)).get(i, RT_time_secs[-1])
         cmds += [
             FridgeEject(plate=barcode, project=project).fork_and_wait(),
             Checkpoint(f'RT {i}'),
@@ -1030,7 +1032,7 @@ def squid_from_fridge(args: SmallProtocolArgs) -> Program:
             Seq(
                 SquidStageCmd('leave_loading'),
                 WaitForCheckpoint(f'RT {i}', plus_secs=plus_secs, assume='nothing'),
-                SquidAcquire(config_override or config_path, project=project, plate=plate),
+                SquidAcquire(config, project=project, plate=name),
             ).fork_and_wait(),
 
             SquidStageCmd('goto_loading').fork_and_wait(),
@@ -1045,121 +1047,119 @@ def squid_from_fridge(args: SmallProtocolArgs) -> Program:
     cmd = cmd.with_lock('Squid')
     return Program(cmd)
 
-# @pf_protocols.append
-def nikon_open_stage(_: SmallProtocolArgs) -> Program:
-    return Program(
-        Seq(
-            NikonStageCmd('goto_loading').fork_and_wait(),
-        ).with_lock('Nikon')
-    )
+# # @pf_protocols.append
+# def nikon_open_stage(_: SmallProtocolArgs) -> Program:
+#     return Program(
+#         Seq(
+#             NikonStageCmd('goto_loading').fork_and_wait(),
+#         ).with_lock('Nikon')
+#     )
 
-# @pf_protocols.append
-def H12_to_nikon(_: SmallProtocolArgs) -> Program:
-    return Program(
-        Seq(
-            NikonStageCmd('goto_loading').fork_and_wait(),
-            PFCmd('H12-to-nikon'),
-            NikonStageCmd('leave_loading').fork_and_wait(),
-        ).with_lock('PF and Fridge').with_lock('Nikon')
-    )
+# # @pf_protocols.append
+# def H12_to_nikon(_: SmallProtocolArgs) -> Program:
+#     return Program(
+#         Seq(
+#             NikonStageCmd('goto_loading').fork_and_wait(),
+#             PFCmd('H12-to-nikon'),
+#             NikonStageCmd('leave_loading').fork_and_wait(),
+#         ).with_lock('PF and Fridge').with_lock('Nikon')
+#     )
 
-# @pf_protocols.append
-def nikon_to_H12(_: SmallProtocolArgs) -> Program:
-    return Program(
-        Seq(
-            NikonStageCmd('goto_loading').fork_and_wait(),
-            PFCmd('nikon-to-H12'),
-        ).with_lock('PF and Fridge').with_lock('Nikon')
-    )
+# # @pf_protocols.append
+# def nikon_to_H12(_: SmallProtocolArgs) -> Program:
+#     return Program(
+#         Seq(
+#             NikonStageCmd('goto_loading').fork_and_wait(),
+#             PFCmd('nikon-to-H12'),
+#         ).with_lock('PF and Fridge').with_lock('Nikon')
+#     )
 
-# @pf_protocols.append
-def nikon_from_fridge(args: SmallProtocolArgs) -> Program:
-    '''
-
-        Images plates in the fridge. Params are: job names (comma-separated), project, RT_time_secs, plate1_barcode, plate1_name, plate2_barcode, plate2_name,..., plateN_barcode, plateN_name
-
-    '''
-    cmds: list[Command] = []
-    if len(args.params) < 5:
-        return Program(Seq())
-    job_names_csv, project, RT_time_secs_str, *barcode_and_plates = args.params
-    job_names = job_names_csv.split(',')
-    barcodes = barcode_and_plates[0::2]
-    plates = barcode_and_plates[1::2]
-    contents = args.fridge_contents
-    if contents is not None:
-        for barcode in barcodes:
-            if sum(
-                1
-                for _loc, slot in contents.items()
-                if slot['project'] == project
-                if slot['plate'] == barcode
-            ) != 1:
-                raise ValueError(f'Could not find {barcode=} from {project=} in fridge!')
-    RT_time_secs = float(RT_time_secs_str)
-    chunks: dict[tuple[str, int], list[Command]] = {}
-    for i, (barcode, plate) in enumerate(zip(barcodes, plates, strict=True), start=1):
-        chunks['fridge -> H11', i] = [
-            # get from fridge
-            Checkpoint(f'Delay eject {i}'),
-            WaitForCheckpoint(f'Delay eject {i}', assume='nothing') + f'slack {i}',
-            # Duration(f'Delay eject {i}', Min(2)),
-            FridgeEject(plate=barcode, project=project, check_barcode=False).fork_and_wait(),
-            Checkpoint(f'RT {i}'),
-            PFCmd(f'fridge-to-H12'),
-            PFCmd(f'H12-to-H11'),
-        ]
-        chunks['H11 -> nikon', i] = [
-            WaitForCheckpoint(f'RT {i}', plus_secs=RT_time_secs, assume='nothing'),
-            Duration(f'RT {i}', Min(3)),
-            PFCmd(f'H11-to-H12'),
-            NikonStageCmd('goto_loading').fork_and_wait(),
-            NikonStageCmd('init_laser').fork_and_wait(),
-            PFCmd(f'H12-to-nikon'),
-            Seq(
-                NikonStageCmd('leave_loading'),
-                *[
-                    NikonAcquire(job_name=job_name, project=project, plate=plate).add(Metadata(plate_id=str(i)))
-                    for job_name in job_names
-                ],
-            ).fork(),
-        ]
-        chunks['nikon -> fridge', i] = [
-            WaitForResource('nikon'),
-            NikonStageCmd('goto_loading').fork_and_wait(),
-            PFCmd(f'nikon-to-H12'),
-            NikonStageCmd('leave_loading').fork(),
-            BarcodeClear(),
-            PFCmd(f'H12-to-fridge'),
-            FridgeInsert(
-                project,
-                # expected_barcode=barcode
-                assume_barcode=barcode, # for RMS-SPECS
-            ).fork_and_wait(),
-            WaitForResource('nikon'),
-        ]
-    ilv = Interleaving.init('''
-        fridge -> H11
-                  H11 -> nikon
-        fridge -> H11
-                         nikon -> fridge
-                  H11 -> nikon
-        fridge -> H11
-                         nikon -> fridge
-                  H11 -> nikon
-                         nikon -> fridge
-    ''')
-    for i, substep in ilv.inst(list([i for i, _ in enumerate(plates, start=1)])):
-        cmds += [Seq(*chunks[substep, i]).add(Metadata(section=f'{1 + (i-1)//10} {0}'))]
-    cmds = [
-        Checkpoint('start'),
-        *cmds,
-        Duration('start', Min(2)),
-    ]
-    cmd = Seq(*cmds)
-    cmd = cmd.with_lock('PF and Fridge')
-    cmd = cmd.with_lock('Nikon')
-    return Program(cmd)
+# # @pf_protocols.append
+# def nikon_from_fridge(args: SmallProtocolArgs) -> Program:
+#     '''
+#         Images plates in the fridge. Params are: job names (comma-separated), project, RT_time_secs, plate1_barcode, plate1_name, plate2_barcode, plate2_name,..., plateN_barcode, plateN_name
+#     '''
+#     cmds: list[Command] = []
+#     if len(args.params) < 5:
+#         return Program(Seq())
+#     job_names_csv, project, RT_time_secs_str, *barcode_and_plates = args.params
+#     job_names = job_names_csv.split(',')
+#     barcodes = barcode_and_plates[0::2]
+#     plates = barcode_and_plates[1::2]
+#     contents = args.fridge_contents
+#     if contents is not None:
+#         for barcode in barcodes:
+#             if sum(
+#                 1
+#                 for _loc, slot in contents.items()
+#                 if slot['project'] == project
+#                 if slot['plate'] == barcode
+#             ) != 1:
+#                 raise ValueError(f'Could not find {barcode=} from {project=} in fridge!')
+#     RT_time_secs = float(RT_time_secs_str)
+#     chunks: dict[tuple[str, int], list[Command]] = {}
+#     for i, (barcode, plate) in enumerate(zip(barcodes, plates, strict=True), start=1):
+#         chunks['fridge -> H11', i] = [
+#             # get from fridge
+#             Checkpoint(f'Delay eject {i}'),
+#             WaitForCheckpoint(f'Delay eject {i}', assume='nothing') + f'slack {i}',
+#             # Duration(f'Delay eject {i}', Min(2)),
+#             FridgeEject(plate=barcode, project=project, check_barcode=False).fork_and_wait(),
+#             Checkpoint(f'RT {i}'),
+#             PFCmd(f'fridge-to-H12'),
+#             PFCmd(f'H12-to-H11'),
+#         ]
+#         chunks['H11 -> nikon', i] = [
+#             WaitForCheckpoint(f'RT {i}', plus_secs=RT_time_secs, assume='nothing'),
+#             Duration(f'RT {i}', Min(3)),
+#             PFCmd(f'H11-to-H12'),
+#             NikonStageCmd('goto_loading').fork_and_wait(),
+#             NikonStageCmd('init_laser').fork_and_wait(),
+#             PFCmd(f'H12-to-nikon'),
+#             Seq(
+#                 NikonStageCmd('leave_loading'),
+#                 *[
+#                     NikonAcquire(job_name=job_name, project=project, plate=plate).add(Metadata(plate_id=str(i)))
+#                     for job_name in job_names
+#                 ],
+#             ).fork(),
+#         ]
+#         chunks['nikon -> fridge', i] = [
+#             WaitForResource('nikon'),
+#             NikonStageCmd('goto_loading').fork_and_wait(),
+#             PFCmd(f'nikon-to-H12'),
+#             NikonStageCmd('leave_loading').fork(),
+#             BarcodeClear(),
+#             PFCmd(f'H12-to-fridge'),
+#             FridgeInsert(
+#                 project,
+#                 # expected_barcode=barcode
+#                 assume_barcode=barcode, # for RMS-SPECS
+#             ).fork_and_wait(),
+#             WaitForResource('nikon'),
+#         ]
+#     ilv = Interleaving.init('''
+#         fridge -> H11
+#                   H11 -> nikon
+#         fridge -> H11
+#                          nikon -> fridge
+#                   H11 -> nikon
+#         fridge -> H11
+#                          nikon -> fridge
+#                   H11 -> nikon
+#                          nikon -> fridge
+#     ''')
+#     for i, substep in ilv.inst(list([i for i, _ in enumerate(plates, start=1)])):
+#         cmds += [Seq(*chunks[substep, i]).add(Metadata(section=f'{1 + (i-1)//10} {0}'))]
+#     cmds = [
+#         Checkpoint('start'),
+#         *cmds,
+#         Duration('start', Min(2)),
+#     ]
+#     cmd = Seq(*cmds)
+#     cmd = cmd.with_lock('PF and Fridge')
+#     cmd = cmd.with_lock('Nikon')
+#     return Program(cmd)
 
 
 @dataclass(frozen=True)
