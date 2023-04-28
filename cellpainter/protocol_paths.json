@@ -538,6 +538,55 @@
       ""
     ]
   },
+  "automation_v5.0_blue_temp": {
+    "type": "ProtocolPaths",
+    "wash_prime": [
+      ""
+    ],
+    "wash_5": [
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    "wash_6": [
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    "disp_prime": [
+      "",
+      "automation_v5.0_blue_temp/4.0_D_SA_PRIME_PFA.LHC",
+      "automation_v5.0_blue_temp/6.0_D_P2_PRIME_PBS.LHC",
+      ""
+    ],
+    "disp_prep": [
+      "",
+      "",
+      "",
+      ""
+    ],
+    "disp_main": [
+      "automation_v5.0_blue_temp/2.1_D_SB_ignore.LHC",
+      "automation_v5.0_blue_temp/4.1_D_SA_40ul_PFA.LHC",
+      "automation_v5.0_blue_temp/6.1_D_P2_20ul_PBS.LHC",
+      ""
+    ],
+    "blue_prime": [
+      "automation_v5.0_blue_temp/0_W_Prime-Green-Full.prog"
+    ],
+    "blue": [
+      "",
+      "",
+      "automation_v5.0_blue_temp/5_W_MagBeadSpinWash-1X-no-PBS.prog",
+      "",
+      ""
+    ]
+  },
   "automation_v5.1": {
     "type": "ProtocolPaths",
     "wash_prime": [
