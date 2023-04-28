@@ -48,8 +48,10 @@ def throttled_fridge_contents(config: RuntimeConfig) -> FridgeSlots:
     else:
         return {
             '1x1': {'project': 'sim', 'plate': 'S01'},
-            '1x2': {'project': 'sim', 'plate': 'S02'},
-            '1x3': {'project': 'sim', 'plate': 'S03'},
+            '1x2': {'project': 'sim', 'plate': 'S03'},
+            '1x3': {'project': 'sim', 'plate': 'S02'},
+            '1x4': {'project': '', 'plate': ''},
+            '1x5': {'project': '', 'plate': ''},
         }
 
 def start(args: Args, simulate: bool, config: RuntimeConfig, push_state: bool=True):
@@ -209,7 +211,7 @@ def start_form(*, config: RuntimeConfig):
     ])
 
     projects = {project for project, _barcode in renames.keys()}
-    projects |= {project for project, _barcode in fridge_contents}
+    projects |= {project for project, _barcode in fridge_contents if project}
 
     fridge_project_options = store.str(
         name='project',
