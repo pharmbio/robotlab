@@ -33,6 +33,7 @@ from viable.provenance import Int, Str, Bool
 from urllib.parse import quote_plus
 
 import labrobots
+from labrobots.liconic import FridgeSlots
 
 @pbutils.throttle(5.0)
 def throttled_protocol_paths(config: RuntimeConfig):
@@ -41,11 +42,15 @@ def throttled_protocol_paths(config: RuntimeConfig):
     return protocol_paths.get_protocol_paths()
 
 @pbutils.throttle(5.0)
-def throttled_fridge_contents(config: RuntimeConfig):
+def throttled_fridge_contents(config: RuntimeConfig) -> FridgeSlots:
     if config.name == 'pf-live':
         return labrobots.WindowsGBG().remote().fridge.contents()
     else:
-        return None
+        return {
+            '1x1': {'project': 'sim', 'plate': 'S01'},
+            '1x2': {'project': 'sim', 'plate': 'S02'},
+            '1x3': {'project': 'sim', 'plate': 'S03'},
+        }
 
 def start(args: Args, simulate: bool, config: RuntimeConfig, push_state: bool=True):
     config_name = 'simulate' if simulate else config.name
@@ -166,7 +171,8 @@ def start_form(*, config: RuntimeConfig):
     options = {
         **({'cell-paint': 'cell-paint'} if painter else {}),
         **({'squid-from-fridge-v1': 'squid-from-fridge-v1'} if imager else {}),
-        **({'fridge-metadata': 'fridge-metadata'} if imager else {}),
+        # **({'fridge-metadata': 'fridge-metadata'} if imager else {}),
+        **({'fridge-contents': 'fridge-contents'} if imager else {}),
         # **({'nikon-from-fridge-v1': 'nikon-from-fridge-v1'} if imager else {}),
         **{
             k.replace('_', '-'): v
@@ -197,10 +203,19 @@ def start_form(*, config: RuntimeConfig):
         desc='Number of final wash rounds. Either run 9_W_*.LHC once or run 9_10_W_*.LHC twice.',
     )
 
-    projects = {project for project, _barcode in renames.keys()}
-    if fridge_contents := throttled_fridge_contents(config):
-        projects |= {slot['project'] for _, slot in fridge_contents.items()}
+    fridge_contents = sorted([
+        (slot['project'], slot['plate'])
+        for _, slot in throttled_fridge_contents(config).items()
+    ])
 
+    projects = {project for project, _barcode in renames.keys()}
+    projects |= {project for project, _barcode in fridge_contents}
+
+    fridge_project_options = store.str(
+        name='project',
+        default='',
+        options=sorted(projects),
+    )
     fridge_project = store.str(
         name='project',
         default='',
@@ -213,11 +228,18 @@ def start_form(*, config: RuntimeConfig):
     nikon_job_names = store.str(name='nikon job names', default='CellPainting_Automation_FA', desc='Separate by comma.')
     fridge_RT_time_secs = store.str(name='RT time secs', default='1800')
     store.assign_names(locals())
+
     filtered_renames = {
         name: barcode
         for (project, barcode), name in renames.items()
         if project == fridge_project.value
     }
+    for project, barcode in fridge_contents:
+        if project == fridge_project.value:
+            if (project, barcode) not in renames:
+                name = f'{barcode}_{project}'
+                filtered_renames[name] = barcode
+
     fridge_plates = store.var(Vp.List(name='squid plates', default=[], options=list(filtered_renames.keys())))
     store.assign_names(locals())
 
@@ -267,7 +289,36 @@ def start_form(*, config: RuntimeConfig):
             fridge_project,
         ]
         custom_fields = [
+            div(
+                'fields: barcode [metadata [squid-protocol]]',
+                css='grid-column: 1 / -1; place-self: end start;',
+            ),
             metadata.textarea().extend(
+                grid_column='1 / -1',
+                grid_row='span 10',
+                width='100%',
+                height='100%',
+            ),
+            div(
+                button(
+                    'fill in from fridge',
+                ),
+                css='grid-column: 1 / -1; place-self: start;',
+            )
+        ]
+
+    elif protocol.value == 'fridge-contents':
+        custom_fields = [
+            div(
+                common.make_table(
+                    sorted(
+                        [
+                            {'loc': loc, **slot}
+                            for loc, slot in throttled_fridge_contents(config).items()
+                        ],
+                        key=lambda d: (d['project'], d['plate'])
+                    )
+                ),
                 grid_column='1 / -1',
                 grid_row='span 10',
                 width='100%',
@@ -275,9 +326,10 @@ def start_form(*, config: RuntimeConfig):
             ),
         ]
 
+
     elif protocol.value == 'squid-from-fridge-v1':
         form_fields = [
-            fridge_project,
+            fridge_project_options,
             squid_protocol,
             fridge_RT_time_secs,
             fridge_plates,
@@ -318,30 +370,40 @@ def start_form(*, config: RuntimeConfig):
     elif isinstance(small_data, SmallProtocolData):
         if 'num_plates' in small_data.args:
             form_fields += [num_plates]
-        if 'params' in small_data.args:
+        if small_data.name in ('fridge_load',):
+            form_fields += [fridge_project]
+            params_value = [fridge_project.value]
+        elif small_data.name in ('fridge_unload'):
+            form_fields += [fridge_project_options]
+            params_value = [fridge_project.value]
+        elif 'params' in small_data.args:
             form_fields += [params]
+            params_value = pbutils.catch(lambda: shlex.split(params.value), [])
+        else:
+            params_value = []
         if 'protocol_dir' in small_data.args:
             form_fields += [protocol_dir]
         args = Args(
             small_protocol=small_data.name,
             num_plates=pbutils.catch(lambda: int(num_plates.value), 0),
-            params=pbutils.catch(lambda: shlex.split(params.value), []),
+            params=params_value,
             protocol_dir=protocol_dir.value,
         )
     else:
         form_fields = []
         args = None
 
+    if args:
+        args = replace(args, initial_fridge_contents=json.dumps(throttled_fridge_contents(config)))
+
     err: str = ''
     err_full: str = ''
     if args:
         try:
-            fridge_contents = throttled_fridge_contents(config)
             stages = cli.args_to_stages(
                 replace(
                     args,
                     incu='x',
-                    initial_fridge_contents=json.dumps(fridge_contents)
                 )
             )
         except BaseException as e:
@@ -470,7 +532,7 @@ def start_form(*, config: RuntimeConfig):
             }
         '''
     )
-    info += running_processes_div()
+    # info += running_processes_div()
     vis = '/vis'
     if args:
         vis = '/vis?cmdline=' + quote_plus(cli.args_to_str(args))

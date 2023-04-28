@@ -139,6 +139,7 @@ rename_table = str('''
     colo52  PB000038  HCT116_P1_L2
     colo52  PB000039  HCT116_P2_L2
     colo52  PB000040  HCT116_DMSO_L8
+    sim     S01       P1_L1
 ''')
 
 renames: dict[tuple[str, str], str] = {}

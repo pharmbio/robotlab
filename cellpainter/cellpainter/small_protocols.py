@@ -870,7 +870,9 @@ def pf_stop_freedrive(args: SmallProtocolArgs) -> Program:
 def fridge_load(args: SmallProtocolArgs) -> Program:
     '''
 
-        Loads --num-plates from hotel to fridge. Specify the project of the plates in params[0].
+        Loads --num-plates from hotel to fridge.
+
+        Specify the project of the plates in params[0].
 
     '''
     cmds: list[Command] = []
@@ -895,18 +897,17 @@ def fridge_load(args: SmallProtocolArgs) -> Program:
 def fridge_unload(args: SmallProtocolArgs) -> Program:
     '''
 
-        Unloads --num-plates from fridge to hotel in dictionary order. Specify the project of the plates in params[0].
+        Unloads --num-plates from fridge to hotel in dictionary order.
+
+        Specify the project of the plates in params[0].
 
     '''
     cmds: list[Command] = []
     args.num_plates
     if len(args.params) != 1:
         return Program(Seq())
-    import labrobots
-    try:
-        contents = labrobots.WindowsGBG().remote().fridge.contents()
-    except:
-        contents = {}
+    contents = args.fridge_contents
+    print(contents)
     project, *_ = args.params
     plates = sorted(
         [
@@ -1004,11 +1005,7 @@ def squid_from_fridge(args: SmallProtocolArgs) -> Program:
     config_path, project, RT_time_secs_str, *barcode_and_plates = args.params
     barcodes = barcode_and_plates[0::2]
     plates = barcode_and_plates[1::2]
-    import labrobots
-    try:
-        contents = labrobots.WindowsGBG().remote().fridge.contents()
-    except:
-        contents = None
+    contents = args.fridge_contents
     if contents is not None:
         for barcode in barcodes:
             if sum(
