@@ -998,12 +998,12 @@ def squid_from_fridge(args: SmallProtocolArgs) -> Program:
 
         Images plates in the fridge.  Params are:
             RT_time_secs_csv
-            plate1_config:project:barcode:name
-            plate2_config:project:barcode:name
+            plate1_squid_config:project:barcode:name
+            plate2_squid_config:project:barcode:name
 
     '''
     cmds: list[Command] = []
-    if len(args.params) < 5:
+    if not len(args.params):
         return Program(Seq())
     RT_time_secs_csv, *plates = args.params
     contents = args.fridge_contents
@@ -1019,11 +1019,15 @@ def squid_from_fridge(args: SmallProtocolArgs) -> Program:
                 pass
                 # raise ValueError(f'Could not find {barcode=} from {project=} in fridge!')
     RT_time_secs: list[float] = [float(rt) for rt in RT_time_secs_csv.split(',')]
+    if not RT_time_secs:
+        raise ValueError('Specify some RT time. Example: "1800" for 30 minutes')
+    if not plates:
+        raise ValueError('Select some plates.')
     for i, plate in enumerate(plates, start=1):
         config, project, barcode, name = plate.split(':')
         plus_secs = dict(enumerate(RT_time_secs, start=1)).get(i, RT_time_secs[-1])
         cmds += [
-            FridgeEject(plate=barcode, project=project).fork_and_wait(),
+            FridgeEject(plate=barcode, project=project, check_barcode=False).fork_and_wait(),
             Checkpoint(f'RT {i}'),
             PFCmd(f'fridge-to-H12'),
             SquidStageCmd('goto_loading').fork_and_wait(),
@@ -1040,7 +1044,11 @@ def squid_from_fridge(args: SmallProtocolArgs) -> Program:
             SquidStageCmd('leave_loading').fork_and_wait(),
             BarcodeClear(),
             PFCmd(f'H12-to-fridge'),
-            FridgeInsert(project, expected_barcode=barcode).fork_and_wait(),
+            FridgeInsert(
+                project,
+                # expected_barcode=barcode
+                assume_barcode=barcode, # for Jordi's plates
+            ).fork_and_wait(),
         ]
     cmd = Seq(*cmds)
     cmd = cmd.with_lock('PF and Fridge')

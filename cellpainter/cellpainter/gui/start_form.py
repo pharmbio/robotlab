@@ -249,7 +249,13 @@ def start_form(*, config: RuntimeConfig):
                     filtered_renames[name] = barcode
                     name_to_project[name] = target_project
 
-    fridge_plates = store.var(Vp.List(name='squid plates', default=[], options=list(filtered_renames.keys())))
+    fridge_plates = store.var(
+        Vp.List(
+            name='squid plates',
+            options=(tmp := list(filtered_renames.keys())),
+            default=tmp[0:1],
+        )
+    )
     store.assign_names(locals())
 
     num_plates = store.str(name='plates', desc='The number of plates')
@@ -263,8 +269,8 @@ def start_form(*, config: RuntimeConfig):
     form_fields: list[Str | Bool | Vp.List | None] = []
     args: Args | None = None
     custom_fields: list[V.Tag] = []
-    if protocol.value == 'cell-paint':
 
+    if protocol.value == 'cell-paint':
         selected_protocol_paths = protocol_paths.get(protocol_dir.value)
 
         if selected_protocol_paths and selected_protocol_paths.use_wash():
