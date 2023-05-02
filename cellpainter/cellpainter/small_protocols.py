@@ -870,7 +870,7 @@ def pf_stop_freedrive(args: SmallProtocolArgs) -> Program:
 def fridge_load(args: SmallProtocolArgs) -> Program:
     '''
 
-        Loads --num-plates from hotel to fridge.
+        Loads --num-plates from hotel to fridge, from H1 and up
 
         Specify the project of the plates in params[0].
 
@@ -892,6 +892,33 @@ def fridge_load(args: SmallProtocolArgs) -> Program:
         WithLock('PF and Fridge', cmds),
     ]
     return Program(Seq(*cmds))
+
+@pf_protocols.append
+def fridge_load_from_top(args: SmallProtocolArgs) -> Program:
+    '''
+
+        Loads --num-plates from hotel to fridge, from H12 and down. Specify the project of the plates in params[0].
+
+    '''
+    cmds: list[Command] = []
+    args.num_plates
+    if len(args.params) != 1:
+        return Program(Seq())
+    project, *_ = args.params
+    locs = [i+1 for i in range(12)]
+    for i, _ in zip(reversed(locs), range(args.num_plates)):
+        assert 1 <= i <= 12
+        cmds += [
+            BarcodeClear(),
+            PFCmd(f'H{i}-to-H12') if i != 12 else Seq(),
+            PFCmd(f'H12-to-fridge'),
+            FridgeInsert(project).fork_and_wait(),
+        ]
+    cmds = [
+        WithLock('PF and Fridge', cmds),
+    ]
+    return Program(Seq(*cmds))
+
 
 @pf_protocols.append
 def fridge_unload(args: SmallProtocolArgs) -> Program:
