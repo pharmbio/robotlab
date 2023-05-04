@@ -5,7 +5,7 @@
     [ ] painter:
         have a few plates standing in the lower parts of hotel C
         have them run a few cycles to disp wash blue (not incu)
-[ ] imager: UI for entering metadata. use datalist suggestion for selecting protocol
+[ ] imager: UI for entering plate metadata.
 [ ] cellpainter: use quicksim to update estimates while running
 [ ] cellpainter: remove lockstep
 [ ] cellpainter: try to suggest what needs to be shorter for a given incubation time

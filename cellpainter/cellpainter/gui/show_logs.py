@@ -139,6 +139,7 @@ def show_logs() -> Iterator[Tag | V.Node | dict[str, str]]:
                 row.git = div(git_status.stdout.strip()[:2], align='center')
             else:
                 print(f'{log=}: no runtime metadata')
+                continue
         except BaseException as e:
             import traceback as tb
             print(repr(e), tb.format_exc())

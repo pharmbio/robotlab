@@ -28,6 +28,19 @@ from . import protocol_paths
 
 from labrobots.liconic import FridgeSlots
 
+def assert_valid_project_name(s: str):
+    import string
+    ok = string.ascii_letters + string.digits + '_-'
+    for c in s:
+        if c not in ok:
+            raise ValueError(f'Input {s!r} contains illegal character {c!r}')
+    if not s:
+        raise ValueError(f'Input {s!r} is empty')
+    if not s[0].isalpha():
+        raise ValueError(f'Input {s!r} does not start with alpha')
+    if s.strip() != s:
+        raise ValueError(f'Input {s!r} contains trailing whitespace')
+
 @dataclass(frozen=True)
 class SmallProtocolArgs:
     num_plates: int = 1
@@ -53,7 +66,10 @@ def protocol_args(small_protocol: SmallProtocol) -> set[str]:
             else:
                 raise AttributeError
     intercepted_args: Any = Intercept()
-    _ = small_protocol(intercepted_args)
+    try:
+        _ = small_protocol(intercepted_args)
+    except:
+        pass
     return out - {'fridge_contents'}
 
 # @ur_protocols.append
@@ -101,6 +117,7 @@ def incu_load(args: SmallProtocolArgs):
     num_plates = args.num_plates
     cmds: list[Command] = []
     world0: dict[str, str] = {}
+    assert 1 <= num_plates <= 21, 'Number of plates should be in 1..21'
     assert num_plates <= len(Locations.A)
     assert num_plates <= len(Locations.Incu)
     for i, (incu_loc, a_loc) in enumerate(zip(Locations.Incu, Locations.A[::-1]), start=1):
@@ -181,6 +198,7 @@ def test_circuit_with_incubator(args: SmallProtocolArgs):
     Plates start in incubator L1, L2, .. as normal cell painting
     '''
     num_plates = args.num_plates
+    assert 1 <= num_plates <= 21, 'Number of plates should be in 1..21'
     paths = protocol_paths.get_protocol_paths()[args.protocol_dir]
     protocol_config = make_protocol_config(paths, ProtocolArgs(incu='s1,s2,s3,s4,s5', two_final_washes=True, interleave=True))
     program = cell_paint_program([num_plates], protocol_config=protocol_config)
@@ -329,7 +347,7 @@ def incu_reset_and_activate(_: SmallProtocolArgs):
     )
     return Program(program.add(Metadata(gui_force_show=True)))
 
-@ur_protocols.append
+# @ur_protocols.append
 def wash_plates_clean(args: SmallProtocolArgs):
     '''
     Wash test plates clean using ethanol.
@@ -345,8 +363,7 @@ def wash_plates_clean(args: SmallProtocolArgs):
         8. robotarm:                in neutral position by B hotel
     '''
     N = args.num_plates
-    if not N:
-        return Program()
+    assert 1 <= N <= 21, 'Number of plates should be in 1..21'
     cmds: list[Command] = []
     [plates] = define_plates([N])
 
@@ -447,23 +464,28 @@ def run_biotek(args: SmallProtocolArgs):
     # pbutils.pr([p for p, _ in protocols])
     cmds: list[Command] = []
     for x in args.params:
+        ok = False
         for p, machine in protocols:
             if f'/{x.lower()}' in p.lower():
                 cmds += [
                     Fork(ValidateThenRun(machine, p)),
                     WaitForResource(machine)
                 ]
+                ok = True
+        if not ok:
+            raise ValueError(f'No protocol starting with {x}')
     return Program(Seq(*cmds))
 
 @ur_protocols.append
 def incu_put(args: SmallProtocolArgs):
     '''
-    Insert a plate into the incubator.
+    Insert a plate into the incubator from its transfer door.
 
     Use incubator locations such as L1.
     '''
     cmds: list[Command] = []
     for x in args.params:
+        assert x in Locations.Incu, f'Not a valid location: {x!r}. Locations are named L1, L2, ..'
         cmds += [
             IncuCmd('put', x).fork(),
             WaitForResource('incu'),
@@ -473,12 +495,13 @@ def incu_put(args: SmallProtocolArgs):
 @ur_protocols.append
 def incu_get(args: SmallProtocolArgs):
     '''
-    Eject a plate from the incubator.
+    Eject a plate from the incubator to its transfer door.
 
     Use incubator locations such as L1.
     '''
     cmds: list[Command] = []
     for x in args.params:
+        assert x in Locations.Incu, f'Not a valid location: {x!r}. Locations are named L1, L2, ..'
         cmds += [
             IncuCmd('get', x).fork(),
             WaitForResource('incu'),
@@ -524,7 +547,7 @@ def robotarm_ur_cycle(args: SmallProtocolArgs):
     program = Seq(*cmds)
     return Program(program)
 
-@ur_protocols.append
+# @ur_protocols.append
 def time_robotarm(_: SmallProtocolArgs):
     '''
     Timing for robotarm.
@@ -852,18 +875,30 @@ def pf_fridge_program(cmds: list[Command]) -> Program:
 
 @pf_protocols.append
 def fridge_reset_and_activate(args: SmallProtocolArgs) -> Program:
+    '''
+    Reset and activate the fridge.
+    '''
     return pf_fridge_program([FridgeCmd('reset_and_activate').fork_and_wait()])
 
 @pf_protocols.append
 def pf_init(args: SmallProtocolArgs) -> Program:
+    '''
+    Initialize the PreciseFlex robotarm. Required after emergency stop.
+    '''
     return pf_fridge_program([PFCmd('pf init')])
 
 @pf_protocols.append
 def pf_freedrive(args: SmallProtocolArgs) -> Program:
+    '''
+    Start freedrive on the PreciseFlex robotarm, making it easy to move around by hand.
+    '''
     return pf_fridge_program([PFCmd('pf freedrive')])
 
 @pf_protocols.append
 def pf_stop_freedrive(args: SmallProtocolArgs) -> Program:
+    '''
+    Stops freedrive on the PreciseFlex robotarm.
+    '''
     return pf_fridge_program([PFCmd('pf stop freedrive')])
 
 @pf_protocols.append
@@ -876,12 +911,12 @@ def fridge_load(args: SmallProtocolArgs) -> Program:
 
     '''
     cmds: list[Command] = []
-    args.num_plates
-    if len(args.params) != 1:
-        return Program(Seq())
+    assert 1 <= args.num_plates <= 12, 'Number of plates should be in 1..12'
+    assert len(args.params) == 1, 'Specify one project'
     project, *_ = args.params
+    assert_valid_project_name(project)
     for i, _ in reversed(list(enumerate(range(args.num_plates), start=1))):
-        assert i <= 12
+        assert 1 <= i <= 12
         cmds += [
             BarcodeClear(),
             PFCmd(f'H{i}-to-H12') if i != 12 else Seq(),
@@ -897,14 +932,16 @@ def fridge_load(args: SmallProtocolArgs) -> Program:
 def fridge_load_from_top(args: SmallProtocolArgs) -> Program:
     '''
 
-        Loads --num-plates from hotel to fridge, from H12 and down. Specify the project of the plates in params[0].
+        Loads --num-plates from hotel to fridge, from H12 and down.
+
+        Specify the project of the plates in params[0].
 
     '''
     cmds: list[Command] = []
-    args.num_plates
-    if len(args.params) != 1:
-        return Program(Seq())
+    assert 1 <= args.num_plates <= 12, 'Number of plates should be in 1..12'
+    assert len(args.params) == 1, 'Specify one project'
     project, *_ = args.params
+    assert_valid_project_name(project)
     locs = [i+1 for i in range(12)]
     for i, _ in zip(reversed(locs), range(args.num_plates)):
         assert 1 <= i <= 12
@@ -919,34 +956,15 @@ def fridge_load_from_top(args: SmallProtocolArgs) -> Program:
     ]
     return Program(Seq(*cmds))
 
-
-@pf_protocols.append
-def fridge_unload(args: SmallProtocolArgs) -> Program:
-    '''
-
-        Unloads --num-plates from fridge to hotel in dictionary order.
-
-        Specify the project of the plates in params[0].
-
-    '''
+def fridge_unload_helper(plates: list[str]) -> Program:
     cmds: list[Command] = []
-    args.num_plates
-    if len(args.params) != 1:
-        return Program(Seq())
-    contents = args.fridge_contents
-    print(contents)
-    project, *_ = args.params
-    plates = sorted(
-        [
-            slot['plate']
-            for slot in contents.values()
-            if slot['project'] == project
-        ]
-    )
-    for i, plate in enumerate(plates[:args.num_plates], start=1):
-        assert i <= 12
+    locs = [i+1 for i in range(12)]
+    for i, plate in reversed(list(zip(reversed(locs), plates))):
+        assert 1 <= i <= 12
+        project, sep, barcode = plate.partition(':')
+        assert sep, 'Separate project and barcode with :'
         cmds += [
-            FridgeEject(plate=plate, project=project).fork_and_wait(),
+            FridgeEject(plate=barcode, project=project).fork_and_wait(),
             PFCmd(f'fridge-to-H12'),
             PFCmd(f'H12-to-H{i}'),
         ]
@@ -954,6 +972,47 @@ def fridge_unload(args: SmallProtocolArgs) -> Program:
         WithLock('PF and Fridge', cmds),
     ]
     return Program(Seq(*cmds))
+
+@pf_protocols.append
+def fridge_unload(args: SmallProtocolArgs) -> Program:
+    '''
+
+        Specify project1:barcode1 .. projectN:barcodeN in params
+
+    '''
+    assert 1 <= len(args.params) <= 12, 'Number of plates should be in 1..12'
+    fridge_contents = args.fridge_contents
+    if fridge_contents:
+        slots = {
+            f'{slot["project"]}:{slot["plate"]}'
+            for _, slot in fridge_contents.items()
+        }
+        for plate in args.params:
+            assert slots is None or plate in slots, f'Cannot find {plate} in fridge'
+    return fridge_unload_helper(args.params)
+
+@pf_protocols.append
+def fridge_unload_in_dictionary_order(args: SmallProtocolArgs) -> Program:
+    '''
+
+        Unloads --num-plates from fridge to hotel in dictionary order. Specify the project in params[0].
+
+    '''
+    assert 1 <= args.num_plates <= 12, 'Number of plates should be in 1..12'
+    assert len(args.params) == 1, 'Specify one project'
+    contents = args.fridge_contents
+    assert isinstance(contents, dict)
+    project, *_ = args.params
+    assert_valid_project_name(project)
+    plates = sorted(
+        [
+            f'{slot["project"]}:{slot["plate"]}'
+            for slot in contents.values()
+            if slot['project'] == project
+        ]
+    )
+    return fridge_unload_helper(plates[:args.num_plates])
+
 
 
 @pf_protocols.append
@@ -964,9 +1023,8 @@ def squid_from_hotel(args: SmallProtocolArgs) -> Program:
 
     '''
     cmds: list[Command] = []
-    if len(args.params) < 3:
-        return Program(Seq())
     config_path, project, *plate_names = args.params
+    assert_valid_project_name(project)
     for plate_name in plate_names:
         cmds += [
             WithLock('Squid', [
@@ -996,9 +1054,8 @@ def nikon_from_hotel(args: SmallProtocolArgs) -> Program:
 
     '''
     cmds: list[Command] = []
-    if len(args.params) < 3:
-        return Program(Seq())
     job_name, project, *plate_names = args.params
+    assert_valid_project_name(project)
     for plate_name in plate_names:
         cmds += [
             WithLock('Nikon', [
@@ -1023,15 +1080,10 @@ def nikon_from_hotel(args: SmallProtocolArgs) -> Program:
 def squid_from_fridge(args: SmallProtocolArgs) -> Program:
     '''
 
-        Images plates in the fridge.  Params are:
-            RT_time_secs_csv
-            plate1_squid_config:project:barcode:name
-            plate2_squid_config:project:barcode:name
+        Images plates in the fridge.  Params are: RT_time_secs_csv config_1:project:barcode:name .. config_N:project:barcode:name
 
     '''
     cmds: list[Command] = []
-    if not len(args.params):
-        return Program(Seq())
     RT_time_secs_csv, *plates = args.params
     contents = args.fridge_contents
     if contents is not None:
@@ -1043,8 +1095,8 @@ def squid_from_fridge(args: SmallProtocolArgs) -> Program:
                 if slot['project'] == project
                 if slot['plate'] == barcode
             ) != 1:
-                pass
-                # raise ValueError(f'Could not find {barcode=} from {project=} in fridge!')
+                # pass
+                raise ValueError(f'Could not find {barcode=} with {project=} in fridge!')
     RT_time_secs: list[float] = [float(rt) for rt in RT_time_secs_csv.split(',')]
     if not RT_time_secs:
         raise ValueError('Specify some RT time. Example: "1800" for 30 minutes')
@@ -1052,6 +1104,7 @@ def squid_from_fridge(args: SmallProtocolArgs) -> Program:
         raise ValueError('Select some plates.')
     for i, plate in enumerate(plates, start=1):
         config, project, barcode, name = plate.split(':')
+        assert_valid_project_name(project)
         plus_secs = dict(enumerate(RT_time_secs, start=1)).get(i, RT_time_secs[-1])
         cmds += [
             FridgeEject(plate=barcode, project=project, check_barcode=False).fork_and_wait(),
