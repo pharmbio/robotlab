@@ -902,33 +902,6 @@ def pf_stop_freedrive(args: SmallProtocolArgs) -> Program:
     return pf_fridge_program([PFCmd('pf stop freedrive')])
 
 @pf_protocols.append
-def fridge_load(args: SmallProtocolArgs) -> Program:
-    '''
-
-        Loads --num-plates from hotel to fridge, from H1 and up
-
-        Specify the project of the plates in params[0].
-
-    '''
-    cmds: list[Command] = []
-    assert 1 <= args.num_plates <= 12, 'Number of plates should be in 1..12'
-    assert len(args.params) == 1, 'Specify one project'
-    project, *_ = args.params
-    assert_valid_project_name(project)
-    for i, _ in reversed(list(enumerate(range(args.num_plates), start=1))):
-        assert 1 <= i <= 12
-        cmds += [
-            BarcodeClear(),
-            PFCmd(f'H{i}-to-H12') if i != 12 else Seq(),
-            PFCmd(f'H12-to-fridge'),
-            FridgeInsert(project).fork_and_wait(),
-        ]
-    cmds = [
-        WithLock('PF and Fridge', cmds),
-    ]
-    return Program(Seq(*cmds))
-
-@pf_protocols.append
 def fridge_load_from_top(args: SmallProtocolArgs) -> Program:
     '''
 
@@ -948,9 +921,13 @@ def fridge_load_from_top(args: SmallProtocolArgs) -> Program:
         cmds += [
             BarcodeClear(),
             PFCmd(f'H{i}-to-H12') if i != 12 else Seq(),
+            WaitForResource('fridge'),
             PFCmd(f'H12-to-fridge'),
-            FridgeInsert(project).fork_and_wait(),
+            FridgeInsert(project).fork(),
         ]
+    cmds += [
+        WaitForResource('fridge'),
+    ]
     cmds = [
         WithLock('PF and Fridge', cmds),
     ]
@@ -964,8 +941,9 @@ def fridge_unload_helper(plates: list[str]) -> Program:
         project, sep, barcode = plate.partition(':')
         assert sep, 'Separate project and barcode with :'
         cmds += [
-            FridgeEject(plate=barcode, project=project).fork_and_wait(),
+            FridgeEject(plate=barcode, project=project).fork_and_wait(align='end'),
             PFCmd(f'fridge-to-H12'),
+            FridgeCmd('get_status').fork_and_wait(), # after this the fridge can eject the next
             PFCmd(f'H12-to-H{i}'),
         ]
     cmds = [
