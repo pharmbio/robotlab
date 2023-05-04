@@ -539,12 +539,12 @@ def start_form(*, config: RuntimeConfig):
         ) if args else '',
         div(
             V.css(
-                b='2px var(--red) solid',
+                b='1px var(--red) solid',
                 w='100%',
                 h='100%',
                 py=5,
                 px=5,
-                border_radius=1,
+                border_radius=2,
                 overflow='hidden',
                 text_overflow='ellipsis',
             ),
