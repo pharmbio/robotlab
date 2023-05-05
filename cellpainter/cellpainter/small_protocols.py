@@ -14,7 +14,7 @@ from .log import Metadata
 
 from .protocol import (
     Locations,
-    ProtocolArgs,
+    CellPaintingArgs,
     make_protocol_config,
     Plate,
     define_plates,
@@ -27,6 +27,8 @@ from . import protocol
 from . import protocol_paths
 
 from labrobots.liconic import FridgeSlots
+
+from pbutils.args import arg, option
 
 def assert_valid_project_name(s: str):
     import string
@@ -43,10 +45,15 @@ def assert_valid_project_name(s: str):
 
 @dataclass(frozen=True)
 class SmallProtocolArgs:
-    num_plates: int = 1
-    params: list[str] = field(default_factory=list)
-    protocol_dir: str = 'automation_v5.0'
-    fridge_contents: FridgeSlots | None = None
+    num_plates: int = arg(1)
+    params: list[str] = arg()
+    protocol_dir: str = arg('automation_v5.0')
+    initial_fridge_contents_json: str = arg('null')
+
+    @property
+    def initial_fridge_contents(self) -> FridgeSlots | None:
+        import json
+        return json.loads(self.initial_fridge_contents_json)
 
 SmallProtocol: TypeAlias = Callable[[SmallProtocolArgs], Program]
 
@@ -176,7 +183,7 @@ def test_circuit(args: SmallProtocolArgs):
     '''
     [[plate]] = define_plates([1])
     paths = protocol_paths.get_protocol_paths()[args.protocol_dir]
-    protocol_config = make_protocol_config(paths, ProtocolArgs(incu='s1,s2,s3,s4,s5', two_final_washes=True, interleave=True))
+    protocol_config = make_protocol_config(paths, CellPaintingArgs(incu='s1,s2,s3,s4,s5', two_final_washes=True, interleave=True))
     program = cell_paint_program([1], protocol_config=protocol_config)
     cmds = program.command
     cmds = Seq(
@@ -200,7 +207,7 @@ def test_circuit_with_incubator(args: SmallProtocolArgs):
     num_plates = args.num_plates
     assert 1 <= num_plates <= 21, 'Number of plates should be in 1..21'
     paths = protocol_paths.get_protocol_paths()[args.protocol_dir]
-    protocol_config = make_protocol_config(paths, ProtocolArgs(incu='s1,s2,s3,s4,s5', two_final_washes=True, interleave=True))
+    protocol_config = make_protocol_config(paths, CellPaintingArgs(incu='s1,s2,s3,s4,s5', two_final_washes=True, interleave=True))
     program = cell_paint_program([num_plates], protocol_config=protocol_config)
     cmds = program.command
     cmds = Seq(
@@ -230,7 +237,7 @@ def measure_liquids(args: SmallProtocolArgs):
     washer, dispenser, bluewasher: no plate  and connected as desired
     '''
     paths = protocol_paths.get_protocol_paths()[args.protocol_dir]
-    p = make_protocol_config(paths, ProtocolArgs(incu='s1,s2,s3,s4,s5', two_final_washes=True, interleave=True))
+    p = make_protocol_config(paths, CellPaintingArgs(incu='s1,s2,s3,s4,s5', two_final_washes=True, interleave=True))
     cmds: list[Command] = []
 
     def Predisp(cmd: Command):
@@ -959,7 +966,7 @@ def fridge_unload(args: SmallProtocolArgs) -> Program:
 
     '''
     assert 1 <= len(args.params) <= 12, 'Number of plates should be in 1..12'
-    fridge_contents = args.fridge_contents
+    fridge_contents = args.initial_fridge_contents
     if fridge_contents:
         slots = {
             f'{slot["project"]}:{slot["plate"]}'
@@ -978,7 +985,7 @@ def fridge_unload_in_dictionary_order(args: SmallProtocolArgs) -> Program:
     '''
     assert 1 <= args.num_plates <= 12, 'Number of plates should be in 1..12'
     assert len(args.params) == 1, 'Specify one project'
-    contents = args.fridge_contents
+    contents = args.initial_fridge_contents
     assert isinstance(contents, dict)
     project, *_ = args.params
     assert_valid_project_name(project)
@@ -1063,7 +1070,7 @@ def squid_from_fridge(args: SmallProtocolArgs) -> Program:
     '''
     cmds: list[Command] = []
     RT_time_secs_csv, *plates = args.params
-    contents = args.fridge_contents
+    contents = args.initial_fridge_contents
     if contents is not None:
         for plate in plates:
             config, project, barcode, name = plate.split(':')

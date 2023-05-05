@@ -325,7 +325,8 @@ def start_form(*, config: RuntimeConfig):
         bs = batch_sizes.value
         incu_csv = incu.value
         args = Args(
-            cell_paint=bs,
+            protocol='cell-paint',
+            batch_sizes=bs,
             incu=incu_csv,
             interleave=True,
             two_final_washes=final_washes.value == 'two',
@@ -391,7 +392,7 @@ def start_form(*, config: RuntimeConfig):
             plate = name_to_plate[full_name]
             plates += [f'{squid_config}:{plate.project}:{plate.barcode}:{name}']
         args = Args(
-            small_protocol='squid_from_fridge',
+            protocol='squid_from_fridge',
             params=[
                 fridge_RT_time_secs.value,
                 *plates,
@@ -403,7 +404,7 @@ def start_form(*, config: RuntimeConfig):
             fridge_plates_for_unload
         ]
         args = Args(
-            small_protocol='fridge_unload',
+            protocol='fridge_unload',
             params=fridge_plates_for_unload.value
         )
 
@@ -415,7 +416,7 @@ def start_form(*, config: RuntimeConfig):
             fridge_plates_for_selected_projects,
         ]
         args = Args(
-            small_protocol='nikon_from_fridge',
+            protocol='nikon_from_fridge',
             params=[
                 nikon_job_names.value,
                 fridge_project_options.value,
@@ -441,7 +442,7 @@ def start_form(*, config: RuntimeConfig):
         if 'protocol_dir' in small_data.args:
             form_fields += [protocol_dir]
         args = Args(
-            small_protocol=small_data.name,
+            protocol=small_data.name,
             num_plates=pbutils.catch(lambda: int(num_plates.value), 0),
             params=params_value,
             protocol_dir=protocol_dir.value,
@@ -471,7 +472,7 @@ def start_form(*, config: RuntimeConfig):
         args = None
 
     if args:
-        args = replace(args, initial_fridge_contents=json.dumps(throttled_fridge_contents(config)))
+        args = replace(args, initial_fridge_contents_json=json.dumps(throttled_fridge_contents(config)))
 
     err: str = ''
     err_full: str = ''
@@ -506,7 +507,7 @@ def start_form(*, config: RuntimeConfig):
     confirm = ''
     if 'required' in doc_full.lower():
         confirm = doc_full
-    if not confirm and args and args.cell_paint:
+    if not confirm and args and args.protocol == 'cell-paint':
         if not args.desc:
             confirm += 'Not specified: description.\n'
         if not args.operators:
@@ -586,7 +587,7 @@ def start_form(*, config: RuntimeConfig):
             }
         '''
     )
-    # info += running_processes_div()
+    info += running_processes_div()
     vis = '/vis'
     if args:
         vis = '/vis?cmdline=' + quote_plus(cli.args_to_str(args))

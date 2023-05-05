@@ -102,6 +102,7 @@ def define_plates(batch_sizes: list[int]) -> list[list[Plate]]:
 
     index = 0
     for batch_index, batch_size in enumerate(batch_sizes):
+        assert batch_size > 0
         batch: list[Plate] = []
         rt = Locations.RT
         for index_in_batch in range(batch_size):
@@ -303,21 +304,15 @@ def make_interleaving(name: InterleavingName, linear: bool) -> Interleaving:
     '''
     return Interleaving.init(lin if linear else ilv, name=name)
 
-class ProtocolArgsInterface(typing.Protocol):
-    incu:               str
-    interleave:         bool
-    two_final_washes:   bool
-    lockstep_threshold: int
+from pbutils.args import arg
 
 @dataclass(frozen=True)
-class ProtocolArgs:
-    incu:               str  = '1200'
-    interleave:         bool = False
-    two_final_washes:   bool = False
-    lockstep_threshold: int  = 10
-
-if typing.TYPE_CHECKING:
-    _: ProtocolArgsInterface = ProtocolArgs()
+class CellPaintingArgs:
+    batch_sizes:         str  = arg('0', help='Cell paint with batch sizes separated by comma (such as 6,6 for 2x6). Plates start stored in incubator L1, L2, ..')
+    incu:                str  = arg('1200,1200,1200,1200,1200', help='Incubation times in seconds, separated by comma')
+    interleave:          bool = arg(False, help='Interleave plates, required for 7 plate batches')
+    two_final_washes:    bool = arg(False, help='Use two shorter final washes in the end, required for big batch sizes, required for 8 plate batches')
+    lockstep_threshold:  int  = arg(10, help='Allow steps to overlap: first plate PFA starts before last plate Mito finished and so on, required for 10 plate batches')
 
 @dataclass(frozen=True, kw_only=True)
 class ProtocolConfig:
@@ -340,7 +335,7 @@ class Step:
     disp_prep: str | None
     interleaving: Interleaving
 
-def make_protocol_config(paths: ProtocolPaths, args: ProtocolArgsInterface = ProtocolArgs()) -> ProtocolConfig:
+def make_protocol_config(paths: ProtocolPaths, args: CellPaintingArgs = CellPaintingArgs()) -> ProtocolConfig:
     incu_csv = args.incu
     six_cycles = args.two_final_washes
 
@@ -437,8 +432,8 @@ def make_protocol_config(paths: ProtocolPaths, args: ProtocolArgsInterface = Pro
     )
 
 def test_make_protocol_config():
-    argss: list[ProtocolArgs] = [
-        ProtocolArgs(
+    argss: list[CellPaintingArgs] = [
+        CellPaintingArgs(
             incu = incu,
             two_final_washes = two_final_washes,
             interleave = interleave,

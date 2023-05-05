@@ -12,20 +12,20 @@ with-tail () {
 test_cellpainter() {
     # for i in 1,1 2,2 3,3 4,4 5,5 6,6 7,7 8,8 9,9 10; do
     for i in 1,1 2,5 6 7 8 9; do
-        with-tail cellpainter --cell-paint "$i" --protocol-dir automation_v5.0 --interleave --two-final-washes
+        with-tail cellpainter --cell-paint --batch-sizes "$i" --protocol-dir automation_v5.0 --interleave --two-final-washes
         for d in automation_v5.0_blue automation_v4.0_RMS; do
-            with-tail cellpainter --cell-paint "$i" --protocol-dir "$d" --interleave
+            with-tail cellpainter --cell-paint --batch-sizes "$i" --protocol-dir "$d" --interleave
         done
     done
-    with-tail cellpainter --cell-paint 1,1 --start-from-stage 'Mito, plate 1'
-    with-tail cellpainter --cell-paint 1,1 --start-from-stage 'Mito, plate 2'
-    with-tail cellpainter --cell-paint 1,1 --start-from-stage 'PFA, plate 1'
-    with-tail cellpainter --cell-paint 1,1 --start-from-stage 'PFA, plate 2'
-    with-tail cellpainter --cell-paint 1,1 --start-from-stage 'Triton, plate 1'
-    with-tail cellpainter --cell-paint 1,1 --start-from-stage 'Triton, plate 2'
-    with-tail cellpainter --cell-paint 6 --interleave --start-from-stage 'Mito, plate 3'
-    with-tail cellpainter --cell-paint 6 --interleave --start-from-stage 'PFA, plate 4'
-    with-tail cellpainter --cell-paint 6 --interleave --start-from-stage 'Triton, plate 5'
+    with-tail cellpainter --cell-paint --batch-sizes 1,1 --start-from-stage 'Mito, plate 1'
+    with-tail cellpainter --cell-paint --batch-sizes 1,1 --start-from-stage 'Mito, plate 2'
+    with-tail cellpainter --cell-paint --batch-sizes 1,1 --start-from-stage 'PFA, plate 1'
+    with-tail cellpainter --cell-paint --batch-sizes 1,1 --start-from-stage 'PFA, plate 2'
+    with-tail cellpainter --cell-paint --batch-sizes 1,1 --start-from-stage 'Triton, plate 1'
+    with-tail cellpainter --cell-paint --batch-sizes 1,1 --start-from-stage 'Triton, plate 2'
+    with-tail cellpainter --cell-paint --batch-sizes 6 --interleave --start-from-stage 'Mito, plate 3'
+    with-tail cellpainter --cell-paint --batch-sizes 6 --interleave --start-from-stage 'PFA, plate 4'
+    with-tail cellpainter --cell-paint --batch-sizes 6 --interleave --start-from-stage 'Triton, plate 5'
     with-tail cellpainter --incu-load --num-plates 21
     with-tail cellpainter --time-protocols
     with-tail cellpainter --wash-plates-clean --num-plates 11

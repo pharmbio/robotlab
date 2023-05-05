@@ -26,6 +26,7 @@ from .log import ExperimentMetadata, Log
 from .moves import movelists
 from .runtime import RuntimeConfig, configs, config_lookup
 from .small_protocols import small_protocols_dict, SmallProtocolArgs
+from .protocol import CellPaintingArgs
 from . import protocol_paths
 from . import commandlib
 
@@ -33,16 +34,21 @@ from pbutils.mixins import DB
 from pbutils.args import arg, option
 
 @dataclass(frozen=True)
-class Args:
+class Args(SmallProtocolArgs, CellPaintingArgs):
     config_name: str = arg(
         'simulate',
         enum=[option(c.name, c.name, help='Run with config ' + c.name) for c in configs]
     )
-    cell_paint:                str  = arg(help='Cell paint with batch sizes separated by comma (such as 6,6 for 2x6). Plates start stored in incubator L1, L2, ..')
-    incu:                      str  = arg(default='1200,1200,1200,1200,1200', help='Incubation times in seconds, separated by comma')
-    interleave:                bool = arg(help='Interleave plates, required for 7 plate batches')
-    two_final_washes:          bool = arg(help='Use two shorter final washes in the end, required for big batch sizes, required for 8 plate batches')
-    lockstep_threshold:        int  = arg(default=10, help='Allow steps to overlap: first plate PFA starts before last plate Mito finished and so on, required for 10 plate batches')
+
+    protocol: str  = arg(
+        enum=[
+            option('cell-paint', 'cell-paint', help='Cell paint.'),
+            *[
+                option(name, name, help=p.doc)
+                for name, p in small_protocols_dict().items()
+            ]
+        ]
+    )
     log_filename:              str  = arg(help='Manually set the log filename instead of having a generated name based on date')
     protocol_dir:              str  = arg(default='automation_v5.0', help='Directory to read biotek .LHC files from on the windows server (relative to the protocol root).')
     force_update_protocol_paths: bool = arg(help='Update the protcol dir based on the windows server even if config is not --live.')
@@ -50,15 +56,6 @@ class Args:
     timing_matrix:             bool = arg(help='Print a timing matrix.')
 
     run_program_in_log_filename: str  = arg(help='Run the program stored in a log file. Used to run simulated programs from the gui.')
-
-    small_protocol:            str  = arg(
-        enum=[
-            option(name, name, help=p.doc)
-            for name, p in small_protocols_dict().items()
-        ]
-    )
-    num_plates:                int  = arg(help='For some protocols only: number of plates')
-    params:                    list[str] = arg(help='For some protocols only: more parameters')
 
     start_from_stage:          str  = arg(help="Start from this stage (example: 'Mito, plate 2')")
     list_stages:               bool = arg(help="List the stages and then exit")
@@ -81,8 +78,6 @@ class Args:
     json_arg:                  str  = arg(help='Give arguments as json on the command line')
     yes:                       bool = arg(help='Assume yes in confirmation questions')
     make_uml:                  str  = arg(help='Write uml in dot format to the given path and exit')
-
-    initial_fridge_contents:   str  = arg('null', help='Initial fridge contents to check if a protocol may start')
 
     desc: str = arg(help='Experiment description metadata, example: "specs935-v1"')
     operators:  str = arg(help='Experiment metadata, example: "Amelie and Christa"')
@@ -167,11 +162,12 @@ def main_with_args(args: Args, parser: argparse.ArgumentParser | None=None):
                 for two_final_washes in [True]:
                     for interleave in [True]:
                         args2 = replace(args,
+                            protocol='cell-paint',
                             interleave=interleave,
                             lockstep_threshold=4,
                             two_final_washes=two_final_washes,
                             incu=incu,
-                            cell_paint=str(N)
+                            batch_sizes=str(N)
                         )
                         p = args_to_program(args2)
                         if p:
@@ -308,32 +304,24 @@ def args_to_stages(args: Args) -> list[str] | None:
 def args_to_program(args: Args) -> Program | None:
     paths = protocol_paths.get_protocol_paths()[args.protocol_dir]
 
-    fridge_contents = json.loads(args.initial_fridge_contents)
-
     program: Program | None = None
-    if args.cell_paint:
+    if args.protocol == 'cell-paint':
         with pbutils.timeit('generating program'):
             protocol_config = protocol.make_protocol_config(paths, args)
-            batch_sizes = pbutils.read_commasep(args.cell_paint, int)
+            batch_sizes = pbutils.read_commasep(args.batch_sizes, int)
             program = protocol.cell_paint_program(
                 batch_sizes=batch_sizes,
                 protocol_config=protocol_config,
             )
 
-    elif args.small_protocol:
-        name = args.small_protocol.replace('-', '_')
+    elif args.protocol:
+        name = args.protocol.replace('-', '_')
         p = small_protocols_dict().get(name)
         if p:
-            small_args = SmallProtocolArgs(
-                num_plates = args.num_plates,
-                params = args.params,
-                protocol_dir = args.protocol_dir,
-                fridge_contents = fridge_contents,
-            )
-            program = p.make(small_args)
+            program = p.make(args)
             program = program.replace(
                 metadata=ProgramMetadata(
-                    protocol=args.small_protocol,
+                    protocol=args.protocol,
                     num_plates=args.num_plates,
                 ),
                 doc=p.doc

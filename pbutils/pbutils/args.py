@@ -72,10 +72,15 @@ class Arg:
 
     def parse_args(self, as_type: Type[A], args: None | list[str] = None, **kws: Any) -> tuple[A, argparse.ArgumentParser]:
         parser = argparse.ArgumentParser(**kws)
-        for f in fields(as_type):
+        others = [
+            f.name
+            for base in as_type.__bases__
+            for f in fields(base)
+        ]
+        for f in sorted(fields(as_type), key=lambda f: f.name in others):
             enum = self.enums.get(f)
             name = '--' + f.name.replace('_', '-')
-            assert callable(f.default_factory)
+            assert callable(f.default_factory), f'not callable(f.default_factory): {f}'
             default = f.default_factory()
             if enum:
                 parser.add_argument(name, default=default, help=argparse.SUPPRESS)
