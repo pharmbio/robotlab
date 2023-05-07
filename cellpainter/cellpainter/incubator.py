@@ -29,7 +29,7 @@ def execute(
                 assert incu_loc is None
                 incu.reset_and_activate()
             else:
-                raise ValueError('Incubator {action=} not supported')
+                raise ValueError(f'Incubator {action=} not supported')
         except BaseException as e:
             machine = 'incu'
             runtime.log(entry.message(f'{machine}: {e}', is_error=True))

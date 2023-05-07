@@ -540,6 +540,10 @@ class BlueCmd(PhysicalCommand):
     action: BlueWashAction
     protocol_path: str | None = None
 
+    @property
+    def machine(self) -> str:
+        return 'blue'
+
     def required_resource(self):
         return 'blue'
 

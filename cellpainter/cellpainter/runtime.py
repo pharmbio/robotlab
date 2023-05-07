@@ -543,7 +543,7 @@ class ResourceLock:
         with self.open_exclusive() as lock:
             current = lock.read()
             if current:
-                # raise ValueError('Trying to acquire lock {name!r} but {current=!r} is holding it')
+                # raise ValueError(f'Trying to acquire lock {name!r} but {current=!r} is holding it')
                 return False
             else:
                 lock.write(self.process_name)

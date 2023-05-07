@@ -60,7 +60,7 @@ class UR:
 
     def set_speed(self, value: int):
         if not (0 < value <= 100):
-            raise ValueError('Speed out of range: {value=}')
+            raise ValueError(f'Speed out of range: {value=}')
         with self.connect() as arm:
             # The speed is set on the RTDE interface on port 30003:
             arm.send(URScript.reindent(f'''

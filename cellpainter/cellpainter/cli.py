@@ -236,7 +236,12 @@ def main_with_args(args: Args, parser: argparse.ArgumentParser | None=None):
             log_path.parent.mkdir(parents=True, exist_ok=True)
             log_path.unlink(missing_ok=True)
 
-        execute.execute_program(config, p, [em, p.metadata], sim_delays=parse_sim_delays(args))
+        try:
+            execute.execute_program(config, p, [em, p.metadata], sim_delays=parse_sim_delays(args))
+        except ValueError as e:
+            print(e, file=sys.stderr,)
+        except:
+            raise
 
     elif args.robotarm_send:
         runtime = config.make_runtime()

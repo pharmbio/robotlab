@@ -52,7 +52,7 @@ class OptimalResult:
     env: dict[str, float]
     expected_ends: dict[int, float]
 
-def optimal_env(cmd: Command, unsat_core: bool=False) -> OptimalResult:
+def optimal_env(cmd: Command, unsat_core: bool=False, explain_mode: bool=False) -> OptimalResult:
     if unsat_core:
         pbutils.pr(cmd)
 
@@ -131,6 +131,10 @@ def optimal_env(cmd: Command, unsat_core: bool=False) -> OptimalResult:
     maximize_terms: dict[int, list[tuple[float, Symbolic]]] = DefaultDict(list)
     ends: dict[int, Symbolic] = {}
 
+    # for explain mode
+    reds: dict[PhysicalCommand, Symbolic] = {}
+    targets: dict[PhysicalCommand, float] = {}
+
     def run(cmd: Command, begin: Symbolic, *, is_main: bool) -> Symbolic:
         '''
         returns end
@@ -143,12 +147,26 @@ def optimal_env(cmd: Command, unsat_core: bool=False) -> OptimalResult:
                 return begin
             case BarcodeClear():
                 return begin + estimate(cmd)
-            case RobotarmCmd() | PFCmd():
-                assert is_main, f'Must be run in main thread {cmd=}'
-                return begin + estimate(cmd)
             case PhysicalCommand():
-                assert not is_main, f'Cannot run in main thread {cmd=}'
-                return begin + estimate(cmd)
+                if isinstance(cmd, RobotarmCmd | PFCmd):
+                    assert is_main, f'Must be run in main thread {cmd=}'
+                else:
+                    assert not is_main, f'Cannot run in main thread {cmd=}'
+                frac = 1.0
+                if isinstance(cmd, BiotekCmd | BlueCmd): frac = 1/3
+                # if isinstance(cmd, RobotarmCmd): frac = 1/2
+                if explain_mode and frac != 1.0:
+                    cmd = cmd.normalize()
+                    if cmd not in reds:
+                        reds[cmd] = Symbolic.var(str(cmd))
+                        targets[cmd] = estimate(cmd)
+                    est = reds[cmd]
+                    constrain(est, '>=', targets[cmd] * frac, cmd=cmd),
+                    constrain(targets[cmd], '>=', est, cmd=cmd),
+                    maximize_terms[1_000_000].append((1.0, est)),
+                    return begin + est
+                else:
+                    return begin + estimate(cmd)
             case Checkpoint():
                 checkpoint = Symbolic.var(cmd.name)
                 constrain(begin, '==', checkpoint, cmd=cmd)
@@ -201,13 +219,15 @@ def optimal_env(cmd: Command, unsat_core: bool=False) -> OptimalResult:
     # batch_sep = 180 # for specs jump
     # constrain('batch sep', '==', batch_sep * 60)
 
+    s.push()
+
     if unsat_core:
         check = str(s.check())
         print(check)
         if check == 'unsat':
             print('unsat core is:')
             print(s.unsat_core())
-            raise ValueError(f'Impossible to schedule! (Number of missing time estimates: {len(estimates.guesses)}: {", ".join(str(g) for g in estimates.guesses.keys())}')
+            raise ValueError('Impossible to schedule!')
         else:
             raise ValueError('Optimization says unsat, but unsat core version says sat')
 
@@ -227,7 +247,16 @@ def optimal_env(cmd: Command, unsat_core: bool=False) -> OptimalResult:
         if 0:
             print('Impossible to schedule, obtaining unsat core')
             optimal_env(cmd, unsat_core=True)
-        raise ValueError(f'Impossible to schedule! (Number of missing time estimates: {len(estimates.guesses)}: {", ".join(str(g) for g in estimates.guesses.keys())}')
+        if not explain_mode:
+            import sys
+            print('impossible...', end=' ', file=sys.stderr, flush=True)
+            try:
+                optimal_env(cmd, explain_mode=True)
+            except:
+                raise
+            else:
+                raise ValueError('Explain mode did not throw an error')
+        raise ValueError(f'Impossible to schedule! {len(estimates.guesses)} missing time estimates: {", ".join(str(g) for g in estimates.guesses.keys())}'.rstrip(': ') + '.')
 
     M = s.model()
 
@@ -261,5 +290,22 @@ def optimal_env(cmd: Command, unsat_core: bool=False) -> OptimalResult:
         i: model_value(e)
         for i, e in ends.items()
     }
+
+    if explain_mode:
+        reports: list[str] = []
+
+        for cmd, red in reds.items():
+            actual = model_value(red)
+            target = targets[cmd]
+            cmd_str = str(cmd)
+            if isinstance(cmd, BiotekCmd | BlueCmd) and cmd.action != 'Validate' and cmd.protocol_path:
+                cmd_str = f'{cmd.machine.capitalize()}({cmd.protocol_path!r})'
+            if actual < target:
+                reports += [
+                    f'{target:.1f}s -> {actual:.1f}s: {cmd_str}'
+                ]
+
+        if reports:
+            raise ValueError('Impossible to schedule! However it would be possible if these programs were shorter:\n' + '\n'.join(reports))
 
     return OptimalResult(env=env, expected_ends=expected_ends)

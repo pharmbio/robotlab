@@ -73,7 +73,7 @@ class PF:
 
     def set_speed(self, value: int):
         if not (0 < value <= 100):
-            raise ValueError('Speed out of range: {value=}')
+            raise ValueError(f'Speed out of range: {value=}')
         with self.connect(quiet=False) as arm:
             arm.send_and_recv(f'mspeed {value}')
 

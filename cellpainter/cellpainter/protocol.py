@@ -380,7 +380,7 @@ def make_protocol_config(paths: ProtocolPaths, args: CellPaintingArgs = CellPain
         last_step = i == len(steps_proto) - 1
         ilv_name: InterleavingName
         if wash and blue:
-            raise ValueError('Cannot use both biotek washer and bluewasher in the same step [{i=} {wash=} {blue=}]')
+            raise ValueError(f'Cannot use both biotek washer and bluewasher in the same step [{i=} {wash=} {blue=}]')
         elif last_step:
             if wash and disp:
                 ilv_name = 'wash -> disp -> out'

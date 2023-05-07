@@ -276,6 +276,7 @@ def index(path_from_route: str | None = None) -> Iterator[Tag | V.Node | dict[st
                     if any([
                         'error' in stderr.lower(),
                         'exception' in stderr.lower(),
+                        'impossible' in stderr.lower(),
                     ]) else
                     '2px var(--blue) solid'
                 ),

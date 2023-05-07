@@ -22,11 +22,9 @@ def timeit(desc: str='') -> ContextManager[None]:
         T = time.monotonic() - t0
         print(f'({T:.3f}s)', file=sys.stderr, flush=True)
         if e:
-            print(f'{T:.3f}', desc, repr(e))
             raise e
         else:
             pass
-            # print(f'{T:.3f}', desc)
 
     return worker()
 
