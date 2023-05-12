@@ -262,11 +262,13 @@ class Runtime:
             self.fridge = gbg.fridge
             self.barcode_reader = gbg.barcode
 
-            mikro_asus = MikroAsus.remote()
-            self.squid = mikro_asus.squid
+            if 0:
+                mikro_asus = MikroAsus.remote()
+                self.squid = mikro_asus.squid
 
-            # self.nikon = Nikon.remote().nikon
-            # self.nikon_stage = NikonPi.remote().nikon_stage
+            if 1:
+                self.nikon = Nikon.remote().nikon
+                self.nikon_stage = NikonPi.remote().nikon_stage
 
     def stop_arms(self):
         sync = Queue[None]()

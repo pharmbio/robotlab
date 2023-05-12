@@ -41,11 +41,21 @@ def throttled_protocol_paths(config: RuntimeConfig):
         protocol_paths.update_protocol_paths()
     return protocol_paths.get_protocol_paths()
 
+@pbutils.throttle(1.0)
+def throttled_last_barcode(config: RuntimeConfig):
+    if config.name == 'pf-live':
+        return labrobots.WindowsGBG().remote().barcode.read()
+    else:
+        import time
+        return f'P{time.monotonic_ns()}'
+
+
 @pbutils.throttle(5.0)
-def throttled_fridge_contents(config: RuntimeConfig) -> FridgeSlots:
+def throttled_fridge_contents(config: RuntimeConfig) -> FridgeSlots | None:
     if config.name == 'pf-live':
         return labrobots.WindowsGBG().remote().fridge.contents()
     else:
+        # return None
         return {
             '1x1': {'project': 'sim', 'plate': 'S01'},
             '1x2': {'project': 'sim', 'plate': 'S03'},
@@ -165,49 +175,42 @@ def form(*vs: Int | Str | Bool | Vp.List | None):
                 title=v.desc,
             )
 
-@dataclass(frozen=True, kw_only=True)
-class Plate:
-    project: str
-    barcode: str
-    loc: str = ''
+from ..specs3k import Plate, PlateTarget
 
-    def key(self):
-        return (self.project, self.barcode, self.loc)
-
-def get_fridge_projects(fridge_contents: FridgeSlots):
-    sorted_fridge_contents = sorted(
-        [
-            Plate(project=slot['project'], barcode=slot['plate'], loc=loc)
-            for loc, slot in fridge_contents.items()
-        ],
-        key=Plate.key,
+def get_fridge_projects(fridge_contents: FridgeSlots | None) -> tuple[list[str], dict[Plate, str]]:
+    fridge_dict = dict(
+        sorted(
+            [
+                (Plate(project=slot['project'], barcode=slot['plate']), loc)
+                for loc, slot in (fridge_contents or {}).items()
+            ],
+        )
     )
 
-    projects = {project for project, _barcode in specs3k.renames.keys()}
-    projects |= {plate.project for plate in sorted_fridge_contents if plate.project}
+    projects = {plate.project for plate in specs3k.renames.keys()}
+    projects |= {plate.project for plate in fridge_dict.keys() if plate.project}
 
-    return sorted(projects), sorted_fridge_contents
+    return sorted(projects), fridge_dict
 
-def get_fridge_plates_for_projects(fridge_contents: FridgeSlots, projects: list[str]):
-    _sorted_projects, sorted_fridge_contents = get_fridge_projects(fridge_contents)
+def get_fridge_plates_for_projects(fridge_contents: FridgeSlots | None, projects: list[str]):
+    _sorted_projects, fridge_dict = get_fridge_projects(fridge_contents)
 
-    name_to_plate: dict[str, Plate] = {}
+    name_to_plate: dict[str, tuple[Plate, PlateTarget]] = {}
     for target_project in projects:
 
         if target_project.strip() == '':
             continue
 
-        for (project, barcode), name in specs3k.renames.items():
-            if project == target_project:
-                if protocol_override := specs3k.protocols.get((project, barcode)):
-                    name = f'{name}:{protocol_override}'
-                name_to_plate[name] = Plate(project=target_project, barcode=barcode)
-
-        for plate in sorted_fridge_contents:
+        for plate, targets in specs3k.renames.items():
             if plate.project == target_project:
-                if (plate.project, plate.barcode) not in specs3k.renames:
+                for target in targets:
+                    name_to_plate[target.name_with_metadata] = plate, target
+
+        for plate in fridge_dict.keys():
+            if plate.project == target_project:
+                if plate not in specs3k.renames:
                     name = f'{plate.barcode}_{plate.project}'
-                    name_to_plate[name] = Plate(project=target_project, barcode=plate.barcode)
+                    name_to_plate[name] = plate, PlateTarget(name_with_metadata=name)
 
     return name_to_plate
 
@@ -219,6 +222,7 @@ def start_form(*, config: RuntimeConfig):
     options = {
         **({'cell-paint': 'cell-paint'} if painter else {}),
         **({'squid-from-fridge-v1': 'squid-from-fridge-v1'} if imager else {}),
+        **({'nikon-from-fridge-v1': 'nikon-from-fridge-v1'} if imager else {}),
         # **({'fridge-metadata': 'fridge-metadata'} if imager else {}),
         **({'fridge-contents': 'fridge-contents'} if imager else {}),
         **({'fridge-unload': 'fridge-unload'} if imager else {}),
@@ -252,7 +256,7 @@ def start_form(*, config: RuntimeConfig):
         desc='Number of final wash rounds. Either run 9_W_*.LHC once or run 9_10_W_*.LHC twice.',
     )
 
-    sorted_fridge_projects, sorted_fridge_contents = get_fridge_projects(throttled_fridge_contents(config))
+    sorted_fridge_projects, fridge_dict = get_fridge_projects(throttled_fridge_contents(config))
 
     fridge_project_options = store.str(
         name='project',
@@ -264,11 +268,17 @@ def start_form(*, config: RuntimeConfig):
         default='',
         suggestions=sorted_fridge_projects,
     )
-    squid_protocol = store.str(
-        name='squid protocol',
-        default='protocols/short_pe.json',
+    squid_protocol = (
+        store.str(
+            name='squid protocol',
+            default='protocols/short_pe.json',
+        ) if 'squid' in protocol.value else
+        store.str(
+            name='nikon job',
+            default='CellPainting_Automation_PE_squid',
+        )
     )
-    nikon_job_names = store.str(name='nikon job names', default='CellPainting_Automation_FA', desc='Separate by comma.')
+
     fridge_RT_time_secs = store.str(name='RT time secs', default='1800')
     store.assign_names(locals())
 
@@ -284,7 +294,7 @@ def start_form(*, config: RuntimeConfig):
     fridge_plates_for_unload = store.var(
         Vp.List(
             name='squid plates for unload',
-            options=(tmp := [f'{plate.project}:{plate.barcode}' for plate in sorted_fridge_contents if plate.loc and plate.project]),
+            options=(tmp := [f'{plate.project}:{plate.barcode}' for plate, loc in fridge_dict.items() if loc and plate.project]),
             default=tmp[0:1],
         )
     )
@@ -363,8 +373,8 @@ def start_form(*, config: RuntimeConfig):
             div(
                 common.make_table(
                     [
-                        asdict(plate)
-                        for plate in sorted_fridge_contents
+                        dict(asdict(plate), loc=loc)
+                        for plate, loc in fridge_dict.items()
                         if plate.project
                     ]
                 ),
@@ -376,7 +386,7 @@ def start_form(*, config: RuntimeConfig):
             ),
         ]
 
-    elif protocol.value == 'squid-from-fridge-v1':
+    elif protocol.value in 'squid-from-fridge-v1 nikon-from-fridge-v1'.split():
         form_fields = [
             # fridge_project_options,
             fridge_projects_suggestions,
@@ -385,14 +395,17 @@ def start_form(*, config: RuntimeConfig):
             fridge_plates_for_selected_projects,
         ]
         plates: list[str] = []
-        for full_name in fridge_plates_for_selected_projects.value:
-            name, _sep, squid_config = full_name.partition(':')
-            if not squid_config:
-                squid_config = squid_protocol.value
-            plate = name_to_plate[full_name]
-            plates += [f'{squid_config}:{plate.project}:{plate.barcode}:{name}']
+        for name in fridge_plates_for_selected_projects.value:
+            plate, target = name_to_plate[name]
+            match target.protocols:
+                case [target_protocol]:
+                    plates += [f'{target_protocol    }:{plate.project}:{plate.barcode}:{name}']
+                case []:
+                    plates += [f'{squid_protocol.value}:{plate.project}:{plate.barcode}:{name}']
+                case _:
+                    raise ValueError('Feature deactivated: running several protocols without leaving the microscope, ask Dan for fix')
         args = Args(
-            protocol='squid_from_fridge',
+            protocol='squid_from_fridge' if 'squid' in protocol.value else 'nikon_from_fridge',
             params=[
                 fridge_RT_time_secs.value,
                 *plates,
@@ -408,30 +421,27 @@ def start_form(*, config: RuntimeConfig):
             params=fridge_plates_for_unload.value
         )
 
-    elif protocol.value == 'nikon-from-fridge-v1':
-        form_fields = [
-            fridge_project_options,
-            nikon_job_names,
-            fridge_RT_time_secs,
-            fridge_plates_for_selected_projects,
-        ]
-        args = Args(
-            protocol='nikon_from_fridge',
-            params=[
-                nikon_job_names.value,
-                fridge_project_options.value,
-                fridge_RT_time_secs.value,
-                *[
-                    param
-                    for name in fridge_plates_for_selected_projects.value
-                    for param in [name_to_plate[name].barcode, name]
-                ]
-            ]
-        )
     elif isinstance(small_data, SmallProtocolData):
         if 'num_plates' in small_data.args:
             form_fields += [num_plates]
-        if small_data.name in ('fridge_load', 'fridge_load_from_top',):
+        if small_data.name in ('fridge_put'):
+            custom_fields += [
+                div(
+                    f'Last barcode: {throttled_last_barcode(config)}',
+                    V.css.item(column='span 2'),
+                    V.css(user_select='text'),
+                ),
+                V.queue_refresh(1000),
+            ]
+            form_fields += [
+                params,
+                fridge_projects_suggestions,
+            ]
+            params_value = [
+                params.value,
+                fridge_projects_suggestions.value,
+            ]
+        elif small_data.name in ('fridge_load', 'fridge_load_from_top'):
             form_fields += [fridge_projects_suggestions]
             params_value = [fridge_projects_suggestions.value]
         elif 'params' in small_data.args:

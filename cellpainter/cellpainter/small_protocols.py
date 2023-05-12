@@ -874,40 +874,6 @@ def example(args: SmallProtocolArgs):
     fill_estimates(cmd)
     return Program(cmd)
 
-def pf_fridge_program(cmds: list[Command]) -> Program:
-    cmds = [
-        WithLock('PF and Fridge', cmds),
-    ]
-    return Program(Seq(*cmds))
-
-@pf_protocols.append
-def fridge_reset_and_activate(args: SmallProtocolArgs) -> Program:
-    '''
-    Reset and activate the fridge.
-    '''
-    return pf_fridge_program([FridgeCmd('reset_and_activate').fork_and_wait()])
-
-@pf_protocols.append
-def pf_init(args: SmallProtocolArgs) -> Program:
-    '''
-    Initialize the PreciseFlex robotarm. Required after emergency stop.
-    '''
-    return pf_fridge_program([PFCmd('pf init')])
-
-@pf_protocols.append
-def pf_freedrive(args: SmallProtocolArgs) -> Program:
-    '''
-    Start freedrive on the PreciseFlex robotarm, making it easy to move around by hand.
-    '''
-    return pf_fridge_program([PFCmd('pf freedrive')])
-
-@pf_protocols.append
-def pf_stop_freedrive(args: SmallProtocolArgs) -> Program:
-    '''
-    Stops freedrive on the PreciseFlex robotarm.
-    '''
-    return pf_fridge_program([PFCmd('pf stop freedrive')])
-
 @pf_protocols.append
 def fridge_load_from_top(args: SmallProtocolArgs) -> Program:
     '''
@@ -999,6 +965,15 @@ def fridge_unload_in_dictionary_order(args: SmallProtocolArgs) -> Program:
     return fridge_unload_helper(plates[:args.num_plates])
 
 
+@pf_protocols.append
+def fridge_put(args: SmallProtocolArgs):
+    '''
+    Insert a plate into the fridge from its transfer door. Put barcode in params
+    '''
+    barcode, project = args.params
+    cmd = FridgeInsert(project=project, assume_barcode=barcode).fork_and_wait()
+    return Program(cmd)
+
 
 @pf_protocols.append
 def squid_from_hotel(args: SmallProtocolArgs) -> Program:
@@ -1031,7 +1006,7 @@ def squid_from_hotel(args: SmallProtocolArgs) -> Program:
     return Program(Seq(*cmds))
 
 
-# @pf_protocols.append
+@pf_protocols.append
 def nikon_from_hotel(args: SmallProtocolArgs) -> Program:
     '''
 
@@ -1119,6 +1094,65 @@ def squid_from_fridge(args: SmallProtocolArgs) -> Program:
     cmd = cmd.with_lock('PF and Fridge')
     cmd = cmd.with_lock('Squid')
     return Program(cmd)
+
+@pf_protocols.append
+def nikon_from_fridge(args: SmallProtocolArgs) -> Program:
+    '''
+
+        Images plates in the fridge.  Params are: RT_time_secs_csv job_name_1:project:barcode:name .. job_name_N:project:barcode:name
+
+    '''
+    cmds: list[Command] = []
+    RT_time_secs_csv, *plates = args.params
+    contents = args.initial_fridge_contents
+    if contents is not None:
+        for plate in plates:
+            job_name, project, barcode, name = plate.split(':')
+            if sum(
+                1
+                for _loc, slot in contents.items()
+                if slot['project'] == project
+                if slot['plate'] == barcode
+            ) != 1:
+                # pass
+                raise ValueError(f'Could not find {barcode=} with {project=} in fridge!')
+    RT_time_secs: list[float] = [float(rt) for rt in RT_time_secs_csv.split(',')]
+    if not RT_time_secs:
+        raise ValueError('Specify some RT time. Example: "1800" for 30 minutes')
+    if not plates:
+        raise ValueError('Select some plates.')
+    for i, plate in enumerate(plates, start=1):
+        job_name, project, barcode, name = plate.split(':')
+        assert_valid_project_name(project)
+        plus_secs = dict(enumerate(RT_time_secs, start=1)).get(i, RT_time_secs[-1])
+        cmds += [
+            FridgeEject(plate=barcode, project=project, check_barcode=False).fork_and_wait(),
+            Checkpoint(f'RT {i}'),
+            PFCmd(f'fridge-to-H12'),
+            NikonStageCmd('goto_loading').fork_and_wait(),
+            PFCmd(f'H12-to-squid'),
+
+            Seq(
+                NikonStageCmd('leave_loading'),
+                WaitForCheckpoint(f'RT {i}', plus_secs=plus_secs, assume='nothing'),
+                NikonAcquire(job_name=job_name, project=project, plate=name),
+            ).fork_and_wait(),
+
+            NikonStageCmd('goto_loading').fork_and_wait(),
+            PFCmd(f'squid-to-H12'),
+            NikonStageCmd('leave_loading').fork_and_wait(),
+            BarcodeClear(),
+            PFCmd(f'H12-to-fridge'),
+            FridgeInsert(
+                project,
+                assume_barcode=barcode,
+            ).fork_and_wait(),
+        ]
+    cmd = Seq(*cmds)
+    cmd = cmd.with_lock('PF and Fridge')
+    cmd = cmd.with_lock('Nikon')
+    return Program(cmd)
+
 
 # # @pf_protocols.append
 # def nikon_open_stage(_: SmallProtocolArgs) -> Program:
@@ -1233,6 +1267,40 @@ def squid_from_fridge(args: SmallProtocolArgs) -> Program:
 #     cmd = cmd.with_lock('PF and Fridge')
 #     cmd = cmd.with_lock('Nikon')
 #     return Program(cmd)
+
+def pf_fridge_program(cmds: list[Command]) -> Program:
+    cmds = [
+        WithLock('PF and Fridge', cmds),
+    ]
+    return Program(Seq(*cmds))
+
+@pf_protocols.append
+def fridge_reset_and_activate(args: SmallProtocolArgs) -> Program:
+    '''
+    Reset and activate the fridge.
+    '''
+    return pf_fridge_program([FridgeCmd('reset_and_activate').fork_and_wait()])
+
+@pf_protocols.append
+def pf_init(args: SmallProtocolArgs) -> Program:
+    '''
+    Initialize the PreciseFlex robotarm. Required after emergency stop.
+    '''
+    return pf_fridge_program([PFCmd('pf init')])
+
+@pf_protocols.append
+def pf_freedrive(args: SmallProtocolArgs) -> Program:
+    '''
+    Start freedrive on the PreciseFlex robotarm, making it easy to move around by hand.
+    '''
+    return pf_fridge_program([PFCmd('pf freedrive')])
+
+@pf_protocols.append
+def pf_stop_freedrive(args: SmallProtocolArgs) -> Program:
+    '''
+    Stops freedrive on the PreciseFlex robotarm.
+    '''
+    return pf_fridge_program([PFCmd('pf stop freedrive')])
 
 
 @dataclass(frozen=True)

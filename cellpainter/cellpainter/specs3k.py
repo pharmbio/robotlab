@@ -1,3 +1,5 @@
+from typing import *
+from dataclasses import *
 import textwrap
 
 rename_table = str('''
@@ -144,15 +146,45 @@ rename_table = str('''
     P53  PB900000  L1  protocols/p53_PE.json
     YM   PB900002  L1  protocols/YM_L1.json
     YM   PB900003  L2  protocols/YM_L2.json
+    nikon-eval P013734 run01
+    nikon-eval P013734 run02
+    nikon-eval P013734 run03
+    nikon-eval P013734 run04
+    nikon-eval P013734 run05
+    nikon-eval P013734 run06
+    nikon-eval P013734 run07
+    nikon-eval P013734 run08
+    nikon-eval P013734 run09
+    nikon-eval P013734 run10
+    nikon-eval P013734 run11
+    nikon-eval P013734 run12
+    nikon-eval P013734 run13
+    nikon-eval P013734 run14
+    nikon-eval P013734 run15
+    nikon-eval P013734 run16
+    nikon-eval P013734 run17
+    nikon-eval P013734 run18
+    nikon-eval P013734 run19
+    nikon-eval P013734 run20
 ''')
 
-renames: dict[tuple[str, str], str] = {}
-protocols: dict[tuple[str, str], str] = {}
+@dataclass(frozen=True, kw_only=True, order=True)
+class Plate:
+    project: str
+    barcode: str
+
+@dataclass(frozen=True, kw_only=True)
+class PlateTarget:
+    name_with_metadata: str
+    protocols: list[str] = field(default_factory=list)
+
+renames: dict[Plate, list[PlateTarget]] = DefaultDict(list)
 for line in textwrap.dedent(rename_table).splitlines():
     if line:
-        project, barcode, metadata, *protocol = line.split()
-        renames[project, barcode] = f'{barcode}_{project}_{metadata}'.removeprefix('(384)')
-        protocols[project, barcode] = ':'.join(protocol)
-        # we used this normalization for specs3k,
-        # but for RMS-SPECS we won't do it anymore:
-        # .replace('-', '_')
+        project, barcode, metadata, *protocols = line.split()
+        plate = Plate(project=project, barcode=barcode)
+        target = PlateTarget(
+            name_with_metadata = f'{barcode}_{project}_{metadata}'.removeprefix('(384)'),
+            protocols=list(protocols),
+        )
+        renames[plate] += [target]
