@@ -9,10 +9,11 @@ graph {
     edge [fontname="Roboto", fontsize=15]
     node [shape=box]
 
-    ur   [label="Universal Robots (UR) robotarm"]; ur -- scheduler [label="  tcp"]
+    gripper [label="8-bot gripper"];                  gripper -- ur   [label="  tcp and RS485"]
+    ur      [label="Universal Robots (UR) robotarm"]; ur -- scheduler [label="  tcp"]
 
     incu [label="Incubator Liconic STX44"]; incu -- stx [label="  USB COM port"]
-    stx [label=<STX java software<BR/><BR/><I>windows nuc</I>>]; stx -- nuc [label="  tcp"]
+    stx  [label=<STX java software<BR/><BR/><I>windows nuc</I>>]; stx -- nuc [label="  tcp"]
 
     wash [label="BioTek washer"];    wash_repl [label=<LHC Caller CLI<BR/><BR/><I>windows nuc</I>>]; wash -- wash_repl [label="  USB COM port"]; wash_repl -- nuc [label="  subprocess"]
     disp [label="BioTek dispenser"]; disp_repl [label=<LHC Caller CLI<BR/><BR/><I>windows nuc</I>>]; disp -- disp_repl [label="  USB COM port"]; disp_repl -- nuc [label="  subprocess"]
