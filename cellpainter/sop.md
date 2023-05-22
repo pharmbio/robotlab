@@ -62,7 +62,7 @@ Running with config.name='live'
 
 ## Robot arm preparation
 
-Use the teach pendant.
+Use the teach pendant (the handheld touchpad tablet).
 
 1. Power on the robotarm.
 
@@ -84,12 +84,22 @@ Use the teach pendant.
 
    * Robotarm might be in local mode. Change it to remote mode on the teach pendant.
 
-   * Incubator communication might not be activated. Run the `incu-reset-and-activate` protocol.
-     The incubator communication program STX Driver must be running. Run it on the windows computer.
+   * The labrobots server should be running. Check if http://10.10.0.56:5050 can be reached.
+     <details>
+     <summary>If not:</summary>
+     Run run labrobots on the windows computer.
+     The icon looks like this and it starts a terminal with this kind of output.
+     Minimize the terminal and keep it running.
 
-   * If http://10.10.0.56:5050 cannot be reached make sure the
-     windows computer is running the labrobots server:
-     https://github.com/pharmbio/robotlab/tree/main/labrobots
+     <img src='images/run_labrobots.png'>
+     </details>
+
+   * The incubator communication program STX Driver must be running. Run it on the windows computer.
+     The icon and the program looks like this. Press the Run button.
+
+     <img src='images/stx.png'>
+
+   * Incubator communication might not be activated. Run the `incu-reset-and-activate` protocol.
 
 ## Run test circuit
 
@@ -100,7 +110,7 @@ Use the teach pendant.
 
    If moves fail: move the instruments to their correct locations.
 
-   If that is not possible update the locations using the `cellpainter-moves` program.
+   If that is not possible ask Dan to update the locations under _More: edit moves_.
 
 ## Loading the incubator
 
@@ -133,14 +143,14 @@ For dry runs: make sure the plates are decontaminated since they are going into 
 
    To run multiple batches in a row enter them with a comma: `6,6`. The second batch will start right after the first.
 
-   If running with more than 10 plates you might need to increase the incubation time (depending on the protocol directory.)
+   If running with more than 9 plates you might need to increase the incubation time (depending on the protocol directory.)
 
    The protocol directory contains the protocol files for the washer and dispenser. These need to be named
    according to the schema in [protocol_paths.py](cellpainter/protocol_paths.py).
 
    For 7 and more plates use two final wash rounds.
 
-   Press start or simulate.
+   Press start or press simulate.
 
    ### Recovering from a crash
 
@@ -178,7 +188,7 @@ For dry runs: make sure the plates are decontaminated since they are going into 
 
    Change the batch size to 5 and start from the stage `Triton, plate 4`. The robot will start with the plate _now_ called 4, which _previously_ was plate 5.
 
-   In simulation, with time set to the beginning, the initial locations can be read off from the `loc-plate` table. Place the plates accordingly
+   In simulation, with time set to the beginning, the initial locations can be read off from the `loc-plate` table. Place the plates correctly
    before restarting the robot. This is a screenshot of the simulation:
 
    <img src="./images/start_from.png">
@@ -193,17 +203,15 @@ For dry runs: make sure the plates are decontaminated since they are going into 
 
 ## After painting: rewinding the lab
 
-1. Return the robot to local mode.
+1. For dry run: Prime the washer tubes to empty them.
 
-2. For dry run: Prime the washer tubes to empty them.
+2. For dry run: Detach the washer waste bottle. If it is only water: dispose it.
 
-3. For dry run: Detach the washer waste bottle. If it is only water: dispose it.
+3. For dry run: If dispenser was run with water: Prime to empty tubes and dispose the waste water.
 
-4. For dry run: If dispenser was run with water: Prime to empty tubes and dispose the waste water.
+4. Detach the dispenser cassettes around the peristaltic pumps.
 
-5. Detach the dispenser cassettes around the peristaltic pumps.
-
-6. Incubator:
+5. Incubator:
 
    - For dry runs when the incubator is not set up for experiments: turn
      off and have it slightly open for a while to let it cool down.
