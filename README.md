@@ -93,6 +93,13 @@ GPIO-communication with RPi for the Nikon automated stage.
 
 The BioTek control code require a C# program that needs to be separately built.
 
+## The imager system
+
+The imager system controls the Squid microscope and the Nikon microscope as well as the fridge using the
+precise flex robot arm. Here is an overview:
+
+<img src=docs/imager.png>
+
 ## Installation
 
 On the ubuntu NUC that will run the guis and schedulers, install python >= 3.10 and then:
@@ -108,6 +115,18 @@ pip install --editable labrobots
 ```
 
 Further instructions are in under [`labrobots/`](labrobots/README.md)
+
+## Configure hostnames
+
+The gui is run on the ubuntu NUC. To make it easier to find it we alias its hostname.
+
+On windows, for example the BioTek computer, add this line to C:\Windows\System32\drivers\etc\hosts
+
+10.10.0.55 cellpainter
+
+On ubuntu, for example the squid mikro asus computer, add this line to /etc/hosts
+
+10.10.0.55 imager
 
 ## Test
 

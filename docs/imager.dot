@@ -1,0 +1,35 @@
+# Build the svg with:
+# dot overview.dot -Tsvg -o overview.svg
+graph {
+    # graph [bgcolor="#2d2d2d"]
+    # node [color="#d3d0c8" fontcolor="#d3d0c8"]
+    # edge [color="#d3d0c8" fontcolor="#d3d0c8"]
+
+    node [fontname="Roboto", fontsize=15, height=1, margin=0.2]
+    edge [fontname="Roboto", fontsize=15]
+    node [shape=box]
+
+    pf   [label="PreciseFlex (PF) robotarm"]; pf -- scheduler [label="  tcp"]
+
+    barcode [label="Barcode scanner"]; barcode -- gbg_server [label=" USB COM port         "]
+
+    fridge [label="Fridge Liconic STR240"]; fridge -- stx [label="  USB COM port"]
+    stx [label=<STX java software<BR/><BR/><I>windows gbg</I>>]; stx -- gbg_server [label="  TCP"]
+
+    squid [label=<squid flask server<BR/><BR/><I>squid mikro asus</I>>]; squid -- scheduler [label="  http"]
+
+    nikon [label=<nikon flask server<BR/><BR/><I>windows nikon</I>>]; nikon -- scheduler [label="  http"]
+
+    nikon_nis [label=<    Nikon NIS    >]; nikon_nis -- nikon [label="  macro in subprocess"]
+
+    nikon_stage [label=<nikon_stage flask server<BR/><BR/><I>raspberry pi</I>>]; nikon_stage -- scheduler [label="  http"]
+
+    actual_stage [label=<    Nikon stage    >]; actual_stage -- nikon_stage [label="  gpio"]
+
+    gbg_server [label=<labrobots flask server<BR/><BR/><I>windows gbg</I>>]
+    gbg_server -- scheduler [label="  http"]
+
+    scheduler [label=<schedule and execute<BR/><BR/><I>robotlab-ubuntu</I>>]
+    scheduler_ui [label=<GUI<BR/><BR/><I>robotlab-ubuntu 10.10.0.55:3000</I>>]
+    scheduler -- scheduler_ui [label="  sqlite db on disk"]
+}

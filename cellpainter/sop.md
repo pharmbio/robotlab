@@ -4,7 +4,7 @@ Standard operating procedure for robot cellpainter.
 
 ## Access gui on http://cellpainter:5000
 
-From the windows BioTek computer use http://cellpainter:5000.
+From the windows computer use http://cellpainter:5000.
 From other computers on the network use http://10.10.0.55:5000.
 
 <details>
