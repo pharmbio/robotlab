@@ -2,67 +2,40 @@
 
 Standard operating procedure for robot cellpainter.
 
-## Access gui on http://10.10.0.55:5000
+## Access gui on http://cellpainter:5000
 
-The gui (graphical user interface) runs on http://10.10.0.55:5000.
+From the windows BioTek computer use http://cellpainter:5000.
+From other computers on the network use http://10.10.0.55:5000.
 
 <details>
 <summary>
-    If it is unavailable these are the detailed instructions how to start it.
+    If it is unavailable these are the detailed instructions how to start it (for system administrators).
 </summary>
 
 The gui runs on the NUC running ubuntu which has hostname NUC-robotlab.
 
-Log in as `pharmbio`, go to the directory for the repo, `~/robotlab/cellpainter`.
-
-On the windows computer start PowerShell.
+It runs in a screen named `painter` in the `~/painter-robotlab` checkout of the repo.
 
 ```
 ssh pharmbio@10.10.0.55
+screen -x painter
 ```
 
-The output should look like:
+If the screen is not running, start it with:
 
 ```
-PS C:\Users\pharmbio> ssh pharmbio@10.10.0.55
-pharmbio@10.10.0.55's password:
-Welcome to Ubuntu 20.04.2 LTS (GNU/Linux 5.4.0-91-generic x86_64)
-
- * Documentation:  https://help.ubuntu.com
- * Management:     https://landscape.canonical.com
- * Support:        https://ubuntu.com/advantage
-
-453 updates can be installed immediately.
-308 of these updates are security updates.
-To see these additional updates run: apt list --upgradable
-
-Last login: Thu Jan 19 11:42:57 2023 from 10.10.0.10
-pharmbio@NUC-robotlab:~$
-```
-
-Make sure the `robotlab` code you are running is the desired version.
-Use `git status`, `git pull`, `git log`, etc.
-
-Continue in this shell:
-
-```
-cd robotlab/cellpainter
-cellpainter-gui --live
-```
-
-The output looks like:
-
-```
-pharmbio@NUC-robotlab:~/robotlab/cellpainter$ cellpainter-gui --live
+ssh pharmbio@10.10.0.55
+pharmbio@NUC-robotlab:~$ screen -S painter
+pharmbio@NUC-robotlab:~$ cd painter-robotlab/
+pharmbio@NUC-robotlab:~/painter-robotlab$ source painter-venv/bin/activate
+(painter-venv) pharmbio@NUC-robotlab:~/painter-robotlab$ cd cellpainter/
+(painter-venv) pharmbio@NUC-robotlab:~/painter-robotlab/cellpainter$ cellpainter-gui --live
 Running with config.name='live'
  * Env(VIABLE_DEV=True, VIABLE_RUN=True, VIABLE_HOST=None, VIABLE_PORT=None)
- * Serving Flask app 'cellpainter.gui.main' (lazy loading)
- * Environment: production
-   WARNING: This is a development server. Do not use it in a production deployment.
-   Use a production WSGI server instead.
+ * Serving Flask app 'cellpainter.gui.main'
  * Debug mode: off
-generating program... (0.154s)
 ```
+
 </details>
 
 ## Incubator preparation
@@ -103,7 +76,7 @@ Use the teach pendant.
 
 ## Test communications
 
-1. Use the windows computer and go to the gui at http://10.10.0.55:5000.
+1. Use the windows computer and go to the gui at http://cellpainter:5000.
 
 2. Run the test communications protocol, `test-comm` to verify that all machines can be communicated with.
 
@@ -140,7 +113,7 @@ For dry runs: make sure the plates are decontaminated since they are going into 
 
    Use the teach pendant and its freedrive button.
 
-3. Use the windows computer and go to the gui at http://10.10.0.55:5000.
+3. Use the windows computer and go to the gui at http://cellpainter:5000.
 
 4. Use the load incubator protocol, `incu-load`, and enter the number of plates. Press start!
 
@@ -150,7 +123,7 @@ For dry runs: make sure the plates are decontaminated since they are going into 
 
    Use the teach pendant and its freedrive button.
 
-2. Use the windows computer and go to the gui at http://10.10.0.55:5000.
+2. Use the windows computer and go to the gui at http://cellpainter:5000.
 
 3. Select the `cell-paint` protocol and enter the desired settings.
 
@@ -212,7 +185,7 @@ For dry runs: make sure the plates are decontaminated since they are going into 
 
 ## After painting: saving the log file
 
-1. Use the windows computer and go to the gui at http://10.10.0.55:5000.
+1. Use the windows computer and go to the gui at http://cellpainter:5000.
 
 2. Go to the _show logs_ section.
 
@@ -240,7 +213,8 @@ For dry runs: make sure the plates are decontaminated since they are going into 
 
 ## Configure BioTek protocols and add time estimates for them
 
-1. Make a new directory in the protocols root on the windows computer. You could copy an existing one, `automation_v5.0/` should be a good start.
+1. Make a new directory in the protocols root on the windows computer.
+   You could copy an existing one, `automation_v5.0/` might be a good start.
 
 2. Modify the LHC files as you please and give their names prefixes according to the
    documentation of `ProtocolPaths` and `template_protocol_paths` in
@@ -250,17 +224,21 @@ For dry runs: make sure the plates are decontaminated since they are going into 
    the dispenser on air, a plate is optional. Using liquids and a plate will
    not work, the plate will overflow.
 
-4. Use the windows computer and go to the gui at http://10.10.0.55:5000.
+4. Use the windows computer and go to the gui at http://cellpainter:5000.
 
 5. Select `time-bioteks` and enter the protocol directory name. Start!
 
-6. Go back to the main page and go to _show logs_. Toggle _show all_ and check the boxes for the new log files.
-    Press _add timings_.
+6. After success, press _store timings_.
 
+<img src='images/store_timings.png'>
+
+<details>
+<summary>
 The remaining steps save the timings to version control. They are not strictly
 required to start using the protocol directory.
+</summary>
 
-1. Use `pharmbio@NUC-robotlab` in the directory for the repo, `~/robotlab/`.
+1. Use `pharmbio@NUC-robotlab` in the directory for the repo, `~/painter-robotlab/`.
 
 2. Use `git status` and `git diff` to see that `cellpainter/estimates.json` and
    `cellpainter/protocol_paths.json` are correctly updated.
@@ -272,29 +250,13 @@ required to start using the protocol directory.
    git commit -m 'Add time estimates for a new protocol directory'
    git push
    ```
+</details>
 
 ## Update robotarm timings
 
 1. Run a protocol containing the missing moves.
 
-2. Go back to the main page and go to _show logs_. Toggle _show all_ and check the boxes for the new log files.
-    Press _add timings_.
-
-The remaining steps save the timings to version control. They are not strictly
-required to start using the new timings.
-
-1. Use `pharmbio@NUC-robotlab` in the directory for the repo, `~/robotlab/`.
-
-2. Use `git status` and `git diff` to see that `cellpainter/estimates.json` and
-   `cellpainter/protocol_paths.json` are correctly updated.
-
-3. Commit and push the changes:
-
-   ```
-   git add cellpainter/estimates.json cellpainter/protocol_paths.json
-   git commit -m 'Add time estimates for a new protocol directory'
-   git push
-   ```
+2. After success, press _store timings_.
 
 ## Test plate decontamination
 
@@ -314,11 +276,11 @@ touched by hand without gloves they are not considered clean any more and must n
 
     2.4 Attach washer waste bottle, preferably an empty one or one just used with water and ethanol.
 
-4. Use the windows computer and go to the gui at http://10.10.0.55:5000.
+4. Use the windows computer and go to the gui at http://cellpainter:5000.
 
-4. Select `wash-plates-clean` and enter the number of plates. Press start!
+5. Select `wash-plates-clean` and enter the number of plates. Press start!
 
-5. After wash-plates-clean:
+6. After wash-plates-clean:
 
     4.1 Prime the washer tubes empty.
 
