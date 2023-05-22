@@ -226,15 +226,15 @@ def index(path_from_route: str | None = None) -> Iterator[Tag | V.Node | dict[st
             if path_is_latest:
                 t_end = None # skip showing for /latest
             elif not rt.completed:
-                t_high = 2**60
-                t_end = store.int(t_high, name='t_end')
-                if t_end.value != t_high:
-                    t_end.value = t_high
+                t_min = 0
+                t_end = store.int(t_min, name='t_end')
+                if t_end.value != t_min:
+                    t_end.value = t_min
             elif rt.completed:
                 simulation_completed = True
                 t_min = 0
                 t_max = int(log.time_end()) + 1
-                t_end = store.int(t_max, name='t_end', min=t_min, max=t_max)
+                t_end = store.int(t_min, name='t_end', min=t_min, max=t_max)
                 spinner = div(
                     div('|'),
                     css='''
