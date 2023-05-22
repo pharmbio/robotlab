@@ -149,11 +149,15 @@ The gui is run on the ubuntu NUC. To make it easier to find it we alias its host
 
 On windows, for example the BioTek computer, add this line to C:\Windows\System32\drivers\etc\hosts
 
+```
 10.10.0.55 cellpainter
+```
 
 On ubuntu, for example the squid mikro asus computer, add this line to /etc/hosts
 
+```
 10.10.0.55 imager
+```
 
 ## Git diff of sqlite databases
 
