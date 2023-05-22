@@ -14,7 +14,7 @@ graph {
     barcode [label="Barcode scanner"]; barcode -- gbg_server [label=" USB COM port         "]
 
     fridge [label="Fridge Liconic STR240"]; fridge -- stx [label="  USB COM port"]
-    stx [label=<STX java software<BR/><BR/><I>windows gbg</I>>]; stx -- gbg_server [label="  TCP"]
+    stx [label=<STX java software<BR/><BR/><I>windows gbg</I>>]; stx -- gbg_server [label="  tcp"]
 
     squid [label=<squid flask server<BR/><BR/><I>squid mikro asus</I>>]; squid -- scheduler [label="  http"]
 

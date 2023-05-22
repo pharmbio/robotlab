@@ -93,6 +93,13 @@ GPIO-communication with RPi for the Nikon automated stage.
 
 The BioTek control code require a C# program that needs to be separately built.
 
+## The cell painter system
+
+The cell painter system controls the dispenser from BioTek and washers from Biotek and BlueCatBio
+as well as the incubator using the universal robots robot arm. Here is an overview:
+
+<img src=docs/painter.png>
+
 ## The imager system
 
 The imager system controls the Squid microscope and the Nikon microscope as well as the fridge using the
