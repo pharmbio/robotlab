@@ -113,8 +113,10 @@ machine                 | os      | room     | ip
 ---                     | ---     | ---      | ---
 Ubuntu NUC              | ubuntu  | the cage | 10.10.0.55
 Windows NUC             | windows | the cage | 10.10.0.56
-"GBG" computer          | windows | squikon  | 10.10.0.97
+Nikon stage computer    | raspian | squikon  | 10.10.0.72
+Nikon NIS computer      | windows | squikon  | 10.10.0.76
 Squid Mikro Asus        | ubuntu  | squikon  | 10.10.0.95
+"GBG" computer          | windows | squikon  | 10.10.0.97
 PF robotarm             | -       | squikon  | 10.10.0.98
 UR robotarm control box | linux   | the cage | 10.10.0.112
 
