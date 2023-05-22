@@ -22,11 +22,6 @@ https://github.com/pharmbio/aros.
 </tr>
 </table>
 
-The setup is outlined in the schematic below, which indicates the
-purpose of the three subdirectories in this repo, `biotek_repl/`, `incubator_repl/` and `labrobots_server/`.
-
-<img src=images/overview.svg>
-
 Since we have a C# program we will need to use a windows machine.
 For simplicity, we run everything on the same windows machine.
 
