@@ -107,6 +107,19 @@ precise flex robot arm. Here is an overview:
 
 <img src=docs/imager.png>
 
+## Network setup
+
+machine                 | os      | room     | ip
+---                     | ---     | ---      | ---
+Ubuntu NUC              | ubuntu  | the cage | 10.10.0.55
+Windows NUC             | windows | the cage | 10.10.0.56
+"GBG" computer          | windows | squikon  | 10.10.0.97
+Squid Mikro Asus        | ubuntu  | squikon  | 10.10.0.95
+PF robotarm             | -       | squikon  | 10.10.0.98
+UR robotarm control box | linux   | the cage | 10.10.0.112
+
+The node names and IP-addresses are also specified in [`labrobots/labrobots/__init__.py`](labrobots/labrobots/__init__.py).
+
 ## Installation
 
 On the ubuntu NUC that will run the guis and schedulers, install python >= 3.10 and then:
@@ -123,6 +136,11 @@ pip install --editable labrobots
 
 Further instructions are in under [`labrobots/`](labrobots/README.md)
 
+## Test
+
+Github actions is set up, check [`.github/workflows/test.yml`](.github/workflows/test.yml).
+One way to run this locally is to use [`act`](https://github.com/nektos/act).
+
 ## Configure hostnames
 
 The gui is run on the ubuntu NUC. To make it easier to find it we alias its hostname.
@@ -134,15 +152,6 @@ On windows, for example the BioTek computer, add this line to C:\Windows\System3
 On ubuntu, for example the squid mikro asus computer, add this line to /etc/hosts
 
 10.10.0.55 imager
-
-## Test
-
-Github actions is set up, check [`.github/workflows/test.yml`](.github/workflows/test.yml).
-One way to run this locally is to use [`act`](https://github.com/nektos/act).
-
-## Network setup
-
-The node names and IP-addresses are specified in [`labrobots/labrobots/__init__.py`](labrobots/labrobots/__init__.py).
 
 ## Git diff of sqlite databases
 

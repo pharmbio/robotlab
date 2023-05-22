@@ -20,7 +20,13 @@ pip install --editable .
 ## Test
 
 ```
-./run-tests.sh
+pytest
+```
+
+and
+
+```
+./cli-tests.sh
 ```
 
 or, for example:
@@ -31,17 +37,6 @@ cellpainter --cell-paint 6,6 --simulate
 
 Github actions is set up, check .github/workflows/test.yml.
 Run this locally using [`act`](https://github.com/nektos/act).
-
-## Network
-
-machine                 | os      | room     | ip
----                     | ---     |          | ---
-Ubuntu NUC              | ubuntu  | the cage | 10.10.0.55
-Windows NUC             | windows | the cage | 10.10.0.56
-"GBG" computer          | windows | squikon  | 10.10.0.97
-Squid Mikro Asus        | ubuntu  | squikon  | 10.10.0.95
-PF robotarm             | -       | squikon  | 10.10.0.98
-UR robotarm control box | linux   | the cage | 10.10.0.112
 
 ## 8-bot gripper for UR
 
