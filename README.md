@@ -124,13 +124,13 @@ The node names and IP-addresses are also specified in [`labrobots/labrobots/__in
 
 ## Installation
 
-On the ubuntu NUC that will run the guis and schedulers, install python >= 3.10 and then:
+On the ubuntu NUC that will run the guis and schedulers, install python >= 3.10 and:
 
 ```
 ./foreach.sh pip install --editable .
 ```
 
-On each windows machine that runs labrobots, install python >= 3.8 and:
+On each windows machine that runs labrobots, install python >= 3.10 and:
 
 ```
 pip install --editable labrobots
