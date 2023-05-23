@@ -1132,7 +1132,7 @@ def nikon_from_fridge(args: SmallProtocolArgs) -> Program:
             Checkpoint(f'RT {i}'),
             PFCmd(f'fridge-to-H12'),
             NikonStageCmd('goto_loading').fork_and_wait(),
-            PFCmd(f'H12-to-squid'),
+            PFCmd(f'H12-to-nikon'),
 
             Seq(
                 NikonStageCmd('leave_loading'),
@@ -1141,7 +1141,7 @@ def nikon_from_fridge(args: SmallProtocolArgs) -> Program:
             ).fork_and_wait(),
 
             NikonStageCmd('goto_loading').fork_and_wait(),
-            PFCmd(f'squid-to-H12'),
+            PFCmd(f'nikon-to-H12'),
             NikonStageCmd('leave_loading').fork_and_wait(),
             BarcodeClear(),
             PFCmd(f'H12-to-fridge'),
