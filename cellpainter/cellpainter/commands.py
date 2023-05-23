@@ -566,6 +566,12 @@ class Program(DBMixin):
     doc: str = ''
     id: int = -1
 
+    def __post_init__(self):
+        ur = sum(1 for cmd in self.command.universe() if isinstance(cmd, RobotarmCmd))
+        pf = sum(1 for cmd in self.command.universe() if isinstance(cmd, PFCmd))
+        if ur and pf:
+            raise ValueError('Cannot use both UR and PF in the same program')
+
 @dataclass(frozen=True)
 class ProgramMetadata(DBMixin):
     protocol: str = ''

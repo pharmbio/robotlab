@@ -439,7 +439,7 @@ def guess_robot(name: str) -> Literal['ur', 'pf', 'ur or pf']:
     for x in 'pf squid fridge nikon H'.split():
         if x in name:
             return 'pf'
-    raise ValueError(f'Cannot guess: {name}')
+    raise ValueError(f'Cannot guess robot for: {name}')
 
 @dataclass(frozen=True)
 class NamedMoveList:

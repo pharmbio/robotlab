@@ -524,11 +524,12 @@ def run_robotarm(args: SmallProtocolArgs):
     '''
     cmds: list[Command] = []
     for x in args.params:
-        cmds += [
-            RobotarmCmd(x)
-            if moves.guess_robot(x) == 'ur' else
-            WithLock('PF and Fridge', [PFCmd(x)]),
-        ]
+        if moves.guess_robot(x) == 'ur':
+            cmds += [RobotarmCmd(x)]
+        elif moves.guess_robot(x) == 'pf':
+            cmds += [PFCmd(x).with_lock('PF and Fridge')]
+        else:
+            raise ValueError(f'Unknown cmd: {x}')
     return Program(Seq(*cmds))
 
 @ur_protocols.append

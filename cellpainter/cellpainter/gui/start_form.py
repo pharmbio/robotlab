@@ -315,6 +315,9 @@ def start_form(*, config: RuntimeConfig):
     doc_full = ''
     doc_divs = []
 
+    err: str = ''
+    err_full: str = ''
+
     if protocol.value == 'cell-paint':
         selected_protocol_paths = protocol_paths.get(protocol_dir.value)
 
@@ -446,7 +449,11 @@ def start_form(*, config: RuntimeConfig):
             params_value = [fridge_projects_suggestions.value]
         elif 'params' in small_data.args:
             form_fields += [params]
-            params_value = pbutils.catch(lambda: shlex.split(params.value), [])
+            try:
+                params_value = shlex.split(params.value)
+            except Exception as e:
+                params_value = []
+                err = repr(e)
         else:
             params_value = []
         if 'protocol_dir' in small_data.args:
@@ -484,8 +491,6 @@ def start_form(*, config: RuntimeConfig):
     if args:
         args = replace(args, initial_fridge_contents_json=json.dumps(throttled_fridge_contents(config)))
 
-    err: str = ''
-    err_full: str = ''
     if args:
         try:
             stages = cli.args_to_stages(
