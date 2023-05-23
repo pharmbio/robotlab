@@ -765,7 +765,7 @@ def wave(args: SmallProtocolArgs):
     '''
     Makes the robot wave.
     '''
-    waves = [RobotarmCmd('wave')] * 2
+    waves = [RobotarmCmd('wave')]
     return Program(Seq(*waves))
 
 def fill_estimates(cmd: Command):
