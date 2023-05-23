@@ -267,7 +267,7 @@ class Bool(Var[bool]):
 @dataclass
 class Str(Var[str]):
     default: str=''
-    options: None | tuple[str] | list[str] = None
+    options: None | Iterable[str] = None
     suggestions: None | tuple[str] | list[str] = None
     desc: str | None = None
 
@@ -276,7 +276,7 @@ class Str(Var[str]):
             if s in self.options:
                 return s
             else:
-                return self.options[0]
+                return list(self.options)[0]
         else:
             return s
 

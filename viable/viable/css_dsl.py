@@ -126,6 +126,7 @@ class Css:
         align_items:      None | Literal['start', 'end', 'center', 'stretch', 'baseline'] = None,
         justify_content:  None | Literal['start', 'end', 'center', 'stretch', 'space-between', 'space-around', 'space-evenly'] = None,
         align_content:    None | Literal['start', 'end', 'center', 'stretch', 'space-between', 'space-around', 'space-evenly'] = None,
+        place_items:      None | str = None,
     ) -> 'Css':
         '''
         sets display: grid and some other common values
@@ -188,6 +189,7 @@ class Css:
             align_items           = align_items,
             justify_content       = justify_content,
             align_content         = align_content,
+            place_items           = place_items,
         )
 
     def item(

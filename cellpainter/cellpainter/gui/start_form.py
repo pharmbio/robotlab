@@ -214,6 +214,19 @@ def get_fridge_plates_for_projects(fridge_contents: FridgeSlots | None, projects
 
     return name_to_plate
 
+A = TypeVar('A')
+
+@dataclass(frozen=True)
+class LazyIterate(Generic[A]):
+    k: Callable[[], Iterable[A]]
+    def __iter__(self):
+        # print('__iter__')
+        yield from self.k()
+
+    def __len__(self):
+        # print('__len__')
+        return len(list(self.k()))
+
 def start_form(*, config: RuntimeConfig):
 
     imager = config.name != 'live'
@@ -236,7 +249,7 @@ def start_form(*, config: RuntimeConfig):
     protocol = store.str(default=tuple(options.keys())[0], options=tuple(options.keys()))
     store.assign_names(locals())
 
-    protocol_paths = throttled_protocol_paths(config)
+    protocol_paths = lambda: throttled_protocol_paths(config)
 
     desc = store.str(name='description', desc='Example: "specs395-v1"')
     operators = store.str(name='operators', desc='Example: "Amelie and Christa"')
@@ -247,7 +260,7 @@ def start_form(*, config: RuntimeConfig):
         default='automation_v5.0',
         name='protocol dir',
         desc='Directory on the windows computer to read biotek LHC files from',
-        options=sorted(protocol_paths.keys()),
+        options=LazyIterate(lambda: sorted(protocol_paths().keys())),
     )
 
     final_washes = store.str(
@@ -319,7 +332,7 @@ def start_form(*, config: RuntimeConfig):
     err_full: str = ''
 
     if protocol.value == 'cell-paint':
-        selected_protocol_paths = protocol_paths.get(protocol_dir.value)
+        selected_protocol_paths = protocol_paths().get(protocol_dir.value)
 
         if selected_protocol_paths and selected_protocol_paths.use_wash():
             two = final_washes
@@ -458,11 +471,14 @@ def start_form(*, config: RuntimeConfig):
             params_value = []
         if 'protocol_dir' in small_data.args:
             form_fields += [protocol_dir]
+            protocol_dir = protocol_dir.value
+        else:
+            protocol_dir = protocol_dir.default
         args = Args(
             protocol=small_data.name,
             num_plates=pbutils.catch(lambda: int(num_plates.value), 0),
             params=params_value,
-            protocol_dir=protocol_dir.value,
+            protocol_dir=protocol_dir,
         )
         doc_full = textwrap.dedent(small_data.make.__doc__ or '').strip()
         doc_header = small_data.doc
