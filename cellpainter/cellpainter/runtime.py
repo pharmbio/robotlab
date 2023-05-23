@@ -262,11 +262,11 @@ class Runtime:
             self.fridge = gbg.fridge
             self.barcode_reader = gbg.barcode
 
-            if 0:
+            if 1:
                 mikro_asus = MikroAsus.remote()
                 self.squid = mikro_asus.squid
 
-            if 1:
+            if 0:
                 self.nikon = Nikon.remote().nikon
                 self.nikon_stage = NikonPi.remote().nikon_stage
 

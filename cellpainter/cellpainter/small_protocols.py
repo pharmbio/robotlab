@@ -973,6 +973,7 @@ def fridge_put(args: SmallProtocolArgs):
     '''
     barcode, project = args.params
     cmd = FridgeInsert(project=project, assume_barcode=barcode).fork_and_wait()
+    cmd = cmd.with_lock('PF and Fridge')
     return Program(cmd)
 
 
@@ -1007,7 +1008,7 @@ def squid_from_hotel(args: SmallProtocolArgs) -> Program:
     return Program(Seq(*cmds))
 
 
-@pf_protocols.append
+# @pf_protocols.append
 def nikon_from_hotel(args: SmallProtocolArgs) -> Program:
     '''
 
@@ -1096,7 +1097,7 @@ def squid_from_fridge(args: SmallProtocolArgs) -> Program:
     cmd = cmd.with_lock('Squid')
     return Program(cmd)
 
-@pf_protocols.append
+# @pf_protocols.append
 def nikon_from_fridge(args: SmallProtocolArgs) -> Program:
     '''
 
@@ -1155,7 +1156,7 @@ def nikon_from_fridge(args: SmallProtocolArgs) -> Program:
     return Program(cmd)
 
 
-# # @pf_protocols.append
+# # # @pf_protocols.append
 # def nikon_open_stage(_: SmallProtocolArgs) -> Program:
 #     return Program(
 #         Seq(
@@ -1173,7 +1174,7 @@ def nikon_from_fridge(args: SmallProtocolArgs) -> Program:
 #         ).with_lock('PF and Fridge').with_lock('Nikon')
 #     )
 
-# # @pf_protocols.append
+# # # @pf_protocols.append
 # def nikon_to_H12(_: SmallProtocolArgs) -> Program:
 #     return Program(
 #         Seq(
@@ -1182,7 +1183,7 @@ def nikon_from_fridge(args: SmallProtocolArgs) -> Program:
 #         ).with_lock('PF and Fridge').with_lock('Nikon')
 #     )
 
-# # @pf_protocols.append
+# # # @pf_protocols.append
 # def nikon_from_fridge(args: SmallProtocolArgs) -> Program:
 #     '''
 #         Images plates in the fridge. Params are: job names (comma-separated), project, RT_time_secs, plate1_barcode, plate1_name, plate2_barcode, plate2_name,..., plateN_barcode, plateN_name

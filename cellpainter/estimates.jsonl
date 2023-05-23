@@ -1932,6 +1932,8 @@
 {"cmd":{"type":"SquidAcquire","config_path":"protocols/short_pe.json","project":"","plate":""},"datetime":"2023-03-31 12:47:04","duration":67.244}
 {"cmd":{"type":"SquidAcquire","config_path":"protocols/short_pe.json","project":"","plate":""},"datetime":"2023-03-31 12:50:43","duration":62.776}
 {"cmd":{"type":"SquidAcquire","config_path":"protocols/short_pe.json","project":"","plate":""},"datetime":"2023-03-31 12:54:17","duration":60.732}
+{"cmd":{"type":"SquidAcquire","config_path":"protocols/short_pe2.json","project":"","plate":""},"datetime":"2023-05-23 13:43:56","duration":94.471}
+{"cmd":{"type":"SquidAcquire","config_path":"protocols/short_pe2.json","project":"","plate":""},"datetime":"2023-05-23 13:55:40","duration":86.414}
 {"cmd":{"type":"SquidStageCmd","action":"goto_loading"},"datetime":"2023-03-31 12:47:10","duration":6.82}
 {"cmd":{"type":"SquidStageCmd","action":"goto_loading"},"datetime":"2023-03-31 12:49:18","duration":4.757}
 {"cmd":{"type":"SquidStageCmd","action":"goto_loading"},"datetime":"2023-03-31 12:50:50","duration":6.818}
