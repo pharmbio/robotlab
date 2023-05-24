@@ -8,7 +8,7 @@ from contextlib import contextmanager
 from pathlib import Path
 
 import pbutils
-from .commands import Metadata, Command, BiotekCmd, BlueCmd, Duration, IncuCmd, ProgramMetadata, Program
+from .commands import *
 from .moves import World
 
 from pbutils.mixins import DB, DBMixin
@@ -88,7 +88,7 @@ class CommandState(DBMixin):
                 self.gui_boring = True
             if self.cmd.action == 'TestCommunications':
                 self.gui_boring = True
-        if isinstance(self.cmd, IncuCmd):
+        if isinstance(self.cmd, IncuCmd | FridgeCmd):
             if self.cmd.action == 'get_status':
                 self.gui_boring = True
         if self.metadata.gui_force_show:

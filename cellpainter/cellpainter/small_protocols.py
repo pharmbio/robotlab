@@ -915,7 +915,7 @@ def fridge_unload_helper(plates: list[str]) -> Program:
         project, sep, barcode = plate.partition(':')
         assert sep, 'Separate project and barcode with :'
         cmds += [
-            FridgeEject(plate=barcode, project=project).fork_and_wait(align='end'),
+            FridgeEject(plate=barcode, project=project, check_barcode=False).fork_and_wait(align='end'),
             PFCmd(f'fridge-to-H12'),
             FridgeCmd('get_status').fork_and_wait(), # after this the fridge can eject the next
             PFCmd(f'H12-to-H{i}'),
@@ -943,7 +943,7 @@ def fridge_unload(args: SmallProtocolArgs) -> Program:
             assert slots is None or plate in slots, f'Cannot find {plate} in fridge'
     return fridge_unload_helper(args.params)
 
-@pf_protocols.append
+# @pf_protocols.append
 def fridge_unload_in_dictionary_order(args: SmallProtocolArgs) -> Program:
     '''
 
@@ -1007,6 +1007,35 @@ def squid_from_hotel(args: SmallProtocolArgs) -> Program:
         ]
     return Program(Seq(*cmds))
 
+@pf_protocols.append
+def hotel_to_squid(args: SmallProtocolArgs) -> Program:
+    '''
+    Moves the plate at H12 to the squid.
+    '''
+    cmds: list[Command] = [
+        SquidStageCmd('goto_loading').fork_and_wait(),
+        PFCmd('H12-to-squid'),
+        SquidStageCmd('leave_loading').fork_and_wait(),
+    ]
+    cmd = Seq(*cmds)
+    cmd = cmd.with_lock('PF and Fridge')
+    cmd = cmd.with_lock('Squid')
+    return Program(cmd)
+
+@pf_protocols.append
+def squid_to_hotel(args: SmallProtocolArgs) -> Program:
+    '''
+    Moves the plate on the squid to H12.
+    '''
+    cmds: list[Command] = [
+        SquidStageCmd('goto_loading').fork_and_wait(),
+        PFCmd('squid-to-H12'),
+        SquidStageCmd('leave_loading').fork_and_wait(),
+    ]
+    cmd = Seq(*cmds)
+    cmd = cmd.with_lock('PF and Fridge')
+    cmd = cmd.with_lock('Squid')
+    return Program(cmd)
 
 # @pf_protocols.append
 def nikon_from_hotel(args: SmallProtocolArgs) -> Program:
