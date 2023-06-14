@@ -586,54 +586,5 @@
       "",
       ""
     ]
-  },
-  "evacuate": {
-    "type": "ProtocolPaths",
-    "wash_prime": [
-      ""
-    ],
-    "wash_5": [
-      "",
-      "",
-      "",
-      "",
-      ""
-    ],
-    "wash_6": [
-      "",
-      "",
-      "",
-      "",
-      "",
-      ""
-    ],
-    "disp_prime": [
-      "",
-      "",
-      "",
-      ""
-    ],
-    "disp_prep": [
-      "",
-      "",
-      "",
-      ""
-    ],
-    "disp_main": [
-      "evacuate/2.1_D_SB_PRIME.LHC",
-      "",
-      "",
-      ""
-    ],
-    "blue_prime": [
-      ""
-    ],
-    "blue": [
-      "evacuate/1_W_StrongSpin.prog",
-      "evacuate/3_W_StrongSpin.prog",
-      "evacuate/5_W_StrongSpin.prog",
-      "evacuate/7_W_StrongSpin.prog",
-      ""
-    ]
   }
 }
