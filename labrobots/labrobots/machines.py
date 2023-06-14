@@ -110,7 +110,7 @@ class Machines:
                     {select} from io {where} order by t desc limit {n}
                 ) order by t asc
             '''
-            with sqlite3.connect('io.db') as con:
+            with contextlib.closing(sqlite3.connect('io.db')) as con:
                 rows = ['row t name id data'.split()] + [
                     [str(x) for x in row]
                     for row in con.execute(sql).fetchall()

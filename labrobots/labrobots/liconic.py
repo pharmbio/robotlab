@@ -225,11 +225,10 @@ class Fridge(STX):
 
     @contextlib.contextmanager
     def _get_db(self) -> Iterator[FridgeDB]:
-        con = sqlite3.connect(self.fridge_db, isolation_level=None)
-        db = FridgeDB(con)
-        with db.exclusive():
-            yield db
-        con.close()
+        with contextlib.closing(sqlite3.connect(self.fridge_db, isolation_level=None)) as con:
+            db = FridgeDB(con)
+            with db.exclusive():
+                yield db
 
     def contents(self) -> FridgeSlots:
         '''

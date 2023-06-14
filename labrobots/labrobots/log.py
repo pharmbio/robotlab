@@ -4,6 +4,7 @@ from dataclasses import *
 
 import sqlite3
 import json
+import contextlib
 
 def try_json_dumps(s: Any) -> str:
     try:
@@ -18,8 +19,15 @@ class Log:
         self._log(*args, **kwargs)
 
     @classmethod
+    def without_db(cls, stdout: bool = False) -> Log:
+        if stdout:
+            return Log(print)
+        else:
+            return Log(lambda *args, **kws: None)
+
+    @classmethod
     def make(cls, name: str, xs: List[str] | None = None, stdout: bool=True) -> Log:
-        with sqlite3.connect('io.db') as con:
+        with contextlib.closing(sqlite3.connect('io.db')) as con:
             con.executescript('''
                 pragma synchronous=OFF;
                 pragma journal_mode=WAL;
@@ -40,7 +48,7 @@ class Log:
                     print(f'{name}:', msg)
                 if xs is not None:
                     xs.append(msg)
-            with sqlite3.connect('io.db', isolation_level=None) as con:
+            with contextlib.closing(sqlite3.connect('io.db', isolation_level=None)) as con:
                 con.executescript('''
                     pragma synchronous=OFF;
                     pragma journal_mode=WAL;
