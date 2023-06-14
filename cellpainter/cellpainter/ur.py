@@ -54,9 +54,13 @@ class UR:
     port: int
 
     @contextlib.contextmanager
-    def connect(self, quiet: bool=True):
+    def connect(self, quiet: bool=True, write_to_log_db: bool=True):
         with contextlib.closing(socket.create_connection((self.host, self.port), timeout=60)) as sock:
-            yield ConnectedUR(sock, log=Log.make('ur', stdout=not quiet))
+            if write_to_log_db:
+                log = Log.make('ur', stdout=not quiet)
+            else:
+                log = Log.without_db(stdout=not quiet)
+            yield ConnectedUR(sock, log=log)
 
     def set_speed(self, value: int):
         if not (0 < value <= 100):

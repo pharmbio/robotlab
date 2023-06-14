@@ -69,7 +69,7 @@ def poll_pf(pf: PF):
     i = 0
     while True:
         i += 1
-        with pf.connect(quiet=bool(i >= 3), mode='ro') as arm:
+        with pf.connect(quiet=bool(i >= 3), write_to_log_db=bool(i < 3), mode='ro') as arm:
             info_str = arm.send_and_recv('wherejson')
             info = json.loads(info_str)
             info['xyz'] = [info[k] for k in 'xyz']
@@ -80,11 +80,13 @@ def poll_pf(pf: PF):
         time.sleep(0.1)
 
 def poll_ur(ur: UR):
-    with ur.connect(quiet=False) as arm:
+    with ur.connect(quiet=False, write_to_log_db=False) as arm:
         arm.send('write_output_integer_register(1, 0)\n')
         arm.recv_until('PROGRAM_XXX_STOPPED')
+    i = 0
     while True:
-        with ur.connect(quiet=False) as arm:
+        i += 1
+        with ur.connect(quiet=bool(i >= 3), write_to_log_db=bool(i < 3)) as arm:
             arm.send(URScript.reindent('''
                 sec poll():
                     def round(x):

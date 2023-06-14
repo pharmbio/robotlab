@@ -52,12 +52,16 @@ class PF:
     port_ro: int = 10000
 
     @contextlib.contextmanager
-    def connect(self, quiet: bool=True, mode: Literal['ro', 'rw'] = 'rw'):
+    def connect(self, quiet: bool=True, write_to_log_db: bool=True, mode: Literal['ro', 'rw'] = 'rw'):
         port = self.port_rw if mode == 'rw' else self.port_ro
         for _retries in range(10):
             try:
                 with contextlib.closing(socket.create_connection((self.host, port))) as sock:
-                    yield ConnectedPF(sock, log=Log.make('pf', stdout=not quiet))
+                    if write_to_log_db:
+                        log = Log.make('ur', stdout=not quiet)
+                    else:
+                        log = Log.without_db(stdout=not quiet)
+                    yield ConnectedPF(sock, log=log)
                     break
             except ConnectionRefusedError:
                 import traceback as tb
