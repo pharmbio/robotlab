@@ -40,21 +40,7 @@ from labrobots import (
 
 import contextlib
 
-import sqlite3
-from labrobots.sqlitecell import SqliteCell
-
-LockName = Literal['PF and Fridge', 'Squid', 'Nikon']
-
 from .config import RuntimeConfig
-
-def make_process_name():
-    import platform
-    import os
-    pid = os.getpid()
-    node = platform.node()
-    return f'{pid}@{node}'
-
-process_name = make_process_name()
 
 A = TypeVar('A')
 
@@ -63,8 +49,6 @@ class Runtime:
     config: RuntimeConfig
 
     time: Timelike
-
-    locks_db_filepath: str
 
     log_db: DB = field(default_factory=lambda: DB.connect(':memory:'))
 
@@ -107,20 +91,11 @@ class Runtime:
 
     @staticmethod
     def init(config: RuntimeConfig) -> Runtime:
-        import weakref
-        if config.run_fridge_squid_nikon or config.pf_env.mode == 'execute':
-            # Activate this when Nikon is relevant:
-            # # locks_db_filepath, cleanup = 'locks.db', lambda: None
-            locks_db_filepath, cleanup = ResourceLock.make_temp_db_filepath()
-        else:
-            locks_db_filepath, cleanup = ResourceLock.make_temp_db_filepath()
         runtime = Runtime(
             config=config,
             time=config.make_timelike(),
-            locks_db_filepath=locks_db_filepath,
             log_db=DB.connect(config.log_filename if config.log_filename else ':memory:'),
         )
-        weakref.finalize(runtime, cleanup)
         return runtime
 
     def __post_init__(self):
@@ -404,123 +379,3 @@ class Runtime:
         with self.lock:
             ProgressText(text=text, id=id).save(self.log_db)
 
-    def runtime_name(self):
-        parts = [
-            self.config.log_filename or
-            self.start_time.replace(microsecond=0).isoformat(sep=' ') + ' ' + self.config.name,
-            process_name,
-        ]
-        return ' '.join(parts)
-
-    def resource_lock(self, lock_name: LockName):
-        return ResourceLock(
-            db_filepath=self.locks_db_filepath,
-            process_name=self.runtime_name(),
-            lock_name=lock_name,
-        )
-
-    def acquire_lock(self, lock_name: LockName, num_tries: int = -1, entry: CommandWithMetadata | None = None):
-        while num_tries != 0:
-            if self.resource_lock(lock_name).acquire_lock():
-                return
-            text = f'Waiting for lock: {lock_name} ({abs(num_tries)}...)'
-            print(text)
-            if entry:
-                self.set_progress_text(entry, text=text)
-            self.sleep(1.0)
-            num_tries -= 1
-        raise ValueError(f'Failed to acquire {lock_name!r}')
-
-    def assert_lock(self, lock_name: LockName):
-        self.resource_lock(lock_name).assert_lock()
-
-    def release_lock(self, lock_name: LockName):
-        self.resource_lock(lock_name).release_lock()
-
-@dataclass(frozen=True, kw_only=True)
-class ResourceLock:
-    db_filepath: str
-    process_name: str
-    lock_name: LockName
-
-    @contextlib.contextmanager
-    def open_exclusive(self):
-        con = sqlite3.connect(self.db_filepath, isolation_level=None)
-        with contextlib.closing(con):
-            lock = SqliteCell(con, table='Lock', key=self.lock_name, default='')
-            with lock.exclusive():
-                yield lock
-
-    def acquire_lock(self) -> bool:
-        with self.open_exclusive() as lock:
-            current = lock.read()
-            if current:
-                # raise ValueError(f'Trying to acquire lock {name!r} but {current=!r} is holding it')
-                return False
-            else:
-                lock.write(self.process_name)
-                return True
-
-    def assert_lock(self):
-        with self.open_exclusive() as lock:
-            current = lock.read()
-            if current != self.process_name:
-                raise ValueError(f'Expected to hold {self.lock_name!r} but {current=!r} is holding it (!= {self.process_name=!r})')
-
-    def release_lock(self):
-        with self.open_exclusive() as lock:
-            current = lock.read()
-            if current != self.process_name:
-                raise ValueError(f'Trying to release lock {self.lock_name!r} but {current=!r} is holding it (!= {self.process_name=!r})')
-            else:
-                lock.write('')
-
-    @staticmethod
-    def make_temp_db_filepath():
-        import tempfile
-        import atexit
-        import shutil
-        from pathlib import Path
-        tmpdir = tempfile.mkdtemp(prefix='robotlab-locks-db-')
-        todo = True
-        def cleanup():
-            nonlocal todo
-            if todo:
-                todo = False
-                shutil.rmtree(tmpdir, ignore_errors=True)
-                0 and print('Cleaned up', tmpdir)
-            else:
-                0 and print('Already cleaned up', tmpdir)
-        atexit.register(cleanup)
-        return str(Path(tmpdir) / 'locks.db'), cleanup
-
-def test_resource_locks():
-    import pytest
-    runtime = Runtime.init(RuntimeConfig.simulate())
-    runtime.acquire_lock('Squid')
-    runtime.assert_lock('Squid')
-
-    with pytest.raises(ValueError):
-        runtime.acquire_lock('Squid', num_tries=1)
-
-    runtime.release_lock('Squid')
-
-    with pytest.raises(ValueError):
-        runtime.assert_lock('Squid')
-
-    with pytest.raises(ValueError):
-        runtime.release_lock('Squid')
-
-    runtime.acquire_lock('Squid')
-    with pytest.raises(ValueError):
-        runtime.assert_lock('Nikon')
-    runtime.acquire_lock('Nikon')
-
-    runtime.assert_lock('Squid')
-    runtime.assert_lock('Nikon')
-    with pytest.raises(ValueError):
-        runtime.assert_lock('PF and Fridge')
-    runtime.release_lock('Nikon')
-    with pytest.raises(ValueError):
-        runtime.assert_lock('Nikon')
-    runtime.release_lock('Squid')

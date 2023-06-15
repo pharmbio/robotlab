@@ -8,9 +8,6 @@ from pbutils.mixins import DBMixin
 
 from .timelike import Timelike, WallTime, SimulatedTime
 
-
-LockName = Literal['PF and Fridge', 'Squid', 'Nikon']
-
 @dataclass(frozen=True)
 class UREnv:
     mode: Literal['noop', 'execute', 'execute no gripper']
@@ -42,7 +39,7 @@ class RuntimeConfig(DBMixin):
     timelike:               Literal['WallTime', 'SimulatedTime'] = 'SimulatedTime'
     ur_env:                 UREnv = UREnvs.dry
     pf_env:                 PFEnv = PFEnvs.dry
-    signal_handlers:               Literal['install', 'noop'] = 'noop'
+    signal_handlers:        Literal['install', 'noop'] = 'noop'
     _: KW_ONLY
     run_incu_wash_disp:     bool = False
     run_fridge_squid_nikon: bool = False

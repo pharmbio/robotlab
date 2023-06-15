@@ -143,8 +143,6 @@ def optimal_env(cmd: Command, unsat_core: bool=False, explain_mode: bool=False) 
             case Idle():
                 constrain(cmd.seconds, '>=', 0, cmd=cmd)
                 return begin + cmd.seconds
-            case AcquireLock() | ReleaseLock():
-                return begin
             case BarcodeClear():
                 return begin + estimate(cmd)
             case PhysicalCommand():

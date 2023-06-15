@@ -527,7 +527,7 @@ def run_robotarm(args: SmallProtocolArgs):
         if moves.guess_robot(x) == 'ur':
             cmds += [RobotarmCmd(x)]
         elif moves.guess_robot(x) == 'pf':
-            cmds += [PFCmd(x).with_lock('PF and Fridge')]
+            cmds += [PFCmd(x)]
         else:
             raise ValueError(f'Unknown cmd: {x}')
     return Program(Seq(*cmds))
@@ -902,9 +902,6 @@ def fridge_load_from_top(args: SmallProtocolArgs) -> Program:
     cmds += [
         WaitForResource('fridge'),
     ]
-    cmds = [
-        WithLock('PF and Fridge', cmds),
-    ]
     return Program(Seq(*cmds))
 
 def fridge_unload_helper(plates: list[str]) -> Program:
@@ -920,9 +917,6 @@ def fridge_unload_helper(plates: list[str]) -> Program:
             FridgeCmd('get_status').fork_and_wait(), # after this the fridge can eject the next
             PFCmd(f'H12-to-H{i}'),
         ]
-    cmds = [
-        WithLock('PF and Fridge', cmds),
-    ]
     return Program(Seq(*cmds))
 
 @pf_protocols.append
@@ -973,7 +967,6 @@ def fridge_put(args: SmallProtocolArgs):
     '''
     barcode, project = args.params
     cmd = FridgeInsert(project=project, assume_barcode=barcode).fork_and_wait()
-    cmd = cmd.with_lock('PF and Fridge')
     return Program(cmd)
 
 
@@ -989,21 +982,15 @@ def squid_from_hotel(args: SmallProtocolArgs) -> Program:
     assert_valid_project_name(project)
     for plate_name in plate_names:
         cmds += [
-            WithLock('Squid', [
-                WithLock('PF and Fridge', [
-                    SquidStageCmd('goto_loading').fork_and_wait(),
-                    PFCmd('H12-to-squid'),
-                ]),
-                Seq(
-                    SquidStageCmd('leave_loading'),
-                    SquidAcquire(config_path, project=project, plate=plate_name),
-                ).fork_and_wait(),
-                WithLock('PF and Fridge', [
-                    SquidStageCmd('goto_loading').fork_and_wait(),
-                    PFCmd('squid-to-H12'),
-                ]),
-                SquidStageCmd('leave_loading').fork_and_wait(),
-            ])
+            SquidStageCmd('goto_loading').fork_and_wait(),
+            PFCmd('H12-to-squid'),
+            Seq(
+                SquidStageCmd('leave_loading'),
+                SquidAcquire(config_path, project=project, plate=plate_name),
+            ).fork_and_wait(),
+            SquidStageCmd('goto_loading').fork_and_wait(),
+            PFCmd('squid-to-H12'),
+            SquidStageCmd('leave_loading').fork_and_wait(),
         ]
     return Program(Seq(*cmds))
 
@@ -1018,8 +1005,6 @@ def hotel_to_squid(args: SmallProtocolArgs) -> Program:
         SquidStageCmd('leave_loading').fork_and_wait(),
     ]
     cmd = Seq(*cmds)
-    cmd = cmd.with_lock('PF and Fridge')
-    cmd = cmd.with_lock('Squid')
     return Program(cmd)
 
 @pf_protocols.append
@@ -1033,8 +1018,6 @@ def squid_to_hotel(args: SmallProtocolArgs) -> Program:
         SquidStageCmd('leave_loading').fork_and_wait(),
     ]
     cmd = Seq(*cmds)
-    cmd = cmd.with_lock('PF and Fridge')
-    cmd = cmd.with_lock('Squid')
     return Program(cmd)
 
 # @pf_protocols.append
@@ -1049,20 +1032,14 @@ def nikon_from_hotel(args: SmallProtocolArgs) -> Program:
     assert_valid_project_name(project)
     for plate_name in plate_names:
         cmds += [
-            WithLock('Nikon', [
-                WithLock('PF and Fridge', [
-                    NikonStageCmd('goto_loading').fork_and_wait(),
-                    PFCmd('H12-to-nikon'),
-                ]),
-                Seq(
-                    NikonStageCmd('leave_loading'),
-                    NikonAcquire(job_name=job_name, project=project, plate=plate_name),
-                ).fork_and_wait(),
-                WithLock('PF and Fridge', [
-                    NikonStageCmd('goto_loading').fork_and_wait(),
-                    PFCmd('nikon-to-H12'),
-                ]),
-            ])
+            NikonStageCmd('goto_loading').fork_and_wait(),
+            PFCmd('H12-to-nikon'),
+            Seq(
+                NikonStageCmd('leave_loading'),
+                NikonAcquire(job_name=job_name, project=project, plate=plate_name),
+            ).fork_and_wait(),
+            NikonStageCmd('goto_loading').fork_and_wait(),
+            PFCmd('nikon-to-H12'),
         ]
     return Program(Seq(*cmds))
 
@@ -1122,8 +1099,6 @@ def squid_from_fridge(args: SmallProtocolArgs) -> Program:
             ).fork_and_wait(),
         ]
     cmd = Seq(*cmds)
-    cmd = cmd.with_lock('PF and Fridge')
-    cmd = cmd.with_lock('Squid')
     return Program(cmd)
 
 # @pf_protocols.append
@@ -1180,8 +1155,6 @@ def nikon_from_fridge(args: SmallProtocolArgs) -> Program:
             ).fork_and_wait(),
         ]
     cmd = Seq(*cmds)
-    cmd = cmd.with_lock('PF and Fridge')
-    cmd = cmd.with_lock('Nikon')
     return Program(cmd)
 
 
@@ -1190,7 +1163,7 @@ def nikon_from_fridge(args: SmallProtocolArgs) -> Program:
 #     return Program(
 #         Seq(
 #             NikonStageCmd('goto_loading').fork_and_wait(),
-#         ).with_lock('Nikon')
+#         )
 #     )
 
 # # @pf_protocols.append
@@ -1200,7 +1173,7 @@ def nikon_from_fridge(args: SmallProtocolArgs) -> Program:
 #             NikonStageCmd('goto_loading').fork_and_wait(),
 #             PFCmd('H12-to-nikon'),
 #             NikonStageCmd('leave_loading').fork_and_wait(),
-#         ).with_lock('PF and Fridge').with_lock('Nikon')
+#         )
 #     )
 
 # # # @pf_protocols.append
@@ -1209,7 +1182,7 @@ def nikon_from_fridge(args: SmallProtocolArgs) -> Program:
 #         Seq(
 #             NikonStageCmd('goto_loading').fork_and_wait(),
 #             PFCmd('nikon-to-H12'),
-#         ).with_lock('PF and Fridge').with_lock('Nikon')
+#         )
 #     )
 
 # # # @pf_protocols.append
@@ -1295,14 +1268,9 @@ def nikon_from_fridge(args: SmallProtocolArgs) -> Program:
 #         Duration('start', Min(2)),
 #     ]
 #     cmd = Seq(*cmds)
-#     cmd = cmd.with_lock('PF and Fridge')
-#     cmd = cmd.with_lock('Nikon')
 #     return Program(cmd)
 
-def pf_fridge_program(cmds: list[Command]) -> Program:
-    cmds = [
-        WithLock('PF and Fridge', cmds),
-    ]
+def cmds_to_program(cmds: list[Command]) -> Program:
     return Program(Seq(*cmds))
 
 @pf_protocols.append
@@ -1310,28 +1278,28 @@ def fridge_reset_and_activate(args: SmallProtocolArgs) -> Program:
     '''
     Reset and activate the fridge.
     '''
-    return pf_fridge_program([FridgeCmd('reset_and_activate').fork_and_wait()])
+    return cmds_to_program([FridgeCmd('reset_and_activate').fork_and_wait()])
 
 @pf_protocols.append
 def pf_init(args: SmallProtocolArgs) -> Program:
     '''
     Initialize the PreciseFlex robotarm. Required after emergency stop.
     '''
-    return pf_fridge_program([PFCmd('pf init')])
+    return cmds_to_program([PFCmd('pf init')])
 
 @pf_protocols.append
 def pf_freedrive(args: SmallProtocolArgs) -> Program:
     '''
     Start freedrive on the PreciseFlex robotarm, making it easy to move around by hand.
     '''
-    return pf_fridge_program([PFCmd('pf freedrive')])
+    return cmds_to_program([PFCmd('pf freedrive')])
 
 @pf_protocols.append
 def pf_stop_freedrive(args: SmallProtocolArgs) -> Program:
     '''
     Stops freedrive on the PreciseFlex robotarm.
     '''
-    return pf_fridge_program([PFCmd('pf stop freedrive')])
+    return cmds_to_program([PFCmd('pf stop freedrive')])
 
 
 @dataclass(frozen=True)

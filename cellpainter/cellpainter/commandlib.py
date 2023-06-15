@@ -66,7 +66,7 @@ def quicksim(program: Command, checkpoints: dict[str, float], estimate: Callable
                 thread.running = hd.add(meta), hd.seconds.unwrap()
                 # running pseudo-physical command (these could be replaced with checkpoint...wait)
                 return [thread]
-            case Duration() | AcquireLock() | ReleaseLock():
+            case Duration():
                 # nothing to do
                 t_end[meta.id] = t
                 thread.todo = tl
@@ -242,10 +242,7 @@ def check_correspondence(command: Command, **ends: dict[int, float]):
                 if end_a == -1: end_a = 'missing'
                 if end_b == -1: end_b = 'missing'
                 cmd = by_id.get(k)
-                if cmd and isinstance(cmd.peel_meta(), AcquireLock | ReleaseLock):
-                    pass
-                else:
-                    mismatches += [{src_a: end_a, src_b: end_b, 'cmd': cmd}]
+                mismatches += [{src_a: end_a, src_b: end_b, 'cmd': cmd}]
                 # if not cmd or not isinstance(cmd.peel_meta(), Checkpoint):
 
     if mismatches:

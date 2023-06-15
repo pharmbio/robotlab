@@ -70,9 +70,6 @@ class Command(ReplaceMixin, abc.ABC):
     def fork_and_wait(self, assume: ForkAssumption = 'idle', align: Literal['begin', 'end'] = 'begin') -> Command:
         return self.fork(assume=assume, align=align).wait()
 
-    def with_lock(self, lock: LockName) -> Command:
-        return WithLock(lock, self)
-
     def add_to_physical_commands(self, m: Metadata):
         def Add(cmd: Command):
             if isinstance(cmd, PhysicalCommand):
@@ -855,24 +852,5 @@ class BarcodeClear(PhysicalCommand):
     Clears the last seen barcode from the barcode reader memory, synchronously (waits for completion)
     '''
     pass
-
-LockName = Literal['PF and Fridge', 'Squid', 'Nikon']
-
-@dataclass(frozen=True)
-class AcquireLock(Command):
-    name: LockName
-
-@dataclass(frozen=True)
-class ReleaseLock(Command):
-    name: LockName
-
-def WithLock(name: LockName, cmd: Command | list[Command]) -> Command:
-    if isinstance(cmd, list):
-        cmd = Seq(*cmd)
-    return Seq(
-        AcquireLock(name),
-        cmd,
-        ReleaseLock(name),
-    )
 
 pbutils.serializer.register(globals())

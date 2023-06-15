@@ -76,15 +76,6 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
                 execute(cmd.command, runtime, thread_metadata)
                 runtime.thread_done()
 
-        case AcquireLock(name=name):
-            with runtime.timeit(entry):
-                runtime.acquire_lock(name, entry=entry)
-                runtime.assert_lock(name)
-
-        case ReleaseLock(name=name):
-            runtime.assert_lock(name)
-            runtime.release_lock(name)
-
         case RobotarmCmd():
             movelist = movelists.get(cmd.program_name)
             if movelist is None:
@@ -98,7 +89,6 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
             movelist = movelists.get(cmd.program_name)
             if movelist is None:
                 raise ValueError(f'Missing robotarm move {cmd.program_name}')
-            runtime.assert_lock('PF and Fridge')
             for pf in runtime.time_resource_use(entry, runtime.pf):
                 pf.execute_moves(movelist)
 
@@ -112,7 +102,6 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
             incubator.execute(runtime, entry, action, cmd.incu_loc)
 
         case SquidAcquire():
-            runtime.assert_lock('Squid')
             for squid in runtime.time_resource_use(entry, runtime.squid):
                 squid.load_config(
                     file_path=cmd.config_path,
@@ -135,7 +124,6 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
                     runtime.sleep(1.0)
 
         case NikonAcquire():
-            runtime.assert_lock('Nikon')
             for nikon in runtime.time_resource_use(entry, runtime.nikon):
                 nikon.RunJob(
                     job_name=cmd.job_name,
@@ -151,7 +139,6 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
                     runtime.sleep(1.0)
 
         case NikonStageCmd() as cmd:
-            runtime.assert_lock('Nikon')
             for nikon, nikon_stage in runtime.time_resource_use(entry, runtime.nikon_and_stage):
                 match cmd.action:
                     case 'goto_loading':
@@ -179,7 +166,6 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
                         nikon.status()
 
         case SquidStageCmd() as cmd:
-            runtime.assert_lock('Squid')
             for squid in runtime.time_resource_use(entry, runtime.squid):
                 match cmd.action:
                     case 'goto_loading':
@@ -190,7 +176,6 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
                         squid.status()
 
         case FridgeInsert():
-            runtime.assert_lock('PF and Fridge')
             for fridge, barcode_reader in runtime.time_resource_use(entry, runtime.fridge_and_barcode_reader):
                 if cmd.assume_barcode:
                     barcode = cmd.assume_barcode
@@ -203,7 +188,6 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
                 fridge.insert(barcode, cmd.project)
 
         case FridgeEject():
-            runtime.assert_lock('PF and Fridge')
             for fridge, barcode_reader in runtime.time_resource_use(entry, runtime.fridge_and_barcode_reader):
                 barcode_reader.clear()
                 fridge.eject(plate=cmd.plate, project=cmd.project)
@@ -217,7 +201,6 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
                     raise ValueError(f'Plate has {barcode=!r} but expected {cmd.plate=!r}')
 
         case FridgeCmd(action=action):
-            runtime.assert_lock('PF and Fridge')
             for fridge in runtime.time_resource_use(entry, runtime.fridge):
                 match action:
                     case 'get_status':
@@ -226,7 +209,6 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
                         fridge.reset_and_activate()
 
         case BarcodeClear():
-            runtime.assert_lock('PF and Fridge')
             for barcode_reader in runtime.time_resource_use(entry, runtime.barcode_reader):
                 barcode_reader.clear()
 
