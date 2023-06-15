@@ -13,7 +13,7 @@ import re
 import time
 
 from .moves import Move, MoveList, guess_robot
-from .runtime import RuntimeConfig, config_from_argv, simulate, UR, PF
+from .runtime import Runtime, RuntimeConfig, UR, PF
 from . import moves
 from .ur_script import URScript
 import pbutils
@@ -30,7 +30,7 @@ class MovesGuiState:
     lock: Lock = field(default_factory=Lock)
     ur: UR | None = None
     pf: PF | None = None
-    config: RuntimeConfig = simulate
+    config: RuntimeConfig = RuntimeConfig.simulate()
 
     def set_config(self, config: RuntimeConfig):
         with self.lock:
@@ -45,7 +45,7 @@ class MovesGuiState:
             if self.init_done:
                 return
 
-            runtime = self.config.only_arm().make_runtime()
+            runtime = Runtime.init(self.config.only_arm())
             self.ur = runtime.ur
             self.pf = runtime.pf
 
@@ -678,7 +678,7 @@ def index() -> Iterator[Tag | dict[str, str]]:
     yield V.queue_refresh(150)
 
 def main():
-    config = config_from_argv()
+    config = RuntimeConfig.from_argv()
 
     host = labrobots.Machines.ip_from_node_name() or 'localhost'
 

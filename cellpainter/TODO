@@ -6,6 +6,7 @@
         have a few plates standing in the lower parts of hotel C
         have them run a few cycles to disp wash blue (not incu)
 [ ] imager: UI for entering plate metadata.
+[ ] imager: test comm
 [ ] cellpainter: use quicksim to update estimates while running
 [ ] cellpainter: remove lockstep
 [ ] cellpainter: try to suggest what needs to be shorter for a given incubation time
@@ -21,7 +22,7 @@
 [ ] monitor:
     [ ] temperature of incubator and fridge
     [ ] disk usage and load average on computers
-    [ ] trim logs automatically?
+    [ ] trim logs automatically? (partially solved by logging less from robot arms. nikon-nis still logs too much)
 [ ] PF: open gripper before moving
 [ ] test comm should only include relevant machines
 [ ] make it easier to parameterise small protocols

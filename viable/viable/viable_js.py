@@ -63,9 +63,11 @@ viable_js = textwrap.dedent(r'''
     async function refresh() {
         needs_refresh = true
         if (!current_refresh) {
+            console.time('refresh')
             current_refresh = refresh_worker()
         }
         const res = await current_refresh
+        console.timeEnd('refresh')
         if (needs_refresh == true) {
             refresh()
         }
@@ -180,6 +182,8 @@ viable_js = textwrap.dedent(r'''
                 if (document.activeElement !== prev || !in_focus || window.ignore_focus) {
                     prev.value = next.textContent
                 }
+            } else if (next.getAttribute('morph-children') == 'false') {
+                // pass
             } else {
                 const pc = [...prev.childNodes]
                 const nc = [...next.childNodes]

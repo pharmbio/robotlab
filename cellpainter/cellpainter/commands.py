@@ -802,7 +802,7 @@ class SquidAcquire(SquidABC):
 
 @dataclass(frozen=True)
 class SquidStageCmd(SquidABC):
-    action: Literal['goto_loading', 'leave_loading']
+    action: Literal['goto_loading', 'leave_loading', 'get_status']
 
 class NikonABC(PhysicalCommand, abc.ABC):
     def required_resource(self):
@@ -818,7 +818,7 @@ class NikonAcquire(NikonABC):
 
 @dataclass(frozen=True)
 class NikonStageCmd(NikonABC):
-    action: Literal['goto_loading', 'leave_loading', 'init_laser']
+    action: Literal['goto_loading', 'leave_loading', 'init_laser', 'get_status']
 
 class FridgeABC(PhysicalCommand, abc.ABC):
     def required_resource(self):

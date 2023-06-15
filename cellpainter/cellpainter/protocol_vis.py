@@ -229,7 +229,7 @@ def add_to_serve(serve: Serve, cmdline0: str, cmdline_to_log: Callable[[str], Lo
                 commands.Duration: 'duration',
             }
             source = sources.get(e.cmd.__class__, machine) or ''
-            if t0 is None:
+            if cast(Any, t0) is None:
                 continue
             if slot == 0:
                 slot = {

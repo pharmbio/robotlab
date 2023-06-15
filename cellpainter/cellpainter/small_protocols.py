@@ -28,7 +28,7 @@ from . import protocol_paths
 
 from labrobots.liconic import FridgeSlots
 
-from pbutils.args import arg, option
+from pbutils.args import arg
 
 def assert_valid_project_name(s: str):
     import string

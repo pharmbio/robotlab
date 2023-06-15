@@ -7,7 +7,6 @@ import signal
 import sys
 import threading
 import traceback
-import functools
 
 from contextlib import contextmanager
 from datetime import datetime, timedelta
@@ -15,11 +14,11 @@ from queue import Queue
 from threading import RLock
 
 import pbutils
-from pbutils.mixins import DB, DBMixin
+from pbutils.mixins import DB
 
 from .ur import UR
 from .pf import PF
-from .timelike import Timelike, WallTime, SimulatedTime
+from .timelike import Timelike
 from .moves import World, Effect
 from .log import Message, CommandState, CommandWithMetadata, ProgressText, Log
 
@@ -46,111 +45,7 @@ from labrobots.sqlitecell import SqliteCell
 
 LockName = Literal['PF and Fridge', 'Squid', 'Nikon']
 
-@dataclass(frozen=True)
-class UREnv:
-    mode: Literal['noop', 'execute', 'execute no gripper']
-    host: str
-    port: int
-
-class UREnvs:
-    live      = UREnv('execute', '10.10.0.112', 30001)
-    forward   = UREnv('execute', '127.0.0.1', 30001)
-    simulator = UREnv('execute no gripper', '127.0.0.1', 30001)
-    dry       = UREnv('noop', '', 0)
-
-@dataclass(frozen=True)
-class PFEnv:
-    mode: Literal['noop', 'execute']
-    host: str
-    _: KW_ONLY
-    port_rw: int
-    port_ro: int
-
-class PFEnvs:
-    live      = PFEnv('execute', '10.10.0.98', port_rw=10100, port_ro=10000)
-    forward   = PFEnv('execute', 'localhost',  port_rw=10100, port_ro=10000)
-    dry       = PFEnv('noop', '', port_rw=0, port_ro=0)
-
-@dataclass(frozen=True)
-class RuntimeConfig(DBMixin):
-    name:                   str = 'simulate'
-    timelike:               Literal['WallTime', 'SimulatedTime'] = 'SimulatedTime'
-    ur_env:                 UREnv = UREnvs.dry
-    pf_env:                 PFEnv = PFEnvs.dry
-    signal_handlers:               Literal['install', 'noop'] = 'noop'
-    _: KW_ONLY
-    run_incu_wash_disp:     bool = False
-    run_fridge_squid_nikon: bool = False
-
-    # ur_speed: int = 100
-    # pf_speed: int = 50
-    log_filename: str | None = None
-
-    def only_arm(self) -> RuntimeConfig:
-        return self.replace(
-            run_incu_wash_disp=False,
-            run_fridge_squid_nikon=False,
-            signal_handlers='noop',
-        )
-
-    def make_runtime(self) -> Runtime:
-        import weakref
-        if self.run_fridge_squid_nikon or self.pf_env.mode == 'execute':
-            # Activate this when Nikon is relevant:
-            # # locks_db_filepath, cleanup = 'locks.db', lambda: None
-            locks_db_filepath, cleanup = ResourceLock.make_temp_db_filepath()
-        else:
-            locks_db_filepath, cleanup = ResourceLock.make_temp_db_filepath()
-        runtime = Runtime(
-            config=self,
-            time=self.make_timelike(),
-            locks_db_filepath=locks_db_filepath,
-            log_db=DB.connect(self.log_filename if self.log_filename else ':memory:'),
-        )
-        weakref.finalize(runtime, cleanup)
-        return runtime
-
-    def make_timelike(self) -> Timelike:
-        if self.timelike == 'WallTime':
-            return WallTime()
-        elif self.timelike == 'SimulatedTime':
-            return SimulatedTime()
-        else:
-            raise ValueError(f'No such {self.timelike=}')
-
-    def __post_init__(self):
-        if self.ur_env.mode != 'noop' and self.pf_env.mode != 'noop':
-            raise ValueError(f'Not allowed: PF & UR ({self=})')
-        if self.run_incu_wash_disp and self.run_fridge_squid_nikon:
-            raise ValueError(f'Not allowed: cellpainting room and microscope room ({self=})')
-
-configs: list[RuntimeConfig]
-configs = [
-    # UR:
-    RuntimeConfig('live',         'WallTime', UREnvs.live,      PFEnvs.dry, run_incu_wash_disp=True,  run_fridge_squid_nikon=False, signal_handlers='install'),
-    RuntimeConfig('ur-simulator', 'WallTime', UREnvs.simulator, PFEnvs.dry, run_incu_wash_disp=False, run_fridge_squid_nikon=False),
-    RuntimeConfig('forward',      'WallTime', UREnvs.forward,   PFEnvs.dry, run_incu_wash_disp=False, run_fridge_squid_nikon=False, signal_handlers='install'),
-
-    # PF:
-    RuntimeConfig('pf-live',       'WallTime',      UREnvs.dry,       PFEnvs.live,    run_incu_wash_disp=False,  run_fridge_squid_nikon=True, signal_handlers='install'),
-    RuntimeConfig('pf-forward',    'WallTime',      UREnvs.dry,       PFEnvs.forward, run_incu_wash_disp=False,  run_fridge_squid_nikon=False, signal_handlers='install'),
-
-    # Simulate:
-    RuntimeConfig('simulate-wall', 'WallTime',      UREnvs.dry,       PFEnvs.dry,     run_incu_wash_disp=False,  run_fridge_squid_nikon=False),
-    RuntimeConfig('simulate',      'SimulatedTime', UREnvs.dry,       PFEnvs.dry,     run_incu_wash_disp=False,  run_fridge_squid_nikon=False),
-]
-
-def config_from_argv(argv: list[str]=sys.argv) -> RuntimeConfig:
-    for c in configs:
-        if '--' + c.name in sys.argv:
-            return c
-    else:
-        raise ValueError('Start with one of ' + ', '.join('--' + c.name for c in configs))
-
-def config_lookup(name: str) -> RuntimeConfig:
-    return {c.name: c for c in configs}[name]
-
-simulate = config_lookup('simulate')
+from .config import RuntimeConfig
 
 def make_process_name():
     import platform
@@ -210,10 +105,25 @@ class Runtime:
         else:
             return None
 
-    def __post_init__(self):
-        self.init()
+    @staticmethod
+    def init(config: RuntimeConfig) -> Runtime:
+        import weakref
+        if config.run_fridge_squid_nikon or config.pf_env.mode == 'execute':
+            # Activate this when Nikon is relevant:
+            # # locks_db_filepath, cleanup = 'locks.db', lambda: None
+            locks_db_filepath, cleanup = ResourceLock.make_temp_db_filepath()
+        else:
+            locks_db_filepath, cleanup = ResourceLock.make_temp_db_filepath()
+        runtime = Runtime(
+            config=config,
+            time=config.make_timelike(),
+            locks_db_filepath=locks_db_filepath,
+            log_db=DB.connect(config.log_filename if config.log_filename else ':memory:'),
+        )
+        weakref.finalize(runtime, cleanup)
+        return runtime
 
-    def init(self):
+    def __post_init__(self):
         self.time.register_thread('main')
 
         if self.log_db:
@@ -586,8 +496,7 @@ class ResourceLock:
 
 def test_resource_locks():
     import pytest
-    runtime = simulate.make_runtime()
-
+    runtime = Runtime.init(RuntimeConfig.simulate())
     runtime.acquire_lock('Squid')
     runtime.assert_lock('Squid')
 

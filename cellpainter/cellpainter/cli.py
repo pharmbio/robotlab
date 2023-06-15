@@ -24,7 +24,8 @@ from .commands import Program, ProgramMetadata
 from . import execute
 from .log import ExperimentMetadata, Log
 from .moves import movelists
-from .runtime import RuntimeConfig, configs, config_lookup
+from .config import RuntimeConfig, configs
+from .runtime import Runtime
 from .small_protocols import small_protocols_dict, SmallProtocolArgs
 from .protocol import CellPaintingArgs
 from . import protocol_paths
@@ -139,9 +140,9 @@ def main_with_args(args: Args, parser: argparse.ArgumentParser | None=None):
         estimates.add_estimates_from(args.add_estimates_from, path=args.add_estimates_dest)
         sys.exit(0)
 
-    config: RuntimeConfig = config_lookup(args.config_name)
+    config: RuntimeConfig = RuntimeConfig.lookup(args.config_name)
 
-    arms = config.replace(log_filename=None).only_arm().make_runtime()
+    arms = Runtime.init(config.replace(log_filename=None).only_arm())
     arms.ur and arms.ur.set_speed(args.ur_speed)
     arms.pf and arms.pf.set_speed(args.pf_speed)
 
@@ -244,7 +245,7 @@ def main_with_args(args: Args, parser: argparse.ArgumentParser | None=None):
             raise
 
     elif args.robotarm_send:
-        runtime = config.make_runtime()
+        runtime = Runtime.init(config)
         assert runtime.ur
         runtime.ur.execute_moves([moves.RawCode(args.robotarm_send)], name='raw')
 

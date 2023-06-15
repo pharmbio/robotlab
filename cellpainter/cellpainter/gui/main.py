@@ -19,7 +19,7 @@ from .. import protocol_vis
 from .. import moves_gui
 
 from .. import moves
-from .. import runtime
+from ..runtime import RuntimeConfig, Runtime
 
 from .start_form import start_form, start
 from .vis import AnalyzeResult
@@ -28,7 +28,7 @@ from .show_logs import show_logs, add_timings
 from . import common
 from .db_edit import Edit
 
-config = runtime.config_from_argv()
+config = RuntimeConfig.from_argv()
 print(f'Running with {config.name=}')
 
 serve = Serve(Flask(__name__))
@@ -41,7 +41,7 @@ def robotarm_freedrive():
     '''
     Sets the robotarm in freedrive
     '''
-    arms = config.only_arm().make_runtime()
+    arms = Runtime.init(config.only_arm())
     arms.ur and arms.ur.execute_moves(moves.static['ur freedrive'])
     arms.pf and arms.pf.execute_moves(moves.static['pf freedrive'])
 
@@ -49,7 +49,7 @@ def robotarm_set_speed(pct: int):
     '''
     Sets the robotarm speed, in percentages
     '''
-    arms = config.only_arm().make_runtime()
+    arms = Runtime.init(config.only_arm())
     arms.ur and arms.ur.set_speed(pct)
     arms.pf and arms.pf.set_speed(pct)
 
@@ -57,7 +57,7 @@ def robotarm_open_gripper():
     '''
     Opens the robotarm gripper
     '''
-    arms = config.only_arm().make_runtime()
+    arms = Runtime.init(config.only_arm())
     arms.ur and arms.ur.execute_moves(moves.static['ur open gripper'])
     arms.pf and arms.pf.execute_moves(moves.static['pf open gripper'])
 
@@ -293,7 +293,7 @@ def index(path_from_route: str | None = None) -> Iterator[Tag | V.Node | dict[st
             )
             box += pre(stderr)
             info += box
-    elif ar is not None:
+    elif cast(Any, ar) is not None:
         vis = ar.make_vis(t_end)
 
         info += div(

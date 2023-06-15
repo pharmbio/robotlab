@@ -12,7 +12,7 @@ from .log import (
     CommandWithMetadata,
 )
 
-from .runtime import RuntimeConfig, Runtime, simulate
+from .runtime import RuntimeConfig, Runtime
 from . import commandlib
 import pbutils
 from .moves import movelists
@@ -175,6 +175,9 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
                         nikon.CloseAllDocuments()
                         runtime.wait_while(nikon.is_running)
 
+                    case 'get_status':
+                        nikon.status()
+
         case SquidStageCmd() as cmd:
             runtime.assert_lock('Squid')
             for squid in runtime.time_resource_use(entry, runtime.squid):
@@ -183,6 +186,8 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
                         squid.goto_loading()
                     case 'leave_loading':
                         squid.leave_loading()
+                    case 'get_status':
+                        squid.status()
 
         case FridgeInsert():
             runtime.assert_lock('PF and Fridge')
@@ -236,7 +241,7 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
 
 @contextlib.contextmanager
 def make_runtime(config: RuntimeConfig, program: Program) -> Iterator[Runtime]:
-    runtime = config.make_runtime()
+    runtime = Runtime.init(config)
     with runtime.excepthook():
         program.save(runtime.log_db)
         if program.world0:
@@ -253,7 +258,7 @@ def simulate_program(program: Program, sim_delays: dict[int, float] = {}, log_fi
 
     cmd = program.command
     with pbutils.timeit('simulating'):
-        config = simulate.replace(log_filename=log_filename)
+        config = RuntimeConfig.simulate().replace(log_filename=log_filename)
         with make_runtime(config, program) as runtime_est:
             execute(cmd, runtime_est, Metadata())
 

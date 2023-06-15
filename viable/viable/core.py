@@ -138,6 +138,7 @@ class Serve:
                     overflow-wrap: break-word;
                 }
             '''
+            traceback.print_exc()
             body_node += Tags.pre(traceback.format_exc())
         return self.view_body(body_node, title_str=title_str)
 

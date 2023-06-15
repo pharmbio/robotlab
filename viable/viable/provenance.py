@@ -198,7 +198,10 @@ class List(Var[list[str]]):
     def to_str(self, value: list[str]) -> str:
         return json.dumps(value)
 
-    def select(self, options: list[Tags.option]):
+    def select(self, options: list[Tags.option] | None = None):
+        if options is None:
+            _value = self.value
+            options = [Tags.option(x, value=x, selected=x in _value) for x in self.options]
         return Tags.select(
             *options,
             multiple=True,
@@ -328,6 +331,7 @@ class Str(Var[str]):
         }
 
 P = ParamSpec('P')
+A = TypeVar('A')
 
 @dataclass(frozen=True)
 class Store:
@@ -335,10 +339,10 @@ class Store:
     sub_prefix: str = ''
 
     @staticmethod
-    def wrap_set_store(factory: Callable[P, SomeVar]) -> Callable[P, SomeVar]:
+    def wrap_set_store(factory: Type[A]) -> Type[A]:
         @functools.wraps(factory)
         def wrapped(self: Store, *a: P.args, **kw: P.kwargs):
-            var = factory(*a, **kw)
+            var: Any = factory(*a, **kw)
             var.set_store(self)
             return var
         return wrapped # type: ignore

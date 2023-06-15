@@ -219,7 +219,7 @@ A = TypeVar('A')
 @dataclass(frozen=True)
 class LazyIterate(Generic[A]):
     k: Callable[[], Iterable[A]]
-    def __iter__(self):
+    def __iter__(self) -> Generator[A, None, None]:
         # print('__iter__')
         yield from self.k()
 

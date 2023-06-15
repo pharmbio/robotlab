@@ -2,7 +2,6 @@ from __future__ import annotations
 from dataclasses import *
 from typing import *
 from . import gripper
-import re
 
 prelude = '''
     # Set TCP so that RPY makes sense

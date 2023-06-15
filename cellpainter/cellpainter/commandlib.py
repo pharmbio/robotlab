@@ -283,26 +283,6 @@ def SCRATCH():
                     return cmd
         return Transform(Transform(p, F1), F2)
 
-@dataclass(frozen=True)
-class Interleaving:
-    rows: list[tuple[int, str]]
-    name: str
-    @staticmethod
-    def init(s: str, name: str) -> Interleaving:
-        rows: list[tuple[int, str]] = []
-        seen: Counter[str] = Counter()
-        for line in s.strip().split('\n'):
-            sides = line.strip().split('->')
-            for a, b in zip(sides, sides[1:]):
-                arrow = f'{a.strip()} -> {b.strip()}'
-                rows += [(seen[arrow], arrow)]
-                seen[arrow] += 1
-        target = list(seen.values())[0]
-        assert target > 1, 'need at least two copies of all transitions'
-        for k, v in seen.items():
-            assert v == target, f'{k!r} occurred {v} times, should be {target} times'
-        return Interleaving(rows, name=name)
-
 A = TypeVar('A')
 
 @dataclass(frozen=True)
