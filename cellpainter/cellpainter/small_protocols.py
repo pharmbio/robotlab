@@ -978,15 +978,16 @@ def squid_from_hotel(args: SmallProtocolArgs) -> Program:
 
     '''
     cmds: list[Command] = []
-    config_path, project, *plate_names = args.params
+    protocol_path, project, *plate_names = args.params
     assert_valid_project_name(project)
+    cmds += [SquidStageCmd('check_protocol_exists', protocol_path)]
     for plate_name in plate_names:
         cmds += [
             SquidStageCmd('goto_loading').fork_and_wait(),
             PFCmd('H12-to-squid'),
             Seq(
                 SquidStageCmd('leave_loading'),
-                SquidAcquire(config_path, project=project, plate=plate_name),
+                SquidAcquire(protocol_path, project=project, plate=plate_name),
             ).fork_and_wait(),
             SquidStageCmd('goto_loading').fork_and_wait(),
             PFCmd('squid-to-H12'),
@@ -1048,7 +1049,7 @@ def nikon_from_hotel(args: SmallProtocolArgs) -> Program:
 def squid_from_fridge(args: SmallProtocolArgs) -> Program:
     '''
 
-        Images plates in the fridge.  Params are: RT_time_secs_csv config_1:project:barcode:name .. config_N:project:barcode:name
+        Images plates in the fridge.  Params are: RT_time_secs_csv protocol_path_1:project:barcode:name .. protocol_path_N:project:barcode:name
 
     '''
     cmds: list[Command] = []
@@ -1056,7 +1057,7 @@ def squid_from_fridge(args: SmallProtocolArgs) -> Program:
     contents = args.initial_fridge_contents
     if contents is not None:
         for plate in plates:
-            config, project, barcode, name = plate.split(':')
+            protocol_path, project, barcode, name = plate.split(':')
             if sum(
                 1
                 for _loc, slot in contents.items()
@@ -1070,9 +1071,11 @@ def squid_from_fridge(args: SmallProtocolArgs) -> Program:
         raise ValueError('Specify some RT time. Example: "1800" for 30 minutes')
     if not plates:
         raise ValueError('Select some plates.')
+    checks: list[Command] = []
     for i, plate in enumerate(plates, start=1):
-        config, project, barcode, name = plate.split(':')
+        protocol_path, project, barcode, name = plate.split(':')
         assert_valid_project_name(project)
+        checks += [SquidStageCmd('check_protocol_exists', protocol_path)]
         plus_secs = dict(enumerate(RT_time_secs, start=1)).get(i, RT_time_secs[-1])
         cmds += [
             FridgeEject(plate=barcode, project=project, check_barcode=False).fork_and_wait(),
@@ -1084,7 +1087,7 @@ def squid_from_fridge(args: SmallProtocolArgs) -> Program:
             Seq(
                 SquidStageCmd('leave_loading'),
                 WaitForCheckpoint(f'RT {i}', plus_secs=plus_secs, assume='nothing'),
-                SquidAcquire(config, project=project, plate=name),
+                SquidAcquire(protocol_path, project=project, plate=name),
             ).fork_and_wait(),
 
             SquidStageCmd('goto_loading').fork_and_wait(),
@@ -1098,7 +1101,7 @@ def squid_from_fridge(args: SmallProtocolArgs) -> Program:
                 assume_barcode=barcode, # for Jordi's plates
             ).fork_and_wait(),
         ]
-    cmd = Seq(*cmds)
+    cmd = Seq(*checks, *cmds)
     return Program(cmd)
 
 # @pf_protocols.append

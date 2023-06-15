@@ -799,7 +799,11 @@ class SquidAcquire(SquidABC):
 
 @dataclass(frozen=True)
 class SquidStageCmd(SquidABC):
-    action: Literal['goto_loading', 'leave_loading', 'get_status']
+    action: Literal['goto_loading', 'leave_loading', 'get_status', 'check_protocol_exists']
+    protocol: str | None = None
+
+    def normalize(self):
+        return self.replace(action=self.action, protocol=None)
 
 class NikonABC(PhysicalCommand, abc.ABC):
     def required_resource(self):

@@ -53,14 +53,14 @@ class DirList(Machine):
     def list(self) -> List[PathInfo]:
         value: List[PathInfo] = []
         for ext in self.exts:
-            for lhc in self.root.glob(f'**/*.{ext}'):
+            for lhc in self.root.glob(f'automation*/**/*.{ext}'):
                 path = str(lhc.relative_to(self.root)).replace('\\', '/')
                 mtime = lhc.stat().st_mtime
                 modified = str(datetime.fromtimestamp(mtime).replace(microsecond=0))
                 value += [
                     PathInfo(
                         path=path,
-                        full=str(lhc.resolve()),
+                        full=str(lhc),
                         modified=modified,
                         # 'sha256': sha256(lhc.read_bytes()).hexdigest(),
                     )

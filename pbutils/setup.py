@@ -4,6 +4,7 @@ requirements = '''
     apsw>=3.39.3
     executing
     asttokens
+    typing_extensions
 '''
 
 console_scripts = '''

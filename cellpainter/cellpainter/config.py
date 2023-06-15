@@ -94,10 +94,10 @@ configs = [
     RuntimeConfig('forward',      'WallTime', UREnvs.forward,   PFEnvs.dry, run_incu_wash_disp=False, run_fridge_squid_nikon=False, signal_handlers='install'),
 
     # PF:
-    RuntimeConfig('pf-live',       'WallTime',      UREnvs.dry,       PFEnvs.live,    run_incu_wash_disp=False,  run_fridge_squid_nikon=True,  signal_handlers='install', plate_metadata_dir='./plate-metadata'),
-    RuntimeConfig('pf-forward',    'WallTime',      UREnvs.dry,       PFEnvs.forward, run_incu_wash_disp=False,  run_fridge_squid_nikon=False, signal_handlers='install', plate_metadata_dir='./plate-metadata'),
+    RuntimeConfig('pf-live',       'WallTime',      UREnvs.dry,       PFEnvs.live,    run_incu_wash_disp=False,  run_fridge_squid_nikon=True,  signal_handlers='install', plate_metadata_dir='/mnt/plate-metadata'),
+    RuntimeConfig('pf-forward',    'WallTime',      UREnvs.dry,       PFEnvs.forward, run_incu_wash_disp=False,  run_fridge_squid_nikon=False, signal_handlers='install', plate_metadata_dir='./example-plate-metadata'),
 
     # Simulate:
-    RuntimeConfig('simulate-wall', 'WallTime',      UREnvs.dry,       PFEnvs.dry,     run_incu_wash_disp=False,  run_fridge_squid_nikon=False, plate_metadata_dir='./plate-metadata'),
-    RuntimeConfig('simulate',      'SimulatedTime', UREnvs.dry,       PFEnvs.dry,     run_incu_wash_disp=False,  run_fridge_squid_nikon=False, plate_metadata_dir='./plate-metadata'),
+    RuntimeConfig('simulate-wall', 'WallTime',      UREnvs.dry,       PFEnvs.dry,     run_incu_wash_disp=False,  run_fridge_squid_nikon=False, plate_metadata_dir='./example-plate-metadata'),
+    RuntimeConfig('simulate',      'SimulatedTime', UREnvs.dry,       PFEnvs.dry,     run_incu_wash_disp=False,  run_fridge_squid_nikon=False, plate_metadata_dir='./example-plate-metadata'),
 ]

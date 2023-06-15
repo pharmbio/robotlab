@@ -18,3 +18,6 @@ class Squid(Machine):
 
     def status(self) -> dict[str, Any]:
         raise
+
+    def list_protocols(self) -> list[str]:
+        raise

@@ -2,7 +2,8 @@
 set -e
 set -u
 set -o pipefail
-( cd cellpainter; set -o pipefail; cellpainter --list-imports | tee /dev/stderr | xargs pyright )
+pyright --version
+( export PYTHONPATH="$(pwd)/pbutils:$(pwd)/labrobots:$(pwd)/viable"; cd cellpainter; set -o pipefail; cellpainter --list-imports | tee /dev/stderr | xargs pyright --verbose )
 ( cd labrobots; pytest )
 ( cd pbutils; pytest; )
 ( cd viable; pytest; )

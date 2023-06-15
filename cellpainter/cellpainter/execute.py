@@ -174,6 +174,10 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
                         squid.leave_loading()
                     case 'get_status':
                         squid.status()
+                    case 'check_protocol_exists':
+                        protocols = squid.list_protocols()
+                        if cmd.protocol not in protocols:
+                            raise ValueError('Squid cannot find {cmd.protocol!r}')
 
         case FridgeInsert():
             for fridge, barcode_reader in runtime.time_resource_use(entry, runtime.fridge_and_barcode_reader):
