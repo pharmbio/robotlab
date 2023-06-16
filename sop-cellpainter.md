@@ -218,7 +218,7 @@ For dry runs: make sure the plates are decontaminated since they are going into 
    - When the incubator is set up for experiment: ask Polina. The procedure
      will include removing the water with a suction pump.
 
-## Configure BioTek protocols and add time estimates for them
+## Configure BioTek and blue washer protocols and add time estimates for them
 
 1. Make a new directory in the protocols root on the windows computer.
    You could copy an existing one, `automation_v5.0/` might be a good start.
@@ -233,7 +233,7 @@ For dry runs: make sure the plates are decontaminated since they are going into 
 
 4. Use the windows computer and go to the gui at http://cellpainter:5000.
 
-5. Select `time-bioteks` and enter the protocol directory name. Start!
+5. Select `time-protocols` and enter the protocol directory name. Start!
 
 6. After success, press _store timings_.
 
