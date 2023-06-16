@@ -9,7 +9,7 @@ optional dev dependencies: pyright, entr
 
 ## Standard operating procedure
 
-See [sop.md](./sop.md).
+See [../sop-cellpainter.md](../sop-cellpainter.md).
 
 ## Installation
 

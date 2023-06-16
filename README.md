@@ -1,7 +1,43 @@
 # robotlab
 
-This is the monorepo for the robots in our robotlabs.
-It consists of three packages:
+The monorepo for the robots in our robotlabs for cell painting and imaging.
+
+## The cell painter system
+
+The cell painter system controls the dispenser from BioTek and washers from Biotek and BlueCatBio
+as well as the incubator using the universal robots robot arm. Here is an overview:
+
+<img src=images/painter.png>
+
+The standard operating procedure is here: <a href=sop-cellpainter.md>sop-cellpainter.md</a>.
+
+## The imager system
+
+The imager system controls the Squid microscope and the Nikon microscope as well as the fridge using the
+precise flex robot arm. Here is an overview:
+
+<img src=images/imager.png>
+
+The standard operating procedure is here: <a href=sop-imager.md>sop-imager.md</a>.
+
+## Network setup
+
+machine                 | os      | room     | ip
+---                     | ---     | ---      | ---
+Ubuntu NUC              | ubuntu  | the cage | 10.10.0.55
+Windows NUC             | windows | the cage | 10.10.0.56
+Nikon stage computer    | raspian | squikon  | 10.10.0.72
+Nikon NIS computer      | windows | squikon  | 10.10.0.76
+Squid Mikro Asus        | ubuntu  | squikon  | 10.10.0.95
+"GBG" computer          | windows | squikon  | 10.10.0.97
+PF robotarm             | -       | squikon  | 10.10.0.98
+UR robotarm control box | linux   | the cage | 10.10.0.112
+
+The node names and IP-addresses are also specified in [`labrobots/labrobots/__init__.py`](labrobots/labrobots/__init__.py).
+
+## Packages
+
+The project consists of a few packages:
 
 <table>
 
@@ -92,35 +128,6 @@ GPIO-communication with RPi for the Nikon automated stage.
 </table>
 
 The BioTek control code require a C# program that needs to be separately built.
-
-## The cell painter system
-
-The cell painter system controls the dispenser from BioTek and washers from Biotek and BlueCatBio
-as well as the incubator using the universal robots robot arm. Here is an overview:
-
-<img src=docs/painter.png>
-
-## The imager system
-
-The imager system controls the Squid microscope and the Nikon microscope as well as the fridge using the
-precise flex robot arm. Here is an overview:
-
-<img src=docs/imager.png>
-
-## Network setup
-
-machine                 | os      | room     | ip
----                     | ---     | ---      | ---
-Ubuntu NUC              | ubuntu  | the cage | 10.10.0.55
-Windows NUC             | windows | the cage | 10.10.0.56
-Nikon stage computer    | raspian | squikon  | 10.10.0.72
-Nikon NIS computer      | windows | squikon  | 10.10.0.76
-Squid Mikro Asus        | ubuntu  | squikon  | 10.10.0.95
-"GBG" computer          | windows | squikon  | 10.10.0.97
-PF robotarm             | -       | squikon  | 10.10.0.98
-UR robotarm control box | linux   | the cage | 10.10.0.112
-
-The node names and IP-addresses are also specified in [`labrobots/labrobots/__init__.py`](labrobots/labrobots/__init__.py).
 
 ## Installation
 

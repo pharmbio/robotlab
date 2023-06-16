@@ -352,80 +352,6 @@ def incu_reset_and_activate(_: SmallProtocolArgs):
     )
     return Program(program.add(Metadata(gui_force_show=True)))
 
-# @ur_protocols.append
-def wash_plates_clean(args: SmallProtocolArgs):
-    '''
-    Wash test plates clean using ethanol.
-
-    Required lab prerequisites:
-        1. incubator transfer door: not used
-        2. hotel B21:               empty
-        3. hotel A1, A2, ...:       plates with lid
-        4. hotel B:                 empty!
-        5. hotel C:                 empty!
-        6. biotek washer:           empty!
-        7. biotek dispenser:        not used
-        8. robotarm:                in neutral position by B hotel
-    '''
-    N = args.num_plates
-    assert 1 <= N <= 21, 'Number of plates should be in 1..21'
-    cmds: list[Command] = []
-    [plates] = define_plates([N])
-
-    section: list[Command]
-    section = []
-    for plate in plates:
-        section += [*RobotarmCmds(plate.out_get)]
-        section += [*RobotarmCmds(plate.lid_put)]
-        section += [*RobotarmCmds('B21-to-wash')]
-
-        section += [Fork(WashCmd('Run', 'wash-plates-clean/WD_3X_leaves80ul.LHC'))]
-        section += [WaitForResource('wash')]
-
-        section += [*RobotarmCmds('wash-to-B21')]
-        section += [*RobotarmCmds(plate.lid_get)]
-        section += [*RobotarmCmds(plate.rt_put)]
-    cmds += [Seq(*section).add_to_physical_commands(Metadata(section='H₂O'))]
-
-    section = []
-    section += [Fork(WashCmd('Run', 'wash-plates-clean/WC_PRIME.LHC'))]
-    section += [WaitForResource('wash')]
-    for i, plate in enumerate(plates):
-        section += [*RobotarmCmds(plate.rt_get)]
-        section += [*RobotarmCmds(plate.lid_put)]
-        section += [*RobotarmCmds('B21-to-wash')]
-
-        section += [Fork(WashCmd('Run', 'wash-plates-clean/WC_1X_leaves80ul.LHC'))]
-        section += [WaitForResource('wash')]
-
-        if i == 0:
-            section += [Checkpoint('first wash')]
-
-        section += [*RobotarmCmds('wash-to-B21')]
-        section += [*RobotarmCmds(plate.lid_get)]
-        section += [*RobotarmCmds(plate.rt_put)]
-    cmds += [Seq(*section).add_to_physical_commands(Metadata(section='EtOH'))]
-
-    cmds += [WaitForCheckpoint('first wash', plus_secs=60 * 15, assume='nothing')]
-
-    section = []
-    for plate in plates:
-        section += [*RobotarmCmds(plate.rt_get)]
-        section += [*RobotarmCmds(plate.lid_put)]
-        section += [*RobotarmCmds('B21-to-wash')]
-
-        section += [Fork(WashCmd('Run', 'wash-plates-clean/WD_3X_leaves10ul.LHC'))]
-        section += [WaitForResource('wash')]
-
-        section += [*RobotarmCmds('wash-to-B21')]
-        section += [*RobotarmCmds(plate.lid_get)]
-        section += [*RobotarmCmds(plate.out_put)]
-    cmds += [Seq(*section).add_to_physical_commands(Metadata(section='H₂O 2'))]
-
-    world0 = World({plate.out_loc: plate.id for plate in plates})
-    program = Seq(*cmds)
-    return Program(program, world0)
-
 @ur_protocols.append
 def validate_all_protocols(args: SmallProtocolArgs):
     '''
@@ -914,7 +840,7 @@ def fridge_unload_helper(plates: list[str]) -> Program:
             FridgeEject(plate=barcode, project=project, check_barcode=False).fork_and_wait(align='end'),
             PFCmd(f'fridge-to-H12'),
             FridgeCmd('get_status').fork_and_wait(), # after this the fridge can eject the next
-            PFCmd(f'H12-to-H{i}'),
+            PFCmd(f'H12-to-H{i}') if i != 12 else Idle(),
         ]
     return Program(Seq(*cmds))
 

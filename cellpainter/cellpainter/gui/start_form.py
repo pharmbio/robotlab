@@ -79,10 +79,15 @@ def read_imager_plate_metadata(config: RuntimeConfig) -> tuple[tuple[Plate, Plat
 @dataclass(frozen=True)
 class ExternalState:
     '''
-    A potpurri of state scattered around the place.
+    A potpurri of state scattered all around the place.
 
     For painter:
-        - the protocol paths, generated from the WindowsNUC
+        - the protocol paths on the WindowsNUC
+
+    For imager:
+        - last barcode
+        - fridge contents
+        - squid protocols
 
     '''
     config: RuntimeConfig
@@ -99,9 +104,9 @@ class ExternalState:
             return ExternalState(
                 config = config,
                 imager_plate_metadata = read_imager_plate_metadata(config),
-                fridge_slots = labrobots.WindowsGBG().remote().fridge.contents(),
-                last_barcode = labrobots.WindowsGBG().remote().barcode.read(),
-                squid_protocols = labrobots.MikroAsus().remote().squid.list_protocols(),
+                fridge_slots = labrobots.WindowsGBG().remote(timeout_secs=10).fridge.contents(),
+                last_barcode = labrobots.WindowsGBG().remote(timeout_secs=10).barcode.read(),
+                squid_protocols = labrobots.MikroAsus().remote(timeout_secs=10).squid.list_protocols(),
             )
         elif config.name == 'live':
             protocol_paths.update_protocol_paths()
@@ -499,7 +504,7 @@ def start_form(*, config: RuntimeConfig):
                 z_index='1000',
             ),
             button(
-                'add csv stubs to imager-fridge-metadata',
+                'add csv stubs to imager-plate-metadata',
                 onclick=call(lambda: common.alert(external_state.write_imager_plate_metadata())),
                 grid_column='1 / -1',
             )

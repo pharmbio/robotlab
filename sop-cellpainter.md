@@ -2,14 +2,23 @@
 
 Standard operating procedure for robot cellpainter.
 
-## Access gui on http://cellpainter:5000
+## Access gui on <a href="http://cellpainter:5000" target=_blank>http://cellpainter:5000</a>
 
-From the windows computer use http://cellpainter:5000.
-From other computers on the network use http://10.10.0.55:5000.
+From the windows computer use <a href="http://cellpainter:5000" target=_blank>http://cellpainter:5000</a>.
+From other computers on the network use <a href="http://10.10.0.55:5000" target=_blank>http://10.10.0.55:5000</a>.
+
+This can fail if the windows nuc has been the restarted and the labrobots server is not running.
+Check if <a href="http://10.10.0.56:5050" target=_blank>http://10.10.0.56:5050</a> can be reached.
+If not, run labrobots on the windows computer.
+The icon looks like this and it starts a terminal with this kind of output.
+Minimize the terminal and keep it running.
+
+<img src='images/run_labrobots.png'>
 
 <details>
 <summary>
-    If it is unavailable these are the detailed instructions how to start it (for system administrators).
+If still unavailable the process on the ubuntu nuc might be down if that computer has been restarted.
+Here are detailed instructions how to start it (for system administrators).
 </summary>
 
 The gui runs on the NUC running ubuntu which has hostname NUC-robotlab.
@@ -84,18 +93,8 @@ Use the teach pendant (the handheld touchpad tablet).
 
    * Robotarm might be in local mode. Change it to remote mode on the teach pendant.
 
-   * The labrobots server should be running. Check if http://10.10.0.56:5050 can be reached.
-     <details>
-     <summary>If not:</summary>
-     Run run labrobots on the windows computer.
-     The icon looks like this and it starts a terminal with this kind of output.
-     Minimize the terminal and keep it running.
-
-     <img src='images/run_labrobots.png'>
-     </details>
-
    * The incubator communication program STX Driver must be running. Run it on the windows computer.
-     The icon and the program looks like this. Press the Run button.
+     The icon and the program looks like this. Press the Run button. Minimize the program and keep it running.
 
      <img src='images/stx.png'>
 

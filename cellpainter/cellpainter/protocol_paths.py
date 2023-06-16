@@ -145,7 +145,7 @@ skip = set('''
 '''.split())
 
 def update_protocol_paths():
-    path_infos = labrobots.WindowsNUC().remote().dir_list.list()
+    path_infos = labrobots.WindowsNUC().remote(timeout_secs=10).dir_list.list()
     res: dict[str, ProtocolPaths] = {}
     for protocol_dir, infos in sorted(pbutils.group_by(path_infos, lambda info: info['path'].partition('/')[0]).items()):
         if protocol_dir in skip:
@@ -197,7 +197,7 @@ def add_protocol_dir_as_sqlar(db: DB, protocol_dir: str):
     '''
     Add the LHC files in the protocol_dir as an SQLite Archive (sqlar) table (without compression for simplicity)
     '''
-    files = labrobots.WindowsNUC().remote().dir_list.read_files(protocol_dir)
+    files = labrobots.WindowsNUC().remote(timeout_secs=60).dir_list.read_files(protocol_dir)
     with db.transaction:
         for f in files:
             data: bytes = base64.b64decode(f['data_b64'])

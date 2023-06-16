@@ -237,12 +237,11 @@ class Machine:
             return jsonify(call(cmd, **req))
 
     @classmethod
-    def remote(cls: Type[T], name: str, host: str, skip_up_check: bool) -> T:
+    def remote(cls: Type[T], name: str, host: str, skip_up_check: bool, timeout_secs: int=10 * 60) -> T:
         def call(attr_path: list[str], *args: Any, **kwargs: Any) -> Any:
             assert len(attr_path) == 1
             cmd = attr_path[0]
             url = host.rstrip('/') + '/' + name
-            ten_minutes = 60 * 10
             data = {
                 'cmd': cmd,
                 'args': list(args),
@@ -256,12 +255,14 @@ class Machine:
             )
             # from pprint import pp
             # pp((url, data, '...'))
-            res = json.loads(urlopen(req, timeout=ten_minutes).read())
+            res = json.loads(urlopen(req, timeout=timeout_secs).read())
             # pp((url, data, '=', res))
             if 'value' in res:
                 return res['value']
-            else:
+            elif 'error' in res:
                 raise ValueError(res['error'])
+            else:
+                raise ValueError(f'Remote call failed! {url=} {data=}')
         if not skip_up_check:
             assert call(['up?'])
         return Proxy(cls, call) # type: ignore

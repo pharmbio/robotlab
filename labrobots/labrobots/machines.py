@@ -40,14 +40,14 @@ class Machines:
             return None
 
     @classmethod
-    def remote(cls: Type[T], host: str | None = None, port: int = 5050) -> T:
+    def remote(cls: Type[T], host: str | None = None, port: int = 5050, timeout_secs: int=10 * 60) -> T:
         if host is None:
             url = f'http://{cls.ip}:{port}'
         else:
             url = f'http://{host}:{port}'
         d = {}
         for f in fields(cls):
-            d[f.name] = f.default.__class__.remote(f.name, url, skip_up_check=cls.skip_up_check) # type: ignore
+            d[f.name] = f.default.__class__.remote(f.name, url, skip_up_check=cls.skip_up_check, timeout_secs=timeout_secs) # type: ignore
         return cls(**d)
 
     def items(self) -> list[tuple[str, Machine]]:
