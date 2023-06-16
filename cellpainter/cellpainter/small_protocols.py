@@ -981,7 +981,6 @@ def squid_acquire_H12(args: SmallProtocolArgs) -> Program:
     assert_valid_project_name(project)
     cmds += [SquidStageCmd('check_protocol_exists', protocol_path).fork_and_wait()]
     for plate_name in plate_names:
-        assert_valid_project_name(plate_name)
         cmds += [
             SquidStageCmd('goto_loading').fork_and_wait(),
             PFCmd('H12-to-squid'),
@@ -1075,7 +1074,6 @@ def squid_acquire_from_fridge(args: SmallProtocolArgs) -> Program:
     for i, plate in enumerate(plates, start=1):
         protocol_path, project, barcode, name = plate.split(':')
         assert_valid_project_name(project)
-        assert_valid_project_name(name)
         checks += [SquidStageCmd('check_protocol_exists', protocol_path).fork_and_wait()]
         plus_secs = dict(enumerate(RT_time_secs, start=1)).get(i, RT_time_secs[-1])
         cmds += [
