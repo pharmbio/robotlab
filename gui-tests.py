@@ -18,8 +18,8 @@ def main():
         test('cellpainter-gui --simulate',    'http://localhost:5000',       'incubation times:')
         test('cellpainter-moves --simulate',  'http://localhost:5000',       'wash-to-disp')
         test('cellpainter-gui --simulate',    'http://localhost:5000/moves', 'wash-to-disp')
-        test('cellpainter-gui --simulate',    'http://localhost:5000/vis?cmdline=--cell-paint+2', 'plate  1 incubation')
-        test('cellpainter-gui --simulate',    'http://localhost:5000/vis?cmdline=--cell-paint+3', 'plate  3 incubation')
+        test('cellpainter-gui --simulate',    'http://localhost:5000/vis?cmdline=--cell-paint+--batch-sizes+2', 'plate  1 incubation')
+        test('cellpainter-gui --simulate',    'http://localhost:5000/vis?cmdline=--cell-paint+--batch-sizes+3', 'plate  3 incubation')
 
     test('labrobots --test', 'http://localhost:5050/echo/echo?apa=1.2&bepa=true&cepa=[3,4]',
                              "echo () {'apa': 1.2, 'bepa': True, 'cepa': [3, 4]}")
