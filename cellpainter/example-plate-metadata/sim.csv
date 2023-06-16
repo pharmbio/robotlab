@@ -1,1 +1,5 @@
+sim,S02,P2_L2_a,protocols/sim_a.json
+sim,S02,P2_L2_b,protocols/sim_b.json
 sim,S01,P1_L1
+sim,S02,P2_L2_c,protocols/sim_c.json
+sim,S04,P4_L4

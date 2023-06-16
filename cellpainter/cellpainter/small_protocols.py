@@ -35,13 +35,11 @@ def assert_valid_project_name(s: str):
     ok = string.ascii_letters + string.digits + '_-'
     for c in s:
         if c not in ok:
-            raise ValueError(f'Input {s!r} contains illegal character {c!r}')
+            raise ValueError(f'Invalid character {c!r} in {s!r}')
     if not s:
         raise ValueError(f'Input {s!r} is empty')
     if not s[0].isalpha():
         raise ValueError(f'Input {s!r} does not start with alpha')
-    if s.strip() != s:
-        raise ValueError(f'Input {s!r} contains trailing whitespace')
 
 @dataclass(frozen=True)
 class SmallProtocolArgs:
@@ -876,7 +874,7 @@ def example(args: SmallProtocolArgs):
     return Program(cmd)
 
 @pf_protocols.append
-def fridge_load_from_top(args: SmallProtocolArgs) -> Program:
+def fridge_load_from_hotel(args: SmallProtocolArgs) -> Program:
     '''
 
         Loads --num-plates from hotel to fridge, from H12 and down.
@@ -889,8 +887,9 @@ def fridge_load_from_top(args: SmallProtocolArgs) -> Program:
     assert len(args.params) == 1, 'Specify one project'
     project, *_ = args.params
     assert_valid_project_name(project)
-    locs = [i+1 for i in range(12)]
-    for i, _ in zip(reversed(locs), range(args.num_plates)):
+    top, *rest = [i+1 for i in range(12)][::-1][:args.num_plates]
+    locs = [top, *rest[::-1]] # first take H12 then go from bottom to top
+    for i in locs:
         assert 1 <= i <= 12
         cmds += [
             BarcodeClear(),
@@ -971,17 +970,18 @@ def fridge_put(args: SmallProtocolArgs):
 
 
 @pf_protocols.append
-def squid_from_hotel(args: SmallProtocolArgs) -> Program:
+def squid_acquire_H12(args: SmallProtocolArgs) -> Program:
     '''
 
-        Images the plate at H12. Params are: protocol, project, plate_name_1, ..., plate_name_N
+        Images the plate at H12 and puts it back. Params are: protocol, project, plate_name_1, ..., plate_name_N
 
     '''
     cmds: list[Command] = []
     protocol_path, project, *plate_names = args.params
     assert_valid_project_name(project)
-    cmds += [SquidStageCmd('check_protocol_exists', protocol_path)]
+    cmds += [SquidStageCmd('check_protocol_exists', protocol_path).fork_and_wait()]
     for plate_name in plate_names:
+        assert_valid_project_name(plate_name)
         cmds += [
             SquidStageCmd('goto_loading').fork_and_wait(),
             PFCmd('H12-to-squid'),
@@ -996,7 +996,7 @@ def squid_from_hotel(args: SmallProtocolArgs) -> Program:
     return Program(Seq(*cmds))
 
 @pf_protocols.append
-def hotel_to_squid(args: SmallProtocolArgs) -> Program:
+def H12_to_squid(args: SmallProtocolArgs) -> Program:
     '''
     Moves the plate at H12 to the squid.
     '''
@@ -1009,7 +1009,7 @@ def hotel_to_squid(args: SmallProtocolArgs) -> Program:
     return Program(cmd)
 
 @pf_protocols.append
-def squid_to_hotel(args: SmallProtocolArgs) -> Program:
+def squid_to_H12(args: SmallProtocolArgs) -> Program:
     '''
     Moves the plate on the squid to H12.
     '''
@@ -1022,7 +1022,7 @@ def squid_to_hotel(args: SmallProtocolArgs) -> Program:
     return Program(cmd)
 
 # @pf_protocols.append
-def nikon_from_hotel(args: SmallProtocolArgs) -> Program:
+def nikon_acquire_H12(args: SmallProtocolArgs) -> Program:
     '''
 
         Images the plate at H12. Params are: job name, project, plate_name_1, ..., plate_name_N
@@ -1046,7 +1046,7 @@ def nikon_from_hotel(args: SmallProtocolArgs) -> Program:
 
 
 @pf_protocols.append
-def squid_from_fridge(args: SmallProtocolArgs) -> Program:
+def squid_acquire_from_fridge(args: SmallProtocolArgs) -> Program:
     '''
 
         Images plates in the fridge.  Params are: RT_time_secs_csv protocol_path_1:project:barcode:name .. protocol_path_N:project:barcode:name
@@ -1075,7 +1075,8 @@ def squid_from_fridge(args: SmallProtocolArgs) -> Program:
     for i, plate in enumerate(plates, start=1):
         protocol_path, project, barcode, name = plate.split(':')
         assert_valid_project_name(project)
-        checks += [SquidStageCmd('check_protocol_exists', protocol_path)]
+        assert_valid_project_name(name)
+        checks += [SquidStageCmd('check_protocol_exists', protocol_path).fork_and_wait()]
         plus_secs = dict(enumerate(RT_time_secs, start=1)).get(i, RT_time_secs[-1])
         cmds += [
             FridgeEject(plate=barcode, project=project, check_barcode=False).fork_and_wait(),
@@ -1105,7 +1106,7 @@ def squid_from_fridge(args: SmallProtocolArgs) -> Program:
     return Program(cmd)
 
 # @pf_protocols.append
-def nikon_from_fridge(args: SmallProtocolArgs) -> Program:
+def nikon_acquire_from_fridge(args: SmallProtocolArgs) -> Program:
     '''
 
         Images plates in the fridge.  Params are: RT_time_secs_csv job_name_1:project:barcode:name .. job_name_N:project:barcode:name

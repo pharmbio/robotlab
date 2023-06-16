@@ -41,57 +41,142 @@ class Plate:
 
     def make_name_with_metadata(self, plate_target: PlateTarget):
         if plate_target.metadata:
-            return f'{self.barcode}_{self.project}_{plate_target.metadata}'
+            return f'{self.barcode}_{self.project}_{plate_target.metadata}'.strip('_')
         else:
             return f'{self.barcode}_{self.project}'
+
+    def make_display_name(self, plate_target: PlateTarget):
+        name_with_metadata = self.make_name_with_metadata(plate_target)
+        if plate_target.squid_protocol:
+            return f'{name_with_metadata} {plate_target.squid_protocol}'
+        else:
+            return f'{name_with_metadata}'
 
 @dataclass(frozen=True, kw_only=True)
 class PlateTarget:
     metadata: str | None = None
     squid_protocol: str | None = None
 
+def read_imager_plate_metadata(config: RuntimeConfig) -> tuple[tuple[Plate, PlateTarget], ...]:
+    if (dir := config.plate_metadata_dir):
+        out: list[tuple[Plate, PlateTarget]] = []
+        for csv in sorted(Path(dir).glob('**/*csv'), key=lambda path: path.stem):
+            for line in csv.read_text().splitlines():
+                match [part.strip() for part in line.split(',')]:
+                    case [project, barcode, metadata, *squid_protocol] if project == csv.stem :
+                        plate = Plate(project=project, barcode=barcode)
+                        target = PlateTarget(
+                            metadata = metadata,
+                            squid_protocol = squid_protocol[0] if squid_protocol else None,
+                        )
+                        out += [(plate, target)]
+                    case _:
+                        pass
+        return tuple(out)
+    else:
+        return ()
+
 @dataclass(frozen=True)
 class ExternalState:
+    '''
+    A potpurri of state scattered around the place.
+
+    For painter:
+        - the protocol paths, generated from the WindowsNUC
+
+    '''
     config: RuntimeConfig
+    painter_protocol_paths: dict[str, protocol_paths.ProtocolPaths] = field(default_factory=dict)
+    imager_plate_metadata: tuple[tuple[Plate, PlateTarget], ...] = ()
+    fridge_slots: FridgeSlots = field(default_factory=dict)
+    last_barcode: str = ''
+    squid_protocols: list[str] = field(default_factory=list)
 
     @pbutils.throttle(1.0)
-    def painter_protocol_paths(self):
-        if self.config.name == 'live':
+    @staticmethod
+    def from_config(config: RuntimeConfig):
+        if config.name == 'pf-live':
+            return ExternalState(
+                config = config,
+                imager_plate_metadata = read_imager_plate_metadata(config),
+                fridge_slots = labrobots.WindowsGBG().remote().fridge.contents(),
+                last_barcode = labrobots.WindowsGBG().remote().barcode.read(),
+                squid_protocols = labrobots.MikroAsus().remote().squid.list_protocols(),
+            )
+        elif config.name == 'live':
             protocol_paths.update_protocol_paths()
-        return protocol_paths.get_protocol_paths()
-
-    @pbutils.throttle(1.0)
-    def last_barcode(self):
-        if self.config.name == 'pf-live':
-            return labrobots.WindowsGBG().remote().barcode.read()
+            return ExternalState(
+                config = config,
+                painter_protocol_paths = protocol_paths.get_protocol_paths()
+            )
         else:
             import random
-            return f'PT{random.randint(0, 999999):06}'
+            return ExternalState(
+                config = config,
+                painter_protocol_paths = protocol_paths.get_protocol_paths(),
+                imager_plate_metadata = read_imager_plate_metadata(config),
+                fridge_slots = {
+                    **{
+                        '1x1': {'project': 'sim', 'plate': 'S01'},
+                        '2x10': {'project': 'sim', 'plate': 'S03'},
+                        '1x2': {'project': 'sim', 'plate': 'S05'},
+                        '1x4': {'project': '', 'plate': ''},
+                        '1x5': {'project': '', 'plate': ''},
+                        '1x3': {'project': 'sim', 'plate': 'S02'},
+                    },
+                    # **{f'3x{i}': {'project': 'sim', 'plate': f'T{i:03}'} for i in range(100)}
+                },
+                last_barcode = f'PT{random.randint(0, 999999):06}',
+                squid_protocols = '''
+                    protocols/short_pe.json
+                    protocols/short_pe2.json
+                    protocols/short_hog.json
+                    protocols/full_pe.json
+                '''.split()
+            )
 
-    @pbutils.throttle(1.0)
-    def fridge_contents_raw_slots(self) -> FridgeSlots:
-        if self.config.name == 'pf-live':
-            return labrobots.WindowsGBG().remote().fridge.contents()
-        else:
-            return {
-                '1x1': {'project': 'sim', 'plate': 'S01'},
-                '1x2': {'project': 'sim', 'plate': 'S03'},
-                '1x3': {'project': 'sim', 'plate': 'S02'},
-                '1x4': {'project': '', 'plate': ''},
-                '1x5': {'project': '', 'plate': ''},
-            }
+    def imager_projects(self) -> list[str]:
+        '''Project names from fridge and from imager-plate-metadata'''
+        out = set[str]()
+        for plate, _ in self.imager_plate_metadata:
+            out |= {plate.project}
+        for plate, _ in self.fridge_contents().items():
+            out |= {plate.project}
+        return sorted(out)
+
+    def imager_filtered_plate_targets(self, projects: list[str]) -> list[tuple[Plate, PlateTarget]]:
+        '''Plates with target metadata and squid protocol filtered by some projects'''
+        fridge = self.fridge_contents()
+        plate_metadata = [*self.imager_plate_metadata]
+        metadata_plates = {plate for plate, _ in plate_metadata}
+        for plate in fridge:
+            if plate not in metadata_plates:
+                plate_metadata += [(plate, PlateTarget())]
+        out: list[tuple[Plate, PlateTarget]] = []
+        for project in projects:
+            for plate, target in plate_metadata:
+                if plate.project == project:
+                    out += [(plate, target)]
+        return out
 
     def fridge_contents(self) -> dict[Plate, str]:
-        slots = self.fridge_contents_raw_slots()
+        slots = self.fridge_slots
         locs = dict[Plate, str]()
         for loc, slot in slots.items():
-            locs[Plate(project=slot['project'], barcode=slot['plate'])] = loc
+            if slot['project']:
+                locs[Plate(project=slot['project'], barcode=slot['plate'])] = loc
 
         # sort projects alphabetically,
 
         by_project = pbutils.group_by(locs.keys(), lambda plate: plate.project)
-        plate_order = {plate: i for i, (plate, _target) in enumerate(self.imager_plate_metadata())}
-        last_index = len(plate_order)
+        plate_order = {
+            plate: i
+            for i, (plate, _target)
+            in [*enumerate(self.imager_plate_metadata)][::-1]
+            # need to reverse the enumeration to associate each plate with the first csv occurence,
+            # which will be last in the reversed list and thus picked by the dict comprehension
+        }
+        last_index = 1 + max(plate_order.values(), default=0)
 
         out = dict[Plate, str]()
         for _project, plates in sorted(by_project.items()):
@@ -101,40 +186,10 @@ class ExternalState:
 
         return out
 
-    @pbutils.throttle(1.0)
-    def squid_protocols(self) -> list[str]:
-        if self.config.name == 'pf-live':
-            return labrobots.MikroAsus().remote().squid.list_protocols()
-        else:
-            return '''
-                protocols/short_pe.json
-                protocols/short_pe2.json
-            '''.split()
-
-    @pbutils.throttle(1.0)
-    def imager_plate_metadata(self) -> list[tuple[Plate, PlateTarget]]:
-        if (dir := self.config.plate_metadata_dir):
-            out: list[tuple[Plate, PlateTarget]] = []
-            for csv in sorted(Path(dir).glob('**/*csv'), key=lambda path: path.stem):
-                for line in csv.read_text().splitlines():
-                    match [part.strip() for part in line.split(',')]:
-                        case [project, barcode, metadata, *squid_protocol] if project == csv.stem :
-                            plate = Plate(project=project, barcode=barcode)
-                            target = PlateTarget(
-                                metadata = metadata,
-                                squid_protocol = squid_protocol[0] if squid_protocol else None,
-                            )
-                            out += [(plate, target)]
-                        case _:
-                            pass
-            return out
-        else:
-            return []
-
-    def add_imager_plate_metadata(self):
+    def write_imager_plate_metadata(self):
         if (dir := self.config.plate_metadata_dir):
             fridge = self.fridge_contents()
-            metadata = pbutils.group_by(self.imager_plate_metadata(), lambda plate_target: plate_target[0])
+            metadata = pbutils.group_by(self.imager_plate_metadata, lambda plate_target: plate_target[0])
             todo = DefaultDict[str, list[Plate]](list)
             for plate in fridge:
                 if plate not in metadata:
@@ -151,30 +206,6 @@ class ExternalState:
         else:
             config = self.config
             return f'Plate metadata directory not configured ({config=})'
-
-    def imager_projects(self) -> list[str]:
-        '''Project names from fridge and from imager-plate-metadata'''
-        out = set[str]()
-        for plate, _ in self.imager_plate_metadata():
-            out |= {plate.project}
-        for plate, _ in self.fridge_contents().items():
-            out |= {plate.project}
-        return sorted(out)
-
-    def imager_filtered_plate_targets(self, projects: list[str] | set[str]) -> list[tuple[Plate, PlateTarget]]:
-        '''Plates with target metadata and squid protocol filtered by some projects'''
-        projects = set(projects)
-        fridge = self.fridge_contents()
-        metadata = pbutils.group_by(self.imager_plate_metadata(), lambda plate_target: plate_target[0])
-        for plate in fridge:
-            if plate not in metadata:
-                metadata[plate] += [(plate, PlateTarget())]
-        out: list[tuple[Plate, PlateTarget]] = []
-        for _, targets in metadata.items():
-            for plate, target in targets:
-                if plate.project in projects:
-                    out += [(plate, target)]
-        return out
 
 def start(args: Args, simulate: bool, config: RuntimeConfig, push_state: bool=True):
     config_name = 'simulate' if simulate else config.name
@@ -305,24 +336,37 @@ def start_form(*, config: RuntimeConfig):
     imager = config.name != 'live'
     painter = config.name != 'pf-live'
 
-    options = {
-        **({'cell-paint': 'cell-paint'} if painter else {}),
-        **({'squid-from-fridge-v1': 'squid-from-fridge-v1'} if imager else {}),
-        # **({'nikon-from-fridge-v1': 'nikon-from-fridge-v1'} if imager else {}),
-        # **({'fridge-metadata': 'fridge-metadata'} if imager else {}),
-        **({'fridge-contents': 'fridge-contents'} if imager else {}),
-        **({'fridge-unload': 'fridge-unload'} if imager else {}),
-        # **({'nikon-from-fridge-v1': 'nikon-from-fridge-v1'} if imager else {}),
+    custom_forms: list[str] = []
+    if painter:
+        custom_forms += '''
+            cell-paint
+        '''.split()
+    if imager:
+        custom_forms += '''
+            squid-acquire-from-fridge
+            fridge-contents
+            fridge-unload
+        '''.split()
+        if 0: custom_forms += '''
+           nikon-acquire-from-fridge'.split()
+        '''
+
+    protocol_options = {
         **{
-            k.replace('_', '-'): v
+            custom_form: custom_form for custom_form in custom_forms
+        },
+        **{
+            k_renamed: v
             for k, v in small_protocols_dict(imager=imager, painter=painter).items()
+            for k_renamed in [k.replace('_', '-')]
+            if k_renamed not in custom_forms
         }
     }
 
-    protocol = store.str(default=tuple(options.keys())[0], options=tuple(options.keys()))
+    protocol = store.str(default=tuple(protocol_options.keys())[0], options=tuple(protocol_options.keys()))
     store.assign_names(locals())
 
-    external_state = ExternalState(config)
+    external_state = ExternalState.from_config(config)
 
     desc = store.str(name='description', desc='Example: "specs395-v1"')
     operators = store.str(name='operators', desc='Example: "Amelie and Christa"')
@@ -333,7 +377,7 @@ def start_form(*, config: RuntimeConfig):
         default='automation_v5.0',
         name='protocol dir',
         desc='Directory on the windows computer to read biotek LHC files from',
-        options=LazyIterate(lambda: sorted(external_state.painter_protocol_paths().keys())),
+        options=LazyIterate(lambda: sorted(external_state.painter_protocol_paths.keys())),
     )
 
     final_washes = store.str(
@@ -350,7 +394,7 @@ def start_form(*, config: RuntimeConfig):
     squid_protocol = (
         store.str(
             name='squid protocol',
-            options=external_state.squid_protocols(),
+            options=external_state.squid_protocols,
         ) if 'squid' in protocol.value else
         store.str(
             name='nikon job',
@@ -364,15 +408,15 @@ def start_form(*, config: RuntimeConfig):
 
     selected_fridge_projects = fridge_projects_suggestions.value.split(',')
 
-    name_to_plate = {
-        plate.make_name_with_metadata(plate_target): (plate, plate_target)
+    diplay_name_to_plate = {
+        plate.make_display_name(plate_target): (plate, plate_target)
         for plate, plate_target in external_state.imager_filtered_plate_targets(selected_fridge_projects)
     }
 
     fridge_plates_for_selected_projects = store.var(
         Vp.List(
             name='squid plates',
-            options=(tmp := list(name_to_plate.keys())),
+            options=(tmp := list(diplay_name_to_plate.keys())),
             default=tmp[0:1],
         )
     )
@@ -393,7 +437,7 @@ def start_form(*, config: RuntimeConfig):
     params = store.str(name='params', desc=f'Additional parameters to protocol "{protocol.value}"')
     store.assign_names(locals())
 
-    small_data = options.get(protocol.value)
+    small_data = protocol_options.get(protocol.value)
 
     form_fields: list[Str | Bool | Vp.List | None] = []
     args: Args | None = None
@@ -406,7 +450,7 @@ def start_form(*, config: RuntimeConfig):
     err_full: str = ''
 
     if protocol.value == 'cell-paint':
-        selected_protocol_paths = external_state.painter_protocol_paths().get(protocol_dir.value)
+        selected_protocol_paths = external_state.painter_protocol_paths.get(protocol_dir.value)
 
         if selected_protocol_paths and selected_protocol_paths.use_wash():
             two = final_washes
@@ -446,19 +490,22 @@ def start_form(*, config: RuntimeConfig):
                         if plate.project
                     ]
                 ),
+                margin='0 auto',
+                overflow_y='auto',
                 grid_column='1 / -1',
-                grid_row='span 10',
-                width='100%',
+                grid_row='span 12',
                 height='100%',
+                px='20px',
                 z_index='1000',
             ),
             button(
                 'add csv stubs to imager-fridge-metadata',
-                onclick=call(lambda: common.alert(external_state.add_imager_plate_metadata())),
+                onclick=call(lambda: common.alert(external_state.write_imager_plate_metadata())),
+                grid_column='1 / -1',
             )
         ]
 
-    elif protocol.value in 'squid-from-fridge-v1 nikon-from-fridge-v1'.split():
+    elif protocol.value in 'squid-acquire-from-fridge nikon-acquire-from-fridge'.split():
         form_fields = [
             # fridge_project_options,
             fridge_projects_suggestions,
@@ -467,20 +514,24 @@ def start_form(*, config: RuntimeConfig):
             fridge_plates_for_selected_projects,
         ]
         plates: list[str] = []
-        for name in fridge_plates_for_selected_projects.value:
-            plate, target = name_to_plate[name]
+        for display_name in fridge_plates_for_selected_projects.value:
+            plate, target = diplay_name_to_plate[display_name]
+            name_with_metadata = plate.make_name_with_metadata(target)
             match target.squid_protocol:
                 case None:
-                    plates += [f'{squid_protocol.value}:{plate.project}:{plate.barcode}:{name}']
+                    plates += [f'{squid_protocol.value}:{plate.project}:{plate.barcode}:{name_with_metadata}']
                 case target_protocol:
-                    plates += [f'{target_protocol     }:{plate.project}:{plate.barcode}:{name}']
+                    plates += [f'{target_protocol     }:{plate.project}:{plate.barcode}:{name_with_metadata}']
         args = Args(
-            protocol='squid_from_fridge' if 'squid' in protocol.value else 'nikon_from_fridge',
+            protocol='squid_acquire_from_fridge' if 'squid' in protocol.value else 'nikon_acquire_from_fridge',
             params=[
                 fridge_RT_time_secs.value,
                 *plates,
             ]
         )
+        custom_fields += [
+            V.queue_refresh(1000),
+        ]
 
     elif protocol.value == 'fridge-unload':
         form_fields = [
@@ -492,26 +543,27 @@ def start_form(*, config: RuntimeConfig):
         )
 
     elif isinstance(small_data, SmallProtocolData):
+        assert small_data.name not in custom_forms
         if 'num_plates' in small_data.args:
             form_fields += [num_plates]
-        if small_data.name in ('fridge_put'):
+        if small_data.name == 'fridge_put':
             custom_fields += [
                 div(
-                    f'Last barcode: {external_state.last_barcode()}',
+                    f'Last barcode: {external_state.last_barcode}',
                     V.css.item(column='span 2'),
                     V.css(user_select='text'),
                 ),
                 V.queue_refresh(1000),
             ]
             form_fields += [
-                params,
                 fridge_projects_suggestions,
+                params,
             ]
             params_value = [
                 params.value,
                 fridge_projects_suggestions.value,
             ]
-        elif small_data.name in ('fridge_load', 'fridge_load_from_top'):
+        elif small_data.name in ('fridge_load', 'fridge_load_from_hotel',):
             form_fields += [fridge_projects_suggestions]
             params_value = [fridge_projects_suggestions.value]
         elif 'params' in small_data.args:
@@ -559,7 +611,7 @@ def start_form(*, config: RuntimeConfig):
         args = None
 
     if args:
-        args = replace(args, initial_fridge_contents_json=json.dumps(external_state.fridge_contents_raw_slots()))
+        args = replace(args, initial_fridge_contents_json=json.dumps(external_state.fridge_slots))
 
     if args:
         try:
