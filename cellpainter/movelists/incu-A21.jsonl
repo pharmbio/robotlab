@@ -1,5 +1,5 @@
 {"type":"Section","section":"B-neu-to-A-neu"}
-{"type":"MoveJoint","joints":[94.5,-109.9,91.8,16.9,94.9,179.8],"name":"B neu"}
+{"type":"MoveJoint","joints":[94.88,-110.59,90.31,19.45,95.29,179.84],"name":"B neu"}
 {"type":"MoveLin","xyz":[394.5,-437.8,816.7],"rpy":[0.0,1.1,89.6],"name":"A neu"}
 {"type":"Section","section":"A21-to-incu"}
 {"type":"MoveLin","xyz":[394.5,-437.8,816.7],"rpy":[0.0,1.1,89.6],"tag":"21/21","name":"A21 entrance"}
@@ -18,7 +18,7 @@
 {"type":"MoveLin","xyz":[394.5,-437.8,816.7],"rpy":[0.0,1.1,89.6],"name":"A neu"}
 {"type":"MoveLin","xyz":[198.7,-437.9,816.7],"rpy":[0.0,1.1,89.6],"name":"B neu"}
 {"type":"Section","section":"incu-to-A21"}
-{"type":"MoveJoint","joints":[94.5,-109.9,91.8,16.9,94.9,179.8],"name":"B neu"}
+{"type":"MoveJoint","joints":[94.88,-110.59,90.31,19.45,95.29,179.84],"name":"B neu"}
 {"type":"MoveLin","xyz":[394.5,-437.8,816.7],"rpy":[0.0,1.1,89.6],"name":"A neu"}
 {"type":"MoveLin","xyz":[610.6,-437.8,278.5],"rpy":[-0.8,1.1,89.6],"name":"incu neu"}
 {"type":"MoveLin","xyz":[612.7,-724,258.6],"rpy":[-0.9,1.1,89],"name":"incu pick neu"}

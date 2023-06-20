@@ -1,5 +1,5 @@
 {"type":"Section","section":"wash-to-disp"}
-{"type":"MoveJoint","joints":[94.6,-110.9,91.5,19.3,94.6,179.9],"name":"B neu"}
+{"type":"MoveJoint","joints":[94.88,-110.59,90.31,19.45,95.29,179.84],"name":"B neu"}
 {"type":"MoveLin","xyz":[-2,-421.8,822.6],"rpy":[0.0,0.0,55.1],"name":"B safe"}
 {"type":"MoveLin","xyz":[-327.2,-320.9,527.0],"rpy":[0.0,1.2,-30.4],"name":"wash above"}
 {"type":"MoveLin","xyz":[-327.2,-320.9,199.6],"rpy":[0.0,1.2,-30.4],"name":"wash neu"}
@@ -12,9 +12,9 @@
 {"type":"MoveLin","xyz":[-268.7,-66.6,438.1],"rpy":[0.0,0.8,-29.7],"name":"disp neu"}
 {"type":"MoveLin","xyz":[-270.1,-69.1,524.3],"rpy":[0.0,0.8,-29.7],"name":"disp above"}
 {"type":"MoveLin","xyz":[-2,-421.8,822.6],"rpy":[0.0,0.0,55.1],"name":"B safe"}
-{"type":"MoveLin","xyz":[198.7,-421.8,822.6],"rpy":[0.0,0.0,90],"name":"B neu"}
+{"type":"MoveLin","xyz":[199.7,-421.8,834.2],"rpy":[0.0,0.8,89.6],"name":"B neu"}
 {"type":"Section","section":"disp-to-wash"}
-{"type":"MoveLin","xyz":[198.7,-421.8,822.6],"rpy":[0.0,0.0,90],"name":"B neu"}
+{"type":"MoveLin","xyz":[199.7,-421.8,834.2],"rpy":[0.0,0.8,89.6],"name":"B neu"}
 {"type":"MoveLin","xyz":[-2,-421.8,822.6],"rpy":[0.0,0.0,55.1],"name":"B safe"}
 {"type":"MoveLin","xyz":[-270.1,-69.1,524.3],"rpy":[0.0,0.8,-29.7],"name":"disp above"}
 {"type":"MoveLin","xyz":[-268.7,-66.6,438.1],"rpy":[0.0,0.8,-29.7],"name":"disp neu"}
@@ -27,4 +27,4 @@
 {"type":"MoveLin","xyz":[-327.2,-320.9,199.6],"rpy":[0.0,1.2,-30.4],"name":"wash neu"}
 {"type":"MoveLin","xyz":[-327.2,-320.9,527.0],"rpy":[0.0,1.2,-30.4],"name":"wash above"}
 {"type":"MoveLin","xyz":[-2,-421.8,822.6],"rpy":[0.0,0.0,55.1],"name":"B safe"}
-{"type":"MoveJoint","joints":[94.6,-110.9,91.5,19.3,94.6,179.9],"name":"B neu"}
+{"type":"MoveJoint","joints":[94.88,-110.59,90.31,19.45,95.29,179.84],"name":"B neu"}

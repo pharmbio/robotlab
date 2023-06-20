@@ -6,7 +6,7 @@
 {"type":"GripperMove","pos":255}
 {"type":"MoveLin","xyz":[199.7,-593.2,834.2],"rpy":[0.0,0.8,89.6],"tag":"21/21","name":"B21 neu"}
 {"type":"MoveLin","xyz":[199.7,-421.7,834.2],"rpy":[0.0,0.8,89.6],"tag":"21/21","name":"B21 entrance"}
-{"type":"MoveLin","xyz":[199.7,-421.7,834.2],"rpy":[0.0,0.8,89.6],"name":"B neu"}
+{"type":"MoveLin","xyz":[199.7,-421.8,834.2],"rpy":[0.0,0.8,89.6],"name":"B neu"}
 {"type":"MoveLin","xyz":[-2.0,-421.8,822.6],"rpy":[0.0,0.8,55.1],"name":"B safe"}
 {"type":"MoveLin","xyz":[-268.7,-66.6,527],"rpy":[0.0,0.8,-29.7],"name":"disp above"}
 {"type":"MoveLin","xyz":[-268.7,-66.6,418.2],"rpy":[0.0,0.8,-29.7],"name":"disp drop"}
@@ -14,7 +14,7 @@
 {"type":"MoveLin","xyz":[-268.7,-66.6,456.3],"rpy":[0.0,0.8,-29.7],"name":"disp neu"}
 {"type":"MoveLin","xyz":[-268.7,-66.6,527],"rpy":[0.0,0.8,-29.7],"name":"disp above"}
 {"type":"MoveLin","xyz":[-2.0,-421.8,822.6],"rpy":[0.0,0.8,55.1],"name":"B safe"}
-{"type":"MoveLin","xyz":[199.7,-421.7,834.2],"rpy":[0.0,0.8,89.6],"name":"B neu"}
+{"type":"MoveLin","xyz":[199.7,-421.8,834.2],"rpy":[0.0,0.8,89.6],"name":"B neu"}
 {"type":"Section","section":"disp-to-B21"}
 {"type":"MoveJoint","joints":[94.88,-110.59,90.31,19.45,95.29,179.84],"name":"B neu"}
 {"type":"MoveLin","xyz":[-2.0,-421.8,822.6],"rpy":[0.0,0.8,55.1],"name":"B safe"}
@@ -24,11 +24,11 @@
 {"type":"GripperMove","pos":255}
 {"type":"MoveLin","xyz":[-268.7,-66.6,527],"rpy":[0.0,0.8,-29.7],"name":"disp above"}
 {"type":"MoveLin","xyz":[-2.0,-421.8,822.6],"rpy":[0.0,0.8,55.1],"name":"B safe"}
-{"type":"MoveLin","xyz":[199.7,-421.7,834.2],"rpy":[0.0,0.8,89.6],"name":"B neu"}
+{"type":"MoveLin","xyz":[199.7,-421.8,834.2],"rpy":[0.0,0.8,89.6],"name":"B neu"}
 {"type":"MoveLin","xyz":[199.7,-421.7,834.2],"rpy":[0.0,0.8,89.6],"tag":"21/21","name":"B21 entrance"}
 {"type":"MoveLin","xyz":[199.7,-593.2,834.2],"rpy":[0.0,0.8,89.6],"tag":"21/21","name":"B21 neu"}
 {"type":"MoveLin","xyz":[199.7,-593.2,816.2],"rpy":[0.0,0.8,89.6],"tag":"21/21","name":"B21 drop"}
 {"type":"GripperMove","pos":88}
 {"type":"MoveLin","xyz":[199.7,-593.2,834.2],"rpy":[0.0,0.8,89.6],"tag":"21/21","name":"B21 neu"}
 {"type":"MoveLin","xyz":[199.7,-421.7,834.2],"rpy":[0.0,0.8,89.6],"tag":"21/21","name":"B21 entrance"}
-{"type":"MoveLin","xyz":[199.7,-421.7,834.2],"rpy":[0.0,0.8,89.6],"name":"B neu"}
+{"type":"MoveLin","xyz":[199.7,-421.8,834.2],"rpy":[0.0,0.8,89.6],"name":"B neu"}
