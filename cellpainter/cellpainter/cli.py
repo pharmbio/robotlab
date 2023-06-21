@@ -165,7 +165,6 @@ def main_with_args(args: Args, parser: argparse.ArgumentParser | None=None):
                         args2 = replace(args,
                             protocol='cell-paint',
                             interleave=interleave,
-                            lockstep_threshold=4,
                             two_final_washes=two_final_washes,
                             incu=incu,
                             batch_sizes=str(N)

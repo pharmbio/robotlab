@@ -9,7 +9,7 @@
 [x] imager: squid test comm (squid checks that the protocols exists at start)
 [ ] imager: nikon test comm
 [ ] cellpainter: use quicksim to update estimates while running
-[ ] cellpainter: remove lockstep
+[x] cellpainter: remove lockstep
 [ ] cellpainter: try to suggest what needs to be shorter for a given incubation time
 [ ] cellpainter: generate table for how many plates are possible for a protocol
 [ ] slack notifications. integrate into web UI

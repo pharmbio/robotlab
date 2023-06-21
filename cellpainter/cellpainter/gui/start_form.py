@@ -479,7 +479,6 @@ def start_form(*, config: RuntimeConfig):
             incu=incu_csv,
             interleave=True,
             two_final_washes=final_washes.value == 'two',
-            lockstep_threshold=10,
             protocol_dir=protocol_dir.value,
             desc=desc.value,
             operators=operators.value,
