@@ -183,7 +183,7 @@ with the plate in the squid user interface. Put it back with `squid-to-H12` and 
 
 ## Specifying per-plate squid settings
 
-Add protocol path as a forth column to the csv file. On the YM example, edit the YM.csv file and add:
+Add squid protocol path as a fourth column to the csv file. On the YM example, edit the YM.csv file and add:
 
 ```
 YM,PB900002,L1,protocols/YM_L1.json
@@ -211,8 +211,8 @@ You can use the csv file to acquire the same plate multiple times with different
 In the YM example, to image L1 with two different protocols, put the same plate on two lines:
 
 ```
-YM,PB900002,L1,protocols/YM.json
-YM,PB900002,L1_BF,protocols/YM_BF.json
+YM,PB900002,L1_U2OS,protocols/YM_U2OS.json
+YM,PB900002,L1_MCF7,protocols/YM_MCF7.json
 ```
 
 Note: the software will make the unnecessary roundtrip to the fridge in between.
