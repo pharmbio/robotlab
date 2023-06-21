@@ -62,11 +62,21 @@ Note that you need to set the variable `VIABLE_PORT=3000` to start it.
 
 </details>
 
-## Start the squid software with enabled web_service
+## Start the squid software with enabled remote control
 
-The squid software needs to be started with the variable web_service.
-The web service is running if this page returns: <a href="http://10.10.0.95:5050/squid/status" target=_blank>http://10.10.0.95:5050/squid/status</a>.
-Otherwise, start a terminal on the squid computer and issue these commands:
+The squid software needs to be started with a web service for remote control.
+Start it with this shortcut on the desktop:
+
+<img src='images/squid_shortcut.png'>
+
+The web service remote control is running if this page returns:
+<a href="http://10.10.0.95:5050/squid/status" target=_blank>http://10.10.0.95:5050/squid/status</a>.
+
+<details>
+<summary>
+If the shortcut on the desktop is missing, these are the instructions how to start it from the terminal.
+</summary>
+Start a terminal on the squid computer and issue these commands:
 
 ```
 cd ~/Downloads/squid/software/
@@ -92,6 +102,7 @@ WARNING: This is a development server. Do not use it in a production deployment.
  * Running on http://10.10.0.95:5050
 Press CTRL+C to quit
 ```
+</details>
 
 ## Loading the fridge
 
