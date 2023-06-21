@@ -207,6 +207,12 @@
 {"cmd":{"type":"BiotekCmd","machine":"disp","action":"RunValidated","protocol_path":"automation_v5.0_blue_MagBead/6.0_D_P2_PRIME_stains.LHC"},"datetime":"2023-03-30 12:51:17","duration":8.681}
 {"cmd":{"type":"BiotekCmd","machine":"disp","action":"RunValidated","protocol_path":"automation_v5.0_blue_MagBead/6.1_D_P2_20ul_stains.LHC"},"datetime":"2023-03-30 12:51:43","duration":17.07}
 {"cmd":{"type":"BiotekCmd","machine":"disp","action":"RunValidated","protocol_path":"automation_v5.0_blue_MagBead/6.1_D_P2_20ul_stains.LHC"},"datetime":"2023-03-30 12:53:35","duration":17.083}
+{"cmd":{"type":"BiotekCmd","machine":"disp","action":"RunValidated","protocol_path":"automation_v5.0_blue_decant_only/2.0_D_SB_PRIME_Mito.LHC"},"datetime":"2023-06-21 13:45:37","duration":9.79}
+{"cmd":{"type":"BiotekCmd","machine":"disp","action":"RunValidated","protocol_path":"automation_v5.0_blue_decant_only/2.1_D_SB_20ul_Mito.LHC"},"datetime":"2023-06-21 13:45:58","duration":18.085}
+{"cmd":{"type":"BiotekCmd","machine":"disp","action":"RunValidated","protocol_path":"automation_v5.0_blue_decant_only/4.0_D_SA_PRIME_PFA.LHC"},"datetime":"2023-06-21 13:46:16","duration":14.473}
+{"cmd":{"type":"BiotekCmd","machine":"disp","action":"RunValidated","protocol_path":"automation_v5.0_blue_decant_only/4.1_D_SA_40ul_PFA.LHC"},"datetime":"2023-06-21 13:46:38","duration":19.1}
+{"cmd":{"type":"BiotekCmd","machine":"disp","action":"RunValidated","protocol_path":"automation_v5.0_blue_decant_only/6.0_D_P2_PRIME_stains.LHC"},"datetime":"2023-06-21 13:46:50","duration":8.195}
+{"cmd":{"type":"BiotekCmd","machine":"disp","action":"RunValidated","protocol_path":"automation_v5.0_blue_decant_only/6.1_D_P2_20ul_stains.LHC"},"datetime":"2023-06-21 13:47:10","duration":17.073}
 {"cmd":{"type":"BiotekCmd","machine":"disp","action":"RunValidated","protocol_path":"automation_v5.0_blue_pe/2.0_D_SB_PRIME_Mito.LHC"},"datetime":"2023-02-23 10:32:26","duration":9.528}
 {"cmd":{"type":"BiotekCmd","machine":"disp","action":"RunValidated","protocol_path":"automation_v5.0_blue_pe/2.0_D_SB_PRIME_Mito.LHC"},"datetime":"2023-02-23 15:11:50","duration":9.418}
 {"cmd":{"type":"BiotekCmd","machine":"disp","action":"RunValidated","protocol_path":"automation_v5.0_blue_pe/2.0_D_SB_PRIME_Mito.LHC"},"datetime":"2023-03-16 11:30:01","duration":9.466}
@@ -470,6 +476,12 @@
 {"cmd":{"type":"BiotekCmd","machine":"disp","action":"Validate","protocol_path":"automation_v5.0_blue_MagBead/6.0_D_P2_PRIME_stains.LHC"},"datetime":"2023-03-30 12:51:08","duration":3.225}
 {"cmd":{"type":"BiotekCmd","machine":"disp","action":"Validate","protocol_path":"automation_v5.0_blue_MagBead/6.1_D_P2_20ul_stains.LHC"},"datetime":"2023-03-30 12:51:20","duration":3.266}
 {"cmd":{"type":"BiotekCmd","machine":"disp","action":"Validate","protocol_path":"automation_v5.0_blue_MagBead/6.1_D_P2_20ul_stains.LHC"},"datetime":"2023-03-30 12:53:16","duration":3.157}
+{"cmd":{"type":"BiotekCmd","machine":"disp","action":"Validate","protocol_path":"automation_v5.0_blue_decant_only/2.0_D_SB_PRIME_Mito.LHC"},"datetime":"2023-06-21 13:45:27","duration":3.428}
+{"cmd":{"type":"BiotekCmd","machine":"disp","action":"Validate","protocol_path":"automation_v5.0_blue_decant_only/2.1_D_SB_20ul_Mito.LHC"},"datetime":"2023-06-21 13:45:40","duration":3.243}
+{"cmd":{"type":"BiotekCmd","machine":"disp","action":"Validate","protocol_path":"automation_v5.0_blue_decant_only/4.0_D_SA_PRIME_PFA.LHC"},"datetime":"2023-06-21 13:46:01","duration":3.318}
+{"cmd":{"type":"BiotekCmd","machine":"disp","action":"Validate","protocol_path":"automation_v5.0_blue_decant_only/4.1_D_SA_40ul_PFA.LHC"},"datetime":"2023-06-21 13:46:19","duration":3.202}
+{"cmd":{"type":"BiotekCmd","machine":"disp","action":"Validate","protocol_path":"automation_v5.0_blue_decant_only/6.0_D_P2_PRIME_stains.LHC"},"datetime":"2023-06-21 13:46:41","duration":3.41}
+{"cmd":{"type":"BiotekCmd","machine":"disp","action":"Validate","protocol_path":"automation_v5.0_blue_decant_only/6.1_D_P2_20ul_stains.LHC"},"datetime":"2023-06-21 13:46:53","duration":3.318}
 {"cmd":{"type":"BiotekCmd","machine":"disp","action":"Validate","protocol_path":"automation_v5.0_blue_pe/2.0_D_SB_PRIME_Mito.LHC"},"datetime":"2023-02-23 10:32:16","duration":3.5}
 {"cmd":{"type":"BiotekCmd","machine":"disp","action":"Validate","protocol_path":"automation_v5.0_blue_pe/2.0_D_SB_PRIME_Mito.LHC"},"datetime":"2023-02-23 15:11:40","duration":3.25}
 {"cmd":{"type":"BiotekCmd","machine":"disp","action":"Validate","protocol_path":"automation_v5.0_blue_pe/2.0_D_SB_PRIME_Mito.LHC"},"datetime":"2023-03-16 11:29:52","duration":3.228}
@@ -892,6 +904,9 @@
 {"cmd":{"type":"BlueCmd","action":"RunValidated","protocol_path":"automation_v5.0_blue_MagBead/5_W_MagBeadSpinWash-2X-80ul-Green.prog"},"datetime":"2023-03-30 12:53:09","duration":62.393}
 {"cmd":{"type":"BlueCmd","action":"RunValidated","protocol_path":"automation_v5.0_blue_MagBead/7_W_MagBeadSpinWash-2X-100ul-Green-with-post-dispense.prog"},"datetime":"2023-03-30 13:23:14","duration":90.347}
 {"cmd":{"type":"BlueCmd","action":"RunValidated","protocol_path":"automation_v5.0_blue_MagBead/7_W_MagBeadSpinWash-2X-100ul-Green-with-post-dispense.prog"},"datetime":"2023-03-30 13:25:08","duration":90.429}
+{"cmd":{"type":"BlueCmd","action":"RunValidated","protocol_path":"automation_v5.0_blue_decant_only/3_W_HardDecant.prog"},"datetime":"2023-06-21 13:45:52","duration":27.075}
+{"cmd":{"type":"BlueCmd","action":"RunValidated","protocol_path":"automation_v5.0_blue_decant_only/5_W_HardDecant.prog"},"datetime":"2023-06-21 13:46:24","duration":27.191}
+{"cmd":{"type":"BlueCmd","action":"RunValidated","protocol_path":"automation_v5.0_blue_decant_only/7_W_HardDecant.prog"},"datetime":"2023-06-21 13:46:56","duration":27.193}
 {"cmd":{"type":"BlueCmd","action":"RunValidated","protocol_path":"automation_v5.0_blue_pe/0_W_Prime-Blue-Full.prog"},"datetime":"2023-02-23 10:32:36","duration":23.756}
 {"cmd":{"type":"BlueCmd","action":"RunValidated","protocol_path":"automation_v5.0_blue_pe/0_W_Prime-Blue-Full.prog"},"datetime":"2023-02-23 16:02:04","duration":15.962}
 {"cmd":{"type":"BlueCmd","action":"RunValidated","protocol_path":"automation_v5.0_blue_pe/0_W_Prime-Blue-Full.prog"},"datetime":"2023-02-23 16:23:45","duration":23.823}
@@ -951,6 +966,9 @@
 {"cmd":{"type":"BlueCmd","action":"Validate","protocol_path":"automation_v5.0_blue_MagBead/5_W_MagBeadSpinWash-2X-80ul-Green.prog"},"datetime":"2023-03-30 12:51:27","duration":5.518}
 {"cmd":{"type":"BlueCmd","action":"Validate","protocol_path":"automation_v5.0_blue_MagBead/7_W_MagBeadSpinWash-2X-100ul-Green-with-post-dispense.prog"},"datetime":"2023-03-30 13:21:34","duration":5.451}
 {"cmd":{"type":"BlueCmd","action":"Validate","protocol_path":"automation_v5.0_blue_MagBead/7_W_MagBeadSpinWash-2X-100ul-Green-with-post-dispense.prog"},"datetime":"2023-03-30 13:23:24","duration":5.407}
+{"cmd":{"type":"BlueCmd","action":"Validate","protocol_path":"automation_v5.0_blue_decant_only/3_W_HardDecant.prog"},"datetime":"2023-06-21 13:45:25","duration":4.002}
+{"cmd":{"type":"BlueCmd","action":"Validate","protocol_path":"automation_v5.0_blue_decant_only/5_W_HardDecant.prog"},"datetime":"2023-06-21 13:45:57","duration":4.607}
+{"cmd":{"type":"BlueCmd","action":"Validate","protocol_path":"automation_v5.0_blue_decant_only/7_W_HardDecant.prog"},"datetime":"2023-06-21 13:46:29","duration":4.522}
 {"cmd":{"type":"BlueCmd","action":"Validate","protocol_path":"automation_v5.0_blue_pe/0_W_Prime-Blue-Full.prog"},"datetime":"2023-02-23 10:32:12","duration":1.456}
 {"cmd":{"type":"BlueCmd","action":"Validate","protocol_path":"automation_v5.0_blue_pe/0_W_Prime-Blue-Full.prog"},"datetime":"2023-02-23 16:01:48","duration":1.462}
 {"cmd":{"type":"BlueCmd","action":"Validate","protocol_path":"automation_v5.0_blue_pe/0_W_Prime-Blue-Full.prog"},"datetime":"2023-02-23 16:23:21","duration":1.477}
