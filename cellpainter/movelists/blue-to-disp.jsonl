@@ -7,21 +7,21 @@
 {"type":"GripperMove","pos":255}
 {"type":"MoveLin","xyz":[29.9,-623.5,212.2],"rpy":[0.0,0.8,-0.2],"name":"blue neu"}
 {"type":"MoveLin","xyz":[29.9,-623.5,454.1],"rpy":[0.0,0.8,-0.2],"name":"blue above"}
-{"type":"MoveLin","xyz":[-267.4,-68.4,456.0],"rpy":[0.0,0.8,-29.7],"name":"disp neu"}
-{"type":"MoveLin","xyz":[-267.4,-68.4,418.2],"rpy":[0.0,0.8,-29.7],"name":"disp drop"}
+{"type":"MoveLin","xyz":[-269.1,-67.4,455.9],"rpy":[0.0,0.8,-29.7],"name":"disp neu"}
+{"type":"MoveLin","xyz":[-269.1,-67.4,418.2],"rpy":[0.0,0.8,-29.7],"name":"disp drop"}
 {"type":"GripperMove","pos":89}
-{"type":"MoveLin","xyz":[-267.4,-68.4,456.0],"rpy":[0.0,0.8,-29.7],"name":"disp neu"}
-{"type":"MoveLin","xyz":[-267.4,-68.4,527.0],"rpy":[0.0,0.8,-29.7],"name":"disp above"}
+{"type":"MoveLin","xyz":[-269.1,-67.4,455.9],"rpy":[0.0,0.8,-29.7],"name":"disp neu"}
+{"type":"MoveLin","xyz":[-269.1,-67.4,527.0],"rpy":[0.0,0.8,-29.7],"name":"disp above"}
 {"type":"MoveLin","xyz":[-2,-421.8,822.6],"rpy":[0.0,0.0,55.1],"name":"B safe"}
 {"type":"MoveLin","xyz":[199.7,-421.8,834.2],"rpy":[0.0,0.8,89.6],"name":"B neu"}
 {"type":"Section","section":"disp-to-blue"}
 {"type":"MoveLin","xyz":[199.7,-421.8,834.2],"rpy":[0.0,0.8,89.6],"name":"B neu"}
 {"type":"MoveLin","xyz":[-2,-421.8,822.6],"rpy":[0.0,0.0,55.1],"name":"B safe"}
-{"type":"MoveLin","xyz":[-267.4,-68.4,527.0],"rpy":[0.0,0.8,-29.7],"name":"disp above"}
-{"type":"MoveLin","xyz":[-267.4,-68.4,456.0],"rpy":[0.0,0.8,-29.7],"name":"disp neu"}
-{"type":"MoveLin","xyz":[-267.4,-68.4,418.2],"rpy":[0.0,0.8,-29.7],"name":"disp pick"}
+{"type":"MoveLin","xyz":[-269.1,-67.4,527.0],"rpy":[0.0,0.8,-29.7],"name":"disp above"}
+{"type":"MoveLin","xyz":[-269.1,-67.4,455.9],"rpy":[0.0,0.8,-29.7],"name":"disp neu"}
+{"type":"MoveLin","xyz":[-269.1,-67.4,418.2],"rpy":[0.0,0.8,-29.7],"name":"disp pick"}
 {"type":"GripperMove","pos":255}
-{"type":"MoveLin","xyz":[-267.4,-68.4,456.0],"rpy":[0.0,0.8,-29.7],"name":"disp neu"}
+{"type":"MoveLin","xyz":[-269.1,-67.4,455.9],"rpy":[0.0,0.8,-29.7],"name":"disp neu"}
 {"type":"MoveLin","xyz":[29.9,-623.5,454.1],"rpy":[0.0,0.8,-0.2],"name":"blue above"}
 {"type":"MoveLin","xyz":[29.9,-623.5,212.2],"rpy":[0.0,0.8,-0.2],"name":"blue neu"}
 {"type":"MoveLin","xyz":[29.9,-623.5,188.8],"rpy":[0.0,0.8,-0.2],"name":"blue drop"}
