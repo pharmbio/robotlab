@@ -1,32 +1,32 @@
 {"type":"Section","section":"B21-to-incu"}
 {"type":"MoveJoint","joints":[94.88,-110.59,90.31,19.45,95.29,179.84],"name":"B neu"}
 {"type":"MoveLin","xyz":[199.7,-421.8,834.2],"rpy":[0.0,0.8,89.6],"name":"B neu"}
-{"type":"MoveLin","xyz":[199.6,-448.2,819.2],"rpy":[0.0,0.8,89.6],"tag":"21/21","name":"B21 entrance"}
-{"type":"MoveLin","xyz":[199.6,-608.2,819.2],"rpy":[0.0,0.8,89.6],"tag":"21/21","name":"B21 neu"}
-{"type":"MoveLin","xyz":[199.6,-608.2,813.7],"rpy":[0.0,0.8,89.6],"tag":"21/21","name":"B21 pick"}
+{"type":"MoveLin","xyz":[199.7,-448.5,819.2],"rpy":[0.0,0.6,89.6],"tag":"21/21","name":"B21 entrance"}
+{"type":"MoveLin","xyz":[199.7,-604.7,819.2],"rpy":[0.0,0.6,89.6],"tag":"21/21","name":"B21 neu"}
+{"type":"MoveLin","xyz":[199.7,-604.7,814.7],"rpy":[0.0,0.6,89.6],"tag":"21/21","name":"B21 pick"}
 {"type":"GripperMove","pos":255}
-{"type":"MoveLin","xyz":[199.6,-608.2,819.2],"rpy":[0.0,0.8,89.6],"tag":"21/21","name":"B21 neu"}
-{"type":"MoveLin","xyz":[199.6,-448.2,819.2],"rpy":[0.0,0.8,89.6],"tag":"21/21","name":"B21 entrance"}
-{"type":"MoveLin","xyz":[199.7,-421.8,834.2],"rpy":[0.0,0.8,89.6],"name":"B neu"}
-{"type":"MoveLin","xyz":[610.8,-448.5,269.2],"rpy":[-1.0,0.9,89.3],"name":"incu neu"}
-{"type":"MoveLin","xyz":[610.8,-728.6,269.2],"rpy":[-1.0,0.9,89.3],"name":"incu drop neu"}
-{"type":"MoveLin","xyz":[610.8,-728.6,245.4],"rpy":[-1.0,0.9,89.3],"name":"incu drop"}
+{"type":"MoveLin","xyz":[199.7,-604.7,819.2],"rpy":[0.0,0.6,89.6],"tag":"21/21","name":"B21 neu"}
+{"type":"MoveLin","xyz":[199.7,-448.5,819.2],"rpy":[0.0,0.6,89.6],"tag":"21/21","name":"B21 entrance"}
+{"type":"MoveLin","xyz":[199.7,-448.5,819.2],"rpy":[0.0,0.6,89.6],"name":"B entrance"}
+{"type":"MoveLin","xyz":[612.8,-448.5,269.1],"rpy":[0.0,0.7,89.5],"name":"incu neu"}
+{"type":"MoveLin","xyz":[612.8,-724.7,269.2],"rpy":[0.0,0.7,89.5],"name":"incu drop neu"}
+{"type":"MoveLin","xyz":[612.8,-724.7,247.2],"rpy":[0.0,0.7,89.5],"name":"incu drop"}
 {"type":"GripperMove","pos":88}
-{"type":"MoveLin","xyz":[610.8,-728.6,269.2],"rpy":[-1.0,0.9,89.3],"name":"incu drop neu"}
-{"type":"MoveLin","xyz":[610.8,-448.5,269.2],"rpy":[-1.0,0.9,89.3],"name":"incu neu"}
+{"type":"MoveLin","xyz":[612.8,-724.7,269.2],"rpy":[0.0,0.7,89.5],"name":"incu drop neu"}
+{"type":"MoveLin","xyz":[612.8,-448.5,269.1],"rpy":[0.0,0.7,89.5],"name":"incu neu"}
 {"type":"MoveLin","xyz":[199.7,-421.8,834.2],"rpy":[0.0,0.8,89.6],"name":"B neu"}
 {"type":"Section","section":"incu-to-B21"}
 {"type":"MoveJoint","joints":[94.88,-110.59,90.31,19.45,95.29,179.84],"name":"B neu"}
-{"type":"MoveLin","xyz":[610.8,-448.5,269.2],"rpy":[-1.0,0.9,89.3],"name":"incu neu"}
-{"type":"MoveLin","xyz":[610.8,-728.6,269.2],"rpy":[-1,0.9,89.3],"name":"incu pick neu"}
-{"type":"MoveLin","xyz":[610.8,-728.6,244.4],"rpy":[-1,0.9,89.3],"name":"incu pick"}
+{"type":"MoveLin","xyz":[612.8,-448.5,269.1],"rpy":[0.0,0.7,89.5],"name":"incu neu"}
+{"type":"MoveLin","xyz":[612.8,-724.7,269.2],"rpy":[0.0,0.7,89.5],"name":"incu pick neu"}
+{"type":"MoveLin","xyz":[612.8,-724.7,246.7],"rpy":[0.0,0.7,89.5],"name":"incu pick"}
 {"type":"GripperMove","pos":255}
-{"type":"MoveLin","xyz":[610.8,-728.6,269.2],"rpy":[-1,0.9,89.3],"name":"incu pick neu"}
-{"type":"MoveLin","xyz":[610.8,-448.5,269.2],"rpy":[-1.0,0.9,89.3],"name":"incu neu"}
-{"type":"MoveLin","xyz":[199.6,-448.2,819.2],"rpy":[0.0,0.8,89.6],"tag":"21/21","name":"B21 entrance"}
-{"type":"MoveLin","xyz":[199.6,-608.2,819.2],"rpy":[0.0,0.8,89.6],"tag":"21/21","name":"B21 neu"}
-{"type":"MoveLin","xyz":[199.6,-608.2,813.7],"rpy":[0.0,0.8,89.6],"tag":"21/21","name":"B21 drop"}
+{"type":"MoveLin","xyz":[612.8,-724.7,269.2],"rpy":[0.0,0.7,89.5],"name":"incu pick neu"}
+{"type":"MoveLin","xyz":[612.8,-448.5,269.1],"rpy":[0.0,0.7,89.5],"name":"incu neu"}
+{"type":"MoveLin","xyz":[199.7,-448.5,819.2],"rpy":[0.0,0.6,89.6],"tag":"21/21","name":"B21 entrance"}
+{"type":"MoveLin","xyz":[199.7,-604.7,819.2],"rpy":[0.0,0.6,89.6],"tag":"21/21","name":"B21 neu"}
+{"type":"MoveLin","xyz":[199.7,-604.7,815.2],"rpy":[0.0,0.6,89.6],"tag":"21/21","name":"B21 drop"}
 {"type":"GripperMove","pos":88}
-{"type":"MoveLin","xyz":[199.6,-608.2,819.2],"rpy":[0.0,0.8,89.6],"tag":"21/21","name":"B21 neu"}
-{"type":"MoveLin","xyz":[199.6,-448.2,819.2],"rpy":[0.0,0.8,89.6],"tag":"21/21","name":"B21 entrance"}
+{"type":"MoveLin","xyz":[199.7,-604.7,819.2],"rpy":[0.0,0.6,89.6],"tag":"21/21","name":"B21 neu"}
+{"type":"MoveLin","xyz":[199.7,-448.5,819.2],"rpy":[0.0,0.6,89.6],"tag":"21/21","name":"B21 entrance"}
 {"type":"MoveLin","xyz":[199.7,-421.8,834.2],"rpy":[0.0,0.8,89.6],"name":"B neu"}
