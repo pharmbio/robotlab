@@ -334,7 +334,6 @@ class MoveList(list[Move]):
 class MoveListParts:
     prep: MoveList
     transfer: MoveList
-    transferless: MoveList
     ret: MoveList
 
     @staticmethod
@@ -370,7 +369,6 @@ class MoveListParts:
         return MoveListParts(
             prep         = MoveList([*to_pick_neu, pick_neu]),
             transfer     = MoveList([              pick_neu, pick_pos, close, *transfer_inner, open, drop_neu]),
-            transferless = MoveList([              pick_neu,                  *transfer_inner                ]),
             ret          = MoveList([                                                                drop_neu, *from_drop_neu]),
         )
 
@@ -402,6 +400,9 @@ def sleek_movements(
             continue
         if a_first and a_first == b_last and pair_ok(xs[i], xs[j]):
             rm |= {i, j}
+        else:
+            continue
+            # print(f'cannot sleek {xs[i][0].program_name!r} {xs[j][0].program_name!r} {a_first=} {b_last=}')
 
     return [
         x
@@ -448,7 +449,6 @@ class NamedMoveList:
         'full',
         'prep',
         'transfer',
-        'transferless',
         'return',
     ] | str
     movelist: MoveList
@@ -502,12 +502,10 @@ def read_movelists() -> dict[str, MoveList]:
         prep = NamedMoveList(base, 'prep', parts.prep)
         ret = NamedMoveList(base, 'return', parts.ret)
         transfer = NamedMoveList(base, 'transfer', parts.transfer)
-        transferless = NamedMoveList(base, 'transferless', parts.transferless)
         out += [
             prep,
             ret,
             transfer,
-            transferless,
         ]
         if re.match(r'A\d+-to-incu', base):
             # special handling for quick incubator load which has a neutral somewhere around A5
