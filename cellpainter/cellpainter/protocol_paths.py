@@ -149,12 +149,12 @@ def update_protocol_paths():
     res: dict[str, ProtocolPaths] = {}
     for protocol_dir, infos in sorted(pbutils.group_by(path_infos, lambda info: info['path'].partition('/')[0]).items()):
         if protocol_dir in skip:
-            print('Skipping', protocol_dir)
+            # print('Skipping', protocol_dir)
             continue
         protocol_paths = make_protocol_paths(protocol_dir, infos)
         if not protocol_paths.empty():
             res[protocol_dir] = protocol_paths
-            print('Adding', protocol_dir)
+            # print('Adding', protocol_dir)
     pbutils.serializer.write_json(res, 'protocol_paths.json', indent=2)
 
 def paths_v5():
