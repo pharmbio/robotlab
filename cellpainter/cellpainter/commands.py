@@ -258,8 +258,8 @@ class Command(ReplaceMixin, abc.ABC):
                             Seq(
                                 Checkpoint(name_wait),
                                 # # not sure which one is best here:
-                                # WaitForCheckpoint(ref_name, assume='nothing') + f'{name_wait} wait',
-                                WaitForCheckpoint(name_wait, assume='nothing') + f'{name_wait} wait',
+                                WaitForCheckpoint(ref_name, assume='nothing') + f'{name_wait} wait',
+                                # WaitForCheckpoint(name_wait, assume='nothing') + f'{name_wait} wait',
                                 Duration(name_wait, Max(priority=-2)),
                                 cmd.command,
                                 Checkpoint(name_sync),
