@@ -928,7 +928,8 @@ def cell_paint_program(batch_sizes: list[int], protocol_config: ProtocolConfig) 
     program = Seq(
         Checkpoint('run'),
         program_test_comm(with_blue=protocol_config.use_blue),
-        # Idle(0) + 'sep',
+        BlueCmd('get_working_plate').fork() if protocol_config.use_blue else Idle(),
+        WaitForCheckpoint('run') + 'initialization slack',
         program,
         Duration('run', OptPrio.batch_time)
     )
