@@ -15,7 +15,6 @@ from dataclasses import *
 from pbutils import show
 import pbutils
 
-from . import make_uml
 from . import protocol
 from . import estimates
 from . import moves
@@ -78,7 +77,6 @@ class Args(SmallProtocolArgs, CellPaintingArgs):
     pf_speed:                  int  = arg(default=50, help='Robot arm speed [1-100]')
     json_arg:                  str  = arg(help='Give arguments as json on the command line')
     yes:                       bool = arg(help='Assume yes in confirmation questions')
-    make_uml:                  str  = arg(help='Write uml in dot format to the given path and exit')
 
     desc: str = arg(help='Experiment description metadata, example: "specs935-v1"')
     operators:  str = arg(help='Experiment metadata, example: "Amelie and Christa"')
@@ -123,10 +121,6 @@ def cmdline_to_log(cmdline: str):
         return Log(execute.simulate_program(p, sim_delays=parse_sim_delays(args)))
 
 def main_with_args(args: Args, parser: argparse.ArgumentParser | None=None):
-
-    if args.make_uml:
-        make_uml.visualize_modules(args.make_uml)
-        sys.exit(0)
 
     if args.list_imports:
         my_dir = os.path.dirname(__file__)
