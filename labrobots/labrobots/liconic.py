@@ -52,7 +52,7 @@ class STX(Machine):
         with self.lock:
             log = log or self.log
             msg = line.strip().encode('ascii') + b'\r'
-            self.log(f'stx.write({msg!r})')
+            log(f'stx.write({msg!r})')
 
             if self.mode == 'execute':
                 with contextlib.closing(socket.create_connection((self.host, self.port))) as sock:
@@ -63,7 +63,7 @@ class STX(Machine):
             else:
                 raise ValueError(f'Invalid {self.mode=!r}')
 
-            self.log(f'stx.read() = {reply_bytes!r}')
+            log(f'stx.read() = {reply_bytes!r}')
             reply = reply_bytes.decode('ascii').strip()
             return reply
 
