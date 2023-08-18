@@ -73,6 +73,7 @@ class STX(Machine):
             response = self._call_non_exclusive("STX2ReadActualClimate", log=log)
             climate = self._parse_climate(response)
             self.current_climate.value = climate
+            log(**climate)
             time.sleep(60.0)
 
     def get_climate(self):
