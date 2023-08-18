@@ -434,12 +434,13 @@ sleeking_not_allowed = set(static.keys())
 def guess_robot(name: str) -> Literal['ur', 'pf', 'ur or pf']:
     if name == 'noop':
         return 'ur or pf'
-    for x in 'ur A B C wash disp blue incu lid wave calib'.split():
-        if x in name:
-            return 'ur'
     for x in 'pf squid fridge nikon H'.split():
         if x in name:
             return 'pf'
+    for x in 'ur A B C wash disp blue incu lid wave calib'.split():
+        if x in name:
+            return 'ur'
+
     raise ValueError(f'Cannot guess robot for: {name}')
 
 @dataclass(frozen=True)

@@ -818,9 +818,9 @@ def fridge_load_from_hotel(args: SmallProtocolArgs) -> Program:
     for i in locs:
         assert 1 <= i <= 12
         cmds += [
-            BarcodeClear(),
             PFCmd(f'H{i}-to-H12') if i != 12 else Seq(),
             WaitForResource('fridge'),
+            BarcodeClear(),
             PFCmd(f'H12-to-fridge'),
             PFCmd('fridge-barcode-wave', only_if_no_barcode=True),
             FridgeInsert(project).fork(),

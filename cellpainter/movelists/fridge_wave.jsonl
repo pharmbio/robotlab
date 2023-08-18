@@ -5,6 +5,10 @@
 {"type":"MoveLin","xyz":[-149.8,554.84,552],"rpy":[0,0,-179.19],"name":"fridge above"}
 {"type":"MoveLin","xyz":[-149.79,554.85,410.36],"rpy":[0,0,-179.19],"name":"fridge pick"}
 {"type":"GripperMove","pos":75}
+{"type":"MoveLin","xyz":[-149.8,554.8,436.4],"rpy":[0.0,0.0,-179.2],"name":"fridge w1"}
+{"type":"MoveLin","xyz":[-99.9,555.5,420.3],"rpy":[0.0,0.0,-179.2],"name":"fridge w1"}
+{"type":"MoveLin","xyz":[-209.9,554.0,430.3],"rpy":[0.0,0.0,-179.2],"name":"fridge w3"}
+{"type":"MoveLin","xyz":[-149.8,554.8,436.4],"rpy":[0.0,0.0,-179.2],"name":"fridge w3"}
 {"type":"MoveLin","xyz":[-149.8,554.9,409.4],"rpy":[0.0,0.0,-179.2],"name":"fridge drop"}
 {"type":"GripperMove","pos":100}
 {"type":"MoveLin","xyz":[-149.79,554.86,552],"rpy":[0,0,-179.19],"name":"fridge above"}
