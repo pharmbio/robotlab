@@ -135,7 +135,7 @@ class BlueWash(Machine):
 
     @contextlib.contextmanager
     def _connect(self):
-        with self.atomic():
+        with self.exclusive():
             self.log('bluewash: Using com_port', self.com_port)
             with self.timeit('_connection'):
                 com = Serial(
@@ -204,7 +204,7 @@ class BlueWash(Machine):
                 con.write_prog(program_text, index)
 
     def TestCommunications(self):
-        with self.atomic():
+        with self.exclusive():
             program: str = '''
                 $getserial
                 $getfirmware
@@ -216,14 +216,14 @@ class BlueWash(Machine):
     mem: Dict[int, str] = field(default_factory=dict)
 
     def Validate(self, *filename_parts: str):
-        with self.atomic():
+        with self.exclusive():
             filename = '/'.join(filename_parts)
             self.mem[99] = filename
             path = Path(self.root_dir) / filename
             self.write_prog(path.read_text(), index=99)
 
     def RunValidated(self, *filename_parts: str) -> List[str]:
-        with self.atomic():
+        with self.exclusive():
             filename = '/'.join(filename_parts)
             stored = self.mem.get(99)
             if stored == filename:
@@ -235,6 +235,6 @@ class BlueWash(Machine):
                 return self.Run(*filename_parts)
 
     def Run(self, *filename_parts: str) -> List[str]:
-        with self.atomic():
+        with self.exclusive():
             self.Validate(*filename_parts)
             return self.RunValidated(*filename_parts)

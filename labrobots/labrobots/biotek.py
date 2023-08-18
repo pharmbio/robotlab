@@ -35,7 +35,7 @@ class Biotek(Machine):
         return self._send("Validate", '\\'.join(protocol_file_parts))
 
     def _send(self, cmd: str, arg: str="") -> BiotekResult:
-        with self.atomic():
+        with self.exclusive():
             reply_queue: Queue[Any] = Queue()
             if arg:
                 msg = cmd + ' ' + arg

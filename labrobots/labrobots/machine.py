@@ -58,14 +58,17 @@ class Proxy(Generic[R]):
         return self.call(self.attr_path, *args, **kwargs)
 
 @dataclass(frozen=False)
-class ResourceLock:
+class ExclusiveLock:
+    '''
+    A lock for exclusive use of a resource. If it is already taken raises an error.
+    '''
     rlock: RLock = field(default_factory=RLock)
 
     @contextlib.contextmanager
-    def ensure_available(self):
+    def exclusive(self):
         ok = self.rlock.acquire(blocking=False)
         if not ok:
-            raise ValueError('Resource not available')
+            raise ValueError('Resource not available (exclusive lock taken)')
         try:
             yield
         finally:
@@ -83,7 +86,7 @@ T = TypeVar('T', bound='Machine')
 @dataclass(frozen=True, kw_only=True)
 class Machine:
     log_cell: Cell[Log] = field(default_factory=lambda: Cell(Machine.default_log), repr=False)
-    resource_lock: ResourceLock = field(default_factory=ResourceLock, repr=False)
+    exclusive_lock: ExclusiveLock = field(default_factory=ExclusiveLock, repr=False)
 
     def init(self):
         pass
@@ -125,8 +128,11 @@ class Machine:
     default_log: ClassVar[Log] = system_default_log
 
     @contextlib.contextmanager
-    def atomic(self):
-        with self.resource_lock.ensure_available():
+    def exclusive(self):
+        '''
+        Try to get the exclusive lock or fail if already taken.
+        '''
+        with self.exclusive_lock.exclusive():
             yield
 
     def help(self):
@@ -137,7 +143,7 @@ class Machine:
                 continue
             if name.startswith('_'):
                 continue
-            if name in 'init help remote routes timeit default_log log atomic'.split():
+            if name in 'init help remote routes timeit default_log log exclusive'.split():
                 continue
             sig = inspect.signature(fn)
             doc = fn.__doc__ or ""
@@ -288,7 +294,7 @@ class Echo(Machine):
         self.log(*args, **kwargs)
 
     def sleep(self, secs: int | float):
-        with self.atomic():
+        with self.exclusive():
             self.log(datetime.now().isoformat(sep=' '))
             time.sleep(float(secs))
             self.log(datetime.now().isoformat(sep=' '))

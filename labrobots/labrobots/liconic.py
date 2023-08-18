@@ -27,7 +27,7 @@ class STX(Machine):
         return self._send(f'{command_name}({csv_args})')
 
     def _send(self, line: str) -> str:
-        with self.atomic():
+        with self.exclusive():
             msg = line.strip().encode('ascii') + b'\r'
             self.log(f'stx.write({msg!r})')
 
@@ -275,7 +275,7 @@ class Fridge(STX):
         Returns info about the plate and the new location, or raises an error if it was not possible to complete the action.
         '''
         assert plate and project
-        with self.atomic():
+        with self.exclusive():
             with self._get_db() as db:
                 loc_slot = db.get_empty()
                 if not loc_slot:
@@ -295,7 +295,7 @@ class Fridge(STX):
 
         Returns info about the plate and the new location, or raises an error if it was not possible to complete the action.
         '''
-        with self.atomic():
+        with self.exclusive():
             with self._get_db() as db:
                 old_slot = db.get_by_loc(loc)
                 if not old_slot:
@@ -317,7 +317,7 @@ class Fridge(STX):
 
         Returns info about the plate and the old location, or raises an error if it was not possible to complete the action.
         '''
-        with self.atomic():
+        with self.exclusive():
             with self._get_db() as db:
                 loc_slot = db.get_by_plate_project(plate, project)
                 if not loc_slot:
@@ -333,7 +333,7 @@ class Fridge(STX):
 
         Returns info about the plate and the old location, or raises an error if it was not possible to complete the action.
         '''
-        with self.atomic():
+        with self.exclusive():
             with self._get_db() as db:
                 slot = db.get_by_loc(loc)
                 if not slot:
@@ -343,7 +343,7 @@ class Fridge(STX):
             return self._eject(loc, slot)
 
     def _eject(self, loc: str, slot: FridgeSlot) -> tuple[str, FridgeSlot]:
-        with self.atomic():
+        with self.exclusive():
             self.get(loc)
             with self._get_db() as db:
                 empty_slot = FridgeSlot(plate='', project='')
