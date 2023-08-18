@@ -87,10 +87,19 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
 
         case PFCmd():
             movelist = movelists.get(cmd.program_name)
+
             if movelist is None:
                 raise ValueError(f'Missing robotarm move {cmd.program_name}')
-            for pf in runtime.time_resource_use(entry, runtime.pf):
-                pf.execute_moves(movelist)
+
+            do_move = True
+
+            if cmd.only_if_no_barcode:
+                reader = runtime.barcode_reader
+                do_move = reader and reader.read() == ''
+
+            if do_move:
+                for pf in runtime.time_resource_use(entry, runtime.pf):
+                    pf.execute_moves(movelist)
 
         case BiotekCmd():
             bioteks.execute(runtime, entry, cmd.machine, cmd.protocol_path, cmd.action)

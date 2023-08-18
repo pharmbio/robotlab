@@ -822,6 +822,7 @@ def fridge_load_from_hotel(args: SmallProtocolArgs) -> Program:
             PFCmd(f'H{i}-to-H12') if i != 12 else Seq(),
             WaitForResource('fridge'),
             PFCmd(f'H12-to-fridge'),
+            PFCmd('fridge-barcode-wave', only_if_no_barcode=True),
             FridgeInsert(project).fork(),
         ]
     cmds += [

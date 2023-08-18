@@ -32,7 +32,6 @@ def read_estimates(path: str=estimates_jsonl_path) -> dict[PhysicalCommand, floa
         for cmd, ents in groups.items()
     }
 
-
 def add_estimates_from(log_path: str, *, path: str=estimates_jsonl_path):
     entries: list[EstEntry] = list(pbutils.serializer.read_jsonl(path))
 
@@ -189,6 +188,8 @@ def estimate(cmd: PhysicalCommand) -> float:
                     guess = estimate(RobotarmCmd(test))
                 else:
                     guess = 2.5
+            case PFCmd(only_if_no_barcode=True):
+                guess = 0.0
             case _:
                 guess = 2.5
         guesses[cmd] = estimates[cmd] = guess
