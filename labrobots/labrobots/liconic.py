@@ -6,7 +6,11 @@ import socket
 import contextlib
 import sqlite3
 
-from .machine import Machine
+from threading import Thread, RLock
+
+import time
+
+from .machine import Machine, Cell
 from .sqlitecell import SqliteCell
 
 @dataclass(frozen=True)
@@ -16,18 +20,34 @@ class STX(Machine):
     port: int = 3333
     mode: Literal['noop', 'execute'] = 'execute'
 
+    current_climate: Cell[Any] = field(default_factory=lambda: Cell(None))
+    lock: RLock = field(default_factory=RLock, repr=False)
+
+    def init(self):
+        Thread(target=self._climate_thread, daemon=True).start()
+
     def call(self, command_name: str, *args: Union[str, float, int]):
         '''
         Call any STX command.
 
         Example: curl -s 10.10.0.56:5050/incu/call/STX2ReadActualClimate
         '''
+        with self.exclusive():
+            return self._call_non_exclusive(command_name, *args)
+
+    def _call_non_exclusive(self, command_name: str, *args: Union[str, float, int]):
+        '''
+        Call any STX command, bypassing the exclusive lock
+        '''
         args = (self.id, *args)
         csv_args = ",".join(str(arg) for arg in args)
         return self._send(f'{command_name}({csv_args})')
 
     def _send(self, line: str) -> str:
-        with self.exclusive():
+        '''
+        Send a line and receive a line
+        '''
+        with self.lock:
             msg = line.strip().encode('ascii') + b'\r'
             self.log(f'stx.write({msg!r})')
 
@@ -44,21 +64,34 @@ class STX(Machine):
             reply = reply_bytes.decode('ascii').strip()
             return reply
 
-    def _parse_pos(self, pos: str) -> Tuple[int, int]:
-        if pos[0] == "L":
-            slot = 1
-        elif pos[0] == "R":
-            slot = 2
-        else:
-            casette_str, x, level_str = pos.partition('x')
-            if x != 'x':
-                raise ValueError('pos should start with L or R indicate cassette 1 or 2, or <CASETTE>x<LEVEL>')
-            slot = int(casette_str)
-            level = int(level_str)
-            return slot, level
-        # pos[1:] should be level, 1-indexed
-        level = int(pos[1:])
-        return slot, level
+    def _climate_thread(self):
+        while True:
+            response = self._call_non_exclusive("STX2ReadActualClimate")
+            climate = self._parse_climate(response)
+            self.current_climate.value = climate
+            time.sleep(60.0)
+
+    def get_climate(self):
+        '''
+        Gets the current climate without blocking the device.
+        Updates every 60 seconds if possible, otherwise waits for operations to complete.
+
+        temp:  current temperature in °C.
+        humid: current relative humidity in percent.
+        co2:   current CO2 concentration in percent.
+        n2:    current N2 concentration in percent.
+        '''
+        return self.current_climate.value
+
+    def get_target_climate(self) -> dict[str, float]:
+        '''
+        temp:  target temperature in °C.
+        humid: target relative humidity in percent.
+        co2:   target CO2 concentration in percent.
+        n2:    target N2 concentration in percent.
+        '''
+        response = self.call("STX2ReadSetClimate")
+        return self._parse_climate(response)
 
     def _parse_climate(self, response: str) -> Dict[str, float]:
         '''
@@ -75,6 +108,33 @@ class STX(Machine):
             "n2": n2,
         }
         return climate
+
+    def set_target_climate(self, temp: str, humid: str, co2: str, n2: str):
+        '''
+        temp:  target temperature in °C.
+        humid: target relative humidity in percent.
+        co2:   target CO2 concentration in percent.
+        n2:    target N2 concentration in percent.
+
+        Maybe driver wants co2 and n2 in the opposite order here...
+        '''
+        self.call("STX2WriteSetClimate", temp, humid, co2, n2)
+
+    def _parse_pos(self, pos: str) -> Tuple[int, int]:
+        if pos[0] == "L":
+            slot = 1
+        elif pos[0] == "R":
+            slot = 2
+        else:
+            casette_str, x, level_str = pos.partition('x')
+            if x != 'x':
+                raise ValueError('pos should start with L or R indicate cassette 1 or 2, or <CASETTE>x<LEVEL>')
+            slot = int(casette_str)
+            level = int(level_str)
+            return slot, level
+        # pos[1:] should be level, 1-indexed
+        level = int(pos[1:])
+        return slot, level
 
     def get_status(self) -> dict[str, bool]:
         response = self.call("STX2GetSysStatus")
@@ -95,37 +155,6 @@ class STX(Machine):
             for name, bit in bits.items()
         }
         return value
-
-    def get_climate(self):
-        '''
-        temp:  current temperature in °C.
-        humid: current relative humidity in percent.
-        co2:   current CO2 concentration in percent.
-        n2:    current N2 concentration in percent.
-        '''
-        response = self.call("STX2ReadActualClimate")
-        return self._parse_climate(response)
-
-    def get_target_climate(self) -> dict[str, float]:
-        '''
-        temp:  target temperature in °C.
-        humid: target relative humidity in percent.
-        co2:   target CO2 concentration in percent.
-        n2:    target N2 concentration in percent.
-        '''
-        response = self.call("STX2ReadSetClimate")
-        return self._parse_climate(response)
-
-    def set_target_climate(self, temp: str, humid: str, co2: str, n2: str):
-        '''
-        temp:  target temperature in °C.
-        humid: target relative humidity in percent.
-        co2:   target CO2 concentration in percent.
-        n2:    target N2 concentration in percent.
-
-        Maybe driver wants co2 and n2 in the opposite order here...
-        '''
-        self.call("STX2WriteSetClimate", temp, humid, co2, n2)
 
     def reset_and_activate(self):
         self.call("STX2Reset")
