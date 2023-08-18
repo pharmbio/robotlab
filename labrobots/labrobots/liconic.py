@@ -12,6 +12,7 @@ import time
 
 from .machine import Machine, Cell
 from .sqlitecell import SqliteCell
+from .log import Log
 
 @dataclass(frozen=True)
 class STX(Machine):
@@ -24,7 +25,8 @@ class STX(Machine):
     lock: RLock = field(default_factory=RLock, repr=False)
 
     def init(self):
-        Thread(target=self._climate_thread, daemon=True).start()
+        if self.mode == 'execute':
+            Thread(target=self._climate_thread, daemon=True).start()
 
     def call(self, command_name: str, *args: Union[str, float, int]):
         '''
@@ -35,7 +37,7 @@ class STX(Machine):
         with self.exclusive():
             return self._call_non_exclusive(command_name, *args)
 
-    def _call_non_exclusive(self, command_name: str, *args: Union[str, float, int]):
+    def _call_non_exclusive(self, command_name: str, *args: Union[str, float, int], log: Log | None = None):
         '''
         Call any STX command, bypassing the exclusive lock
         '''
@@ -43,11 +45,12 @@ class STX(Machine):
         csv_args = ",".join(str(arg) for arg in args)
         return self._send(f'{command_name}({csv_args})')
 
-    def _send(self, line: str) -> str:
+    def _send(self, line: str, log: Log | None = None) -> str:
         '''
         Send a line and receive a line
         '''
         with self.lock:
+            log = log or self.log
             msg = line.strip().encode('ascii') + b'\r'
             self.log(f'stx.write({msg!r})')
 
@@ -65,8 +68,9 @@ class STX(Machine):
             return reply
 
     def _climate_thread(self):
+        log = Log.make('liconic')
         while True:
-            response = self._call_non_exclusive("STX2ReadActualClimate")
+            response = self._call_non_exclusive("STX2ReadActualClimate", log=log)
             climate = self._parse_climate(response)
             self.current_climate.value = climate
             time.sleep(60.0)
