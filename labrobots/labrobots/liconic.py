@@ -43,7 +43,7 @@ class STX(Machine):
         '''
         args = (self.id, *args)
         csv_args = ",".join(str(arg) for arg in args)
-        return self._send(f'{command_name}({csv_args})')
+        return self._send(f'{command_name}({csv_args})', log=log)
 
     def _send(self, line: str, log: Log | None = None) -> str:
         '''
