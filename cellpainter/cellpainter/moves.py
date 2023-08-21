@@ -224,7 +224,8 @@ class MoveList(list[Move]):
             hotel_dist: float = 70.94 / 2
         elif guess_robot(name) == 'pf':
             hotel_locs = HotelLocs_H
-            hotel_dist: float = 70.94 / 2.0 - 3 / 11.0
+            hotel_dist: float = 70.94 / 2
+            # hotel_dist: float = 70.94 / 2.0 - 3 / 11.0
         elif guess_robot(name) == 'ur':
             hotel_locs = HotelLocs_B
             hotel_dist: float = 70.94 / 2

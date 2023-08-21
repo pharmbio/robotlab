@@ -176,7 +176,7 @@ Before starting:
 
 * Make sure the following positions are free from plates:
 1. fridge transfer station just in front of the barcode reader
-2. H12, the top location of the hotel
+2. H11, the "neutral middle" location of the hotel
 3. the squid stage
 
 * Locate the robotarm emergency stop button and put it where you can reach it.
@@ -189,8 +189,8 @@ the machines in the same sequential order.
 
 ### Working remotely with one plate
 
-If you just want a plate to the squid to work with it, you can use `fridge-unload` and then `H12-to-squid`. You can now work
-with the plate in the squid user interface. Put it back with `squid-to-H12` and then `fridge-load-from-hotel`.
+If you just want a plate to the squid to work with it, you can use `fridge-unload` and then `H11-to-squid`. You can now work
+with the plate in the squid user interface. Put it back with `squid-to-H11` and then `fridge-load-from-hotel`.
 
 ## Specifying per-plate squid settings
 

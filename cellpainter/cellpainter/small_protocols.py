@@ -439,7 +439,10 @@ def incu_get(args: SmallProtocolArgs):
         ]
     return Program(Seq(*cmds))
 
-@ur_protocols.append
+@(lambda x: [
+    ur_protocols.append(x),
+    pf_protocols.append(x),
+])
 def run_robotarm(args: SmallProtocolArgs):
     '''
     Run robotarm programs.
@@ -799,29 +802,34 @@ def example(args: SmallProtocolArgs):
     fill_estimates(cmd)
     return Program(cmd)
 
+LoadLocs   = [11, 9, 7, 5, 3, 1, 13, 15, 17, 19]
+UnloadLocs = [11, 9, 7, 5, 3, 1, 13, 15, 17, 19]
+
 @pf_protocols.append
 def fridge_load_from_hotel(args: SmallProtocolArgs) -> Program:
     '''
 
-        Loads --num-plates from hotel to fridge, from H12 and down.
+        Loads --num-plates from hotel to fridge, from H11 and down and then from H13 and up.
 
         Specify the project of the plates in params[0].
 
     '''
     cmds: list[Command] = []
-    assert 1 <= args.num_plates <= 12, 'Number of plates should be in 1..12'
+    N = len(LoadLocs)
+    assert 1 <= args.num_plates <= N, f'Number of plates should be in 1..{N}'
     assert len(args.params) == 1, 'Specify one project'
     project, *_ = args.params
     assert_valid_project_name(project)
-    top, *rest = [i+1 for i in range(12)][::-1][:args.num_plates]
-    locs = [top, *rest[::-1]] # first take H12 then go from bottom to top
+    top, *rest = LoadLocs[:args.num_plates]
+    locs = [top, *rest[::-1]] # first take H11 then go from bottom to top
     for i in locs:
-        assert 1 <= i <= 12
+        assert 1 <= i <= 17
+        assert i % 2 == 1
         cmds += [
-            PFCmd(f'H{i}-to-H12') if i != 12 else Seq(),
+            PFCmd(f'H{i}-to-H11') if i != 11 else Seq(),
             WaitForResource('fridge'),
             BarcodeClear(),
-            PFCmd(f'H12-to-fridge'),
+            PFCmd(f'H11-to-fridge'),
             PFCmd('fridge-barcode-wave', only_if_no_barcode=True),
             FridgeInsert(project).fork(),
         ]
@@ -830,18 +838,19 @@ def fridge_load_from_hotel(args: SmallProtocolArgs) -> Program:
     ]
     return Program(Seq(*cmds))
 
+
 def fridge_unload_helper(plates: list[str]) -> Program:
     cmds: list[Command] = []
-    locs = [i+1 for i in range(12)]
-    for i, plate in reversed(list(zip(reversed(locs), plates))):
-        assert 1 <= i <= 12
+    for i, plate in reversed(list(zip(UnloadLocs, plates))):
+        assert 1 <= i <= 17
+        assert i % 2 == 1
         project, sep, barcode = plate.partition(':')
         assert sep, 'Separate project and barcode with :'
         cmds += [
             FridgeEject(plate=barcode, project=project, check_barcode=False).fork_and_wait(align='end'),
-            PFCmd(f'fridge-to-H12'),
+            PFCmd(f'fridge-to-H11'),
             FridgeCmd('get_status').fork_and_wait(), # after this the fridge can eject the next
-            PFCmd(f'H12-to-H{i}') if i != 12 else Idle(),
+            PFCmd(f'H11-to-H{i}') if i != 11 else Idle(),
         ]
     return Program(Seq(*cmds))
 
@@ -852,7 +861,8 @@ def fridge_unload(args: SmallProtocolArgs) -> Program:
         Specify project1:barcode1 .. projectN:barcodeN in params
 
     '''
-    assert 1 <= len(args.params) <= 12, 'Number of plates should be in 1..12'
+    N = len(UnloadLocs)
+    assert 1 <= len(args.params) <= N, f'Number of plates should be in 1..{N}'
     fridge_contents = args.initial_fridge_contents
     if fridge_contents:
         slots = {
@@ -860,7 +870,8 @@ def fridge_unload(args: SmallProtocolArgs) -> Program:
             for _, slot in fridge_contents.items()
         }
         for plate in args.params:
-            assert slots is None or plate in slots, f'Cannot find {plate} in fridge'
+            if plate not in slots:
+                raise ValueError(f'Cannot find {plate} in fridge')
     return fridge_unload_helper(args.params)
 
 # @pf_protocols.append
@@ -897,10 +908,10 @@ def fridge_put(args: SmallProtocolArgs):
 
 
 @pf_protocols.append
-def squid_acquire_H12(args: SmallProtocolArgs) -> Program:
+def squid_acquire_H11(args: SmallProtocolArgs) -> Program:
     '''
 
-        Images the plate at H12 and puts it back. Params are: protocol, project, plate_name_1, ..., plate_name_N
+        Images the plate at H11 and puts it back. Params are: protocol, project, plate_name_1, ..., plate_name_N
 
     '''
     cmds: list[Command] = []
@@ -910,38 +921,38 @@ def squid_acquire_H12(args: SmallProtocolArgs) -> Program:
     for plate_name in plate_names:
         cmds += [
             SquidStageCmd('goto_loading').fork_and_wait(),
-            PFCmd('H12-to-squid'),
+            PFCmd('H11-to-squid'),
             Seq(
                 SquidStageCmd('leave_loading'),
                 SquidAcquire(protocol_path, project=project, plate=plate_name),
             ).fork_and_wait(),
             SquidStageCmd('goto_loading').fork_and_wait(),
-            PFCmd('squid-to-H12'),
+            PFCmd('squid-to-H11'),
             SquidStageCmd('leave_loading').fork_and_wait(),
         ]
     return Program(Seq(*cmds))
 
 @pf_protocols.append
-def H12_to_squid(args: SmallProtocolArgs) -> Program:
+def H11_to_squid(args: SmallProtocolArgs) -> Program:
     '''
-    Moves the plate at H12 to the squid.
+    Moves the plate at H11 to the squid.
     '''
     cmds: list[Command] = [
         SquidStageCmd('goto_loading').fork_and_wait(),
-        PFCmd('H12-to-squid'),
+        PFCmd('H11-to-squid'),
         SquidStageCmd('leave_loading').fork_and_wait(),
     ]
     cmd = Seq(*cmds)
     return Program(cmd)
 
 @pf_protocols.append
-def squid_to_H12(args: SmallProtocolArgs) -> Program:
+def squid_to_H11(args: SmallProtocolArgs) -> Program:
     '''
-    Moves the plate on the squid to H12.
+    Moves the plate on the squid to H11.
     '''
     cmds: list[Command] = [
         SquidStageCmd('goto_loading').fork_and_wait(),
-        PFCmd('squid-to-H12'),
+        PFCmd('squid-to-H11'),
         SquidStageCmd('leave_loading').fork_and_wait(),
     ]
     cmd = Seq(*cmds)
@@ -951,7 +962,7 @@ def squid_to_H12(args: SmallProtocolArgs) -> Program:
 def nikon_acquire_H12(args: SmallProtocolArgs) -> Program:
     '''
 
-        Images the plate at H12. Params are: job name, project, plate_name_1, ..., plate_name_N
+        Images the plate at H11. Params are: job name, project, plate_name_1, ..., plate_name_N
 
     '''
     cmds: list[Command] = []
@@ -960,13 +971,13 @@ def nikon_acquire_H12(args: SmallProtocolArgs) -> Program:
     for plate_name in plate_names:
         cmds += [
             NikonStageCmd('goto_loading').fork_and_wait(),
-            PFCmd('H12-to-nikon'),
+            PFCmd('H11-to-nikon'),
             Seq(
                 NikonStageCmd('leave_loading'),
                 NikonAcquire(job_name=job_name, project=project, plate=plate_name),
             ).fork_and_wait(),
             NikonStageCmd('goto_loading').fork_and_wait(),
-            PFCmd('nikon-to-H12'),
+            PFCmd('nikon-to-H11'),
         ]
     return Program(Seq(*cmds))
 
@@ -1006,9 +1017,9 @@ def squid_acquire_from_fridge(args: SmallProtocolArgs) -> Program:
         cmds += [
             FridgeEject(plate=barcode, project=project, check_barcode=False).fork_and_wait(),
             Checkpoint(f'RT {i}'),
-            PFCmd(f'fridge-to-H12'),
+            PFCmd(f'fridge-to-H11'),
             SquidStageCmd('goto_loading').fork_and_wait(),
-            PFCmd(f'H12-to-squid'),
+            PFCmd(f'H11-to-squid'),
 
             Seq(
                 SquidStageCmd('leave_loading'),
@@ -1017,10 +1028,10 @@ def squid_acquire_from_fridge(args: SmallProtocolArgs) -> Program:
             ).fork_and_wait(),
 
             SquidStageCmd('goto_loading').fork_and_wait(),
-            PFCmd(f'squid-to-H12'),
+            PFCmd(f'squid-to-H11'),
             SquidStageCmd('leave_loading').fork_and_wait(),
             BarcodeClear(),
-            PFCmd(f'H12-to-fridge'),
+            PFCmd(f'H11-to-fridge'),
             FridgeInsert(
                 project,
                 # expected_barcode=barcode
@@ -1063,9 +1074,9 @@ def nikon_acquire_from_fridge(args: SmallProtocolArgs) -> Program:
         cmds += [
             FridgeEject(plate=barcode, project=project, check_barcode=False).fork_and_wait(),
             Checkpoint(f'RT {i}'),
-            PFCmd(f'fridge-to-H12'),
+            PFCmd(f'fridge-to-H11'),
             NikonStageCmd('goto_loading').fork_and_wait(),
-            PFCmd(f'H12-to-nikon'),
+            PFCmd(f'H11-to-nikon'),
 
             Seq(
                 NikonStageCmd('leave_loading'),
@@ -1074,10 +1085,10 @@ def nikon_acquire_from_fridge(args: SmallProtocolArgs) -> Program:
             ).fork_and_wait(),
 
             NikonStageCmd('goto_loading').fork_and_wait(),
-            PFCmd(f'nikon-to-H12'),
+            PFCmd(f'nikon-to-H11'),
             NikonStageCmd('leave_loading').fork_and_wait(),
             BarcodeClear(),
-            PFCmd(f'H12-to-fridge'),
+            PFCmd(f'H11-to-fridge'),
             FridgeInsert(
                 project,
                 assume_barcode=barcode,
@@ -1100,7 +1111,7 @@ def nikon_acquire_from_fridge(args: SmallProtocolArgs) -> Program:
 #     return Program(
 #         Seq(
 #             NikonStageCmd('goto_loading').fork_and_wait(),
-#             PFCmd('H12-to-nikon'),
+#             PFCmd('H11-to-nikon'),
 #             NikonStageCmd('leave_loading').fork_and_wait(),
 #         )
 #     )
@@ -1110,7 +1121,7 @@ def nikon_acquire_from_fridge(args: SmallProtocolArgs) -> Program:
 #     return Program(
 #         Seq(
 #             NikonStageCmd('goto_loading').fork_and_wait(),
-#             PFCmd('nikon-to-H12'),
+#             PFCmd('nikon-to-H11'),
 #         )
 #     )
 
@@ -1146,16 +1157,16 @@ def nikon_acquire_from_fridge(args: SmallProtocolArgs) -> Program:
 #             # Duration(f'Delay eject {i}', Min(2)),
 #             FridgeEject(plate=barcode, project=project, check_barcode=False).fork_and_wait(),
 #             Checkpoint(f'RT {i}'),
-#             PFCmd(f'fridge-to-H12'),
-#             PFCmd(f'H12-to-H11'),
+#             PFCmd(f'fridge-to-H11'),
+#             PFCmd(f'H11-to-H11'),
 #         ]
 #         chunks['H11 -> nikon', i] = [
 #             WaitForCheckpoint(f'RT {i}', plus_secs=RT_time_secs, assume='nothing'),
 #             Duration(f'RT {i}', Min(3)),
-#             PFCmd(f'H11-to-H12'),
+#             PFCmd(f'H11-to-H11'),
 #             NikonStageCmd('goto_loading').fork_and_wait(),
 #             NikonStageCmd('init_laser').fork_and_wait(),
-#             PFCmd(f'H12-to-nikon'),
+#             PFCmd(f'H11-to-nikon'),
 #             Seq(
 #                 NikonStageCmd('leave_loading'),
 #                 *[
@@ -1167,10 +1178,10 @@ def nikon_acquire_from_fridge(args: SmallProtocolArgs) -> Program:
 #         chunks['nikon -> fridge', i] = [
 #             WaitForResource('nikon'),
 #             NikonStageCmd('goto_loading').fork_and_wait(),
-#             PFCmd(f'nikon-to-H12'),
+#             PFCmd(f'nikon-to-H11'),
 #             NikonStageCmd('leave_loading').fork(),
 #             BarcodeClear(),
-#             PFCmd(f'H12-to-fridge'),
+#             PFCmd(f'H11-to-fridge'),
 #             FridgeInsert(
 #                 project,
 #                 # expected_barcode=barcode
