@@ -3,3 +3,5 @@ sim,S02,P2_L2_b,protocols/sim_b.json
 sim,S01,P1_L1
 sim,S02,P2_L2_c,protocols/sim_c.json
 sim,S04,P4_L4
+sim,S07
+sim,S08,

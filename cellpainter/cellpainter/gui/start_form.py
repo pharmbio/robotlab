@@ -63,12 +63,20 @@ def read_imager_plate_metadata(config: RuntimeConfig) -> tuple[tuple[Plate, Plat
         for csv in sorted(Path(dir).glob('**/*csv'), key=lambda path: path.stem):
             for line in csv.read_text().splitlines():
                 match [part.strip() for part in line.split(',')]:
-                    case [project, barcode, metadata, *squid_protocol] if project == csv.stem :
+                    case [project, barcode, *rest] if project == csv.stem :
                         plate = Plate(project=project, barcode=barcode)
-                        target = PlateTarget(
-                            metadata = metadata,
-                            squid_protocol = squid_protocol[0] if squid_protocol else None,
-                        )
+                        match rest:
+                            case [metadata, squid_protocol, *_]:
+                                target = PlateTarget(
+                                    metadata = metadata,
+                                    squid_protocol = squid_protocol,
+                                )
+                            case [metadata]:
+                                target = PlateTarget(
+                                    metadata = metadata,
+                                )
+                            case _:
+                                target = PlateTarget()
                         out += [(plate, target)]
                     case _:
                         pass
@@ -89,6 +97,7 @@ class ExternalState:
         - fridge contents
         - squid protocols
 
+    TODO: gracefully handle timeouts. Timeouts happen whenever the squid software is off.
     '''
     config: RuntimeConfig
     painter_protocol_paths: dict[str, protocol_paths.ProtocolPaths] = field(default_factory=dict)
@@ -123,8 +132,8 @@ class ExternalState:
                 fridge_slots = {
                     **{
                         '1x1': {'project': 'sim', 'plate': 'S01'},
-                        '2x10': {'project': 'sim', 'plate': 'S03'},
-                        '1x2': {'project': 'sim', 'plate': 'S05'},
+                        '2x10': {'project': 'sim', 'plate': 'S13'},
+                        '1x2': {'project': 'sim', 'plate': 'S15'},
                         '1x4': {'project': '', 'plate': ''},
                         '1x5': {'project': '', 'plate': ''},
                         '1x3': {'project': 'sim', 'plate': 'S02'},
