@@ -16,10 +16,10 @@ from .ur_script import URScript
 
 # UR room:
 HotelLocs_A = [h+1 for h in range(21)]
-HotelLocs_B_C = [h for h in HotelLocs_A if h % 2 == 1]
+HotelLocs_B = [h for h in HotelLocs_A if h % 2 == 1]
 
 # PF room:
-HotelLocs_H = [h+1 for h in range(12)]
+HotelLocs_H = [h+1 for h in range(19)]
 
 class Move(abc.ABC):
     @abc.abstractmethod
@@ -226,12 +226,12 @@ class MoveList(list[Move]):
             hotel_locs = HotelLocs_H
             hotel_dist: float = 70.94 / 2.0 - 3 / 11.0
         elif guess_robot(name) == 'ur':
-            hotel_locs = HotelLocs_B_C
+            hotel_locs = HotelLocs_B
             hotel_dist: float = 70.94 / 2
         else:
             raise ValueError(f'Unknown hotel in: {name}')
         for tag in set(self.tags()):
-            if m := re.match(r'(\d+)/(12|21)$', tag):
+            if m := re.match(r'(\d+)/(11|21)$', tag):
                 ref_h = int(m.group(1))
                 assert str(ref_h) in name
                 assert ref_h in hotel_locs
