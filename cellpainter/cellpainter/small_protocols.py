@@ -439,26 +439,6 @@ def incu_get(args: SmallProtocolArgs):
         ]
     return Program(Seq(*cmds))
 
-@(lambda x: [
-    ur_protocols.append(x),
-    pf_protocols.append(x),
-])
-def run_robotarm(args: SmallProtocolArgs):
-    '''
-    Run robotarm programs.
-
-    Example arguments: wash-put-prep, 'B21-to-wash prep'
-    '''
-    cmds: list[Command] = []
-    for x in args.params:
-        if moves.guess_robot(x) == 'ur':
-            cmds += [RobotarmCmd(x)]
-        elif moves.guess_robot(x) == 'pf':
-            cmds += [PFCmd(x)]
-        else:
-            raise ValueError(f'Unknown cmd: {x}')
-    return Program(Seq(*cmds))
-
 @ur_protocols.append
 def robotarm_ur_cycle(args: SmallProtocolArgs):
     '''
@@ -1240,6 +1220,36 @@ def pf_stop_freedrive(args: SmallProtocolArgs) -> Program:
     Stops freedrive on the PreciseFlex robotarm.
     '''
     return cmds_to_program([PFCmd('pf stop freedrive')])
+
+
+A = TypeVar('A')
+
+def on_each(*fs: Callable[[A], None]) -> Callable[[A], None]:
+    def inner(a: A):
+        for f in fs:
+            f(a)
+    return inner
+
+@on_each(
+    ur_protocols.append,
+    pf_protocols.append,
+)
+def run_robotarm(args: SmallProtocolArgs):
+    '''
+    Run robotarm programs.
+
+    Example arguments: wash-put-prep, 'B21-to-wash prep'
+    '''
+    cmds: list[Command] = []
+    for x in args.params:
+        if moves.guess_robot(x) == 'ur':
+            cmds += [RobotarmCmd(x)]
+        elif moves.guess_robot(x) == 'pf':
+            cmds += [PFCmd(x)]
+        else:
+            raise ValueError(f'Unknown cmd: {x}')
+    return Program(Seq(*cmds))
+
 
 
 @dataclass(frozen=True)
