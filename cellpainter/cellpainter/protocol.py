@@ -81,17 +81,15 @@ class Plate:
 class Locations:
     HA = [21, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1]
     HB = [21, 19, 17, 15, 13, 11, 9, 7, 5, 3, 1]
-    HC = [21, 19, 17, 15, 13, 11, 9, 7, 5, 3, 1]
     I = [i+1 for i in range(22)]
 
     A: list[str] = [f'A{i}' for i in HA]
     B: list[str] = [f'B{i}' for i in HB]
-    C: list[str] = [f'C{i}' for i in HC]
 
+    Lid:  list[str] = ['B19', 'B17']
     Incu: list[str] = [f'L{i}' for i in I] + [f'R{i}' for i in I]
-    RT:   list[str] = C[:5] + A[:11] + [B[4], B[5]]
-    Out:  list[str] = A[11:][::-1] + B[6:][::-1] + C[5:][::-1]
-    Lid:  list[str] = [b for b in B if '19' in b or '17' in b]
+    RT:   list[str] = A[:13]
+    Out:  list[str] = A[13:][::-1] + [b for b in B if b not in 'B21 B19 B17 B15'.split()]
 
 def initial_world(plates: list[Plate], p: ProtocolConfig) -> World:
     return World({p.incu_loc: p.id for p in plates})
