@@ -123,7 +123,7 @@ class Runtime:
             print('Signal signal_handlers installed')
 
         if self.config.run_incu_wash_disp:
-            nuc = WindowsNUC.remote()
+            nuc = WindowsNUC.remote(timeout_secs=1800) # Spheroid washer protocols have long waits
             self.incu = nuc.incu
             self.wash = nuc.wash
             self.disp = nuc.disp

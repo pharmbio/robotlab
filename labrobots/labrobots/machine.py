@@ -243,7 +243,7 @@ class Machine:
             return jsonify(call(cmd, **req))
 
     @classmethod
-    def remote(cls: Type[T], name: str, host: str, skip_up_check: bool, timeout_secs: int=30 * 60) -> T:
+    def remote(cls: Type[T], name: str, host: str, skip_up_check: bool, timeout_secs: int=10 * 60) -> T:
         def call(attr_path: list[str], *args: Any, **kwargs: Any) -> Any:
             assert len(attr_path) == 1
             cmd = attr_path[0]
