@@ -180,8 +180,16 @@ def test_circuit(args: SmallProtocolArgs):
         7. robotarm:                in neutral position by lid hotel
     '''
     [[plate]] = define_plates([1])
+    if 'spheroid' in args.protocol_dir.lower():
+        '''
+        Check if the path contains the string spheroid (regardless of case).
+        For spheroid protocols we run the protocol linear, not with interleaving.
+        '''
+        interleave = False
+    else:
+        interleave = True
     paths = protocol_paths.get_protocol_paths()[args.protocol_dir]
-    protocol_config = make_protocol_config(paths, CellPaintingArgs(incu='s1,s2,s3,s4,s5', two_final_washes=True, interleave=True))
+    protocol_config = make_protocol_config(paths, CellPaintingArgs(incu='s1,s2,s3,s4,s5', two_final_washes=True, interleave=interleave))
     program = cell_paint_program([1], protocol_config=protocol_config)
     cmds = program.command
     cmds = Seq(
@@ -204,8 +212,16 @@ def test_circuit_with_incubator(args: SmallProtocolArgs):
     '''
     num_plates = args.num_plates
     assert 1 <= num_plates <= 21, 'Number of plates should be in 1..21'
+    if 'spheroid' in args.protocol_dir.lower():
+        '''
+        Check if the path contains the string spheroid (regardless of case).
+        For spheroid protocols we run the protocol linear, not with interleaving.
+        '''
+        interleave = False
+    else:
+        interleave = True
     paths = protocol_paths.get_protocol_paths()[args.protocol_dir]
-    protocol_config = make_protocol_config(paths, CellPaintingArgs(incu='s1,s2,s3,s4,s5', two_final_washes=True, interleave=True))
+    protocol_config = make_protocol_config(paths, CellPaintingArgs(incu='s1,s2,s3,s4,s5', two_final_washes=True, interleave=interleave))
     program = cell_paint_program([num_plates], protocol_config=protocol_config)
     cmds = program.command
     cmds = Seq(

@@ -471,6 +471,15 @@ def start_form(*, config: RuntimeConfig):
         else:
             two = None
 
+        if 'spheroid' in protocol_dir.value.lower():
+            '''
+            Check if the path contains the string spheroid (regardless of case).
+            For spheroid protocols we run the protocol linear, not with interleaving.
+            '''
+            interleave = False
+        else:
+            interleave = True
+
         form_fields = [
             desc,
             operators,
@@ -486,7 +495,7 @@ def start_form(*, config: RuntimeConfig):
             protocol='cell-paint',
             batch_sizes=bs,
             incu=incu_csv,
-            interleave=True,
+            interleave=interleave,
             two_final_washes=final_washes.value == 'two',
             protocol_dir=protocol_dir.value,
             desc=desc.value,
