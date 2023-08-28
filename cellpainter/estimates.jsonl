@@ -886,6 +886,9 @@
 {"cmd":{"type":"BiotekCmd","machine":"wash","action":"Validate","protocol_path":"short/7_W.LHC"},"datetime":"2022-02-23 15:11:25","duration":2.5}
 {"cmd":{"type":"BiotekCmd","machine":"wash","action":"Validate","protocol_path":"short/9_10_W.LHC"},"datetime":"2022-02-23 15:11:25","duration":2.5}
 {"cmd":{"type":"BiotekCmd","machine":"wash","action":"Validate","protocol_path":"short/9_W.LHC"},"datetime":"2022-02-23 15:11:25","duration":2.5}
+{"cmd":{"type":"BlueCmd","action":"RunValidated","protocol_path":"automation_blue_cleanplates/3_W_SuperSpinWash-5X-80ul-Blue.prog"},"datetime":"2023-07-07 12:34:57","duration":550.183}
+{"cmd":{"type":"BlueCmd","action":"RunValidated","protocol_path":"automation_blue_cleanplates/5_W_SuperSpinWash-5X-80ul-Red.prog"},"datetime":"2023-07-07 12:44:14","duration":550.058}
+{"cmd":{"type":"BlueCmd","action":"RunValidated","protocol_path":"automation_blue_cleanplates/7_W_SuperSpinWash-5X-80ul-Blue - Copy.prog"},"datetime":"2023-07-07 12:53:30","duration":549.639}
 {"cmd":{"type":"BlueCmd","action":"RunValidated","protocol_path":"automation_v5.0_blue/0_W_Prime-Blue-Full.prog"},"datetime":"2023-02-23 10:32:36","duration":23.756}
 {"cmd":{"type":"BlueCmd","action":"RunValidated","protocol_path":"automation_v5.0_blue/0_W_Prime-Blue-Full.prog"},"datetime":"2023-02-23 16:02:04","duration":15.962}
 {"cmd":{"type":"BlueCmd","action":"RunValidated","protocol_path":"automation_v5.0_blue/0_W_Prime-Blue-Full.prog"},"datetime":"2023-02-23 16:23:45","duration":23.823}
@@ -956,6 +959,10 @@
 {"cmd":{"type":"BlueCmd","action":"TestCommunications"},"datetime":"2023-03-16 11:29:49","duration":1.269}
 {"cmd":{"type":"BlueCmd","action":"TestCommunications"},"datetime":"2023-03-30 11:48:41","duration":1.427}
 {"cmd":{"type":"BlueCmd","action":"TestCommunications"},"datetime":"2023-05-25 11:11:34","duration":1.636}
+{"cmd":{"type":"BlueCmd","action":"TestCommunications"},"datetime":"2023-08-11 12:58:20","duration":1.259}
+{"cmd":{"type":"BlueCmd","action":"Validate","protocol_path":"automation_blue_cleanplates/3_W_SuperSpinWash-5X-80ul-Blue.prog"},"datetime":"2023-07-07 12:25:47","duration":6.78}
+{"cmd":{"type":"BlueCmd","action":"Validate","protocol_path":"automation_blue_cleanplates/5_W_SuperSpinWash-5X-80ul-Red.prog"},"datetime":"2023-07-07 12:35:04","duration":6.796}
+{"cmd":{"type":"BlueCmd","action":"Validate","protocol_path":"automation_blue_cleanplates/7_W_SuperSpinWash-5X-80ul-Blue - Copy.prog"},"datetime":"2023-07-07 12:44:20","duration":5.972}
 {"cmd":{"type":"BlueCmd","action":"Validate","protocol_path":"automation_v5.0_blue/0_W_Prime-Blue-Full.prog"},"datetime":"2023-02-23 10:32:12","duration":1.456}
 {"cmd":{"type":"BlueCmd","action":"Validate","protocol_path":"automation_v5.0_blue/0_W_Prime-Blue-Full.prog"},"datetime":"2023-02-23 16:01:48","duration":1.462}
 {"cmd":{"type":"BlueCmd","action":"Validate","protocol_path":"automation_v5.0_blue/0_W_Prime-Blue-Full.prog"},"datetime":"2023-02-23 16:23:21","duration":1.477}
