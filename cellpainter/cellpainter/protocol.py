@@ -89,7 +89,7 @@ class Locations:
     Lid:  list[str] = ['B19', 'B17']
     Incu: list[str] = [f'L{i}' for i in I] + [f'R{i}' for i in I]
     RT:   list[str] = A[:13]
-    Out:  list[str] = A[13:][::-1] + [b for b in B if b not in 'B21 B19 B17 B15'.split()]
+    Out:  list[str] = A[13:][::-1] + [b for b in B if b not in 'B21 B19 B17 B15'.split()][::-1]
 
 def initial_world(plates: list[Plate], p: ProtocolConfig) -> World:
     return World({p.incu_loc: p.id for p in plates})
