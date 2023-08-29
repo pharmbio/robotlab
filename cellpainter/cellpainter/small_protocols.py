@@ -798,8 +798,8 @@ def example(args: SmallProtocolArgs):
     fill_estimates(cmd)
     return Program(cmd)
 
-LoadLocs   = [11, 9, 7, 5, 3, 1, 13, 15, 17, 19]
-UnloadLocs = [11, 9, 7, 5, 3, 1, 13, 15, 17, 19]
+LoadLocs   = [11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 13, 14, 15, 16, 17, 18, 19]
+UnloadLocs = [11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 13, 14, 15, 16, 17, 18, 19]
 
 @pf_protocols.append
 def fridge_load_from_hotel(args: SmallProtocolArgs) -> Program:
@@ -812,15 +812,15 @@ def fridge_load_from_hotel(args: SmallProtocolArgs) -> Program:
     '''
     cmds: list[Command] = []
     N = len(LoadLocs)
-    assert 1 <= args.num_plates <= N, f'Number of plates should be in 1..{N}'
+    assert 1 <= args.num_plates <= N, f'Number of plates should be in 1..{N} (not {args.num_plates})'
     assert len(args.params) == 1, 'Specify one project'
     project, *_ = args.params
     assert_valid_project_name(project)
     top, *rest = LoadLocs[:args.num_plates]
     locs = [top, *rest[::-1]] # first take H11 then go from bottom to top
     for i in locs:
-        assert 1 <= i <= 17
-        assert i % 2 == 1
+        assert 1 <= i <= 19, f'Internal error: trying to use shelf {i}'
+        assert i != 12, f'Internal error: trying to use shelf {i}'
         cmds += [
             PFCmd(f'H{i}-to-H11') if i != 11 else Seq(),
             WaitForResource('fridge'),
@@ -836,10 +836,12 @@ def fridge_load_from_hotel(args: SmallProtocolArgs) -> Program:
 
 
 def fridge_unload_helper(plates: list[str]) -> Program:
+    N = len(UnloadLocs)
+    assert 1 <= len(plates) <= N, f'Number of plates should be in 1..{N} (not {len(plates)})'
     cmds: list[Command] = []
     for i, plate in reversed(list(zip(UnloadLocs, plates))):
-        assert 1 <= i <= 17
-        assert i % 2 == 1
+        assert 1 <= i <= 19, f'Internal error: trying to use shelf {i}'
+        assert i != 12, f'Internal error: trying to use shelf {i}'
         project, sep, barcode = plate.partition(':')
         assert sep, 'Separate project and barcode with :'
         cmds += [
@@ -857,8 +859,6 @@ def fridge_unload(args: SmallProtocolArgs) -> Program:
         Specify project1:barcode1 .. projectN:barcodeN in params
 
     '''
-    N = len(UnloadLocs)
-    assert 1 <= len(args.params) <= N, f'Number of plates should be in 1..{N}'
     fridge_contents = args.initial_fridge_contents
     if fridge_contents:
         slots = {
@@ -869,29 +869,6 @@ def fridge_unload(args: SmallProtocolArgs) -> Program:
             if plate not in slots:
                 raise ValueError(f'Cannot find {plate} in fridge')
     return fridge_unload_helper(args.params)
-
-# @pf_protocols.append
-def fridge_unload_in_dictionary_order(args: SmallProtocolArgs) -> Program:
-    '''
-
-        Unloads --num-plates from fridge to hotel in dictionary order. Specify the project in params[0].
-
-    '''
-    assert 1 <= args.num_plates <= 12, 'Number of plates should be in 1..12'
-    assert len(args.params) == 1, 'Specify one project'
-    contents = args.initial_fridge_contents
-    assert isinstance(contents, dict)
-    project, *_ = args.params
-    assert_valid_project_name(project)
-    plates = sorted(
-        [
-            f'{slot["project"]}:{slot["plate"]}'
-            for slot in contents.values()
-            if slot['project'] == project
-        ]
-    )
-    return fridge_unload_helper(plates[:args.num_plates])
-
 
 @pf_protocols.append
 def fridge_put(args: SmallProtocolArgs):

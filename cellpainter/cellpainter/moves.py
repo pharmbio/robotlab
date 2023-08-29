@@ -19,7 +19,7 @@ HotelLocs_A = [h+1 for h in range(21)]
 HotelLocs_B = [h for h in HotelLocs_A if h % 2 == 1]
 
 # PF room:
-HotelLocs_H = [h+1 for h in range(19)]
+HotelLocs_H = [h+1 for h in range(19) if h+1 != 12]
 
 class Move(abc.ABC):
     @abc.abstractmethod
