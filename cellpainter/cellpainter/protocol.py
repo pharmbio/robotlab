@@ -442,7 +442,7 @@ def program_test_comm(with_incu: bool=True, with_blue: bool=True) -> Command:
     Test communication with robotarm, washer, dispenser and incubator.
     '''
     return Seq(
-        BlueCmd(action='TestCommunications', protocol_path=None).fork() if with_blue else Idle(),
+        # BlueCmd(action='TestCommunications', protocol_path=None).fork() if with_blue else Idle(),
         DispCmd(cmd='TestCommunications', protocol_path=None).fork(),
         IncuCmd(action='get_status', incu_loc=None).fork() if with_incu else Idle(),
         RobotarmCmd('ur gripper init and check'),
@@ -450,7 +450,7 @@ def program_test_comm(with_incu: bool=True, with_blue: bool=True) -> Command:
         WashCmd(cmd='TestCommunications', protocol_path=None).fork(),
         WaitForResource('incu') if with_incu else Idle(),
         WaitForResource('wash'),
-        WaitForResource('blue') if with_blue else Idle(),
+        # WaitForResource('blue') if with_blue else Idle(),
     ).add(Metadata(step_desc='test comm'))
 
 Desc = tuple[str, str, str]
