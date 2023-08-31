@@ -92,7 +92,10 @@ class Locations:
     Out:  list[str] = A[13:][::-1] + [b for b in B if b not in 'B21 B19 B17 B15'.split()][::-1]
 
 def initial_world(plates: list[Plate], p: ProtocolConfig) -> World:
-    return World({p.incu_loc: p.id for p in plates})
+    if p.steps and p.steps[0].name in ['Mito', 'PFA']:
+        return World({p.incu_loc: p.id for p in plates})
+    else:
+        return World({p.rt_loc: p.id for p in plates})
 
 def define_plates(batch_sizes: list[int]) -> list[list[Plate]]:
     plates: list[list[Plate]] = []
