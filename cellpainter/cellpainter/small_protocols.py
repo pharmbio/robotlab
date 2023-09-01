@@ -202,7 +202,11 @@ def test_circuit(args: SmallProtocolArgs):
         *RobotarmCmds(plate.out_get),
         *RobotarmCmds('B21-to-incu'),
     )
-    return Program(cmds, World({'incu': plate.id}))
+    if protocol_config.steps and protocol_config.steps[0].name in ['Mito', 'PFA']:
+        w0 = World({'incu': plate.id})
+    else:
+        w0 = World({plate.rt_loc: plate.id})
+    return Program(cmds, w0)
 
 @ur_protocols.append
 def test_circuit_with_incubator(args: SmallProtocolArgs):
