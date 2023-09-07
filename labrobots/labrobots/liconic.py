@@ -70,10 +70,16 @@ class STX(Machine):
     def _climate_thread(self):
         log = Log.make('liconic')
         while True:
-            response = self._call_non_exclusive("STX2ReadActualClimate", log=log)
-            climate = self._parse_climate(response)
-            self.current_climate.value = climate
-            log(**climate)
+            try:
+                response = self._call_non_exclusive("STX2ReadActualClimate", log=log)
+                climate = self._parse_climate(response)
+                self.current_climate.value = climate
+                log(**climate)
+            except Exception as e:
+                import traceback
+                for line in traceback.format_exc().splitlines():
+                    self.log(line)
+                self.log(str(e))
             time.sleep(60.0)
 
     def get_climate(self):
