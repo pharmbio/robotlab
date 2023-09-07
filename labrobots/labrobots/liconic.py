@@ -78,8 +78,8 @@ class STX(Machine):
             except Exception as e:
                 import traceback
                 for line in traceback.format_exc().splitlines():
-                    self.log(line)
-                self.log(str(e))
+                    log(line)
+                log(str(e))
             time.sleep(60.0)
 
     def get_climate(self):
