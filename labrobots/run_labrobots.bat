@@ -6,7 +6,7 @@ echo call labrobots.exe >> temp_loop.bat
 echo goto loop >> temp_loop.bat
 
 :: Try running wt to see if it exists
-wt /? >nul 2>nul
+wt --version >nul 2>nul
 if errorlevel 1 (
     :: wt doesn't exist
     :: this is for the GBG computer
