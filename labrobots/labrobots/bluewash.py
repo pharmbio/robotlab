@@ -143,7 +143,12 @@ class BlueWash(Machine):
                     timeout=15,
                     baudrate=115200
                 )
-                yield ConnectedBlueWash(com, log=self.log)
+                conn = ConnectedBlueWash(com, log=self.log)
+                conn.write('$changelog 0')
+                code, _lines = conn.read_until_code()
+                if code != 0:
+                    raise ValueError('Expected code Err=00, received {code=}')
+                yield conn
                 com.close()
 
     def init_all(self):
