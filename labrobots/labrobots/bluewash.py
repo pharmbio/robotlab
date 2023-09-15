@@ -14,27 +14,27 @@ HTI_ERR_FILE_NOT_FOUND = 16
 Errors = {
     -1: "No reply from BlueWash",
      0: "HTI_NoError Successful command execution Note: for integrated solutions, wait for Err=00 before sending next command",
-     1: "HTI_ERR_RASPICOMM_ALREADY_ INITIALIZED Already Initialized - raspicomm_Init() already called",
+     1: "HTI_ERR_RASPICOMM_ALREADY_INITIALIZED Already Initialized - raspicomm_Init() already called",
      2: "HTI_ERR_RASPICOMM_INIT",
-     3: "HTI_ERR_STEPROCKER_INIT",
+     3: "HTI_ERR_STEPROCKER_INIT steprocker_Init() failure ",
      4: "HTI_ERR_EPOS_READ_PARAMETER",
      5: "HTI_ERR_EPOS_COMMAND",
-     6: "HTI_ERR_STEPROCKERStepRockerResult != SUCCESS",
-     7: "HTI_ERR_GETPROGSscandir resulted in error",
+     6: "HTI_ERR_STEPROCKER StepRockerResult != SUCCESS",
+     7: "HTI_ERR_GETPROGS scandir resulted in error",
      8: "Not used",
-     9: "HTI_ERR_DCMOT_NOT_INITIALIZED",
+     9: "HTI_ERR_DCMOT_NOT_INITIALIZED Error Card not enabled, send dcmotenable before use",
     10: "Not used",
     11: "HTI_ERR_INVALID_PARAM Function called with an invalid parameter",
     12: "HTI_ERR_WIRINGPI_SETUP Error at wiringPiSetup",
     13: "HTI_ERR_WIRINGPI_ISR Error at wiringPiISR, Unable to setup Input isr",
     14: "HTI_ERR_EPOS_INIT openEPOS() failure",
-    15: "HTI_ERR_UNKNOWN_CMD Unknown command received. Typo or transmission error. Check spelling, send command with “$” prefix to avoid transmission errors. steprocker_Init() failure Error Card not enabled, send dcmotenable before use Does not interrupt execution of program",
+    15: "HTI_ERR_UNKNOWN_CMD Unknown command received. Typo or transmission error.",
     16: "HTI_ERR_FILE_NOT_FOUND",
     17: "HTI_ERR_SYNTAX_IN_PROGRAM",
     18: "HTI_ERR_STEPROCKER_HOMING - SENSOR",
     19: "HTI_ERR_WIRINGPI_I2C_SETUP",
     20: "HTI_ERR_WIRINGPI_I2C_READ",
-    21: "HTI_ProgEnd Successful prog or servprog execution Note: for integrated solutions, wait for Err=21 to determine prog or servprog completion",
+    21: "HTI_ProgEnd Successful prog or servprog execution",
     22: "HTI_ERR_POTENTIAL_COLLISON Can't move rotor because racksensor shows potential collision between rotor and rack or door.",
     23: "HTI_ERR_EPOS_STATE Epos is in wrong state to move (!=7) Try to call rotoron. May be caused by waste liquid backup in rotor space. Check waste drain.",
     24: "HTI_ERR_DOOR_TIMEOUT Door could did not open / close within allowed time, see Adjusting door sensors or check for object trapped in door.",
@@ -124,6 +124,16 @@ class ConnectedBlueWash:
         code, _ = self.read_until_code()
         self.check_code(code, HTI_NoError)
 
+        '''
+        Dong Liang at BlueCatBio:
+
+            Please execute once the command "getprogs" after the "copyprog" in your
+            "validate" command. This "getprogs" forces BlueWasher to refresh
+            the programs onboard and may get avoid for such rare case,
+            that your program is not completely "copied".
+        '''
+        self.get_progs()
+
     def check_code(self, code: int, *ok_codes: int) -> None:
         if code not in ok_codes:
             raise ValueError(f'Unexpected reply from BlueWash: {code=} {Errors.get(code, "unknown error")}')
@@ -144,17 +154,24 @@ class BlueWash(Machine):
                     baudrate=115200
                 )
                 conn = ConnectedBlueWash(com, log=self.log)
+
+                '''
+                The BlueWasher has two different protocols, one verbose
+                mode and one automation-friendly mode which only replies
+                the error code. We make sure we are in the automation-friendly
+                mode by always sending "$changelog 0".
+                '''
                 conn.write('$changelog 0')
                 code, _lines = conn.read_until_code()
                 if code != 0:
                     raise ValueError('Expected code Err=00, received {code=}')
+
                 yield conn
                 com.close()
 
     def init_all(self):
         '''
-        Required to run before using BlueWasher:
-        Initializes linear drive, rotor, inputs, outputs, motors, valves .
+        Initializes linear drive, rotor, inputs, outputs, motors, valves.
         Presents working carrier (= top side of rotor) to RACKOUT.
         '''
         return self.run_servprog(1)
