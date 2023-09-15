@@ -112,8 +112,7 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
 
         case SquidAcquire():
             for squid in runtime.time_resource_use(entry, runtime.squid):
-                if cmd.config_path == 'noop':
-                    break
+              if cmd.config_path != 'noop':
                 squid.load_config(
                     file_path=cmd.config_path,
                     project_override=cmd.project,
@@ -196,9 +195,7 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
                     case 'get_status':
                         squid.status()
                     case 'check_protocol_exists':
-                        if cmd.protocol == 'noop':
-                            break
-                        protocols = squid.list_protocols()
+                        protocols = ['noop', *squid.list_protocols()]
                         if cmd.protocol not in protocols:
                             raise ValueError(f'Squid cannot find {cmd.protocol!r}')
 
