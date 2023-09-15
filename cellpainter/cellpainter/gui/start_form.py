@@ -408,7 +408,10 @@ def start_form(*, config: RuntimeConfig):
     squid_protocol = (
         store.str(
             name='squid protocol',
-            options=external_state.squid_protocols,
+            options=[
+                *external_state.squid_protocols,
+                'noop',
+            ]
         ) if 'squid' in protocol.value else
         store.str(
             name='nikon job',

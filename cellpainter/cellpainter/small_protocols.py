@@ -745,7 +745,7 @@ UnloadLocs = [11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 13, 14, 15, 16, 17, 18, 19]
 def fridge_load_from_hotel(args: SmallProtocolArgs) -> Program:
     '''
 
-        Loads --num-plates from hotel to fridge, from H11 and down and then from H13 and up.
+        Loads --num-plates from hotel to fridge, from H11 and down and then from H13 and up to H19.
 
         Specify the project of the plates in params[0].
 
