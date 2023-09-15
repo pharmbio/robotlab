@@ -537,34 +537,6 @@ def time_robotarm(_: SmallProtocolArgs):
     return Program(program, world0=World({'incu': '1'}))
 
 # @ur_protocols.append
-def lid_stress_test(_: SmallProtocolArgs):
-    '''
-    Do a lid stress test
-
-    Required lab prerequisites:
-        1. hotel B21:   plate with lid
-        2. hotel B1-19: empty
-        2. hotel A:     empty
-        2. hotel B:     empty
-        4. robotarm:    in neutral position by B hotel
-    '''
-    cmds: list[Command] = []
-    for _i, (lid, A, C) in enumerate(zip(Locations.Lid, Locations.A, Locations.C)):
-        p = Plate('p', incu_loc='', rt_loc=C, lid_loc=lid, out_loc=A, batch_index=1)
-        cmds += [
-            *RobotarmCmds(p.lid_put),
-            *RobotarmCmds(p.lid_get),
-            *RobotarmCmds(p.rt_put),
-            *RobotarmCmds(p.rt_get),
-            *RobotarmCmds(p.lid_put),
-            *RobotarmCmds(p.lid_get),
-            *RobotarmCmds(p.out_put),
-            *RobotarmCmds(p.out_get),
-        ]
-    program = Seq(*cmds)
-    return Program(program)
-
-# @ur_protocols.append
 def incu_unload(args: SmallProtocolArgs):
     '''
     Unload plates from incubator positions L1, ..., to A hotel, starting at the bottom.
@@ -601,42 +573,6 @@ def incu_unload(args: SmallProtocolArgs):
             RobotarmCmd(f'incu-to-A{pos} return'),
         ]
     return Program(Seq(*cmds))
-
-# @ur_protocols.append
-def plate_shuffle(_: SmallProtocolArgs):
-    '''
-    Shuffle plates around in the incubator. L7-L12 goes to L1-L6
-
-    Required lab prerequisites:
-        1. incubator transfer door: empty!
-        2. incubator L7-L12: plates
-        3. incubator L1-L6:  empty
-    '''
-    cmds: list[Command] = []
-    for dest, src in zip(Locations.Incu[:6], Locations.Incu[6:]):
-        cmds += [
-            IncuCmd('get', src).fork(),
-            WaitForResource('incu'),
-            IncuCmd('put', dest).fork(),
-            WaitForResource('incu'),
-        ]
-    program = Seq(*cmds)
-    return program
-
-# @ur_protocols.append
-def add_missing_timings(_: SmallProtocolArgs):
-    '''
-    Do some timings that were missing.
-    '''
-    cmds: list[Command] = []
-    for out_loc in 'b5 b7 b9 b11 c3'.upper().split():
-        plate = Plate('1', '', '', '', out_loc=out_loc, batch_index=1)
-        cmds += [
-            *RobotarmCmds(plate.out_put),
-            *RobotarmCmds(plate.out_get),
-        ]
-    program = Seq(*cmds)
-    return Program(program)
 
 @ur_protocols.append
 def time_protocols(args: SmallProtocolArgs):
