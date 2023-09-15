@@ -999,6 +999,10 @@ def squid_acquire_from_fridge(args: SmallProtocolArgs) -> Program:
 
             Seq(
                 SquidStageCmd('leave_loading'),
+                SquidStageCmd('goto_loading'),   # go back and forth a few times
+                SquidStageCmd('leave_loading'),  # go back and forth a few times
+                SquidStageCmd('goto_loading'),   # go back and forth a few times
+                SquidStageCmd('leave_loading'),  # go back and forth a few times
                 WaitForCheckpoint(f'RT {i}', plus_secs=plus_secs, assume='nothing'),
                 SquidAcquire(protocol_path, project=project, plate=name),
             ).fork_and_wait(),
