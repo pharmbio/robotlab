@@ -22,7 +22,7 @@ class Status(TypedDict):
     running: bool
     returncode: None | int
 
-class JobName(TypedDict):
+class JobNameDict(TypedDict):
     job_project: str
     job_name: str
 
@@ -88,10 +88,10 @@ class NikonNIS(Machine):
         '''Close all documents without saving'''
         return self.run_macro('CloseAllDocuments(QUERYSAVE_NO)', 'CloseAllDocuments')
 
-    def RunJob(self, job_name: str, project: str, plate: str):
+    def RunJob(self, job_project: str, job_name: str, project: str, plate: str):
         '''Run a job by name, saving it to a directory based on the project and plate.'''
         ok = string.ascii_letters + string.digits + '_-'
-        for s, ok_for_s in {job_name: ok + ' ', project: ok, plate: ok}.items():
+        for s, ok_for_s in {job_project: ok + ' ', job_name: ok + ' ', project: ok, plate: ok}.items():
             for c in s:
                 if c not in ok_for_s:
                     raise ValueError(f'Input {s!r} contains illegal character {c!r}')
@@ -106,10 +106,10 @@ class NikonNIS(Machine):
             int64 job_key;
             char json[1000] = "{{'StoreToFsOnly.Folder':'Z:/{project}/{plate}/'}}";
             StrExchangeChar(json, 34, 39); //Exchange single to double quotes - ASCII codes: 34 = ["], 39 = [']
-            Jobs_GetJobKey("Demo", "{job_name}", &job_key, NULL, 0);
+            Jobs_GetJobKey("{job_project}", "{job_name}", &job_key, NULL, 0);
             Jobs_RunJobInitParam(job_key, json);
         '''
-        prefix = f'run-job-{job_name}-{project}-{plate}'
+        prefix = f'run-job-{job_project}-{job_name}-{project}-{plate}'
         prefix = prefix.replace('-', '_')
         prefix = prefix.replace(' ', '_')
         return self.run_macro(macro, prefix)
@@ -145,7 +145,7 @@ class NikonNIS(Machine):
             data['t'] = t
             return data
 
-    def list_protocols(self) -> list[JobName]:
+    def list_protocols(self) -> list[JobNameDict]:
         uri_path = 'file:///' + self.jobsdb_path.replace('\\', '/') + '?mode=ro'
         with contextlib.closing(sqlite3.connect(uri_path, uri=True)) as con:
             con.row_factory = sqlite3.Row
@@ -157,4 +157,4 @@ class NikonNIS(Machine):
                 where
                     jobdef.iProjKeyRef = project.iKey
             ''').fetchall()
-            return [JobName(**row) for row in rows]
+            return [JobNameDict(**row) for row in rows]
