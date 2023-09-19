@@ -88,8 +88,8 @@ class Locations:
 
     Lid:  list[str] = ['B19', 'B17']
     Incu: list[str] = [f'L{i}' for i in I] + [f'R{i}' for i in I]
-    RT:   list[str] = A[:13]
-    Out:  list[str] = A[13:][::-1] + [b for b in B if b not in 'B21 B19 B17 B15'.split()][::-1]
+    RT:   list[str] = A[:21]
+    Out:  list[str] = A[:21] # 13:][::-1] + [b for b in B if b not in 'B21 B19 B17 B15'.split()][::-1]
 
 def initial_world(plates: list[Plate], p: ProtocolConfig) -> World:
     if p.steps and p.steps[0].name in ['Mito', 'PFA']:
@@ -98,6 +98,10 @@ def initial_world(plates: list[Plate], p: ProtocolConfig) -> World:
         return World({p.rt_loc: p.id for p in plates})
 
 def define_plates(batch_sizes: list[int]) -> list[list[Plate]]:
+
+    if len(batch_sizes) > 1:
+        raise ValueError('More than one batch is disabled after C hotel displaced')
+
     plates: list[list[Plate]] = []
 
     index = 0
@@ -124,7 +128,7 @@ def define_plates(batch_sizes: list[int]) -> list[list[Plate]]:
             if i != j:
                 assert p.id != q.id, (p, q)
                 assert p.incu_loc != q.incu_loc, (p, q)
-                assert p.out_loc not in [q.out_loc, q.rt_loc, q.lid_loc, q.incu_loc], (p, q)
+                # assert p.out_loc not in [q.out_loc, q.rt_loc, q.lid_loc, q.incu_loc], (p, q)
                 if p.batch_index == q.batch_index:
                     assert p.rt_loc != q.rt_loc, (p, q)
                     # assert p.lid_loc != q.lid_loc, (p, q)

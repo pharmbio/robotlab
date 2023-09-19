@@ -144,6 +144,7 @@ def remove_stages(program: Program, until_stage: str) -> Program:
     world0 = program.world0
     if world0:
         for effect in effects:
+            # print(world0, effect)
             world0 = effect.apply(world0)
         # could prune plates from world here that are never moved in the program
 

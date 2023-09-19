@@ -542,10 +542,10 @@ class Effect(abc.ABC):
         next = {**world.data}
         for k, v in self.effect(world).items():
             if v is None:
-                assert k in world.data
+                assert k in world.data, f'{k=} is not in {world.data=} already when applying {self}'
                 next.pop(k)
             else:
-                assert k not in world.data
+                assert k not in world.data, f'{k=} is in {world.data=} already when applying {self}'
                 next[k] = v
         return World(next)
 
