@@ -5,6 +5,8 @@ from typing import *
 import time
 import textwrap
 import string
+import sqlite3
+import contextlib
 
 from subprocess import Popen
 
@@ -20,12 +22,17 @@ class Status(TypedDict):
     running: bool
     returncode: None | int
 
+class JobName(TypedDict):
+    job_project: str
+    job_name: str
+
 @dataclass(frozen=True)
 class NikonNIS(Machine):
     '''
     Communication with the Nikon NIS Elements software, by calling the gui exe with a macro argument.
     '''
     nis_exe_path: str = r'C:\Program Files\NIS-Elements\nis_ar.exe'
+    jobsdb_path: str = r'C:\ProgramData\Laboratory Imaging\Jobs\jobsdb.dat'
     current_process: Cell[Popen[bytes] | None] = field(default_factory=lambda: Cell(None))
     lock: RLock = field(default_factory=RLock, repr=False)
 
@@ -131,10 +138,23 @@ class NikonNIS(Machine):
         import contextlib
         import sqlite3
         import json
-        with contextlib.closing(sqlite3.connect('ocr.db', isolation_level=None)) as c:
-            c.execute('pragma busy_timeout=1000')
-            t, data_str = c.execute('select t, data from ocr order by t desc limit 1').fetchone()
+        with contextlib.closing(sqlite3.connect('ocr.db', isolation_level=None)) as con:
+            con.execute('pragma busy_timeout=1000')
+            t, data_str = con.execute('select t, data from ocr order by t desc limit 1').fetchone()
             data = json.loads(data_str)
             data['t'] = t
             return data
 
+    def list_protocols(self) -> list[JobName]:
+        uri_path = 'file:///' + self.jobsdb_path.replace('\\', '/') + '?mode=ro'
+        with contextlib.closing(sqlite3.connect(uri_path, uri=True)) as con:
+            con.row_factory = sqlite3.Row
+            rows = con.execute('''
+                select
+                    project.wszName as job_project, jobdef.wszName as job_name
+                from
+                    jobdef, project
+                where
+                    jobdef.iProjKeyRef = project.iKey
+            ''').fetchall()
+            return [JobName(**row) for row in rows]
