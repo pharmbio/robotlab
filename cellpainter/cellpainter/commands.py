@@ -10,6 +10,8 @@ from .moves import Effect, World, effects, MovePlate
 from .symbolic import Symbolic
 import pbutils
 
+from labrobots.nikon_nis import JobNameDict
+
 @dataclass(frozen=True)
 class Metadata:
     id: int = 0
@@ -813,15 +815,28 @@ class NikonABC(PhysicalCommand, abc.ABC):
 
 @dataclass(frozen=True)
 class NikonAcquire(NikonABC):
+    job_project: str
     job_name: str
     project: str
     plate: str
     def normalize(self):
-        return NikonAcquire(job_name=self.job_name, project='', plate='')
+        return NikonAcquire(job_project=self.job_project, job_name=self.job_name, project='', plate='')
+
+    def job_name_dict(self) -> JobNameDict:
+        return JobNameDict(job_project=self.job_project, job_name=self.job_name)
 
 @dataclass(frozen=True)
 class NikonStageCmd(NikonABC):
-    action: Literal['goto_loading', 'leave_loading', 'init_laser', 'get_status']
+    action: Literal['goto_loading', 'leave_loading', 'init_laser', 'get_status', 'check_protocol_exists']
+    job_project: str | None = None
+    job_name: str | None = None
+
+    def normalize(self):
+        return self.replace(action=self.action, job_name=None, job_project=None)
+
+    def job_name_dict(self) -> JobNameDict:
+        fallback = f'{self.action=}?'
+        return JobNameDict(job_project=self.job_project or fallback, job_name=self.job_name or fallback)
 
 class FridgeABC(PhysicalCommand, abc.ABC):
     def required_resource(self):

@@ -136,7 +136,10 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
 
         case NikonAcquire():
             for nikon in runtime.time_resource_use(entry, runtime.nikon):
+                if cmd.job_project == 'noop':
+                    break
                 nikon.RunJob(
+                    job_project=cmd.job_project,
                     job_name=cmd.job_name,
                     project=cmd.project,
                     plate=cmd.plate,
@@ -175,6 +178,13 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
 
                     case 'get_status':
                         nikon.status()
+
+                    case 'check_protocol_exists':
+                        if cmd.job_project == 'noop':
+                            break
+                        protocols = nikon.list_protocols()
+                        if cmd.job_name_dict() not in protocols:
+                            raise ValueError(f'Nikon cannot find {cmd.job_name_dict()!r}')
 
         case SquidStageCmd() as cmd:
             for squid in runtime.time_resource_use(entry, runtime.squid):

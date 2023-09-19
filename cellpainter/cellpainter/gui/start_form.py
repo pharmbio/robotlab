@@ -45,9 +45,9 @@ class Plate:
         else:
             return f'{self.barcode}_{self.project}'
 
-    def make_display_name(self, plate_target: PlateTarget):
+    def make_display_name(self, plate_target: PlateTarget, include_squid_protocols: bool):
         name_with_metadata = self.make_name_with_metadata(plate_target)
-        if plate_target.squid_protocol:
+        if plate_target.squid_protocol and include_squid_protocols:
             return f'{name_with_metadata} {plate_target.squid_protocol}'
         else:
             return f'{name_with_metadata}'
@@ -96,6 +96,7 @@ class ExternalState:
         - last barcode
         - fridge contents
         - squid protocols
+        - nikon protocols
 
     TODO: gracefully handle timeouts. Timeouts happen whenever the squid software is off.
     '''
@@ -105,6 +106,7 @@ class ExternalState:
     fridge_slots: FridgeSlots = field(default_factory=dict)
     last_barcode: str = ''
     squid_protocols: list[str] = field(default_factory=list)
+    nikon_protocols: list[str] = field(default_factory=list)
 
     @pbutils.throttle(1.0)
     @staticmethod
@@ -115,7 +117,17 @@ class ExternalState:
                 imager_plate_metadata = read_imager_plate_metadata(config),
                 fridge_slots = labrobots.WindowsGBG().remote(timeout_secs=10).fridge.contents(),
                 last_barcode = labrobots.WindowsGBG().remote(timeout_secs=10).barcode.read(),
-                squid_protocols = labrobots.MikroAsus().remote(timeout_secs=10).squid.list_protocols(),
+                squid_protocols = pbutils.catch(
+                    lambda: labrobots.MikroAsus().remote(timeout_secs=10).squid.list_protocols(),
+                    ['squid webservice down?']
+                ),
+                nikon_protocols = pbutils.catch(
+                    lambda: [
+                        job_name_dict['job_project'] + '/' + job_name_dict['job_name']
+                        for job_name_dict in labrobots.Nikon().remote(timeout_secs=10).nikon.list_protocols()
+                    ],
+                    ['nikon labrobots down?']
+                )
             )
         elif config.name == 'live':
             protocol_paths.update_protocol_paths()
@@ -146,7 +158,13 @@ class ExternalState:
                     protocols/short_pe2.json
                     protocols/short_hog.json
                     protocols/full_pe.json
-                '''.split()
+                '''.split(),
+                nikon_protocols = '''
+                    demo/CellPainting_Automation_FA
+                    demo/CellPainting_Automation_RMS_RD
+                    demo/dan
+                    spheroids/Spheroids
+                '''.split(),
             )
 
     def imager_projects(self) -> list[str]:
@@ -358,12 +376,10 @@ def start_form(*, config: RuntimeConfig):
     if imager:
         custom_forms += '''
             squid-acquire-from-fridge
+            nikon-acquire-from-fridge
             fridge-contents
             fridge-unload
         '''.split()
-        if 0: custom_forms += '''
-           nikon-acquire-from-fridge'.split()
-        '''
 
     protocol_options = {
         **{
@@ -405,6 +421,7 @@ def start_form(*, config: RuntimeConfig):
         default='',
         suggestions=external_state.imager_projects(),
     )
+
     squid_protocol = (
         store.str(
             name='squid protocol',
@@ -415,8 +432,10 @@ def start_form(*, config: RuntimeConfig):
         ) if 'squid' in protocol.value else
         store.str(
             name='nikon job',
-            default='CellPainting_Automation_PE_squid',
-            # get nikon protocol names from their sqlite db?
+            options=[
+                *external_state.nikon_protocols,
+                'noop/noop',
+            ]
         )
     )
 
@@ -426,7 +445,7 @@ def start_form(*, config: RuntimeConfig):
     selected_fridge_projects = fridge_projects_suggestions.value.split(',')
 
     diplay_name_to_plate = {
-        plate.make_display_name(plate_target): (plate, plate_target)
+        plate.make_display_name(plate_target, include_squid_protocols='squid' in protocol.value): (plate, plate_target)
         for plate, plate_target in external_state.imager_filtered_plate_targets(selected_fridge_projects)
     }
 
@@ -542,11 +561,10 @@ def start_form(*, config: RuntimeConfig):
         for display_name in fridge_plates_for_selected_projects.value:
             plate, target = diplay_name_to_plate[display_name]
             name_with_metadata = plate.make_name_with_metadata(target)
-            match target.squid_protocol:
-                case None:
-                    plates += [f'{squid_protocol.value}:{plate.project}:{plate.barcode}:{name_with_metadata}']
-                case target_protocol:
-                    plates += [f'{target_protocol     }:{plate.project}:{plate.barcode}:{name_with_metadata}']
+            if (target_protocol := target.squid_protocol) and 'squid' in protocol.value:
+                plates += [f'{target_protocol     }:{plate.project}:{plate.barcode}:{name_with_metadata}']
+            else:
+                plates += [f'{squid_protocol.value}:{plate.project}:{plate.barcode}:{name_with_metadata}']
         args = Args(
             protocol='squid_acquire_from_fridge' if 'squid' in protocol.value else 'nikon_acquire_from_fridge',
             params=[

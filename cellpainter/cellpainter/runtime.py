@@ -148,12 +148,21 @@ class Runtime:
             self.barcode_reader = gbg.barcode
 
             if 1:
-                mikro_asus = MikroAsus.remote()
-                self.squid = mikro_asus.squid
+                try:
+                    mikro_asus = MikroAsus.remote()
+                    self.squid = mikro_asus.squid
+                except:
+                    raise ValueError('Squid: cannot connect to squid, is squid web service running?')
 
-            if 0:
-                self.nikon = Nikon.remote().nikon
-                self.nikon_stage = NikonPi.remote().nikon_stage
+            if 1:
+                try:
+                    self.nikon = Nikon.remote().nikon
+                except:
+                    raise ValueError('Nikon: cannot connect to nikon')
+                try:
+                    self.nikon_stage = NikonPi.remote().nikon_stage
+                except:
+                    raise ValueError('NikonPi: cannot connect to nikon stage')
 
     def stop_arms(self):
         sync = Queue[None]()

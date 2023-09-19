@@ -77,37 +77,6 @@ def protocol_args(small_protocol: SmallProtocol) -> set[str]:
         pass
     return out - {'fridge_contents'}
 
-# @ur_protocols.append
-def trigger_biotek_comm_issue(args: SmallProtocolArgs):
-    '''
-
-        This should trigger Error code: 6058 Unable to open the COM port
-
-        2023-04-12 10:16:42.521  disp  1504  RunValidated('automation_v4.0_colo52', '4.0_D_SA_PRIME_PFA.LHC')
-        2023-04-12 10:16:42.527  disp  1504  0.0 disp message protocol begin
-        2023-04-12 10:16:43.540  disp  1504  1.016 disp message protocol done
-        2023-04-12 10:16:43.548  disp  1504  1.031 disp status 4
-        2023-04-12 10:16:43.557  disp  1504  1.031 disp message ErrorCode: 6, ErrorString: Error starting run. Error code: 6058
-        2023-04-12 10:16:43.565  disp  1504  1.047 disp Unable to open the COM port
-
-        Note: this seems to be fixed now: the COM ports are directly specified in labrobots/__init__.py:class WindowsNUC:
-        "COM4" instead of "USB 405 TS/LS sn:191107F" and "COM3" instead of "USB MultiFloFX sn:19041612".
-
-    '''
-    cmds: list[Command] = [
-        DispCmd('Validate', pfa := 'automation_v4.0_colo52/4.0_D_SA_PRIME_PFA.LHC').fork(),
-        WaitForResource('disp'),
-    ]
-    for i in range(100):
-        cmds += [
-            WashCmd('Validate', 'automation_v4.0_colo52/7_W_3X_beforeStains_leaves10ul_PBS.LHC').fork(),
-            Idle((i % 10 + 15) * 0.01),
-            DispCmd('RunValidated', pfa).fork(),
-            WaitForResource('disp'),
-            WaitForResource('wash'),
-        ]
-    return Program(Seq(*cmds).add(Metadata(gui_force_show=True)))
-
 @ur_protocols.append
 def incu_load(args: SmallProtocolArgs):
     '''
@@ -458,29 +427,6 @@ def incu_get(args: SmallProtocolArgs):
             WaitForResource('incu'),
         ]
     return Program(Seq(*cmds))
-
-@ur_protocols.append
-def robotarm_ur_cycle(args: SmallProtocolArgs):
-    '''
-    Small stress test on robotarm on B21 and B19. Set number of cycles with num_plates.
-
-    Required lab prerequisites:
-        B21: plate with lid
-        B19: empty
-    '''
-    N = args.num_plates or 4
-    cmds = [
-        RobotarmCmd('ur gripper init and check'),
-    ]
-    for _i in range(N):
-        cmds += [
-            *RobotarmCmds('B19 put'),
-            *RobotarmCmds('B19 get'),
-            *RobotarmCmds('lid-B19 put'),
-            *RobotarmCmds('lid-B19 get'),
-        ]
-    program = Seq(*cmds)
-    return Program(program)
 
 # @ur_protocols.append
 def time_robotarm(_: SmallProtocolArgs):
@@ -846,6 +792,33 @@ def squid_acquire_H11(args: SmallProtocolArgs) -> Program:
     return Program(Seq(*cmds))
 
 @pf_protocols.append
+def nikon_acquire_H11(args: SmallProtocolArgs) -> Program:
+    '''
+
+        Images the plate at H11 and puts it back. Params are: job_project job_name, project, plate_name_1, ..., plate_name_N
+
+    '''
+    cmds: list[Command] = []
+    job_project, job_name, project, *plate_names = args.params
+    assert_valid_project_name(project)
+    cmds += [NikonStageCmd('check_protocol_exists', job_project=job_project, job_name=job_name).fork_and_wait()]
+
+    for plate_name in plate_names:
+        cmds += [
+            NikonStageCmd('goto_loading').fork_and_wait(),
+            PFCmd(f'H11-to-nikon'),
+            Seq(
+                NikonStageCmd('leave_loading'),
+                NikonAcquire(job_project=job_project, job_name=job_name, project=project, plate=plate_name),
+            ).fork_and_wait(),
+
+            NikonStageCmd('goto_loading').fork_and_wait(),
+            PFCmd(f'nikon-to-H11'),
+            NikonStageCmd('leave_loading').fork_and_wait(),
+        ]
+    return Program(Seq(*cmds))
+
+@pf_protocols.append
 def test_circuit_to_squid(args: SmallProtocolArgs) -> Program:
     '''
 
@@ -863,6 +836,27 @@ def test_circuit_to_squid(args: SmallProtocolArgs) -> Program:
         SquidStageCmd('goto_loading').fork_and_wait(),
         *cmds,
         SquidStageCmd('leave_loading').fork_and_wait(),
+    ]
+    return Program(Seq(*cmds))
+
+@pf_protocols.append
+def test_circuit_to_nikon(args: SmallProtocolArgs) -> Program:
+    '''
+
+        Puts a plate from H11 to squid and back. Nikon should be empty.
+
+    '''
+    cmds: list[Command] = []
+    cmds += [
+        PFCmd('H11-to-squid'),
+        PFCmd('squid-to-H11'),
+    ]
+    N = int((args.params or ['1'])[0])
+    cmds = cmds * N
+    cmds = [
+        NikonStageCmd('goto_loading').fork_and_wait(),
+        *cmds,
+        NikonStageCmd('leave_loading').fork_and_wait(),
     ]
     return Program(Seq(*cmds))
 
@@ -907,7 +901,6 @@ def test_circuit_to_fridge(args: SmallProtocolArgs) -> Program:
         ]
     return Program(Seq(*cmds))
 
-
 @pf_protocols.append
 def H11_to_squid(args: SmallProtocolArgs) -> Program:
     '''
@@ -934,29 +927,31 @@ def squid_to_H11(args: SmallProtocolArgs) -> Program:
     cmd = Seq(*cmds)
     return Program(cmd)
 
-# @pf_protocols.append
-def nikon_acquire_H12(args: SmallProtocolArgs) -> Program:
+@pf_protocols.append
+def H11_to_nikon(args: SmallProtocolArgs) -> Program:
     '''
-
-        Images the plate at H11. Params are: job name, project, plate_name_1, ..., plate_name_N
-
+    Moves the plate at H11 to the nikon.
     '''
-    cmds: list[Command] = []
-    job_name, project, *plate_names = args.params
-    assert_valid_project_name(project)
-    for plate_name in plate_names:
-        cmds += [
-            NikonStageCmd('goto_loading').fork_and_wait(),
-            PFCmd('H11-to-nikon'),
-            Seq(
-                NikonStageCmd('leave_loading'),
-                NikonAcquire(job_name=job_name, project=project, plate=plate_name),
-            ).fork_and_wait(),
-            NikonStageCmd('goto_loading').fork_and_wait(),
-            PFCmd('nikon-to-H11'),
-        ]
-    return Program(Seq(*cmds))
+    cmds: list[Command] = [
+        NikonStageCmd('goto_loading').fork_and_wait(),
+        PFCmd('H11-to-nikon'),
+        NikonStageCmd('leave_loading').fork_and_wait(),
+    ]
+    cmd = Seq(*cmds)
+    return Program(cmd)
 
+@pf_protocols.append
+def nikon_to_H11(args: SmallProtocolArgs) -> Program:
+    '''
+    Moves the plate on the nikon to H11.
+    '''
+    cmds: list[Command] = [
+        NikonStageCmd('goto_loading').fork_and_wait(),
+        PFCmd('nikon-to-H11'),
+        NikonStageCmd('leave_loading').fork_and_wait(),
+    ]
+    cmd = Seq(*cmds)
+    return Program(cmd)
 
 @pf_protocols.append
 def squid_acquire_from_fridge(args: SmallProtocolArgs) -> Program:
@@ -977,7 +972,6 @@ def squid_acquire_from_fridge(args: SmallProtocolArgs) -> Program:
                 if slot['project'] == project
                 if slot['plate'] == barcode
             ) != 1:
-                # pass
                 raise ValueError(f'Could not find {barcode=} with {project=} in fridge!')
     RT_time_secs: list[float] = [float(rt) for rt in RT_time_secs_csv.split(',')]
     if not RT_time_secs:
@@ -1001,8 +995,6 @@ def squid_acquire_from_fridge(args: SmallProtocolArgs) -> Program:
                 SquidStageCmd('leave_loading'),
                 SquidStageCmd('goto_loading'),   # go back and forth a few times
                 SquidStageCmd('leave_loading'),  # go back and forth a few times
-                SquidStageCmd('goto_loading'),   # go back and forth a few times
-                SquidStageCmd('leave_loading'),  # go back and forth a few times
                 WaitForCheckpoint(f'RT {i}', plus_secs=plus_secs, assume='nothing'),
                 SquidAcquire(protocol_path, project=project, plate=name),
             ).fork_and_wait(),
@@ -1014,14 +1006,13 @@ def squid_acquire_from_fridge(args: SmallProtocolArgs) -> Program:
             PFCmd(f'H11-to-fridge'),
             FridgeInsert(
                 project,
-                # expected_barcode=barcode
-                assume_barcode=barcode, # for Jordi's plates
+                assume_barcode=barcode,
             ).fork_and_wait(),
         ]
     cmd = Seq(*checks, *cmds)
     return Program(cmd)
 
-# @pf_protocols.append
+@pf_protocols.append
 def nikon_acquire_from_fridge(args: SmallProtocolArgs) -> Program:
     '''
 
@@ -1033,22 +1024,24 @@ def nikon_acquire_from_fridge(args: SmallProtocolArgs) -> Program:
     contents = args.initial_fridge_contents
     if contents is not None:
         for plate in plates:
-            job_name, project, barcode, name = plate.split(':')
+            _job_full_name, project, barcode, name = plate.split(':')
             if sum(
                 1
                 for _loc, slot in contents.items()
                 if slot['project'] == project
                 if slot['plate'] == barcode
             ) != 1:
-                # pass
                 raise ValueError(f'Could not find {barcode=} with {project=} in fridge!')
     RT_time_secs: list[float] = [float(rt) for rt in RT_time_secs_csv.split(',')]
     if not RT_time_secs:
         raise ValueError('Specify some RT time. Example: "1800" for 30 minutes')
     if not plates:
         raise ValueError('Select some plates.')
+    checks: list[Command] = []
     for i, plate in enumerate(plates, start=1):
-        job_name, project, barcode, name = plate.split(':')
+        job_full_name, project, barcode, name = plate.split(':')
+        job_project, job_name = job_full_name.split('/', 1)
+        checks += [NikonStageCmd('check_protocol_exists', job_project=job_project, job_name=job_name).fork_and_wait()]
         assert_valid_project_name(project)
         plus_secs = dict(enumerate(RT_time_secs, start=1)).get(i, RT_time_secs[-1])
         cmds += [
@@ -1060,8 +1053,10 @@ def nikon_acquire_from_fridge(args: SmallProtocolArgs) -> Program:
 
             Seq(
                 NikonStageCmd('leave_loading'),
+                # could take plate back and init laser:
+                # ..., NikonStageCmd('init_laser').fork_and_wait(), ...
                 WaitForCheckpoint(f'RT {i}', plus_secs=plus_secs, assume='nothing'),
-                NikonAcquire(job_name=job_name, project=project, plate=name),
+                NikonAcquire(job_project=job_project, job_name=job_name, project=project, plate=name),
             ).fork_and_wait(),
 
             NikonStageCmd('goto_loading').fork_and_wait(),
@@ -1074,7 +1069,7 @@ def nikon_acquire_from_fridge(args: SmallProtocolArgs) -> Program:
                 assume_barcode=barcode,
             ).fork_and_wait(),
         ]
-    cmd = Seq(*cmds)
+    cmd = Seq(*checks, *cmds)
     return Program(cmd)
 
 
