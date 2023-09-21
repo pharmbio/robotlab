@@ -848,8 +848,8 @@ def test_circuit_to_nikon(args: SmallProtocolArgs) -> Program:
     '''
     cmds: list[Command] = []
     cmds += [
-        PFCmd('H11-to-squid'),
-        PFCmd('squid-to-H11'),
+        PFCmd('H11-to-nikon'),
+        PFCmd('nikon-to-H11'),
     ]
     N = int((args.params or ['1'])[0])
     cmds = cmds * N

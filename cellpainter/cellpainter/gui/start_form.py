@@ -125,6 +125,7 @@ class ExternalState:
                     lambda: [
                         job_name_dict['job_project'] + '/' + job_name_dict['job_name']
                         for job_name_dict in labrobots.Nikon().remote(timeout_secs=10).nikon.list_protocols()
+                        if job_name_dict['job_project'] != 'Demo'
                     ],
                     ['nikon labrobots down?']
                 )
