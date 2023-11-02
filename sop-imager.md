@@ -237,6 +237,23 @@ hog,PB0103,P2_L1
 hog,PB0104,P2_L2
 ```
 
+The allowed project and metadata characters are English lower and upper case letters, digits, underscore and minus.
+
+The folder structure is based on the project, barcode and its metadata:
+
+```
+{project}/{barcode}_{project}_{metadata}
+```
+
+In this example the directories will be:
+
+```
+hog/PB0101_hog_P1_L1
+hog/PB0102_hog_P1_L2
+hog/PB0103_hog_P2_L1
+hog/PB0104_hog_P2_L2
+```
+
 ### Specifying per-plate squid protocols
 
 Add squid protocol path as a fourth column to the csv file.
