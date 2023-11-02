@@ -364,9 +364,9 @@ def validate_all_protocols(args: SmallProtocolArgs):
     return Program(program.add(Metadata(gui_force_show=True)))
 
 @ur_protocols.append
-def run_biotek(args: SmallProtocolArgs):
+def run_biotek_bluewasher(args: SmallProtocolArgs):
     '''
-    Run protocols on the bioteks from the protocol dir.
+    Run protocols on the bioteks or bluewasher from the protocol dir.
 
     For each parameter $X runs all protocols that matches ${PROTOCOL_DIR}/$X.
     For example with automation_v4.0, "2" will run
@@ -376,9 +376,11 @@ def run_biotek(args: SmallProtocolArgs):
     paths = protocol_paths.get_protocol_paths()[args.protocol_dir]
     wash = paths.all_wash_paths()
     disp = paths.all_disp_paths()
+    blue = paths.all_blue_paths()
     protocols = [
         *[(p, 'wash') for p in wash],
         *[(p, 'disp') for p in disp],
+        *[(p, 'blue') for p in blue],
     ]
     # print('Available:', end=' ')
     # pbutils.pr([p for p, _ in protocols])
