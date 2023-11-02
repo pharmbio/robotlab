@@ -1,40 +1,18 @@
-# Standard operating procedure for robot imager
+# Robot Imager Standard Operating Procedure
 
-Standard operating procedure for robot imager.
+## Accessing the GUI <a href="http://imager:3000" target=_blank>http://imager:3000</a>
 
-## Access gui on <a href="http://imager:3000" target=_blank>http://imager:3000</a>
-
-From the windows computer use <a href="http://imager:3000" target=_blank>http://imager:3000</a>.
-From other computers on the network use <a href="http://10.10.0.55:3000" target=_blank>http://10.10.0.55:3000</a>.
-Technically it is running on the ubuntu NUC in the painter room.
+- **Squid computer**: <a href="http://imager:3000" target=_blank>http://imager:3000</a>.
+- **Other network computers (e.g. Nikon)**: <a href="http://10.10.0.55:3000" target=_blank>http://10.10.0.55:3000</a>.
 
 <details>
 <summary>
-This can fail if the windows gbg has been the restarted and its labrobots server is not running.
-Check if <a href="http://10.10.0.97:5050" target=_blank>http://10.10.0.97:5050</a> can be reached.
-Here are detailed instructions how to restart it.
+GUI Web Page Unavailable?
 </summary>
 
-Connect to the window gbg computer via any desk (on the squid computer).
+This might indicate the web server is down. Below are instructions to restart it (for system administrators):
 
-Look for the run labrobots icon, it like this and it starts a terminal with this kind of output.
-Minimize the terminal and keep it running.
-
-<img src='images/run_labrobots.png'>
-
-The incubator communication program STX Driver must be running. Run it on the windows computer.
-The icon and the program looks like this. Press the Run button. Minimize the program and keep it running.
-
-<img src='images/stx.png'>
-</details>
-
-<details>
-<summary>
-If still unavailable the process on the ubuntu nuc might be down if that computer has been restarted.
-Here are detailed instructions how to start it (for system administrators).
-</summary>
-
-The gui runs on the NUC running ubuntu which has hostname NUC-robotlab.
+The gui runs on the ubuntu NUC in the painter lab with hostname NUC-robotlab.
 
 It runs in a screen named `imager` in the `~/imager-robotlab` checkout of the repo.
 
@@ -53,13 +31,34 @@ pharmbio@NUC-robotlab:~/imager-robotlab$ source imager-venv/bin/activate
 (imager-venv) pharmbio@NUC-robotlab:~/imager-robotlab$ cd cellpainter/
 (imager-venv) pharmbio@NUC-robotlab:~/imager-robotlab/cellpainter$ VIABLE_PORT=3000 cellpainter-gui --live
 Running with config.name='live'
- * Env(VIABLE_DEV=True, VIABLE_RUN=True, VIABLE_HOST=None, VIABLE_PORT=None)
+ * Env(VIABLE_DEV=True, VIABLE_RUN=True, VIABLE_HOST=None, VIABLE_PORT=3000)
  * Serving Flask app 'cellpainter.gui.main'
  * Debug mode: off
 ```
 
 Note that you need to set the variable `VIABLE_PORT=3000` to start it.
 
+</details>
+
+<details>
+<summary>
+Troubles with the fridge, barcode reader or "windows gbg" computer?
+</summary>
+The "windows gbg" computer operates the fridge and barcode reader.
+If you suspect they are down, check if <a href="http://10.10.0.97:5050" target=_blank>http://10.10.0.97:5050</a> can be reached.
+Here are detailed instructions to restart it.
+
+Connect to the window gbg computer via any desk (for example using the squid computer).
+
+Look for the run labrobots icon, it like this and it starts a terminal with this kind of output.
+Minimize the terminal and keep it running.
+
+<img src='images/run_labrobots.png'>
+
+The incubator communication program STX Driver must be running. Run it on the windows computer.
+The icon and the program looks like this. Press the Run button. Minimize the program and keep it running.
+
+<img src='images/stx.png'>
 </details>
 
 ## Start the squid software with enabled remote control
@@ -73,9 +72,9 @@ The web service remote control is running if this page returns:
 <a href="http://10.10.0.95:5050/squid/status" target=_blank>http://10.10.0.95:5050/squid/status</a>.
 
 <details>
-<summary>
+<summary>Desktop Shortcut Missing?</summary>
 If the shortcut on the desktop is missing, these are the instructions how to start it from the terminal.
-</summary>
+
 Start a terminal on the squid computer and issue these commands:
 
 ```
@@ -104,16 +103,17 @@ Press CTRL+C to quit
 ```
 </details>
 
-## Loading the fridge
+## Fridge loading
 
-Use `fridge-load-from-hotel`. Specify a project name and the number of plates.
-The project name will be used as project name in the acquired images and consequently also  in the image database.
-The barcode scanner will be used.
+Use `fridge-load-from-hotel` and provide a project name and plate count.
+The system begins loading from H11 and downwards to H1, and then upwards from H13 and to H19.
 
 Plates should be without lids. Never use lids with the imager system.
 
-If it fails run `fridge-put` and enter the barcode manually. You can wiggle
-it around the barcode reader to make it show up in the user interface.
+The project name will be used as project name in the acquired images and consequently also in the image database.
+
+The barcode scanner identifies each plate. If a scan fails, revert to fridge-put and input the barcode manually.
+You can wiggle it around the barcode reader to make it show up in the user interface.
 
 Before starting:
 
@@ -123,9 +123,9 @@ Before starting:
   - In doubt, stop the robot immediately using this button
   - Then press the stop button in the user interface
 
-## Unloading the fridge
+## Fridge unloading
 
-To unload the fridge use `fridge-unload` and pick up to 12 plates from the select box.
+Use `fridge-unload` and select up to 18 plates.
 
 Before starting:
 
@@ -138,35 +138,7 @@ Before starting:
   - In doubt, stop the robot immediately using this button
   - Then press the stop button in the user interface
 
-## Listing fridge contents and supplying plate metadata
-
-Use `fridge-contents`.
-
-You can use `add csv stubs to imager-plate-metadata` to add to the network file share (nfs) directory.
-It is mounted on the squid computer as `/mnt/imager-plate-metadata`.
-
-Example: you just loaded two plates to the YM project. Press the `add csv stubs...` button and the `YM.csv`
-file will be created with the following contents:
-
-```
-YM,PB900002,
-YM,PB900003,
-```
-
-You can now add metadata by editing the file and saving it:
-
-```
-YM,PB900002,L1
-YM,PB900003,L2
-```
-
-The columns are `project`, `barcode`, `metadata`. We will later use a fourth column to specify per-plate microscope settings.
-Lines about other projects than the filename of the csv file will be taken as comments and silent ignored:
-make sure the project name matches the csv filename.
-
-Creating lines in the csv files and adding plate metadata is optional. Plates in the fridge without metadata can be acquired.
-
-## Acquire using squid
+## Imaging with squid
 
 Use `squid-acquire-from-fridge`. Specify a project in the auto-complete box, choose a protocol and RT time and the plates to image.
 The selected images will be imaged in the order they appear in the select box. The order they appear in the select box can be
@@ -187,47 +159,133 @@ The system does not have estimates for how long the acquisition will take which 
 the gui visualisation look weird. All is still OK: the robotarm system will still do run
 the machines in the same sequential order.
 
-### Working remotely with one plate
+### Remote operations for a single plate
 
 If you just want a plate to the squid to work with it, you can use `fridge-unload` and then `H11-to-squid`. You can now work
 with the plate in the squid user interface. Put it back with `squid-to-H11` and then `fridge-load-from-hotel`.
 
-## Specifying per-plate squid settings
+## Plate metadata csv files
 
-Add squid protocol path as a fourth column to the csv file. On the YM example, edit the YM.csv file and add:
+Metadata csv files serve to:
+
+* add metadata about the plates to identify them beyond barcode, like cell line, replicate and layout,
+* select microscope protocol when you need to more than one protocol,
+* specify the order of acqusition.
+
+Creating the csv files and adding plate metadata is optional.
+Plates in the fridge without metadata can be acquired.
+
+To ease making the csv files you can request the gui to create stub metadata csv files
+from plates in the fridge.
+
+Use `fridge-contents`, and press the button `add csv stubs to imager-plate-metadata`:
+
+<img src='images/fridge_contents.png'>
+
+This will create metadata csv stub files to a network file share directory.
+It is mounted on the squid computer as `/mnt/imager-plate-metadata`:
+
+<img src='images/imager_plate_metadata_file_browser.png'>
+
+You can also access the csv metadata file from the notebooks under `/share/data/lab/imager-plate-metadata`:
+
+<img src='images/jupyter_file_browser_1.png'>
+<img src='images/jupyter_file_browser_2.png'>
+
+The columns are `project`, `barcode`, `metadata`, `protocol`. The fourth column to specify per-plate microscope settings.
+Lines about other projects than the filename of the csv file will be taken as comments and silent ignored:
+make sure the project name matches the csv filename.
+
+### Specifying the acquisition order
+
+You can use the csv file to change the acquisition order, by rearranging the lines.
+Example: you have just created this stub file from project `hog` with four plates:
 
 ```
-YM,PB900002,L1,protocols/YM_L1.json
-YM,PB900003,L2,protocols/YM_L2.json
+hog,PB0101,
+hog,PB0102,
+hog,PB0103,
+hog,PB0104,
 ```
 
-Now you can use squid-acquire-from-fridge and the protocols for the lines will override whatever value is in the squid protocol dropdown.
-If you have custom protocol paths for all plates it does not matter what protocol you pick in the dropdown. Its setting will not be used for any plate.
-
-### Specifying the order of acquisitions
-
-You can use the csv file to change the acquisition order.
-
-In the YM example, to image L2 before L1, put its line first in the csv:
+You want to image in the order 1, 3, 2, 4. Arrange accordingly, and save:
 
 ```
-YM,PB900003,L2
-YM,PB900002,L1
+hog,PB0101,
+hog,PB0103,
+hog,PB0102,
+hog,PB0104,
 ```
+
+### Adding plate metadata
+
+Example: you have just created this stub file from project `hog` with four plates:
+
+```
+hog,PB0101,
+hog,PB0102,
+hog,PB0103,
+hog,PB0104,
+```
+
+You want to add the layout and replicate info. Modify the file, and save:
+
+```
+hog,PB0101,P1_L1
+hog,PB0102,P1_L2
+hog,PB0103,P2_L1
+hog,PB0104,P2_L2
+```
+
+### Specifying per-plate squid protocols
+
+Add squid protocol path as a fourth column to the csv file.
+
+Example: you have just created this stub file from project `hog` with four plates:
+
+```
+hog,PB0101,
+hog,PB0102,
+hog,PB0103,
+hog,PB0104,
+```
+
+You want to add the layout and replicate info as metadata and protocol as a fourth column. Modify the file, and save:
+
+```
+hog,PB0101,P1_L1,protocols/HOG_L1.json
+hog,PB0102,P1_L2,protocols/HOG_L2.json
+hog,PB0103,P2_L1,protocols/HOG_L1.json
+hog,PB0104,P2_L2,protocols/HOG_L2.json
+```
+
+For acquisition, use `squid-acquire-from-fridge`. Custom protocols listed will override the dropdown protocol choice.
 
 ### Acquiring the same plate multiple times
 
 You can use the csv file to acquire the same plate multiple times with different protocols.
 
-In the YM example, to image L1 with two different protocols, put the same plate on two lines:
+Example: you have just created this stub file from project `hog` with four plates:
 
 ```
-YM,PB900002,L1_U2OS,protocols/YM_U2OS.json
-YM,PB900002,L1_MCF7,protocols/YM_MCF7.json
+hog,PB0101,
+hog,PB0102,
+hog,PB0103,
+hog,PB0104,
 ```
 
-Note: the software will make the unnecessary roundtrip to the fridge in between.
-Contact Dan when you plan to use this feature so he can prioritize it.
+You want to image the first plate with two different protocols. List it twice, with the protocols you need:
+
+```
+hog,PB0101,P1_L1_short_exposure,protocols/HOG_L1_short_exposure.json
+hog,PB0101,P1_L1_long_exposure,protocols/HOG_L1_long_exposure.json
+hog,PB0102
+hog,PB0103
+hog,PB0104
+```
+
+Note: the software will make the unnecessary roundtrip to the fridge in between acquisitions.
+Contact Dan when you plan to use this feature so he can prioritize to optimize it.
 
 ## Restarting from emergency stop
 

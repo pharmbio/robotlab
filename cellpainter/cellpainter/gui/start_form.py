@@ -232,10 +232,16 @@ class ExternalState:
                     for plate in plates:
                         assert plate.project == project
                         print(f'{plate.project},{plate.barcode},', file=fp)
+            trailing_info = '\n'.join([
+                '\n',
+                'The csv directories are:',
+                '/mnt/imager-plate-metadata  (on the squid computer)',
+                '/share/data/lab/imager-plate-metadata  (using the jupyter notebooks)',
+            ])
             if not todo:
-                return 'Nothing to do.'
+                return 'Nothing to do. All stub files exist.' + trailing_info
             else:
-                return 'Wrote ' + ', '.join(f'{len(plates)} lines to {project}.csv' for project, plates in todo.items()) + '.'
+                return 'Wrote ' + ', '.join(f'{len(plates)} lines to {project}.csv' for project, plates in todo.items()) + '.' + trailing_info
         else:
             config = self.config
             return f'Plate metadata directory not configured ({config=})'
@@ -547,7 +553,8 @@ def start_form(*, config: RuntimeConfig):
                 'add csv stubs to imager-plate-metadata',
                 onclick=call(lambda: common.alert(external_state.write_imager_plate_metadata())),
                 grid_column='1 / -1',
-            )
+            ),
+            V.queue_refresh(1000),
         ]
 
     elif protocol.value in 'squid-acquire-from-fridge nikon-acquire-from-fridge'.split():
