@@ -233,21 +233,30 @@ gripper_code = str('''
             GripperSend("~m_p_op", "Parameter successfully set")
         end
 
+        last = GripperPos()
+
         # wait for stabilization
         while 1:
+            sleep(0.4)
             p = GripperPos()
             if p == -1:
-                textmsg("log retrying GripperPos, p:", p)
+                textmsg("log retrying GripperPos, p: ", p)
+                continue
+            end
+            if p != last:
+                textmsg("log not stable yet, keep checking, diff: ", last - p)
+                last = p
                 continue
             end
             if close and p <= 91:
                 if 1:
-                    sleep(0.15)
+                    sleep(0.4)
                     p = GripperPos()
-                    if p > 0 and p <= 80:
+                    if p > 0 and p <= 81:
                         msg = str_cat("Gripper closed more than expected: ", p) + "mm"
                         textmsg("fatal: ", msg)
-                        popup(msg, "fatal", error=False, blocking=True)
+                    else:
+                        textmsg("log gripper close finished at p: ", p)
                     end
                 end
                 break

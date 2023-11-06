@@ -35,8 +35,8 @@ prelude = '''
 
     def MoveRel(x, y, z, r, p, yaw, slow=False):
         if not last_lin:
-            textmsg("log fail MoveRel without preceding linear move")
-            popup("MoveRel without preceding linear move", error=True)
+            textmsg("log fatal MoveRel without preceding linear move")
+            # popup("MoveRel without preceding linear move", error=True)
             halt
         end
         MoveLin(
