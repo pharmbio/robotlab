@@ -646,7 +646,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                         *wash_delay,
                         WashCmd('RunValidated', step.wash),
                         Checkpoint(f'{plate_desc} incubation {ix}')
-                        if step.name == 'Wash 1' else
+                        if not step.disp else
                         Checkpoint(f'{plate_desc} transfer {ix}'),
                     )
                 ),
@@ -673,7 +673,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                         *wash_delay,
                         BlueCmd('RunValidated', step.blue),
                         Checkpoint(f'{plate_desc} incubation {ix}')
-                        if step.name == 'Wash 1' else
+                        if not step.disp else
                         Checkpoint(f'{plate_desc} transfer {ix}'),
                     )
                 ),

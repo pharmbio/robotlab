@@ -783,6 +783,55 @@
       ""
     ]
   },
+  "automation_v5.0_triton_with_stains": {
+    "type": "ProtocolPaths",
+    "wash_prime": [
+      "automation_v5.0_triton_with_stains/0_W_PRIME_PBS.LHC"
+    ],
+    "wash_5": [
+      "",
+      "",
+      "automation_v5.0_triton_with_stains/5_W_3X_before_stains_leaves10ul_PBS.LHC",
+      "automation_v5.0_triton_with_stains/7_W_3X_leaves80ul_PBS.LHC",
+      "automation_v5.0_triton_with_stains/9_W_3X_leaves80ul_PBS.LHC"
+    ],
+    "wash_6": [
+      "",
+      "",
+      "automation_v5.0_triton_with_stains/5_W_3X_before_stains_leaves10ul_PBS.LHC",
+      "automation_v5.0_triton_with_stains/7_W_3X_leaves80ul_PBS.LHC",
+      "",
+      ""
+    ],
+    "disp_prime": [
+      "automation_v5.0_triton_with_stains/2.0_D_SB_PRIME_Mito.LHC",
+      "automation_v5.0_triton_with_stains/4.0_D_SA_PRIME_PFA.LHC",
+      "automation_v5.0_triton_with_stains/6.0_D_P2_PRIME_stains.LHC",
+      ""
+    ],
+    "disp_prep": [
+      "",
+      "",
+      "",
+      ""
+    ],
+    "disp_main": [
+      "automation_v5.0_triton_with_stains/2.1_D_SB_30ul_Mito.LHC",
+      "automation_v5.0_triton_with_stains/4.1_D_SA_80ul_PFA.LHC",
+      "automation_v5.0_triton_with_stains/6.1_D_P2_20ul_stains.LHC",
+      ""
+    ],
+    "blue_prime": [
+      ""
+    ],
+    "blue": [
+      "",
+      "",
+      "",
+      "",
+      ""
+    ]
+  },
   "automation_v5.1": {
     "type": "ProtocolPaths",
     "wash_prime": [
