@@ -92,7 +92,7 @@ gripper_code = str('''
 
         # wait for stabilization
         while 1:
-            sleep(0.2)
+            # sleep(0.2)
             p = GripperPos()
             if p == -1:
                 textmsg("log retrying GripperPos, p: ", p)
@@ -105,11 +105,10 @@ gripper_code = str('''
             end
             if close and p <= 91:
                 if 1:
-                    sleep(0.2)
-                    p = GripperPos()
                     if p > 0 and p <= 81:
                         msg = str_cat("Gripper closed more than expected: ", p) + "mm"
                         textmsg("fatal: ", msg)
+                        sleep(10.0)
                     else:
                         textmsg("log gripper close finished at p: ", p)
                     end
