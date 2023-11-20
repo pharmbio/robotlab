@@ -1,4 +1,5 @@
 from __future__ import annotations
+import abc
 from dataclasses import *
 from typing import *
 
@@ -390,6 +391,22 @@ class Fridge(STX):
                 db[loc] = empty_slot
                 return loc, slot
 
+    def rename_project(self, project_name: str, new_project_name: str) -> None:
+        '''
+        Ejects a plate given a plate and project.
+
+        Returns info about the plate and the old location, or raises an error if it was not possible to complete the action.
+        '''
+        with self.exclusive():
+            with self._get_db() as db:
+                slots = db.read()
+                for loc, slot in db.read().items():
+                    if slot['project'] == project_name:
+                        slot = slot.copy()
+                        slot['project'] = new_project_name
+                        slots[loc] = slot
+                db.write(slots)
+
 @contextlib.contextmanager
 def get_test_fridge():
     import tempfile
@@ -409,6 +426,7 @@ def test_fridge():
 
         slot1 = FridgeSlot(plate=(plate1 := 'PB1701'), project=(project1 := 'ambi-40k'))
         slot2 = FridgeSlot(plate=(plate2 := 'PB1703'), project=(project2 := 'ambi-40k'))
+        slot3 = FridgeSlot(plate=(plate3 := 'PB1709'), project=(project3 := 'hep'))
 
         loc, slot = fridge.insert(plate1, project1)
         assert loc == '1x1'
@@ -461,9 +479,15 @@ def test_fridge():
 
         fridge.rewrite_contents(
             current=fridge.contents(),
-            next={'1x1': slot1, '1x2': slot2}
+            next={'1x1': slot1, '1x2': slot2, '1x3': slot3}
         )
-        assert fridge.contents() == {'1x1': slot1, '1x2': slot2}
+        assert fridge.contents() == {'1x1': slot1, '1x2': slot2, '1x3': slot3}
+
+        fridge.rename_project('ambi-40k', 'AMBI-40k')
+
+        new_slot1 = slot1.copy(); new_slot1['project'] = 'AMBI-40k'
+        new_slot2 = slot2.copy(); new_slot2['project'] = 'AMBI-40k'
+        assert fridge.contents() == {'1x1': new_slot1, '1x2': new_slot2, '1x3': slot3}
 
         with pytest.raises(ValueError):
             # wrong current
