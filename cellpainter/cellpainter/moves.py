@@ -16,7 +16,8 @@ from .ur_script import URScript
 
 # UR room:
 HotelLocs_A = [h+1 for h in range(21)]
-HotelLocs_B = [h for h in HotelLocs_A if h % 2 == 1]
+HotelLocs_B = [21, 19, 17, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1]
+# [h for h in HotelLocs_A if h % 2 == 1]
 
 # PF room:
 HotelLocs_H = [h+1 for h in range(19) if h+1 != 12]
