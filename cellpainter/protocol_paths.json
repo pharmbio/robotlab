@@ -636,6 +636,55 @@
       ""
     ]
   },
+  "automation_v5.0_blue_MagBead_evacuate": {
+    "type": "ProtocolPaths",
+    "wash_prime": [
+      ""
+    ],
+    "wash_5": [
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    "wash_6": [
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    "disp_prime": [
+      "automation_v5.0_blue_MagBead_evacuate/2.0_D_SB_PRIME_Mito.LHC",
+      "automation_v5.0_blue_MagBead_evacuate/4.0_D_SA_PRIME_PFA.LHC",
+      "automation_v5.0_blue_MagBead_evacuate/6.0_D_P2_PRIME_stains.LHC",
+      ""
+    ],
+    "disp_prep": [
+      "",
+      "",
+      "",
+      ""
+    ],
+    "disp_main": [
+      "automation_v5.0_blue_MagBead_evacuate/2.1_D_SB_20ul_Mito.LHC",
+      "automation_v5.0_blue_MagBead_evacuate/4.1_D_SA_40ul_PFA.LHC",
+      "automation_v5.0_blue_MagBead_evacuate/6.1_D_P2_20ul_stains.LHC",
+      ""
+    ],
+    "blue_prime": [
+      "automation_v5.0_blue_MagBead_evacuate/0_W_Prime-Green-Full.prog"
+    ],
+    "blue": [
+      "",
+      "",
+      "automation_v5.0_blue_MagBead_evacuate/5_W_MagBeadSpinEvacuate-no-dispense.prog",
+      "automation_v5.0_blue_MagBead_evacuate/7_W_MagBeadSpinEvacuate-100ul-Green-with-post-dispense.prog",
+      ""
+    ]
+  },
   "automation_v5.0_blue_decant_only": {
     "type": "ProtocolPaths",
     "wash_prime": [
