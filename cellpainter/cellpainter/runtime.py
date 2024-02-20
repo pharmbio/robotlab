@@ -155,12 +155,16 @@ class Runtime:
                     raise ValueError('Squid: cannot connect to squid, is squid web service running?')
 
             if 1:
+                class NikonDisabled:
+                    pass
                 try:
-                    self.nikon = Nikon.remote().nikon
+                    self.nikon = NikonDisabled() # type: ignore
+                    # self.nikon = Nikon.remote().nikon
                 except:
                     raise ValueError('Nikon: cannot connect to nikon')
                 try:
-                    self.nikon_stage = NikonPi.remote().nikon_stage
+                    self.nikon_stage = NikonDisabled() # type: ignore
+                    # self.nikon_stage = NikonPi.remote().nikon_stage
                 except:
                     raise ValueError('NikonPi: cannot connect to nikon stage')
 
