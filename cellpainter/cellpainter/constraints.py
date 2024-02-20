@@ -2,6 +2,8 @@ from __future__ import annotations
 from typing import *
 from dataclasses import *
 
+import sys
+
 from .symbolic import Symbolic
 from .commands import *
 
@@ -46,7 +48,8 @@ def optimize(cmd: Command) -> tuple[Command, dict[int, float]]:
             opt = optimal_env(cmd_inst)
             ends |= opt.expected_ends
             subst |= opt.env
-            pbutils.pr(opt)
+            print('... ', end='', file=sys.stderr, flush=True)
+            # pbutils.pr(opt)
             return cmd_inst.resolve(opt.env)
         else:
             return cmd

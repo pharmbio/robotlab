@@ -38,13 +38,14 @@ from . import commands
 import pbutils
 
 class OptPrio:
-    incubation    = Min(priority=7, weight=1)
-    wash_to_disp  = Min(priority=6, weight=1)
-    incu_slack    = Min(priority=6, weight=1)
-    without_lid   = Min(priority=4, weight=1)
-    total_time    = Min(priority=3, weight=1)
-    squeeze_steps = Min(priority=2, weight=1)
-    inside_incu   = Max(priority=1, weight=0)
+    incubation    = Min(priority=8, weight=1)
+    wash_to_disp  = Min(priority=7, weight=1)
+    total_time    = Min(priority=6, weight=1)
+    without_lid   = Min(priority=5, weight=1)
+    inside_incu   = Max(priority=4, weight=1)
+    squeeze_steps = Min(priority=3, weight=1)
+
+    # incu_slack    = Min(priority=6, weight=1)
 
 @dataclass(frozen=True)
 class Plate:
@@ -535,6 +536,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
     ]
 
     post_cmds = [
+        Duration(f'batch {batch_index}', OptPrio.total_time),
     ]
 
     chunks: dict[Desc, Iterable[Command]] = {}
@@ -759,7 +761,11 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                 Fork(
                     Seq(
                         *(wash_delay if not step.wash and not step.blue else []),
-                        Duration(f'{plate_desc} transfer {ix}', OptPrio.wash_to_disp),
+                        *(
+                            [Duration(f'{plate_desc} transfer {ix}', OptPrio.wash_to_disp)]
+                            if step.wash or step.blue else
+                            []
+                        ),
                         DispCmd('RunValidated', step.disp),
                         Checkpoint(f'{plate_desc} incubation {ix}'),
                     )
