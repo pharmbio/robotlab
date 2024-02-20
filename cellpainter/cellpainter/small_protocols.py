@@ -139,7 +139,7 @@ def test_comm(_: SmallProtocolArgs):
     '''
     Test communication with robotarm, washer, dispenser and incubator.
     '''
-    return Program(protocol.program_test_comm().add(Metadata(gui_force_show=True)))
+    return Program(protocol.program_test_comm(with_blue=False).add(Metadata(gui_force_show=True)))
 
 @ur_protocols.append
 def test_circuit(args: SmallProtocolArgs):

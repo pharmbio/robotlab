@@ -213,7 +213,7 @@ class MoveList(list[Move]):
                     out += [tag]
         return out
 
-    def expand_hotels(self, name: str) -> dict[str, MoveList]:
+    def expand_hotels(self, name: str, *, expand_base: bool) -> dict[str, MoveList]:
         '''
         If there is a tag like 19/21 then expand to all heights 1/21, 3/21, .., 21/21
         The first occurence of 19 in the name is replaced with 1, 3, .., 21, so
@@ -233,14 +233,22 @@ class MoveList(list[Move]):
         else:
             raise ValueError(f'Unknown hotel in: {name}')
         for tag in set(self.tags()):
-            if m := re.match(r'(\d+)/(11|21)$', tag):
-                ref_h = int(m.group(1))
-                assert str(ref_h) in name
-                assert ref_h in hotel_locs
-                for h in hotel_locs:
-                    dz = (h - ref_h) * hotel_dist
-                    name_h = name.replace(str(ref_h), str(h), 1)
-                    out[name_h] = self.adjust_tagged(tag, dname=str(h), dz=dz)
+            if expand_base:
+                if tag == 'base 21':
+                    ref_h = 21
+                    for h in [15]:
+                        dz = (h - ref_h) * hotel_dist
+                        name_h = f'{name} [base B{h}]'
+                        out[name_h] = self.adjust_tagged(tag, dname=f'[base B{h}]', dz=dz)
+            if not expand_base:
+                if m := re.match(r'(\d+)/(11|21)$', tag):
+                    ref_h = int(m.group(1))
+                    assert str(ref_h) in name
+                    assert ref_h in hotel_locs
+                    for h in hotel_locs:
+                        dz = (h - ref_h) * hotel_dist
+                        name_h = name.replace(str(ref_h), str(h), 1)
+                        out[name_h] = self.adjust_tagged(tag, dname=str(h), dz=dz)
         return out
 
     def with_sections(self, include_Section: bool=False) -> list[tuple[str, Move]]:
@@ -467,7 +475,9 @@ def read_and_expand(filename: Path) -> dict[str, MoveList]:
     ml = MoveList.read_jsonl(filename)
     expanded = ml.expand_sections()
     for k, v in list(expanded.items()):
-        expanded |= v.expand_hotels(k)
+        expanded |= v.expand_hotels(k, expand_base=False)
+    for k, v in list(expanded.items()):
+        expanded |= v.expand_hotels(k, expand_base=True)
     return expanded
 
 def read_movelists() -> dict[str, MoveList]:
@@ -589,6 +599,7 @@ movelists: dict[str, MoveList]
 movelists = read_movelists()
 
 B21 = 'B21'
+B15 = 'B15'
 effects: dict[str, Effect] = {}
 
 for k, v in movelists.items():
@@ -612,6 +623,10 @@ for i in HotelLocs_A:
     lid_Bi = f'lid-B{i}'
     effects[lid_Bi + ' get'] = PutLidOn(source=Bi, target=B21)
     effects[lid_Bi + ' put'] = TakeLidOff(source=B21, target=Bi)
+
+    lid_Bi = f'lid-B{i} [base B15]'
+    effects[lid_Bi + ' get'] = PutLidOn(source=Bi, target=B15)
+    effects[lid_Bi + ' put'] = TakeLidOff(source=B15, target=Bi)
 
 for k in list(effects.keys()):
     effects[k + ' transfer'] = effects[k]

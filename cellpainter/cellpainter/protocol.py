@@ -41,7 +41,7 @@ class OptPrio:
     wash_to_disp  = Min(priority=6, weight=1)
     incu_slack    = Min(priority=6, weight=1)
     without_lid   = Min(priority=4, weight=1)
-    batch_time    = Min(priority=3, weight=1)
+    total_time    = Min(priority=3, weight=1)
     squeeze_steps = Min(priority=2, weight=1)
     inside_incu   = Max(priority=1, weight=0)
 
@@ -61,6 +61,10 @@ class Plate:
     @property
     def lid_get(self):
         return f'lid-{self.lid_loc} get'
+
+    @property
+    def lid_get_base_B15(self):
+        return f'lid-{self.lid_loc} get [base B15]'
 
     @property
     def rt_put(self):
@@ -333,6 +337,21 @@ class ProtocolConfig:
     blue_prime: list[str]
     use_blue: bool
 
+    '''
+    def any_disp(self):
+        return any([
+            *[step.disp for step in self.steps],
+            *[step.disp_prime for step in self.steps],
+            *[step.disp_prep for step in self.steps],
+        ])
+
+    def any_wash(self):
+        return self.wash_prime or any([step.wash for step in self.steps])
+
+    def any_blue(self):
+        return self.use_blue or self.blue_prime or any([step.blue for step in self.steps])
+    '''
+
 from .protocol_paths import ProtocolPaths, paths_v5
 
 @dataclass(frozen=True)
@@ -462,7 +481,7 @@ def program_test_comm(with_incu: bool=True, with_blue: bool=True) -> Command:
     Test communication with robotarm, washer, dispenser and incubator.
     '''
     return Seq(
-        # BlueCmd(action='TestCommunications', protocol_path=None).fork() if with_blue else Idle(),
+        BlueCmd(action='TestCommunications', protocol_path=None).fork() if with_blue else Idle(),
         DispCmd(cmd='TestCommunications', protocol_path=None).fork(),
         IncuCmd(action='get_status', incu_loc=None).fork() if with_incu else Idle(),
         RobotarmCmd('ur gripper init and check'),
@@ -470,7 +489,7 @@ def program_test_comm(with_incu: bool=True, with_blue: bool=True) -> Command:
         WashCmd(cmd='TestCommunications', protocol_path=None).fork(),
         WaitForResource('incu') if with_incu else Idle(),
         WaitForResource('wash'),
-        # WaitForResource('blue') if with_blue else Idle(),
+        WaitForResource('blue') if with_blue else Idle(),
     ).add(Metadata(step_desc='test comm'))
 
 Desc = tuple[str, str, str]
@@ -509,8 +528,12 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
         Checkpoint(f'batch {batch_index}'),
     ]
 
+    prep_cmds += [
+        program_test_comm(with_blue=p.use_blue),
+        BlueCmd('get_working_plate').fork() if p.use_blue else Idle(),
+    ]
+
     post_cmds = [
-        Duration(f'batch {batch_index}', OptPrio.batch_time),
     ]
 
     chunks: dict[Desc, Iterable[Command]] = {}
@@ -576,6 +599,13 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
             lid_on = [
                 *RobotarmCmds(
                     plate_with_corrected_lid_pos.lid_get,
+                    after_drop=[Duration(f'{plate_desc} lid off {ix}', OptPrio.without_lid)]
+                ),
+            ]
+
+            lid_on_base_B15 = [
+                *RobotarmCmds(
+                    plate_with_corrected_lid_pos.lid_get_base_B15,
                     after_drop=[Duration(f'{plate_desc} lid off {ix}', OptPrio.without_lid)]
                 ),
             ]
@@ -676,7 +706,8 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                             cmd.add(Metadata(plate_id=None))
                             for cmd in blue_prime
                             if plate is first_plate
-                            if not prev_step or not prev_step.blue
+                            # if not prev_step or not prev_step.blue
+                            if step.blue # let's just always prime blue for simplicity
                         ],
                         BlueCmd('Validate', step.blue),
                     ),
@@ -809,11 +840,11 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
             chunks[plate.id, step.name, 'blue -> B21' ] = [*blue_to_B(21), *lid_on]
             chunks[plate.id, step.name, 'blue -> B15' ] = [*blue_to_B(15)]
 
-            if 0 and step.name == 'Mito' and not step.blue and not step.wash:
-                # exception!
-                chunks[plate.id, step.name, 'disp -> B15' ] = [*disp_to_B(21), *lid_on, *RobotarmCmds('B15 put')]
+            if step.disp and not step.blue and not step.wash:
+                # put on the lid now
+                chunks[plate.id, step.name, 'disp -> B15' ] = [*disp_to_B(15), *lid_on_base_B15]
                 chunks[plate.id, step.name,  'B15 -> B21' ] = []
-                chunks[plate.id, step.name,  'B21 -> incu'] = [*B15_to_incu]
+                chunks[plate.id, step.name,  'B21 -> incu'] = [*RobotarmCmds('B15 get'), *B21_to_incu]
             else:
                 chunks[plate.id, step.name, 'disp -> B15' ] = [*disp_to_B(15)]
                 chunks[plate.id, step.name,  'B15 -> B21' ] = [*RobotarmCmds('B15 get'), *lid_on]
@@ -948,11 +979,9 @@ def cell_paint_program(batch_sizes: list[int], protocol_config: ProtocolConfig) 
     program = Seq(*cmds)
     program = Seq(
         Checkpoint('run'),
-        program_test_comm(with_blue=protocol_config.use_blue),
-        BlueCmd('get_working_plate').fork() if protocol_config.use_blue else Idle(),
-        WaitForCheckpoint('run') + 'initialization slack',
+        # we now do test comm at start of each batch
         program,
-        Duration('run', OptPrio.batch_time)
+        Duration('run', OptPrio.total_time)
     )
     return Program(
         command=program,

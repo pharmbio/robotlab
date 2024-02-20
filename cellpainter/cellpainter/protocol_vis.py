@@ -162,7 +162,7 @@ def add_to_serve(serve: Serve, cmdline0: str, cmdline_to_log: Callable[[str], Lo
                     span(f'{delay_secs.value} s'),
                 ),
                 label(span('zoom: '), zoom_int.range(), span(str(zoom_int.value))),
-                label(span('pfa duration: '), pfa_duration.range().extend(width=200), span(f'{pfa_duration.value} s')),
+                # label(span('pfa duration: '), pfa_duration.range().extend(width=200), span(f'{pfa_duration.value} s')),
                 label(span('vertical: '), vertical.input().extend(style='justify-self: left')),
                 background='#fff',
                 border_bottom='1px #0008 solid',
