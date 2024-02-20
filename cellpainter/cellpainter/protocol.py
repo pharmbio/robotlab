@@ -363,7 +363,7 @@ def make_protocol_config(paths: ProtocolPaths, args: CellPaintingArgs = CellPain
             drop_trail(paths.wash_6 if six_cycles else paths.wash_5),
             drop_trail(paths.blue),
             drop_trail(paths.disp_main),
-            fillvalue=None
+            fillvalue='',
         )
     )
 
