@@ -80,7 +80,7 @@ def protocol_args(small_protocol: SmallProtocol) -> set[str]:
 @ur_protocols.append
 def incu_load(args: SmallProtocolArgs):
     '''
-    Load incubator from A hotel, starting at the bottom, to incubator positions L1, ...
+    Load incubator from A hotel, starting at the bottom, to incubator positions L1, L2, ... or starting as specified in params
 
     Required lab prerequisites:
         1. incubator transfer door: empty!
@@ -89,12 +89,20 @@ def incu_load(args: SmallProtocolArgs):
         4. robotarm:                in neutral position by B hotel
     '''
     num_plates = args.num_plates
+    starting_loc = ' '.join(args.params) or 'L1'
+    incu_locs = []
+    for _, focus, next in pbutils.iterate_with_full_context(Locations.Incu):
+        if focus == starting_loc:
+            incu_locs = [focus, *next]
+            break
+    if not incu_locs:
+        raise ValueError(f'Cannot start from {starting_loc}, try for example L1 or R1')
     cmds: list[Command] = []
     world0: dict[str, str] = {}
     assert 1 <= num_plates <= 21, 'Number of plates should be in 1..21'
-    assert num_plates <= len(Locations.A)
-    assert num_plates <= len(Locations.Incu)
-    for i, (incu_loc, a_loc) in enumerate(zip(Locations.Incu, Locations.A[::-1]), start=1):
+    assert num_plates <= len(Locations.A), 'Too many plates'
+    assert num_plates <= len(incu_locs), 'Too few incubator locations left'
+    for i, (incu_loc, a_loc) in enumerate(zip(incu_locs, Locations.A[::-1]), start=1):
         if i > num_plates:
             break
         p = Plate(

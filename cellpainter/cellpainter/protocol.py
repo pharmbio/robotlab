@@ -80,7 +80,7 @@ class Plate:
 
 class Locations:
     HA = [21, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1]
-    HB = [21, 19, 17, 15, 13, 11, 9, 7, 5, 3, 1]
+    HB = [21, 19, 17, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1]
     I = [i+1 for i in range(22)]
 
     A: list[str] = [f'A{i}' for i in HA]
@@ -89,7 +89,19 @@ class Locations:
     Lid:  list[str] = ['B19', 'B17']
     Incu: list[str] = [f'L{i}' for i in I] + [f'R{i}' for i in I]
     RT:   list[str] = A[:21]
-    Out:  list[str] = A[:21] # 13:][::-1] + [b for b in B if b not in 'B21 B19 B17 B15'.split()][::-1]
+    Out: dict[str, list[str]] = {
+        '1 of 1': A[:21],
+        '2 of 2': A[:17], # up to 17 plates, last batch goes to A
+        '1 of 2': B[4:][::-1] + A[17:][::-1], # first batch goes to B then starts to fill A from below
+    }
+
+'''
+8,8: 4.5s
+10,10: 8.9s
+14,14: 114s
+16,16: 130s
+16: 10s
+'''
 
 def initial_world(plates: list[Plate], p: ProtocolConfig) -> World:
     if p.steps and p.steps[0].name in ['Mito', 'PFA']:
@@ -99,14 +111,18 @@ def initial_world(plates: list[Plate], p: ProtocolConfig) -> World:
 
 def define_plates(batch_sizes: list[int]) -> list[list[Plate]]:
 
-    if len(batch_sizes) > 1:
-        raise ValueError('More than one batch is disabled after C hotel displaced')
-
     plates: list[list[Plate]] = []
 
     index = 0
     for batch_index, batch_size in enumerate(batch_sizes):
         assert batch_size > 0
+
+        out_key = f'{batch_index + 1} of {len(batch_sizes)}'
+        Out = Locations.Out.get(out_key)
+        # print(out_key, len(Out), Out)
+        if not Out:
+            raise ValueError(f'This configuration of batches, {out_key}, not defined. Try one of {", ".join(Locations.Out.keys())}.')
+
         batch: list[Plate] = []
         rt = Locations.RT
         for index_in_batch in range(batch_size):
@@ -117,7 +133,7 @@ def define_plates(batch_sizes: list[int]) -> list[list[Plate]]:
                 # lid_loc=Locations.Lid[index_in_batch],
                 lid_loc=Locations.Lid[index_in_batch % 2],
                 # lid_loc=Locations.Lid[0],
-                out_loc=Locations.Out[index],
+                out_loc=Out[index_in_batch],
                 batch_index=batch_index,
             )]
             index += 1
