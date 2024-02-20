@@ -624,9 +624,8 @@ for i in HotelLocs_A:
     effects[lid_Bi + ' get'] = PutLidOn(source=Bi, target=B21)
     effects[lid_Bi + ' put'] = TakeLidOff(source=B21, target=Bi)
 
-    lid_Bi = f'lid-B{i} [base B15]'
-    effects[lid_Bi + ' get'] = PutLidOn(source=Bi, target=B15)
-    effects[lid_Bi + ' put'] = TakeLidOff(source=B15, target=Bi)
+    effects[lid_Bi + ' get [base B15]'] = PutLidOn(source=Bi, target=B15)
+    effects[lid_Bi + ' put [base B15]'] = TakeLidOff(source=B15, target=Bi)
 
 for k in list(effects.keys()):
     effects[k + ' transfer'] = effects[k]

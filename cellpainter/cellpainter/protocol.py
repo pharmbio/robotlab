@@ -28,6 +28,7 @@ from .commands import (
     Max,
     Min,
     WaitAssumption,
+    OptimizeSection,
 )
 from .commandlib import Interleaving
 from .moves import World
@@ -567,7 +568,11 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
             if not prev_step:
                 # idle_ref = WaitForCheckpoint(f'batch {batch_index}')
                 incu_delay = [
-                    WaitForCheckpoint(f'batch {batch_index}') + f'{plate_desc} incu delay {ix}'
+                    WaitForCheckpoint(f'batch {batch_index}') + f'{plate_desc} incu delay {ix}',
+                    WaitForResource('incu', assume='no wait'),
+                    WaitForResource('wash', assume='no wait'),
+                    WaitForResource('disp', assume='no wait'),
+                    WaitForResource('blue', assume='no wait'),
                 ]
                 wash_delay = [
                     WaitForCheckpoint(f'batch {batch_index}') + f'{plate_desc} first wash delay'
@@ -968,21 +973,14 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
 def cell_paint_program(batch_sizes: list[int], protocol_config: ProtocolConfig) -> Program:
     cmds: list[Command] = []
     plates = define_plates(batch_sizes)
+    program = Seq()
     for batch in plates:
         batch_cmds = paint_batch(
             batch,
             protocol_config=protocol_config,
         )
-        cmds += [batch_cmds]
-
+        program = OptimizeSection(program >> batch_cmds)
     world0 = initial_world(pbutils.flatten(plates), protocol_config)
-    program = Seq(*cmds)
-    program = Seq(
-        Checkpoint('run'),
-        # we now do test comm at start of each batch
-        program,
-        Duration('run', OptPrio.total_time)
-    )
     return Program(
         command=program,
         world0=world0,

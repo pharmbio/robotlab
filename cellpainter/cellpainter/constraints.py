@@ -35,9 +35,23 @@ def optimize(cmd: Command) -> tuple[Command, dict[int, float]]:
     cmd = cmd.make_resource_checkpoints()
     cmd = cmd.align_forks()
     cmd = cmd.assign_ids()
-    opt = optimal_env(cmd)
-    cmd = cmd.resolve(opt.env)
-    return cmd, opt.expected_ends
+
+    ends: dict[int, float] = {}
+    subst: dict[str, float] = {}
+
+    def Opt(cmd: Command) -> Command:
+        nonlocal ends, subst
+        if isinstance(cmd, OptimizeSection):
+            cmd_inst = cmd.command.resolve(subst)
+            opt = optimal_env(cmd_inst)
+            ends |= opt.expected_ends
+            subst |= opt.env
+            pbutils.pr(opt)
+            return cmd_inst.resolve(opt.env)
+        else:
+            return cmd
+
+    return OptimizeSection(cmd).transform(Opt), ends
 
 @dataclass(frozen=True)
 class Ids:
@@ -54,9 +68,14 @@ class OptimalResult:
 
 def optimal_env(cmd: Command, unsat_core: bool=False, explain_mode: bool=False) -> OptimalResult:
     if unsat_core:
-        pbutils.pr(cmd)
+        # pbutils.pr(cmd)
+        pass
 
     variables = cmd.free_vars()
+
+    if not variables:
+        return OptimalResult({}, {})
+
     ids = Ids()
 
     Resolution = 4
@@ -227,7 +246,7 @@ def optimal_env(cmd: Command, unsat_core: bool=False, explain_mode: bool=False) 
             print(s.unsat_core())
             raise ValueError('Impossible to schedule!')
         else:
-            raise ValueError('Optimization says unsat, but unsat core version says sat')
+            raise ValueError(f'Optimization says unsat, but unsat core version says {check}')
 
     # add the constraints with most important first (lexicographic optimization order)
     for _prio, terms in sorted(maximize_terms.items(), reverse=True):

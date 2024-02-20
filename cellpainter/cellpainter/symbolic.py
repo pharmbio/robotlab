@@ -39,8 +39,15 @@ class Symbolic:
             self.offset,
         )
 
-    def resolve(self, env: dict[str, float] = {}) -> float:
-        return sum(env[x] for x in self.var_names) + self.offset
+    def resolve(self, env: dict[str, float] = {}) -> Symbolic:
+        var_names: list[str] = []
+        offset = self.offset
+        for x in self.var_names:
+            if x in env:
+                offset += env[x]
+            else:
+                var_names += [x]
+        return Symbolic(var_names, offset)
 
     def var_set(self) -> set[str]:
         return set(self.var_names)

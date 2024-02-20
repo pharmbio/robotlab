@@ -106,6 +106,8 @@ class Command(ReplaceMixin, abc.ABC):
                     (collected_cmd, collected_metadata.merge(self.metadata))
                     for collected_cmd, collected_metadata in self.command.collect()
                 ]
+            # case OptimizeSection():
+            #     raise ValueError(f'collect({self})')
             case _:
                 return [(self, Metadata())]
 
@@ -120,7 +122,7 @@ class Command(ReplaceMixin, abc.ABC):
                     return float(s.offset) == 0.0
             case SeqCmd():
                 return all(cmd.is_noop() for cmd in self.commands)
-            case Fork() | Meta():
+            case Fork() | Meta() | OptimizeSection():
                 return self.command.is_noop()
             case _:
                 return False
@@ -139,7 +141,7 @@ class Command(ReplaceMixin, abc.ABC):
                 if reverse:
                     inner_commands = list(reversed(inner_commands))
                 return f(self.replace(commands=inner_commands))
-            case Fork() | Meta():
+            case Fork() | Meta() | OptimizeSection():
                 return f(self.replace(command=self.command.transform(f, reverse=reverse)))
             case _:
                 return f(self)
@@ -154,7 +156,7 @@ class Command(ReplaceMixin, abc.ABC):
             case SeqCmd():
                 for cmd in self.commands:
                     yield from cmd.universe()
-            case Fork() | Meta():
+            case Fork() | Meta() | OptimizeSection():
                 yield from self.command.universe()
             case _:
                 pass
@@ -304,7 +306,7 @@ class Command(ReplaceMixin, abc.ABC):
         def F(cmd: Command) -> Command:
             nonlocal count
             match cmd:
-                case SeqCmd() | Fork() | Meta():
+                case SeqCmd() | Fork() | Meta() | OptimizeSection():
                     return cmd
                 case _:
                     count += 1
@@ -391,6 +393,10 @@ def Seq(*commands: Command) -> Command:
     if len(flat) == 1:
         return flat[0]
     return SeqCmd(flat)
+
+@dataclass(frozen=True)
+class OptimizeSection(Command):
+    command: Command
 
 @dataclass(frozen=True)
 class Idle(Command):

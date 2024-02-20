@@ -39,8 +39,7 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
                 execute(c, runtime, metadata)
 
         case Idle():
-            secs = cmd.secs
-            assert isinstance(secs, (float, int))
+            secs = cmd.secs.unwrap()
             entry = entry.merge(Metadata(est=round(secs, 3)))
             with runtime.timeit(entry):
                 runtime.sleep(secs)
@@ -50,8 +49,7 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
                 runtime.checkpoint(cmd.name, entry)
 
         case WaitForCheckpoint():
-            plus_secs = cmd.plus_secs
-            assert isinstance(plus_secs, (float, int))
+            plus_secs = cmd.plus_secs.unwrap()
             t0 = runtime.wait_for_checkpoint(cmd.name)
             desired_point_in_time = t0 + plus_secs
             delay = desired_point_in_time - runtime.monotonic()
@@ -245,7 +243,7 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
             raise ValueError(f'Unknown command {cmd}')
 
     if effect := cmd.effect():
-        runtime.apply_effect(effect, entry)
+        runtime.apply_effect(effect, entry, fatal_errors=runtime.config.name == 'simulate')
 
 @contextlib.contextmanager
 def make_runtime(config: RuntimeConfig, program: Program) -> Iterator[Runtime]:
@@ -259,10 +257,11 @@ def make_runtime(config: RuntimeConfig, program: Program) -> Iterator[Runtime]:
 def simulate_program(program: Program, sim_delays: dict[int, float] = {}, log_filename: str | None=None) -> DB:
     program, expected_ends = commandlib.prepare_program(program, sim_delays=sim_delays)
 
-    with pbutils.timeit('quicksim'):
-        quicksim_ends, _checkpoints = commandlib.quicksim(program.command, {}, cast(Any, estimate))
+    if 1:
+        with pbutils.timeit('quicksim'):
+            quicksim_ends, _checkpoints = commandlib.quicksim(program.command, {}, cast(Any, estimate))
 
-    commandlib.check_correspondence(program.command, optimizer_ends=expected_ends, quicksim_ends=quicksim_ends)
+        commandlib.check_correspondence(program.command, optimizer_ends=expected_ends, quicksim_ends=quicksim_ends)
 
     cmd = program.command
     with pbutils.timeit('simulating'):

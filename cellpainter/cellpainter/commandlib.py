@@ -221,7 +221,8 @@ def prepare_program(program: Program, sim_delays: dict[int, float]) -> tuple[Pro
     return program, expected_ends
 
 def check_correspondence(command: Command, **ends: dict[int, float]):
-    return
+    # pbutils.pr(ends)
+
     by_id: dict[int, Command] = {
         i: c
         for c in command.universe()
@@ -244,8 +245,10 @@ def check_correspondence(command: Command, **ends: dict[int, float]):
                 if end_a == -1: end_a = 'missing'
                 if end_b == -1: end_b = 'missing'
                 cmd = by_id.get(k)
-                mismatches += [{src_a: end_a, src_b: end_b, 'cmd': cmd}]
-                # if not cmd or not isinstance(cmd.peel_meta(), Checkpoint):
+                if src_a == 'optimizer_ends' and end_a == 'missing':
+                    pass
+                else:
+                    mismatches += [{src_a: end_a, src_b: end_b, 'cmd': cmd}]
 
     if mismatches:
         raise ValueError(f'Correspondence check failed {len(mismatches)=} ({" ".join(ends.keys())}) {mismatches=}')
