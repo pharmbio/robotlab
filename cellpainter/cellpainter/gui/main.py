@@ -350,6 +350,7 @@ def index(path_from_route: str | None = None) -> Iterator[Tag | V.Node | dict[st
         )
         if ar.has_error():
             box = div(
+                _class='error',
                 border='2px var(--red) solid',
                 px=8,
                 py=4,
