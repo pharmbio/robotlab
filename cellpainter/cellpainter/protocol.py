@@ -93,21 +93,23 @@ class Locations:
     B: list[str] = [f'B{i}' for i in HB]
 
     Lid:  list[str] = ['B19', 'B17']
-    Incu: list[str] = [f'L{i}' for i in I] + [f'R{i}' for i in I]
     RT:   list[str] = A[:21]
-    Out: dict[str, list[str]] = {
-        '1 of 1': A[:21],
-        '2 of 2': A[:17], # up to 17 plates, last batch goes to A
-        '1 of 2': B[4:][::-1] + A[17:][::-1], # first batch goes to B then starts to fill A from below
+
+    L: list[str] = [f'L{i}' for i in I]
+    R: list[str] = [f'R{i}' for i in I]
+    Incu: list[str] = [*L, *R]
+
+    IncuPerBatch: dict[str, list[str]] = {
+        '1 of 1': L,
+        '1 of 2': L,
+        '2 of 2': R,
     }
 
-'''
-8,8: 4.5s
-10,10: 8.9s
-14,14: 114s
-16,16: 130s
-16: 10s
-'''
+    Out: dict[str, list[str]] = {
+        '1 of 1': A[:21],
+        '1 of 2': B[4:] + A[18:], # 1st batch goes to B then starts to fill remaining locations in A (with one gap)
+        '2 of 2': A[:17],         # 2nd batch goes to A (up to 17 plates)
+    }
 
 def initial_world(plates: list[Plate], p: ProtocolConfig) -> World:
     if p.steps and p.steps[0].name in ['Mito', 'PFA']:
@@ -123,18 +125,22 @@ def define_plates(batch_sizes: list[int]) -> list[list[Plate]]:
     for batch_index, batch_size in enumerate(batch_sizes):
         assert batch_size > 0
 
-        out_key = f'{batch_index + 1} of {len(batch_sizes)}'
-        Out = Locations.Out.get(out_key)
-        # print(out_key, len(Out), Out)
+        batch_key = f'{batch_index + 1} of {len(batch_sizes)}'
+
+        Out = Locations.Out.get(batch_key)
         if not Out:
-            raise ValueError(f'This configuration of batches, {out_key}, not defined. Try one of {", ".join(Locations.Out.keys())}.')
+            raise ValueError(f'The batch {batch_key} is not defined for output locations. Try one of {", ".join(Locations.Out.keys())}.')
+
+        Incu = Locations.IncuPerBatch.get(batch_key)
+        if not Incu:
+            raise ValueError(f'The batch {batch_key} is not defined for incubator locations. Try one of {", ".join(Locations.IncuPerBatch.keys())}.')
 
         batch: list[Plate] = []
         rt = Locations.RT
         for index_in_batch in range(batch_size):
             batch += [Plate(
                 id=f'{index+1}',
-                incu_loc=Locations.Incu[index],
+                incu_loc=Incu[index_in_batch],
                 rt_loc=rt[index_in_batch],
                 # lid_loc=Locations.Lid[index_in_batch],
                 lid_loc=Locations.Lid[index_in_batch % 2],
