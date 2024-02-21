@@ -38,8 +38,8 @@ from . import commands
 import pbutils
 
 class OptPrio:
-    incubation    = Min(priority=8, weight=1)
-    wash_to_disp  = Min(priority=7, weight=1)
+    wash_to_disp  = Min(priority=8, weight=1)
+    incubation    = Min(priority=7, weight=1)
     total_time    = Min(priority=6, weight=1)
     without_lid   = Min(priority=5, weight=1)
     inside_incu   = Max(priority=4, weight=1)
@@ -571,10 +571,6 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                 # idle_ref = WaitForCheckpoint(f'batch {batch_index}')
                 incu_delay = [
                     WaitForCheckpoint(f'batch {batch_index}') + f'{plate_desc} incu delay {ix}',
-                    WaitForResource('incu', assume='no wait'),
-                    WaitForResource('wash', assume='no wait'),
-                    WaitForResource('disp', assume='no wait'),
-                    WaitForResource('blue', assume='no wait'),
                 ]
                 wash_delay = [
                     WaitForCheckpoint(f'batch {batch_index}') + f'{plate_desc} first wash delay'
@@ -633,7 +629,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                     Early(1),
                     RobotarmCmd('incu-to-B21 transfer'),
                     Fork(IncuCmd('get_status', incu_loc=None)), # use incu thread to signal that plate has left incu
-                    WaitForResource('incu', assume='nothing'),
+                    WaitForResource('incu'),
                     RobotarmCmd('incu-to-B21 return'),
                 ]
             else:
@@ -768,13 +764,13 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                         ),
                         DispCmd('RunValidated', step.disp),
                         Checkpoint(f'{plate_desc} incubation {ix}'),
-                    )
+                    ),
                 ),
             )
 
             wash_to_disp = [
                 RobotarmCmd('wash-to-disp prep'),
-                WaitForResource('wash'),
+                WaitForResource('wash', assume='will wait'),
                 Early(1),
                 RobotarmCmd('wash-to-disp transfer'),
                 run_disp,
@@ -783,7 +779,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
 
             blue_to_disp = [
                 RobotarmCmd('blue-to-disp prep'),
-                WaitForResource('blue'),
+                WaitForResource('blue', assume='will wait'),
                 Early(1),
                 RobotarmCmd('blue-to-disp transfer'),
                 run_disp,
@@ -980,12 +976,12 @@ def cell_paint_program(batch_sizes: list[int], protocol_config: ProtocolConfig) 
     cmds: list[Command] = []
     plates = define_plates(batch_sizes)
     program = Seq()
-    for batch in plates:
+    for i, batch in enumerate(plates):
         batch_cmds = paint_batch(
             batch,
             protocol_config=protocol_config,
         )
-        program = OptimizeSection(program >> batch_cmds)
+        program = OptimizeSection(program >> batch_cmds, name=f'batch {i+1}/{len(plates)}' if len(plates) > 1 else None)
     world0 = initial_world(pbutils.flatten(plates), protocol_config)
     return Program(
         command=program,

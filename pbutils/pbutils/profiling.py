@@ -7,7 +7,7 @@ from contextlib import contextmanager
 import time
 import sys
 
-def timeit(desc: str='') -> ContextManager[None]:
+def timeit(desc: str='', end: str='\n') -> ContextManager[None]:
     # The inferred type for the decorated function is wrong hence this wrapper to get the correct type
 
     @contextmanager
@@ -20,7 +20,7 @@ def timeit(desc: str='') -> ContextManager[None]:
         except Exception as exn:
             e = exn
         T = time.monotonic() - t0
-        print(f'({T:.3f}s)', file=sys.stderr, flush=True)
+        print(f'({T:.1f}s)', end=end, file=sys.stderr, flush=True)
         if e:
             raise e
         else:

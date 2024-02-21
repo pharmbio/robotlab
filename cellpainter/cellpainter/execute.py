@@ -257,23 +257,19 @@ def make_runtime(config: RuntimeConfig, program: Program) -> Iterator[Runtime]:
 def simulate_program(program: Program, sim_delays: dict[int, float] = {}, log_filename: str | None=None) -> DB:
     program, expected_ends = commandlib.prepare_program(program, sim_delays=sim_delays)
 
-    if 1:
-        with pbutils.timeit('quicksim'):
-            quicksim_ends, _checkpoints = commandlib.quicksim(program.command, {}, cast(Any, estimate))
-
+    with pbutils.timeit('check quick simulation'):
+        quicksim_ends, _checkpoints = commandlib.quicksim(program.command, {}, cast(Any, estimate))
         commandlib.check_correspondence(program.command, optimizer_ends=expected_ends, quicksim_ends=quicksim_ends)
 
     cmd = program.command
-    with pbutils.timeit('simulating'):
+
+    with pbutils.timeit('check deep simulation'):
         config = RuntimeConfig.simulate().replace(log_filename=log_filename)
         with make_runtime(config, program) as runtime_est:
             execute(cmd, runtime_est, Metadata())
 
-    if not sim_delays:
-        with pbutils.timeit('get simulation estimates'):
-            states = runtime_est.log_db.get(CommandState).list()
-
-        with pbutils.timeit('check schedule and simulation correspondence'):
+        if not sim_delays:
+            states = runtime_est.log_db.get(CommandState).list() # get simulation estimates
             sim_ends={state.id: state.t for state in states}
             commandlib.check_correspondence(cmd, optimizer_ends=expected_ends, sim_ends=sim_ends)
 

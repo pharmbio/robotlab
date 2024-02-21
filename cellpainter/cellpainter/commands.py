@@ -166,6 +166,8 @@ class Command(ReplaceMixin, abc.ABC):
         for cmd, meta in self.collect():
             if isinstance(cmd, Fork):
                 res += [cmd.replace(command=cmd.command.add(meta))]
+            elif isinstance(cmd, OptimizeSection):
+                res += [cmd.replace(command=cmd.command.add(meta).push_metadata_into_forks())]
             else:
                 res += [cmd.add(meta)]
         return Seq(*res)
@@ -397,6 +399,7 @@ def Seq(*commands: Command) -> Command:
 @dataclass(frozen=True)
 class OptimizeSection(Command):
     command: Command
+    name: str | None = None
 
 @dataclass(frozen=True)
 class Idle(Command):

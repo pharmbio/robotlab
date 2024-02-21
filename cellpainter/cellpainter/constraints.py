@@ -3,6 +3,7 @@ from typing import *
 from dataclasses import *
 
 import sys
+import contextlib
 
 from .symbolic import Symbolic
 from .commands import *
@@ -45,11 +46,9 @@ def optimize(cmd: Command) -> tuple[Command, dict[int, float]]:
         nonlocal ends, subst
         if isinstance(cmd, OptimizeSection):
             cmd_inst = cmd.command.resolve(subst)
-            opt = optimal_env(cmd_inst)
+            opt = optimal_env(cmd_inst, name=cmd.name)
             ends |= opt.expected_ends
             subst |= opt.env
-            print('... ', end='', file=sys.stderr, flush=True)
-            # pbutils.pr(opt)
             return cmd_inst.resolve(opt.env)
         else:
             return cmd
@@ -69,7 +68,7 @@ class OptimalResult:
     env: dict[str, float]
     expected_ends: dict[int, float]
 
-def optimal_env(cmd: Command, unsat_core: bool=False, explain_mode: bool=False) -> OptimalResult:
+def optimal_env(cmd: Command, unsat_core: bool=False, explain_mode: bool=False, name: str | None=None) -> OptimalResult:
     if unsat_core:
         # pbutils.pr(cmd)
         pass
@@ -110,6 +109,8 @@ def optimal_env(cmd: Command, unsat_core: bool=False, explain_mode: bool=False) 
     added = 0
 
     def max_symbolic(a: Symbolic | float | int, b: Symbolic | float | int, **kws: Any):
+        if isinstance(a, float | int) and isinstance(b, float | int):
+            return max(a, b)
         m = Symbolic.var(ids.assign('max'))
         max_a_b, a, b = map(to_expr, (m, a, b))
         if unsat_core:
@@ -261,22 +262,22 @@ def optimal_env(cmd: Command, unsat_core: bool=False, explain_mode: bool=False) 
         else:
             s.maximize(maximize)
 
-    # print(s)
-    check = str(s.check())
-    if check == 'unsat':
-        if 0:
-            print('Impossible to schedule, obtaining unsat core')
-            optimal_env(cmd, unsat_core=True)
-        if not explain_mode:
-            import sys
-            print('impossible...', end=' ', file=sys.stderr, flush=True)
-            try:
-                optimal_env(cmd, explain_mode=True)
-            except:
-                raise
-            else:
-                raise ValueError('Explain mode did not throw an error')
-        raise ValueError(f'Impossible to schedule! {len(estimates.guesses)} missing time estimates: {", ".join(str(g) for g in estimates.guesses.keys())}'.rstrip(': ') + '.')
+    with pbutils.timeit(name, end='... ') if name else contextlib.nullcontext():
+        check = str(s.check())
+        if check == 'unsat':
+            if 0:
+                print('Impossible to schedule, obtaining unsat core')
+                print('unsat core is:')
+                optimal_env(cmd, unsat_core=True)
+            if not explain_mode:
+                print('impossible...', end=' ', file=sys.stderr, flush=True)
+                try:
+                    optimal_env(cmd, explain_mode=True)
+                except:
+                    raise
+                else:
+                    raise ValueError('Explain mode did not throw an error')
+            raise ValueError(f'Impossible to schedule! {len(estimates.guesses)} missing time estimates: {", ".join(str(g) for g in estimates.guesses.keys())}'.rstrip(': ') + '.')
 
     M = s.model()
 
