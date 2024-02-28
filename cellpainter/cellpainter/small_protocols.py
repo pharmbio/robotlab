@@ -172,7 +172,7 @@ def test_circuit(args: SmallProtocolArgs):
     cmds = Seq(
         *[
             cmd.add(metadata)
-            for cmd, metadata in cmds.collect()
+            for cmd, metadata in cmds.collect(flatten_sections=True)
             if isinstance(cmd, RobotarmCmd)
             # if metadata.step not in {'Triton', 'Stains'}
         ],

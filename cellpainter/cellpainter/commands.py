@@ -93,7 +93,7 @@ class Command(ReplaceMixin, abc.ABC):
                 return cmd
         return self.transform(F), did_transform
 
-    def collect(self: Command) -> list[tuple[Command, Metadata]]:
+    def collect(self: Command, flatten_sections: bool=False) -> list[tuple[Command, Metadata]]:
         match self:
             case SeqCmd():
                 return [
@@ -106,6 +106,8 @@ class Command(ReplaceMixin, abc.ABC):
                     (collected_cmd, collected_metadata.merge(self.metadata))
                     for collected_cmd, collected_metadata in self.command.collect()
                 ]
+            case OptimizeSection() if flatten_sections:
+                return self.command.collect()
             # case OptimizeSection():
             #     raise ValueError(f'collect({self})')
             case _:
