@@ -151,7 +151,7 @@ class ExternalState:
                         '1x5': {'project': '', 'plate': ''},
                         '1x3': {'project': 'sim', 'plate': 'S02'},
                     },
-                    # **{f'3x{i}': {'project': 'sim', 'plate': f'T{i:03}'} for i in range(100)}
+                    **{f'3x{i}': {'project': 'sim', 'plate': f'T{i:03}'} for i in range(100)}
                 },
                 last_barcode = f'PT{random.randint(0, 999999):06}',
                 squid_protocols = '''

@@ -988,37 +988,66 @@ def squid_acquire_from_fridge(args: SmallProtocolArgs) -> Program:
         raise ValueError('Specify some RT time. Example: "1800" for 30 minutes')
     if not plates:
         raise ValueError('Select some plates.')
+    ilv = Interleaving.init('''
+        fridge -> H13
+                  H13 -> squid
+        fridge -> H13
+                         squid -> fridge
+                  H13 -> squid
+        fridge -> H13
+                         squid -> fridge
+                  H13 -> squid
+                         squid -> fridge
+    ''')
     checks: list[Command] = []
+    chunks: dict[tuple[str, int], list[Command]] = {}
     for i, plate in enumerate(plates, start=1):
         protocol_path, project, barcode, name = plate.split(':')
         assert_valid_project_name(project)
         checks += [SquidStageCmd('check_protocol_exists', protocol_path).fork_and_wait()]
         plus_secs = dict(enumerate(RT_time_secs, start=1)).get(i, RT_time_secs[-1])
-        cmds += [
+        chunks['fridge -> H13', i] = [
             FridgeEject(plate=barcode, project=project, check_barcode=False).fork_and_wait(),
             Checkpoint(f'RT {i}'),
             PFCmd(f'fridge-to-H11'),
-            SquidStageCmd('goto_loading').fork_and_wait(),
+            PFCmd(f'H11-to-H13') if i > 1 else Noop(),
+        ]
+        chunks['H13 -> squid', i] = [
+            SquidStageCmd('goto_loading').fork(),
+            PFCmd(f'H13-to-H11') if i > 1 else Noop(),
+            WaitForResource('squid'),
             PFCmd(f'H11-to-squid'),
-
             Seq(
                 SquidStageCmd('leave_loading'),
                 SquidStageCmd('goto_loading'),   # go back and forth a few times
                 SquidStageCmd('leave_loading'),  # go back and forth a few times
                 WaitForCheckpoint(f'RT {i}', plus_secs=plus_secs, assume='nothing'),
+                WaitForCheckpoint(f'Ok to start {i}', assume='nothing'),
                 SquidAcquire(protocol_path, project=project, plate=name),
-            ).fork_and_wait(),
-
+                Checkpoint(f'Done {i}'),
+            ).fork(),
+        ]
+        chunks['squid -> fridge', i] = [
+            Checkpoint(f'Ok to start {i}'),
+            WaitForCheckpoint(f'Done {i}', assume='nothing'),
             SquidStageCmd('goto_loading').fork_and_wait(),
             PFCmd(f'squid-to-H11'),
-            SquidStageCmd('leave_loading').fork_and_wait(),
+            SquidStageCmd('leave_loading').fork(),
             BarcodeClear(),
             PFCmd(f'H11-to-fridge'),
             FridgeInsert(
                 project,
                 assume_barcode=barcode,
-            ).fork_and_wait(),
+            ).fork(),
         ]
+    for i, substep in ilv.inst(list([i for i, _ in enumerate(plates, start=1)])):
+        chunk = Seq(*chunks[substep, i])
+        chunk = chunk.transform(lambda cmd: cmd.add(Metadata(plate_id=str(i))) if isinstance(cmd, SquidAcquire) else cmd)
+        if substep == 'squid -> fridge':
+            t = 10 * (i // 10)
+            name = f'({1 + t}-{10 + t})'
+            chunk = chunk.add(Metadata(section=name))
+        cmds += [chunk]
     cmd = Seq(*checks, *cmds)
     return Program(cmd)
 

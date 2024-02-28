@@ -111,7 +111,7 @@ def main():
 def cmdline_to_log(cmdline: str):
     cmdname = 'cellpainter'
     print(cmdline, shlex.split(cmdline))
-    args, _ = arg.parse_args(Args, args=[cmdname, *shlex.split(cmdline)], exit_on_error=False)
+    args, _ = arg.parse_args(Args, args=[*shlex.split(cmdline)], exit_on_error=False)
     pbutils.pr(args)
     if args.log_file_for_visualize:
         return Log.connect(args.log_file_for_visualize)
