@@ -1043,9 +1043,9 @@ def squid_acquire_from_fridge(args: SmallProtocolArgs) -> Program:
     for i, substep in ilv.inst(list([i for i, _ in enumerate(plates, start=1)])):
         chunk = Seq(*chunks[substep, i])
         chunk = chunk.transform(lambda cmd: cmd.add(Metadata(plate_id=str(i))) if isinstance(cmd, SquidAcquire) else cmd)
-        if substep == 'squid -> fridge':
-            t = 10 * (i // 10)
-            name = f'({1 + t}-{10 + t})'
+        if substep == 'squid -> fridge' and i < len(plates):
+            t = (i // 10)
+            name = f'({1 + t})'
             chunk = chunk.add(Metadata(section=name))
         cmds += [chunk]
     cmd = Seq(*checks, *cmds)
