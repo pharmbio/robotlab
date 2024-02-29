@@ -127,6 +127,7 @@ def incu_load(args: SmallProtocolArgs):
             ).add(Metadata(plate_id=p.id, stage=f'plate from A{pos} to {p.incu_loc}'))
         ]
     program = Seq(*[
+        RobotarmCmd('ur gripper init and check'),
         RobotarmCmd(f'B-neu-to-A-neu'),
         *cmds,
         RobotarmCmd(f'A-neu-to-B-neu'),
@@ -170,11 +171,13 @@ def test_circuit(args: SmallProtocolArgs):
     program = cell_paint_program([1], protocol_config=protocol_config)
     cmds = program.command
     cmds = Seq(
+        BlueCmd(action='get_working_plate', protocol_path=None).fork() if protocol_config.use_blue else Idle(),
+        RobotarmCmd('ur gripper init and check'),
+        WaitForResource('blue') if protocol_config.use_blue else Idle(),
         *[
             cmd.add(metadata)
             for cmd, metadata in cmds.collect(flatten_sections=True)
             if isinstance(cmd, RobotarmCmd)
-            # if metadata.step not in {'Triton', 'Stains'}
         ],
         *RobotarmCmds(plate.out_get),
         *RobotarmCmds('B21-to-incu'),
@@ -206,9 +209,12 @@ def test_circuit_with_incubator(args: SmallProtocolArgs):
     program = cell_paint_program([num_plates], protocol_config=protocol_config)
     cmds = program.command
     cmds = Seq(
+        BlueCmd(action='get_working_plate', protocol_path=None).fork() if protocol_config.use_blue else Idle(),
+        RobotarmCmd('ur gripper init and check'),
+        WaitForResource('blue') if protocol_config.use_blue else Idle(),
         *[
             cmd.add(metadata)
-            for cmd, metadata in cmds.collect()
+            for cmd, metadata in cmds.collect(flatten_sections=True)
             if any([
                 isinstance(cmd, RobotarmCmd),
                 isinstance(cmd, Fork) and cmd.resource == 'incu',
@@ -1139,90 +1145,92 @@ def nikon_acquire_from_fridge(args: SmallProtocolArgs) -> Program:
 #         )
 #     )
 
-# # # @pf_protocols.append
-# def nikon_from_fridge(args: SmallProtocolArgs) -> Program:
-#     '''
-#         Images plates in the fridge. Params are: job names (comma-separated), project, RT_time_secs, plate1_barcode, plate1_name, plate2_barcode, plate2_name,..., plateN_barcode, plateN_name
-#     '''
-#     cmds: list[Command] = []
-#     if len(args.params) < 5:
-#         return Program(Seq())
-#     job_names_csv, project, RT_time_secs_str, *barcode_and_plates = args.params
-#     job_names = job_names_csv.split(',')
-#     barcodes = barcode_and_plates[0::2]
-#     plates = barcode_and_plates[1::2]
-#     contents = args.fridge_contents
-#     if contents is not None:
-#         for barcode in barcodes:
-#             if sum(
-#                 1
-#                 for _loc, slot in contents.items()
-#                 if slot['project'] == project
-#                 if slot['plate'] == barcode
-#             ) != 1:
-#                 raise ValueError(f'Could not find {barcode=} from {project=} in fridge!')
-#     RT_time_secs = float(RT_time_secs_str)
-#     chunks: dict[tuple[str, int], list[Command]] = {}
-#     for i, (barcode, plate) in enumerate(zip(barcodes, plates, strict=True), start=1):
-#         chunks['fridge -> H11', i] = [
-#             # get from fridge
-#             Checkpoint(f'Delay eject {i}'),
-#             WaitForCheckpoint(f'Delay eject {i}', assume='nothing') + f'slack {i}',
-#             # Duration(f'Delay eject {i}', Min(2)),
-#             FridgeEject(plate=barcode, project=project, check_barcode=False).fork_and_wait(),
-#             Checkpoint(f'RT {i}'),
-#             PFCmd(f'fridge-to-H11'),
-#             PFCmd(f'H11-to-H11'),
-#         ]
-#         chunks['H11 -> nikon', i] = [
-#             WaitForCheckpoint(f'RT {i}', plus_secs=RT_time_secs, assume='nothing'),
-#             Duration(f'RT {i}', Min(3)),
-#             PFCmd(f'H11-to-H11'),
-#             NikonStageCmd('goto_loading').fork_and_wait(),
-#             NikonStageCmd('init_laser').fork_and_wait(),
-#             PFCmd(f'H11-to-nikon'),
-#             Seq(
-#                 NikonStageCmd('leave_loading'),
-#                 *[
-#                     NikonAcquire(job_name=job_name, project=project, plate=plate).add(Metadata(plate_id=str(i)))
-#                     for job_name in job_names
-#                 ],
-#             ).fork(),
-#         ]
-#         chunks['nikon -> fridge', i] = [
-#             WaitForResource('nikon'),
-#             NikonStageCmd('goto_loading').fork_and_wait(),
-#             PFCmd(f'nikon-to-H11'),
-#             NikonStageCmd('leave_loading').fork(),
-#             BarcodeClear(),
-#             PFCmd(f'H11-to-fridge'),
-#             FridgeInsert(
-#                 project,
-#                 # expected_barcode=barcode
-#                 assume_barcode=barcode, # for RMS-SPECS
-#             ).fork_and_wait(),
-#             WaitForResource('nikon'),
-#         ]
-#     ilv = Interleaving.init('''
-#         fridge -> H11
-#                   H11 -> nikon
-#         fridge -> H11
-#                          nikon -> fridge
-#                   H11 -> nikon
-#         fridge -> H11
-#                          nikon -> fridge
-#                   H11 -> nikon
-#                          nikon -> fridge
-#     ''')
-#     for i, substep in ilv.inst(list([i for i, _ in enumerate(plates, start=1)])):
-#         cmds += [Seq(*chunks[substep, i]).add(Metadata(section=f'{1 + (i-1)//10} {0}'))]
-#     cmds = [
-#         Checkpoint('start'),
-#         *cmds,
-#         Duration('start', Min(2)),
-#     ]
-#     cmd = Seq(*cmds)
-#     return Program(cmd)
+# # @pf_protocols.append
+"""
+def nikon_from_fridge(args: SmallProtocolArgs) -> Program:
+    '''
+        Images plates in the fridge. Params are: job names (comma-separated), project, RT_time_secs, plate1_barcode, plate1_name, plate2_barcode, plate2_name,..., plateN_barcode, plateN_name
+    '''
+    cmds: list[Command] = []
+    if len(args.params) < 5:
+        return Program(Seq())
+    job_names_csv, project, RT_time_secs_str, *barcode_and_plates = args.params
+    job_names = job_names_csv.split(',')
+    barcodes = barcode_and_plates[0::2]
+    plates = barcode_and_plates[1::2]
+    contents = args.fridge_contents
+    if contents is not None:
+        for barcode in barcodes:
+            if sum(
+                1
+                for _loc, slot in contents.items()
+                if slot['project'] == project
+                if slot['plate'] == barcode
+            ) != 1:
+                raise ValueError(f'Could not find {barcode=} from {project=} in fridge!')
+    RT_time_secs = float(RT_time_secs_str)
+    chunks: dict[tuple[str, int], list[Command]] = {}
+    for i, (barcode, plate) in enumerate(zip(barcodes, plates, strict=True), start=1):
+        chunks['fridge -> H11', i] = [
+            # get from fridge
+            Checkpoint(f'Delay eject {i}'),
+            WaitForCheckpoint(f'Delay eject {i}', assume='nothing') + f'slack {i}',
+            # Duration(f'Delay eject {i}', Min(2)),
+            FridgeEject(plate=barcode, project=project, check_barcode=False).fork_and_wait(),
+            Checkpoint(f'RT {i}'),
+            PFCmd(f'fridge-to-H11'),
+            PFCmd(f'H11-to-H11'),
+        ]
+        chunks['H11 -> nikon', i] = [
+            WaitForCheckpoint(f'RT {i}', plus_secs=RT_time_secs, assume='nothing'),
+            Duration(f'RT {i}', Min(3)),
+            PFCmd(f'H11-to-H11'),
+            NikonStageCmd('goto_loading').fork_and_wait(),
+            NikonStageCmd('init_laser').fork_and_wait(),
+            PFCmd(f'H11-to-nikon'),
+            Seq(
+                NikonStageCmd('leave_loading'),
+                *[
+                    NikonAcquire(job_name=job_name, project=project, plate=plate).add(Metadata(plate_id=str(i)))
+                    for job_name in job_names
+                ],
+            ).fork(),
+        ]
+        chunks['nikon -> fridge', i] = [
+            WaitForResource('nikon'),
+            NikonStageCmd('goto_loading').fork_and_wait(),
+            PFCmd(f'nikon-to-H11'),
+            NikonStageCmd('leave_loading').fork(),
+            BarcodeClear(),
+            PFCmd(f'H11-to-fridge'),
+            FridgeInsert(
+                project,
+                # expected_barcode=barcode
+                assume_barcode=barcode, # for RMS-SPECS
+            ).fork_and_wait(),
+            WaitForResource('nikon'),
+        ]
+    ilv = Interleaving.init('''
+        fridge -> H11
+                  H11 -> nikon
+        fridge -> H11
+                         nikon -> fridge
+                  H11 -> nikon
+        fridge -> H11
+                         nikon -> fridge
+                  H11 -> nikon
+                         nikon -> fridge
+    ''')
+    for i, substep in ilv.inst(list([i for i, _ in enumerate(plates, start=1)])):
+        cmds += [Seq(*chunks[substep, i]).add(Metadata(section=f'{1 + (i-1)//10} {0}'))]
+    cmds = [
+        Checkpoint('start'),
+        *cmds,
+        Duration('start', Min(2)),
+    ]
+    cmd = Seq(*cmds)
+    return Program(cmd)
+"""
 
 def cmds_to_program(cmds: list[Command]) -> Program:
     return Program(Seq(*cmds))
