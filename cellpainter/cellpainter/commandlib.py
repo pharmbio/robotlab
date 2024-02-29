@@ -286,6 +286,7 @@ def SCRATCH():
         return Transform(Transform(p, F1), F2)
 
 A = TypeVar('A')
+Node: TypeAlias = tuple[A, str]
 
 @dataclass(frozen=True)
 class Interleaving:
@@ -308,10 +309,9 @@ class Interleaving:
         return Interleaving(rows, name=name)
 
     def inst(self, batch: list[A]) -> list[tuple[A, str]]:
-        Node = tuple[A, str]
-        g: dict[Node, list[Node]] = DefaultDict(list)
+        g: dict[Node[A], list[Node[A]]] = DefaultDict(list)
         for offset, _ in enumerate(batch):
-            chain: list[Node] = [
+            chain: list[Node[A]] = [
                 (batch[i+offset], substep)
                 for i, substep in self.rows
                 if i + offset < len(batch)
