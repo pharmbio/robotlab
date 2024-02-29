@@ -93,7 +93,7 @@ class Locations:
     B: list[str] = [f'B{i}' for i in HB]
 
     Lid:  list[str] = ['B19', 'B17']
-    RT:   list[str] = A[:21]
+    RT:   list[str] = A[:21] + B[4:]
 
     L: list[str] = [f'L{i}' for i in I]
     R: list[str] = [f'R{i}' for i in I]
@@ -106,7 +106,7 @@ class Locations:
     }
 
     Out: dict[str, list[str]] = {
-        '1 of 1': A[:21],
+        '1 of 1': A[:21] + B[4:],
         '1 of 2': B[4:] + A[18:], # 1st batch goes to B then starts to fill remaining locations in A (with one gap)
         '2 of 2': A[:17],         # 2nd batch goes to A (up to 17 plates)
     }
