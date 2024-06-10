@@ -969,6 +969,33 @@ def nikon_to_H11(args: SmallProtocolArgs) -> Program:
     cmd = Seq(*cmds)
     return Program(cmd)
 
+def group_consecutive_by(xs: list[A], key: Callable[[A], B]) -> list[list[A]]:
+    g = DefaultDict[int, list[A]](list)
+    i = 0
+    for prev, x in pbutils.iterate_with_prev(xs):
+        if prev is not None and key(prev) != key(x):
+            i += 1
+        g[i] += [x]
+    return list(g.values())
+
+@dataclass(frozen=True)
+class ParsedPlate:
+    protocol_path: str
+    project: str
+    barcode: str
+    name: str
+
+    @staticmethod
+    def parse(plate: str):
+        protocol_path, project, barcode, name = plate.split(':')
+        return ParsedPlate(
+            protocol_path=protocol_path,
+            project=project,
+            barcode=barcode,
+            name=name,
+         )
+
+
 @pf_protocols.append
 def squid_acquire_from_fridge(args: SmallProtocolArgs) -> Program:
     '''
@@ -977,18 +1004,18 @@ def squid_acquire_from_fridge(args: SmallProtocolArgs) -> Program:
 
     '''
     cmds: list[Command] = []
-    RT_time_secs_csv, *plates = args.params
+    RT_time_secs_csv, *raw_plates = args.params
+    plates: list[ParsedPlate] = [ParsedPlate.parse(raw_plate) for raw_plate in raw_plates]
     contents = args.initial_fridge_contents
     if contents is not None:
         for plate in plates:
-            protocol_path, project, barcode, name = plate.split(':')
             if sum(
                 1
                 for _loc, slot in contents.items()
-                if slot['project'] == project
-                if slot['plate'] == barcode
+                if slot['project'] == plate.project
+                if slot['plate'] == plate.barcode
             ) != 1:
-                raise ValueError(f'Could not find {barcode=} with {project=} in fridge!')
+                raise ValueError(f'Could not find {plate.barcode} from {plate.project} in fridge!')
     RT_time_secs: list[float] = [float(rt) for rt in RT_time_secs_csv.split(',')]
     if not RT_time_secs:
         raise ValueError('Specify some RT time. Example: "1800" for 30 minutes')
@@ -1007,13 +1034,14 @@ def squid_acquire_from_fridge(args: SmallProtocolArgs) -> Program:
     ''')
     checks: list[Command] = []
     chunks: dict[tuple[str, int], list[Command]] = {}
-    for i, plate in enumerate(plates, start=1):
-        protocol_path, project, barcode, name = plate.split(':')
-        assert_valid_project_name(project)
-        checks += [SquidStageCmd('check_protocol_exists', protocol_path).fork_and_wait()]
+    plate_groups = group_consecutive_by(plates, key=lambda plate: (plate.barcode, plate.project))
+    for i, plate_group in enumerate(plate_groups, start=1):
+        assert_valid_project_name(plate_group[0].project)
+        for plate in plate_group:
+            checks += [SquidStageCmd('check_protocol_exists', plate.protocol_path).fork_and_wait()]
         plus_secs = dict(enumerate(RT_time_secs, start=1)).get(i, RT_time_secs[-1])
         chunks['fridge -> H13', i] = [
-            FridgeEject(plate=barcode, project=project, check_barcode=False).fork_and_wait(),
+            FridgeEject(plate=plate_group[0].barcode, project=plate_group[0].project, check_barcode=False).fork_and_wait(),
             Checkpoint(f'RT {i}'),
             PFCmd(f'fridge-to-H11'),
             PFCmd(f'H11-to-H13') if i > 1 else Noop(),
@@ -1029,7 +1057,10 @@ def squid_acquire_from_fridge(args: SmallProtocolArgs) -> Program:
                 SquidStageCmd('leave_loading'),  # go back and forth a few times
                 WaitForCheckpoint(f'RT {i}', plus_secs=plus_secs, assume='nothing'),
                 WaitForCheckpoint(f'Ok to start {i}', assume='nothing'),
-                SquidAcquire(protocol_path, project=project, plate=name),
+                *[
+                    SquidAcquire(plate.protocol_path, project=plate.project, plate=plate.name)
+                    for plate in plate_group
+                ],
                 Checkpoint(f'Done {i}'),
             ).fork(),
         ]
@@ -1042,14 +1073,14 @@ def squid_acquire_from_fridge(args: SmallProtocolArgs) -> Program:
             BarcodeClear(),
             PFCmd(f'H11-to-fridge'),
             FridgeInsert(
-                project,
-                assume_barcode=barcode,
+                plate_group[0].project,
+                assume_barcode=plate_group[0].barcode,
             ).fork(),
         ]
-    for i, substep in ilv.inst(list([i for i, _ in enumerate(plates, start=1)])):
+    for i, substep in ilv.inst(list([i for i, _ in enumerate(plate_groups, start=1)])):
         chunk = Seq(*chunks[substep, i])
         chunk = chunk.transform(lambda cmd: cmd.add(Metadata(plate_id=str(i))) if isinstance(cmd, SquidAcquire) else cmd)
-        if substep == 'squid -> fridge' and i < len(plates):
+        if substep == 'squid -> fridge' and i < len(plate_groups):
             t = (i // 10)
             name = f'({1 + t})'
             chunk = chunk.add(Metadata(section=name))

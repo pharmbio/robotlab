@@ -137,8 +137,6 @@ def G1(i: int):
 def G2(i: int):
     return i + 1 + __test
 
-import pytest
-
 def test_freeze():
     import pickle
     global __test
@@ -231,6 +229,7 @@ def test_freeze():
         return f
 
     f_err = G()
+    import pytest
     with pytest.raises(ValueError) as exc:
         freeze(f_err)
 

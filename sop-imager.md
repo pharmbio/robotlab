@@ -301,8 +301,7 @@ hog,PB0103
 hog,PB0104
 ```
 
-Note: the software will make the unnecessary roundtrip to the fridge in between acquisitions.
-Contact Dan when you plan to use this feature so he can prioritize to optimize it.
+The plate will stay in the microscope for all its consecutive acquisitions.
 
 ## Restarting from emergency stop
 
