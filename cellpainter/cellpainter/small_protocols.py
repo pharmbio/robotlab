@@ -1054,6 +1054,7 @@ def squid_acquire_from_fridge(args: SmallProtocolArgs) -> Program:
             name = f'({1 + t})'
             chunk = chunk.add(Metadata(section=name))
         cmds += [chunk]
+    cmds += [WaitForResource('fridge')]
     cmd = Seq(*checks, *cmds)
     return Program(cmd)
 
