@@ -380,7 +380,7 @@ def validate_all_protocols(args: SmallProtocolArgs):
 @ur_protocols.append
 def run_biotek_bluewasher(args: SmallProtocolArgs):
     '''
-    Run protocols on the bioteks or bluewasher from the protocol dir.
+    Run protocols on the bioteks or bluewasher from the protocol directory.
 
     For each parameter $X runs all protocols that matches ${PROTOCOL_DIR}/$X.
     For example with automation_v4.0, "2" will run
@@ -404,8 +404,8 @@ def run_biotek_bluewasher(args: SmallProtocolArgs):
         for p, machine in protocols:
             if f'/{x.lower()}' in p.lower():
                 cmds += [
-                    Fork(ValidateThenRun(machine, p)),
-                    WaitForResource(machine)
+                    Fork(ValidateThenRun(cast(Any, machine), p)),
+                    WaitForResource(cast(Any, machine))
                 ]
                 ok = True
         if not ok:

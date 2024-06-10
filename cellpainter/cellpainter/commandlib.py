@@ -260,7 +260,7 @@ def SCRATCH():
             d = {}
             for f in fields(x):
                 d[f.name] = Transform(getattr(x, f.name), F)
-            return F(x.__class__(**d))
+            return F(x.__class__(**d)) # type: ignore
         elif isinstance(x, dict):
             return F({k: Transform(v, F) for k, v in cast(Any, x.items())})
         elif isinstance(x, list):
