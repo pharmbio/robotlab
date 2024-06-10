@@ -121,14 +121,15 @@ class ExternalState:
                     lambda: labrobots.MikroAsus().remote(timeout_secs=10).squid.list_protocols(),
                     ['squid webservice down?']
                 ),
-                nikon_protocols = pbutils.catch(
-                    lambda: [
-                        job_name_dict['job_project'] + '/' + job_name_dict['job_name']
-                        for job_name_dict in labrobots.Nikon().remote(timeout_secs=10).nikon.list_protocols()
-                        if job_name_dict['job_project'] != 'Demo'
-                    ],
-                    ['nikon labrobots down?']
-                )
+                nikon_protocols = ['nikon disabled'],
+                #nikon_protocols = pbutils.catch(
+                #    lambda: [
+                #        job_name_dict['job_project'] + '/' + job_name_dict['job_name']
+                #        for job_name_dict in labrobots.Nikon().remote(timeout_secs=10).nikon.list_protocols()
+                #        if job_name_dict['job_project'] != 'Demo'
+                #    ],
+                #    ['nikon labrobots down?']
+                #)
             )
         elif config.name == 'live':
             protocol_paths.update_protocol_paths()
