@@ -116,7 +116,7 @@ class ConnectedBlueWash:
 
     def write_prog(self, program_code: str, index: int):
         self.delete_prog(index)
-        lines = program_code.splitlines(keepends=False)
+        lines = program_code.splitlines()
         self.write(f'$Copyprog {index:02} _')
         for line in lines:
             self.write('$& ' + line)
@@ -219,12 +219,10 @@ class BlueWash(Machine):
                 con.write(f'$runprog {index}')
                 return con.read_until_prog_end()
 
-    def run_from_file(self, *filename_parts: str):
+    def run_program(self, program_text: str):
         with self._connect() as con:
-            filename = '/'.join(filename_parts)
-            path = Path(self.root_dir) / filename
-            text = path.read_text()
-            lines = unroll_loops(text)
+            program_text = textwrap.dedent(program_text).strip()
+            lines = unroll_loops(program_text)
             self.log('\n'.join(lines), lines=lines)
             for line in lines:
                 if line.startswith('#'):
@@ -234,6 +232,12 @@ class BlueWash(Machine):
                 code, _lines = con.read_until_code()
                 con.check_code(code, HTI_NoError)
 
+    def run_from_file(self, *filename_parts: str):
+        filename = '/'.join(filename_parts)
+        path = Path(self.root_dir) / filename
+        program_text = path.read_text()
+        self.run_program(program_text)
+
     def write_prog(self, program_text: str, index: int):
         program_text = textwrap.dedent(program_text).strip()
         with self._connect() as con:
@@ -241,14 +245,12 @@ class BlueWash(Machine):
                 con.write_prog(program_text, index)
 
     def TestCommunications(self):
-        with self.exclusive():
-            program: str = '''
-                $getserial
-                $getfirmware
-                $getipadr
-            '''
-            self.write_prog(program, index=98)
-            return self.run_prog(index=98)
+        program_text: str = '''
+            $getserial
+            $getfirmware
+            $getipadr
+        '''
+        self.run_program(program_text)
 
     mem: Dict[int, str] = field(default_factory=dict)
 
@@ -277,7 +279,7 @@ class BlueWash(Machine):
             return self.RunValidated(*filename_parts)
 
 def unroll_loops(text: str) -> list[str]:
-    lines = [s.strip() for s in text.splitlines(keepends=False)]
+    lines = text.splitlines()
     lines = fix(unroll_one, lines)
     return lines
 
@@ -292,12 +294,92 @@ def fix(f: Callable[[A], A], x: A):
             x = fx
 
 def unroll_one(lines: list[str]):
-    for i, line in enumerate(lines):
+    for i, line in reversed(list(enumerate(lines))):
+        line = line.strip()
         if line.startswith('loop '):
             n = int(line[5:])
             for j, end_line in enumerate(lines):
+                end_line = end_line.strip()
                 if j > i and end_line == 'endloop':
                     return lines[:i] + lines[i+1:j] * n + lines[j+1:]
             raise ValueError('loop without endloop')
     return lines
 
+def test_unroll():
+    assert unroll_one([
+        'a',
+        'loop 3',
+        'b',
+        'endloop',
+        'c',
+    ]) ==  [
+        'a',
+        'b',
+        'b',
+        'b',
+        'c',
+    ]
+
+    assert unroll_one([
+        'a',
+        'loop 3',
+        'b1',
+        'endloop',
+        'loop 3',
+        'b2',
+        'endloop',
+        'c',
+    ]) ==  [
+        'a',
+        'loop 3',
+        'b1',
+        'endloop',
+        'b2',
+        'b2',
+        'b2',
+        'c',
+    ]
+
+    assert unroll_one([
+        'a',
+        'loop 2',
+        '[',
+        'loop 2',
+        'b',
+        'endloop',
+        ']',
+        'endloop',
+        'c',
+    ]) ==  [
+        'a',
+        'loop 2',
+        '[',
+        'b',
+        'b',
+        ']',
+        'endloop',
+        'c',
+    ]
+
+    assert unroll_loops('\n'.join([
+        'a',
+        'loop 2',
+        '[',
+        'loop 2',
+        'b',
+        'endloop',
+        ']',
+        'endloop',
+        'c',
+    ])) ==  [
+        'a',
+        '[',
+        'b',
+        'b',
+        ']',
+        '[',
+        'b',
+        'b',
+        ']',
+        'c',
+    ]
