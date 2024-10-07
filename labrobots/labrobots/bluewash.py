@@ -200,9 +200,9 @@ class BlueWash(Machine):
         '''
         return self.run_cmd('$rackgetoutsensor')
 
-    def run_cmd(self, cmd: str):
+    def run_cmd(self, *cmd_parts: str):
         with self._connect() as con:
-            con.write(cmd)
+            con.write(' '.join(map(str, cmd_parts)))
             code, lines = con.read_until_code()
             con.check_code(code, HTI_NoError)
             return lines
@@ -218,6 +218,21 @@ class BlueWash(Machine):
             with self.timeit('runprog'):
                 con.write(f'$runprog {index}')
                 return con.read_until_prog_end()
+
+    def run_from_file(self, *filename_parts: str):
+        with self._connect() as con:
+            filename = '/'.join(filename_parts)
+            path = Path(self.root_dir) / filename
+            text = path.read_text()
+            lines = unroll_loops(text)
+            self.log('\n'.join(lines), lines=lines)
+            for line in lines:
+                if line.startswith('#'):
+                    self.log(f'               {line}')
+                    continue
+                con.write(line)
+                code, _lines = con.read_until_code()
+                con.check_code(code, HTI_NoError)
 
     def write_prog(self, program_text: str, index: int):
         program_text = textwrap.dedent(program_text).strip()
@@ -260,3 +275,29 @@ class BlueWash(Machine):
         with self.exclusive():
             self.Validate(*filename_parts)
             return self.RunValidated(*filename_parts)
+
+def unroll_loops(text: str) -> list[str]:
+    lines = [s.strip() for s in text.splitlines(keepends=False)]
+    lines = fix(unroll_one, lines)
+    return lines
+
+A = TypeVar('A')
+
+def fix(f: Callable[[A], A], x: A):
+    while True:
+        fx = f(x)
+        if fx == x:
+            return x
+        else:
+            x = fx
+
+def unroll_one(lines: list[str]):
+    for i, line in enumerate(lines):
+        if line.startswith('loop '):
+            n = int(line[5:])
+            for j, end_line in enumerate(lines):
+                if j > i and end_line == 'endloop':
+                    return lines[:i] + lines[i+1:j] * n + lines[j+1:]
+            raise ValueError('loop without endloop')
+    return lines
+
