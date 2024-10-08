@@ -237,12 +237,12 @@ class BlueWash(Machine):
                     continue
                 while True:
                     time.sleep(0.1) # Manual says sleep at least 50ms between commands
-                    con.write(line)
+                    con.write('$' + line.lstrip('$'))
                     code, _lines = con.read_until_code()
                     con.check_code(code, HTI_NoError, HTI_ERR_UNKNOWN_CMD)
 
                     # Let's check for status, might be useful for debugging
-                    con.write('getstatus')
+                    con.write('$getstatus')
                     _status, _lines = con.read_until_code()
 
                     if code == HTI_ERR_UNKNOWN_CMD:
