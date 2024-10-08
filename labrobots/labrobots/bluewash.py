@@ -11,6 +11,8 @@ NoReply = -1
 HTI_NoError = 0
 HTI_ProgEnd = 21
 HTI_ERR_FILE_NOT_FOUND = 16
+HTI_ERR_UNKNOWN_CMD = 15
+
 Errors = {
     -1: "No reply from BlueWash",
      0: "HTI_NoError Successful command execution Note: for integrated solutions, wait for Err=00 before sending next command",
@@ -77,12 +79,14 @@ class ConnectedBlueWash:
         reply = reply_bytes.decode().strip()
         return reply
 
-    def read_until_code(self) -> Tuple[int, List[str]]:
+    def read_until_code(self) -> Tuple[int | str, List[str]]:
         out: list[str] = []
         while True:
             reply = self.read()
             if reply.startswith('Err='):
                 return int(reply[len('Err='):]), out
+            if reply.startswith('STATUS='):
+                return reply, out
             elif reply:
                 out += [reply]
 
@@ -119,6 +123,8 @@ class ConnectedBlueWash:
         lines = program_code.splitlines()
         self.write(f'$Copyprog {index:02} _')
         for line in lines:
+            if line.strip().startswith('#'):
+                continue
             self.write('$& ' + line)
         self.write('$%')
         code, _ = self.read_until_code()
@@ -134,9 +140,12 @@ class ConnectedBlueWash:
         '''
         self.get_progs()
 
-    def check_code(self, code: int, *ok_codes: int) -> None:
+    def check_code(self, code: int | str, *ok_codes: int | str) -> None:
         if code not in ok_codes:
-            raise ValueError(f'Unexpected reply from BlueWash: {code=} {Errors.get(code, "unknown error")}')
+            if isinstance(code, int):
+                raise ValueError(f'Unexpected reply from BlueWash: {code=} {Errors.get(code, f"unknown {code=}")}')
+            else:
+                raise ValueError(f'Unexpected reply from BlueWash: {code=}')
 
 @dataclass(frozen=True)
 class BlueWash(Machine):
@@ -163,9 +172,7 @@ class BlueWash(Machine):
                 '''
                 conn.write('$changelog 0')
                 code, _lines = conn.read_until_code()
-                if code != 0:
-                    raise ValueError('Expected code Err=00, received {code=}')
-
+                conn.check_code(code, HTI_NoError)
                 yield conn
                 com.close()
 
@@ -204,7 +211,7 @@ class BlueWash(Machine):
         with self._connect() as con:
             con.write(' '.join(map(str, cmd_parts)))
             code, lines = con.read_until_code()
-            con.check_code(code, HTI_NoError)
+            con.check_code(code, HTI_NoError, 'STATUS=00', 'STATUS=01', 'STATUS=02', 'STATUS=03')
             return lines
 
     def run_servprog(self, index: int):
@@ -228,9 +235,21 @@ class BlueWash(Machine):
                 if line.startswith('#'):
                     self.log(f'               {line}')
                     continue
-                con.write(line)
-                code, _lines = con.read_until_code()
-                con.check_code(code, HTI_NoError)
+                while True:
+                    time.sleep(0.1) # Manual says sleep at least 50ms between commands
+                    con.write(line)
+                    code, _lines = con.read_until_code()
+                    con.check_code(code, HTI_NoError, HTI_ERR_UNKNOWN_CMD)
+
+                    # Let's check for status, might be useful for debugging
+                    con.write('getstatus')
+                    _status, _lines = con.read_until_code()
+
+                    if code == HTI_ERR_UNKNOWN_CMD:
+                        # Sometimes transmission fails and you get Err=15. Then we retry
+                        pass
+                    elif code == HTI_NoError:
+                        break
 
     def run_from_file(self, *filename_parts: str):
         filename = '/'.join(filename_parts)
@@ -294,6 +313,9 @@ def fix(f: Callable[[A], A], x: A):
             x = fx
 
 def unroll_one(lines: list[str]):
+    '''
+    Unrolls the last innermost loop
+    '''
     for i, line in reversed(list(enumerate(lines))):
         line = line.strip()
         if line.startswith('loop '):
