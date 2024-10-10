@@ -233,20 +233,15 @@ class BlueWash(Machine):
             self.log('\n'.join(lines), lines=lines)
             for line in lines:
                 if line.startswith('#'):
-                    self.log(f'               {line}')
                     continue
                 while True:
-                    time.sleep(0.1) # Manual says sleep at least 50ms between commands
+                    time.sleep(0.05) # Manual says sleep at least 50ms between commands
                     con.write('$' + line.lstrip('$'))
                     code, _lines = con.read_until_code()
                     con.check_code(code, HTI_NoError, HTI_ERR_UNKNOWN_CMD)
 
-                    # Let's check for status, might be useful for debugging
-                    con.write('$getstatus')
-                    _status, _lines = con.read_until_code()
-
                     if code == HTI_ERR_UNKNOWN_CMD:
-                        # Sometimes transmission fails and you get Err=15. Then we retry
+                        # If transmission fails you get Err=15. Then we retry.
                         pass
                     elif code == HTI_NoError:
                         break
@@ -271,31 +266,17 @@ class BlueWash(Machine):
         '''
         self.run_program(program_text)
 
-    mem: Dict[int, str] = field(default_factory=dict)
-
     def Validate(self, *filename_parts: str):
-        with self.exclusive():
-            filename = '/'.join(filename_parts)
-            self.mem[99] = filename
-            path = Path(self.root_dir) / filename
-            self.write_prog(path.read_text(), index=99)
+        filename = '/'.join(filename_parts)
+        self.log(f'deprecation warning: Validate is now unnecessary for bluewasher', type='warning', filename=filename, filename_parts=filename_parts)
 
-    def RunValidated(self, *filename_parts: str) -> List[str]:
-        with self.exclusive():
-            filename = '/'.join(filename_parts)
-            stored = self.mem.get(99)
-            if stored == filename:
-                return self.run_prog(index=99)
-            else:
-                self.log(f'warning: RunValidated without Validate first', type='warning', stored=stored, filename=filename)
-                self.log(f'{stored=!r}')
-                self.log(f'{filename=!r}')
-                return self.Run(*filename_parts)
+    def RunValidated(self, *filename_parts: str):
+        filename = '/'.join(filename_parts)
+        self.log(f'deprecation warning: RunValidated is now unnecessary for bluewasher, use Run instead', type='warning', filename=filename, filename_parts=filename_parts)
+        self.Run(*filename_parts)
 
-    def Run(self, *filename_parts: str) -> List[str]:
-        with self.exclusive():
-            self.Validate(*filename_parts)
-            return self.RunValidated(*filename_parts)
+    def Run(self, *filename_parts: str):
+        self.run_from_file(*filename_parts)
 
 def unroll_loops(text: str) -> list[str]:
     lines = text.splitlines()
