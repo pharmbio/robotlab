@@ -18,12 +18,6 @@ def execute(
             case 'Run':
                 assert isinstance(protocol_path, str)
                 res = blue.Run(*protocol_path.split('/'))
-            case 'Validate':
-                assert isinstance(protocol_path, str)
-                res = blue.Validate(*protocol_path.split('/'))
-            case 'RunValidated':
-                assert isinstance(protocol_path, str)
-                res = blue.RunValidated(*protocol_path.split('/'))
             case 'TestCommunications':
                 assert protocol_path is None
                 res = blue.TestCommunications()

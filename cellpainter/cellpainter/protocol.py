@@ -718,7 +718,6 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                             # if not prev_step or not prev_step.blue
                             if step.blue # let's just always prime blue for simplicity
                         ],
-                        BlueCmd('Validate', step.blue),
                     ),
                     align='end',
                 ),
@@ -727,7 +726,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                 Fork(
                     Seq(
                         *wash_delay,
-                        BlueCmd('RunValidated', step.blue),
+                        BlueCmd('Run', step.blue),
                         Checkpoint(f'{plate_desc} incubation {ix}')
                         if not step.disp else
                         Checkpoint(f'{plate_desc} transfer {ix}'),

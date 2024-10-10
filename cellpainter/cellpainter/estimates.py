@@ -151,8 +151,6 @@ def estimate(cmd: PhysicalCommand) -> float:
                 guess = 25.0
             case BiotekCmd(machine='wash'):
                 guess = 100.0
-            case BlueCmd(action='Validate'):
-                guess = 5.0
             case BlueCmd(action='TestCommunications'):
                 guess = 5.0
             case BlueCmd():

@@ -287,9 +287,8 @@ def measure_liquids(args: SmallProtocolArgs):
             if step.blue:
                 prev, loc = loc, 'blue'
                 stage_cmds += [
-                    Fork(BlueCmd('Validate', step.blue) >> Early(5), align='end') if i == 0 else Idle(),
                     *(RobotarmCmds(f'{prev}-to-{loc}') if prev != loc else []),
-                    Fork(BlueCmd('RunValidated', step.blue)),
+                    Fork(BlueCmd('Run', step.blue)),
                     WaitForResource('blue'),
                 ]
             if step.wash:
@@ -969,7 +968,7 @@ def nikon_to_H11(args: SmallProtocolArgs) -> Program:
     cmd = Seq(*cmds)
     return Program(cmd)
 
-def group_consecutive_by(xs: list[A], key: Callable[[A], B]) -> list[list[A]]:
+def group_consecutive_by(xs: list[A], key: Callable[[A], Any]) -> list[list[A]]:
     g = DefaultDict[int, list[A]](list)
     i = 0
     for prev, x in pbutils.iterate_with_prev(xs):

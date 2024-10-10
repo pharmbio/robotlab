@@ -117,11 +117,6 @@ class Command(ReplaceMixin, abc.ABC):
         match self:
             case Idle():
                 return False
-                s = self.seconds
-                if s.var_names:
-                    return False
-                else:
-                    return float(s.offset) == 0.0
             case SeqCmd():
                 return all(cmd.is_noop() for cmd in self.commands)
             case Fork() | Meta() | OptimizeSection():
@@ -527,22 +522,18 @@ def ValidateThenRun(
     protocol_path: str,
 ) -> Command:
     if machine == 'blue':
-        return Seq(
-            BlueCmd('Validate',     protocol_path),
-            BlueCmd('RunValidated', protocol_path),
-        )
+        return BlueCmd('Run', protocol_path)
     else:
         return Seq(
             BiotekCmd(machine, 'Validate',     protocol_path),
             BiotekCmd(machine, 'RunValidated', protocol_path),
         )
 
-BlueWashAction = Union[
-    BiotekAction,
-    Literal[
-        'reset_and_activate',
-        'get_working_plate',
-    ],
+BlueWashAction = Literal[
+    'TestCommunications',
+    'Run',
+    'reset_and_activate',
+    'get_working_plate',
 ]
 
 @dataclass(frozen=True)
@@ -779,9 +770,7 @@ def SCRATCH():
 
             RobotarmCmd('B21-to-blue transfer'),
 
-            Fork(BlueCmd('Validate', 'wash'), align='end'),
-
-            Fork(BlueCmd('RunValidated', 'wash')),
+            Fork(BlueCmd('Run', 'wash')),
 
             WaitForResource('blue'),
 
