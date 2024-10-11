@@ -195,55 +195,6 @@
       ""
     ]
   },
-  "automation_spheroid_v1.0_day2": {
-    "type": "ProtocolPaths",
-    "wash_prime": [
-      "automation_spheroid_v1.0_day2/0_W_D_prime_PBS.LHC"
-    ],
-    "wash_5": [
-      "",
-      "",
-      "automation_spheroid_v1.0_day2/5_W_2X_beforeClear_leaves11ul_PBS.LHC",
-      "",
-      ""
-    ],
-    "wash_6": [
-      "",
-      "",
-      "automation_spheroid_v1.0_day2/5_W_2X_beforeClear_leaves11ul_PBS.LHC",
-      "",
-      "",
-      ""
-    ],
-    "disp_prime": [
-      "",
-      "",
-      "automation_spheroid_v1.0_day2/6.0_D_SB_PRIME_Clear.LHC",
-      ""
-    ],
-    "disp_prep": [
-      "",
-      "",
-      "",
-      ""
-    ],
-    "disp_main": [
-      "",
-      "",
-      "automation_spheroid_v1.0_day2/6.1_D_SB_70ul_Clear.LHC",
-      ""
-    ],
-    "blue_prime": [
-      ""
-    ],
-    "blue": [
-      "",
-      "",
-      "",
-      "",
-      ""
-    ]
-  },
   "automation_v4.0": {
     "type": "ProtocolPaths",
     "wash_prime": [
