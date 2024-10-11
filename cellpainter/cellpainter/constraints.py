@@ -53,7 +53,20 @@ def optimize(cmd: Command) -> tuple[Command, dict[int, float]]:
         else:
             return cmd
 
-    return OptimizeSection(cmd).transform(Opt), ends
+    def RemoveOptimizeSection(cmd: Command) -> Command:
+        '''
+        There is a bug with these OptimizeSection triggered at p53 batch 1, 2024-07-03.
+
+        The sections were introduced for HepG2 winter 2024 to support big batches back to back.
+
+        Workaround for now to disable them is to remove all of them and only make one wrapping one.
+        '''
+        if isinstance(cmd, OptimizeSection):
+            return cmd.command
+        else:
+            return cmd
+
+    return Opt(OptimizeSection(cmd.transform(RemoveOptimizeSection))), ends
 
 @dataclass(frozen=True)
 class Ids:
