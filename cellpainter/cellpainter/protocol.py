@@ -685,7 +685,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                 Fork(
                     Seq(
                         *[
-                            cmd.add(Metadata(plate_id=None))
+                            cmd.add(Metadata(plate_id=''))
                             for cmd in wash_prime
                             if plate is first_plate
                             if not prev_step or not prev_step.wash
@@ -712,7 +712,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                 Fork(
                     Seq(
                         *[
-                            cmd.add(Metadata(plate_id=None))
+                            cmd.add(Metadata(plate_id=''))
                             for cmd in blue_prime
                             if plate is first_plate
                             # if not prev_step or not prev_step.blue
@@ -778,6 +778,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                 WaitForResource('wash', assume='will wait'),
                 Early(1),
                 RobotarmCmd('wash-to-disp transfer'),
+                WashCmd('TestCommunications', protocol_path=None).fork(), # use it so it doesn't start while moving from it
                 run_disp,
                 RobotarmCmd('wash-to-disp return'),
             ]
@@ -787,6 +788,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                 WaitForResource('blue', assume='will wait'),
                 Early(1),
                 RobotarmCmd('blue-to-disp transfer'),
+                BlueCmd('TestCommunications').fork(), # use it so it doesn't start while moving from it
                 run_disp,
                 RobotarmCmd('blue-to-disp return'),
             ]
@@ -805,6 +807,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                     Early(1),
                     WaitForResource('disp') if step.disp else Idle(),
                     RobotarmCmd(f'disp-to-B{z} transfer'),
+                    DispCmd('TestCommunications', protocol_path=None).fork(), # use it so it doesn't start while moving from it
                     RobotarmCmd(f'disp-to-B{z} return'),
                 ]
 
@@ -814,6 +817,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                     Early(1),
                     WaitForResource('wash') if step.wash else Idle(),
                     RobotarmCmd(f'wash-to-B{z} transfer'),
+                    WashCmd('TestCommunications', protocol_path=None).fork(), # use it so it doesn't start while moving from it
                     RobotarmCmd(f'wash-to-B{z} return'),
                 ]
 
@@ -823,6 +827,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                     Early(1),
                     WaitForResource('blue') if step.blue else Idle(),
                     RobotarmCmd(f'blue-to-B{z} transfer'),
+                    BlueCmd('TestCommunications').fork(), # use it so it doesn't start while moving from it
                     RobotarmCmd(f'blue-to-B{z} return'),
                 ]
 
