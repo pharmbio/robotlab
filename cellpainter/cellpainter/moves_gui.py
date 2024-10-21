@@ -680,11 +680,16 @@ def index() -> Iterator[Tag | dict[str, str]]:
             nuc = WindowsNUC.remote()
             blue = nuc.blue
             blue.run_program(program)
-        speed_btns += button('blue open', onclick=call(blue_run, 'dooropen'))
-        speed_btns += button('blue close', onclick=call(blue_run, 'doorclose'))
-        speed_btns += button('blue init', onclick=call(blue_run, 'runservprog 1'))
-        speed_btns += button('blue balance', onclick=call(blue_run, 'runservprog 2'))
-        speed_btns += button('blue working', onclick=call(blue_run, 'runservprog 3'))
+        def blue_runservprog(ix: int):
+            from labrobots import WindowsNUC
+            nuc = WindowsNUC.remote()
+            blue = nuc.blue
+            blue.run_servprog(ix)
+        speed_btns += button('blue init',      onclick=call(blue_runservprog, 1))
+        speed_btns += button('blue balance',   onclick=call(blue_runservprog, 2))
+        speed_btns += button('blue working',   onclick=call(blue_runservprog, 3))
+        speed_btns += button('blue open',      onclick=call(blue_run, 'dooropen'))
+        speed_btns += button('blue close',     onclick=call(blue_run, 'doorclose'))
         speed_btns += button('blue openclose', onclick=call(blue_run, 'dooropen\ndoorclose'))
         speed_btns += button('blue closeopen', onclick=call(blue_run, 'doorclose\ndooropen'))
     foot += speed_btns
