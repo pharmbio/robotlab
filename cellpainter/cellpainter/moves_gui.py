@@ -673,6 +673,19 @@ def index() -> Iterator[Tag | dict[str, str]]:
     """)
     for speed in [25, 50, 80, 100]:
         speed_btns += button(f'set speed to {speed}', tabindex='-1', onclick=call(arm_set_speed, speed))
+
+    if state.ur:
+        def blue_run(program: str):
+            from labrobots import WindowsNUC
+            nuc = WindowsNUC.remote()
+            blue = nuc.blue
+            blue.run_program(program)
+        speed_btns += button('blue open', onclick=call(blue_run, '$dooropen'))
+        speed_btns += button('blue open', onclick=call(blue_run, '$doorclose'))
+        speed_btns += button('blue init', onclick=call(blue_run, '$runservprog 1'))
+        speed_btns += button('blue balance', onclick=call(blue_run, '$runservprog 2'))
+        speed_btns += button('blue working', onclick=call(blue_run, '$runservprog 3'))
+        speed_btns += button('blue openclose', onclick=call(blue_run, '$dooropen\n$doorclose'))
     foot += speed_btns
 
     yield V.queue_refresh(150)
