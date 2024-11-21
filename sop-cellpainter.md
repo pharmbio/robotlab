@@ -147,7 +147,8 @@ For dry runs: make sure the plates are decontaminated since they are going into 
    The protocol directory contains the protocol files for the washer and dispenser. These need to be named
    according to the schema in [protocol_paths.py](cellpainter/protocol_paths.py).
 
-   For 7 and more plates use two final wash rounds.
+   For 7 and more plates use two final wash rounds. Protocols with the bluewasher always use only one final wash round.
+   hThere is no choice.
 
    Press start or press simulate.
 
