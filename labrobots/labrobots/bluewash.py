@@ -181,11 +181,11 @@ class BlueWash(Machine):
                         break
                 if com is None:
                     if errors:
-                        msg = f'Failed to communicate with the blue washer: {errors[-1]}'
+                        msg = f'Failed to communicate with the blue washer: {errors[-1]}.'
                     else:
                         msg = f'Failed to communicate with the blue washer.'
-                    msg += '\nPlease make sure the blue washer GUI is turned off.'
                     raise ValueError(msg)
+                    msg += ' Please make sure the blue washer GUI is turned off.'
                 conn = ConnectedBlueWash(com, log=self.log)
 
                 '''
