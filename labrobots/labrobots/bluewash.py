@@ -1,5 +1,5 @@
 from typing import *
-from serial import Serial # type: ignore
+from serial import Serial, SerialException # type: ignore
 from .machine import Machine
 from dataclasses import *
 from pathlib import Path
@@ -157,11 +157,33 @@ class BlueWash(Machine):
         with self.exclusive():
             self.log('bluewash: Using com_port', self.com_port)
             with self.timeit('_connection'):
-                com = Serial(
-                    self.com_port,
-                    timeout=15,
-                    baudrate=115200
-                )
+                '''
+                Retry loop to get a communication.
+
+                Communication fails sometimes (at about 20%) when communicating
+                with a biotek machine at the same time as the blue washer.
+                '''
+                com = None
+                errors: list[SerialException] = []
+                for num_retry in range(10):
+                    try:
+                        com = Serial(
+                            self.com_port,
+                            timeout=15,
+                            baudrate=115200
+                        )
+                    except SerialException as e:
+                        self.log(f'bluewash: {e}', error=str(e), erorr_repr=repr(e), error_dict=repr(e.__dict__), num_retry=num_retry)
+                        time.sleep(0.1)
+                        errors += [e]
+                        continue
+                    else:
+                        break
+                if com is None:
+                    msg = f'Failed to communicate with the blue washer. Make sure the blue washer GUI is turned off. Failed attempts: {len(errors)}.'
+                    if errors:
+                        msg += f' Original error: {errors[-1]}'
+                    raise ValueError(msg)
                 conn = ConnectedBlueWash(com, log=self.log)
 
                 '''
