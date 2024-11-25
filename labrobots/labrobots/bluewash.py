@@ -184,8 +184,8 @@ class BlueWash(Machine):
                         msg = f'Failed to communicate with the blue washer: {errors[-1]}.'
                     else:
                         msg = f'Failed to communicate with the blue washer.'
-                    raise ValueError(msg)
                     msg += ' Please make sure the blue washer GUI is turned off.'
+                    raise ValueError(msg)
                 conn = ConnectedBlueWash(com, log=self.log)
 
                 '''
