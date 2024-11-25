@@ -173,7 +173,7 @@ class BlueWash(Machine):
                             baudrate=115200
                         )
                     except SerialException as e:
-                        self.log(f'bluewash: {e}', error=str(e), erorr_repr=repr(e), error_dict=repr(e.__dict__), num_retry=num_retry)
+                        self.log(f'bluewash: {e}', error=str(e), error_repr=repr(e), num_retry=num_retry)
                         time.sleep(0.1)
                         errors += [e]
                         continue
