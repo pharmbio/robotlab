@@ -3,34 +3,34 @@
 {"type":"GripperMove","pos":100}
 {"type":"MoveJoint","joints":[502.01,-70.74,273.53,157.58],"name":"hotel neu"}
 {"type":"MoveLin","xyz":[-20.1,-503.9,448.2],"rpy":[0.0,0.0,0.4],"tag":"11/21","name":"H11 entrance"}
-{"type":"MoveLin","xyz":[160,-517.3,448.2],"rpy":[0.0,0.0,0.4],"tag":"11/21","name":"H11 neu"}
-{"type":"MoveLin","xyz":[160,-517.3,443.2],"rpy":[0.0,0.0,0.4],"tag":"11/21","name":"H11 pick"}
+{"type":"MoveLin","xyz":[160.2,-518.4,448.2],"rpy":[0.0,0.0,0.4],"tag":"11/21","name":"H11 neu"}
+{"type":"MoveLin","xyz":[160.2,-518.4,443.2],"rpy":[0.0,0.0,0.4],"tag":"11/21","name":"H11 pick"}
 {"type":"GripperMove","pos":75}
-{"type":"MoveLin","xyz":[160,-517.3,448.2],"rpy":[0.0,0.0,0.4],"tag":"11/21","name":"H11 neu"}
+{"type":"MoveLin","xyz":[160.2,-518.4,448.2],"rpy":[0.0,0.0,0.4],"tag":"11/21","name":"H11 neu"}
 {"type":"MoveLin","xyz":[-20.1,-503.9,448.2],"rpy":[0.0,0.0,0.4],"tag":"11/21","name":"H11 entrance"}
 {"type":"MoveJoint","joints":[502.01,-70.74,273.53,157.58],"name":"hotel neu"}
-{"type":"MoveJoint","joints":[505.3,68.67,40.02,431.6],"name":"fridge neu"}
-{"type":"MoveLin","xyz":[-144.8,554.2,505.3],"rpy":[0.0,0.0,-179.7],"name":"fridge above"}
-{"type":"MoveLin","xyz":[-144.8,554.2,405.3],"rpy":[0.0,0.0,-179.7],"name":"fridge drop"}
+{"type":"MoveJoint","joints":[505.31,69.1,39.98,431.21],"name":"fridge neu"}
+{"type":"MoveLin","xyz":[-148.8,554.4,505.3],"rpy":[0.0,0.0,-179.7],"name":"fridge above"}
+{"type":"MoveLin","xyz":[-148.8,554.4,405.3],"rpy":[0.0,0.0,-179.7],"name":"fridge drop"}
 {"type":"GripperMove","pos":100}
-{"type":"MoveLin","xyz":[-144.8,554.2,505.3],"rpy":[0.0,0.0,-179.7],"name":"fridge above"}
-{"type":"MoveJoint","joints":[505.3,68.67,40.02,431.6],"name":"fridge neu"}
+{"type":"MoveLin","xyz":[-148.8,554.4,505.3],"rpy":[0.0,0.0,-179.7],"name":"fridge above"}
+{"type":"MoveJoint","joints":[505.31,69.1,39.98,431.21],"name":"fridge neu"}
 {"type":"MoveJoint","joints":[601.9,-9.03,177.84,191.53],"name":"neu"}
 {"type":"Section","section":"fridge-to-H11"}
 {"type":"MoveJoint","joints":[601.9,-9.03,177.84,191.53],"name":"neu"}
 {"type":"GripperMove","pos":100}
-{"type":"MoveJoint","joints":[505.3,68.67,40.02,431.6],"name":"fridge neu"}
-{"type":"MoveLin","xyz":[-144.8,554.2,505.3],"rpy":[0.0,0.0,-179.7],"name":"fridge above"}
-{"type":"MoveLin","xyz":[-144.8,554.2,405.0],"rpy":[0.0,0.0,-179.7],"name":"fridge pick"}
+{"type":"MoveJoint","joints":[505.31,69.1,39.98,431.21],"name":"fridge neu"}
+{"type":"MoveLin","xyz":[-148.8,554.4,505.3],"rpy":[0.0,0.0,-179.7],"name":"fridge above"}
+{"type":"MoveLin","xyz":[-148.8,554.4,405.3],"rpy":[0.0,0.0,-179.7],"name":"fridge pick"}
 {"type":"GripperMove","pos":75}
-{"type":"MoveLin","xyz":[-144.8,554.2,505.3],"rpy":[0.0,0.0,-179.7],"name":"fridge above"}
-{"type":"MoveJoint","joints":[505.3,68.67,40.02,431.6],"name":"fridge neu"}
+{"type":"MoveLin","xyz":[-148.8,554.4,505.3],"rpy":[0.0,0.0,-179.7],"name":"fridge above"}
+{"type":"MoveJoint","joints":[505.31,69.1,39.98,431.21],"name":"fridge neu"}
 {"type":"MoveJoint","joints":[502.01,-70.74,273.53,157.58],"name":"hotel neu"}
 {"type":"MoveLin","xyz":[-20.1,-503.9,448.2],"rpy":[0.0,0.0,0.4],"tag":"11/21","name":"H11 entrance"}
-{"type":"MoveLin","xyz":[160,-517.3,448.2],"rpy":[0.0,0.0,0.4],"tag":"11/21","name":"H11 neu"}
-{"type":"MoveLin","xyz":[160,-517.3,444.2],"rpy":[0.0,0.0,0.4],"tag":"11/21","name":"H11 drop"}
+{"type":"MoveLin","xyz":[160.2,-518.4,448.2],"rpy":[0.0,0.0,0.4],"tag":"11/21","name":"H11 neu"}
+{"type":"MoveLin","xyz":[160.2,-518.4,443.7],"rpy":[0.0,0.0,0.4],"tag":"11/21","name":"H11 drop"}
 {"type":"GripperMove","pos":100}
-{"type":"MoveLin","xyz":[160,-517.3,448.2],"rpy":[0.0,0.0,0.4],"tag":"11/21","name":"H11 neu"}
+{"type":"MoveLin","xyz":[160.2,-518.4,448.2],"rpy":[0.0,0.0,0.4],"tag":"11/21","name":"H11 neu"}
 {"type":"MoveLin","xyz":[-20.1,-503.9,448.2],"rpy":[0.0,0.0,0.4],"tag":"11/21","name":"H11 entrance"}
 {"type":"MoveJoint","joints":[502.01,-70.74,273.53,157.58],"name":"hotel neu"}
 {"type":"MoveJoint","joints":[601.9,-9.03,177.84,191.53],"name":"neu"}
