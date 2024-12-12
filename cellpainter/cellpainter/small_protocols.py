@@ -909,6 +909,8 @@ def test_circuit_to_squid_and_fridge(args: SmallProtocolArgs) -> Program:
         SquidStageCmd('leave_loading').fork_and_wait(),
     ]
     cmds = [
+        *cmds,
+
         PFCmd('H11-to-fridge'),
         PFCmd('fridge-to-H11'),
         *cmds,
