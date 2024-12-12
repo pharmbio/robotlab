@@ -211,7 +211,7 @@ def keydown(program_name: str, args: dict[str, Any]):
             'Insert':     moves.MoveRel(xyz=[0, 0, 0], rpy=[0, -deg, 0]),
         }
     def norm(k: str):
-        tr: dict[str, str] = cast(Any, dict)(['[{', ']}', '+=', '-_', ',<', '.>'])
+        tr: dict[str, str] = cast(Any, dict)(['[{', ']}', '+=', '-_', ',;', '.:'])
         return tr.get(k) or k.upper()
     keymap |= {norm(k): v for k, v in keymap.items()}
     pbutils.pr(k)
@@ -378,8 +378,7 @@ def index() -> Iterator[Tag | dict[str, str]]:
         grid-template-columns:
             [run] 160px
             [value] 1fr
-            [r] 80px
-            [p] 80px
+            [Y] 80px
             [update] 90px
             [x] 90px
             [y] 90px
@@ -447,16 +446,16 @@ def index() -> Iterator[Tag | dict[str, str]]:
             continue
 
         if isinstance(m, moves.MoveLin) and (xyz := info.get("xyz")) and (rpy := info.get("rpy")):
-            dx, dy,  dz =  dxyz = pbutils.zip_sub(m.xyz, xyz, ndigits=6)
-            dR, dP, _dY = _drpy = pbutils.zip_sub(m.rpy, rpy, ndigits=6)
+            dx, dy, dz =  dxyz = pbutils.zip_sub(m.xyz, xyz, ndigits=6)
+            dR, dP, dY = _drpy = pbutils.zip_sub(m.rpy, rpy, ndigits=6)
             dist = math.sqrt(sum(c*c for c in dxyz))
             buttons = [
                 ('x', f'{dx: 6.1f}', moves.MoveRel(xyz=[dx, 0, 0], rpy=[0, 0, 0])),
                 ('y', f'{dy: 6.1f}', moves.MoveRel(xyz=[0, dy, 0], rpy=[0, 0, 0])),
                 ('z', f'{dz: 6.1f}', moves.MoveRel(xyz=[0, 0, dz], rpy=[0, 0, 0])),
-                ('r', f'{dR: 5.1f}', moves.MoveRel(xyz=[0, 0, 0],  rpy=[dR, 0, 0])),
-                ('p', f'{dP: 5.1f}', moves.MoveRel(xyz=[0, 0, 0],  rpy=[0, dP, 0])),
-                # ('Y', moves.MoveRel(xyz=[0, 0, 0],  rpy=[0, 0, dY])),
+                # ('r', f'{dR: 5.1f}', moves.MoveRel(xyz=[0, 0, 0],  rpy=[dR, 0, 0])),
+                # ('p', f'{dP: 5.1f}', moves.MoveRel(xyz=[0, 0, 0],  rpy=[0, dP, 0])),
+                ('Y', f'{dY: 5.1f}', moves.MoveRel(xyz=[0, 0, 0],  rpy=[0, 0, dY])),
             ]
             if any(abs(d) < 10.0 for d in dxyz):
                 for col, k, v in buttons:

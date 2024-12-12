@@ -854,7 +854,7 @@ def test_circuit_to_squid(args: SmallProtocolArgs) -> Program:
     ]
     return Program(Seq(*cmds))
 
-@pf_protocols.append
+# @pf_protocols.append
 def test_circuit_to_nikon(args: SmallProtocolArgs) -> Program:
     '''
 
@@ -892,29 +892,48 @@ def test_circuit_to_fridge(args: SmallProtocolArgs) -> Program:
     ]
     return Program(Seq(*cmds))
 
-
+@pf_protocols.append
+def test_circuit_to_squid_and_fridge(args: SmallProtocolArgs) -> Program:
     '''
 
-        Images the plate at H11 and puts it back. Params are: protocol, project, plate_name_1, ..., plate_name_N
+        Start with a plate in H11. Will move between H13, fridge and squid. Squid software needs to be running.
 
     '''
     cmds: list[Command] = []
-    protocol_path, project, *plate_names = args.params
-    assert_valid_project_name(project)
-    cmds += [SquidStageCmd('check_protocol_exists', protocol_path).fork_and_wait()]
-    for plate_name in plate_names:
-        cmds += [
-            SquidStageCmd('goto_loading').fork_and_wait(),
-            PFCmd('H11-to-squid'),
-            Seq(
-                SquidStageCmd('leave_loading'),
-                SquidAcquire(protocol_path, project=project, plate=plate_name),
-            ).fork_and_wait(),
-            SquidStageCmd('goto_loading').fork_and_wait(),
-            PFCmd('squid-to-H11'),
-            SquidStageCmd('leave_loading').fork_and_wait(),
-        ]
+    cmds = [    
+        SquidStageCmd('goto_loading').fork_and_wait(),
+        PFCmd('H11-to-squid'),
+        SquidStageCmd('leave_loading').fork_and_wait(),
+        SquidStageCmd('goto_loading').fork_and_wait(),
+        PFCmd('squid-to-H11'),
+        SquidStageCmd('leave_loading').fork_and_wait(),
+    ]
+    cmds = [
+        PFCmd('H11-to-fridge'),
+        PFCmd('fridge-to-H11'),
+        *cmds,
+
+        PFCmd('H11-to-H13'),
+        PFCmd('H13-to-H11'),    
+        *cmds,
+        
+        PFCmd('H11-to-fridge'),
+        PFCmd('fridge-to-H11'),
+        PFCmd('H11-to-H13'),
+        PFCmd('H13-to-H11'),    
+        *cmds,
+                       
+        PFCmd('H11-to-H13'),
+        PFCmd('H13-to-H11'),    
+        PFCmd('H11-to-fridge'),
+        PFCmd('fridge-to-H11'),
+        *cmds,
+    ]
+    N = int((args.params or ['1'])[0])
+    cmds = cmds * N
     return Program(Seq(*cmds))
+
+
 
 @pf_protocols.append
 def H11_to_squid(args: SmallProtocolArgs) -> Program:
