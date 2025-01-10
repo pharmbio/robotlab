@@ -3,10 +3,10 @@
 {"type":"MoveJoint","joints":[502.01,-70.74,273.53,157.58],"name":"H neu"}
 {"type":"MoveLin","xyz":[-4.8,-396,502],"rpy":[0.0,0.0,0.4],"name":"H neu"}
 {"type":"MoveLin","xyz":[-20.1,-503.9,448.2],"rpy":[0.0,0.0,0.4],"name":"H11 entrance"}
-{"type":"MoveLin","xyz":[160.2,-518.4,448.2],"rpy":[0.0,0.0,0.4],"name":"H11 neu"}
-{"type":"MoveLin","xyz":[160.2,-518.4,443.2],"rpy":[0.0,0.0,0.4],"name":"H11 pick"}
+{"type":"MoveLin","xyz":[159.2,-522.1,448.2],"rpy":[0.0,0.0,0.0],"name":"H11 neu"}
+{"type":"MoveLin","xyz":[160.2,-521.4,443.2],"rpy":[0.0,0.0,0.4],"name":"H11 pick"}
 {"type":"GripperMove","pos":75.08}
-{"type":"MoveLin","xyz":[160.2,-518.4,448.2],"rpy":[0.0,0.0,0.4],"name":"H11 neu"}
+{"type":"MoveLin","xyz":[159.2,-522.1,448.2],"rpy":[0.0,0.0,0.0],"name":"H11 neu"}
 {"type":"MoveLin","xyz":[-20.1,-503.9,448.2],"rpy":[0.0,0.0,0.4],"name":"H11 entrance"}
 {"type":"MoveLin","xyz":[-20.1,-503.9,376.9],"rpy":[0.0,0.0,0.4],"tag":"9/21","name":"H9 entrance"}
 {"type":"MoveLin","xyz":[160.2,-518.4,376.9],"rpy":[0.0,0.0,0.4],"tag":"9/21","name":"H9 neu"}
@@ -27,10 +27,10 @@
 {"type":"MoveLin","xyz":[160.2,-518.4,376.9],"rpy":[0.0,0.0,0.4],"tag":"9/21","name":"H9 neu"}
 {"type":"MoveLin","xyz":[-20.1,-503.9,376.9],"rpy":[0.0,0.0,0.4],"tag":"9/21","name":"H9 entrance"}
 {"type":"MoveLin","xyz":[-20.1,-503.9,448.2],"rpy":[0.0,0.0,0.4],"name":"H11 entrance"}
-{"type":"MoveLin","xyz":[160.2,-518.4,448.2],"rpy":[0.0,0.0,0.4],"name":"H11 neu"}
-{"type":"MoveLin","xyz":[160.2,-518.4,443.2],"rpy":[0.0,0.0,0.4],"name":"H11 drop"}
+{"type":"MoveLin","xyz":[159.2,-522.1,448.2],"rpy":[0.0,0.0,0.0],"name":"H11 neu"}
+{"type":"MoveLin","xyz":[159.2,-522.1,443.2],"rpy":[0.0,0.0,0.0],"name":"H11 drop"}
 {"type":"GripperMove","pos":99.99}
-{"type":"MoveLin","xyz":[160.2,-518.4,448.2],"rpy":[0.0,0.0,0.4],"name":"H11 neu"}
+{"type":"MoveLin","xyz":[159.2,-522.1,448.2],"rpy":[0.0,0.0,0.0],"name":"H11 neu"}
 {"type":"MoveLin","xyz":[-20.1,-503.9,448.2],"rpy":[0.0,0.0,0.4],"name":"H11 entrance"}
 {"type":"MoveLin","xyz":[-4.8,-396,502],"rpy":[0.0,0.0,0.4],"name":"H neu"}
 {"type":"MoveJoint","joints":[601.9,-9.03,177.84,191.53],"name":"neu"}
