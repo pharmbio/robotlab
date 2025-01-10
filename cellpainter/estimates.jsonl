@@ -1349,6 +1349,8 @@
 {"cmd":{"type":"RobotarmCmd","program_name":"A11 get transfer"},"datetime":"2024-02-21 13:01:32","duration":8.834}
 {"cmd":{"type":"RobotarmCmd","program_name":"A11 get transfer"},"datetime":"2024-02-21 14:34:19","duration":8.839}
 {"cmd":{"type":"RobotarmCmd","program_name":"A11 get transfer"},"datetime":"2024-02-21 15:07:08","duration":8.936}
+{"cmd":{"type":"RobotarmCmd","program_name":"A11 get"},"datetime":"2024-12-05 10:31:01","duration":12.949}
+{"cmd":{"type":"RobotarmCmd","program_name":"A11 get"},"datetime":"2024-12-05 10:48:48","duration":13.754}
 {"cmd":{"type":"RobotarmCmd","program_name":"A11 put prep"},"datetime":"2024-02-21 12:01:18","duration":1.806}
 {"cmd":{"type":"RobotarmCmd","program_name":"A11 put prep"},"datetime":"2024-02-21 12:32:04","duration":2.006}
 {"cmd":{"type":"RobotarmCmd","program_name":"A11 put prep"},"datetime":"2024-02-21 14:06:54","duration":1.805}
@@ -1364,6 +1366,8 @@
 {"cmd":{"type":"RobotarmCmd","program_name":"A11 put transfer"},"datetime":"2024-02-21 14:07:02","duration":8.938}
 {"cmd":{"type":"RobotarmCmd","program_name":"A11 put transfer"},"datetime":"2024-02-21 14:37:44","duration":8.735}
 {"cmd":{"type":"RobotarmCmd","program_name":"A11 put transfer"},"datetime":"2024-02-21 15:10:24","duration":8.834}
+{"cmd":{"type":"RobotarmCmd","program_name":"A11 put"},"datetime":"2024-12-05 10:30:48","duration":14.25}
+{"cmd":{"type":"RobotarmCmd","program_name":"A11 put"},"datetime":"2024-12-05 10:48:34","duration":14.381}
 {"cmd":{"type":"RobotarmCmd","program_name":"A12 get prep"},"datetime":"2024-02-20 15:23:19","duration":3.744}
 {"cmd":{"type":"RobotarmCmd","program_name":"A12 get prep"},"datetime":"2024-02-21 12:26:39","duration":3.942}
 {"cmd":{"type":"RobotarmCmd","program_name":"A12 get prep"},"datetime":"2024-02-21 12:59:31","duration":3.661}
@@ -1409,6 +1413,7 @@
 {"cmd":{"type":"RobotarmCmd","program_name":"A13 get transfer"},"datetime":"2024-02-21 15:03:22","duration":10.943}
 {"cmd":{"type":"RobotarmCmd","program_name":"A13 get transfer"},"datetime":"2024-10-11 09:57:21","duration":8.03}
 {"cmd":{"type":"RobotarmCmd","program_name":"A13 get transfer"},"datetime":"2024-10-11 10:14:05","duration":8.025}
+{"cmd":{"type":"RobotarmCmd","program_name":"A13 get"},"datetime":"2024-12-05 10:24:25","duration":12.014}
 {"cmd":{"type":"RobotarmCmd","program_name":"A13 put prep"},"datetime":"2024-02-21 14:03:13","duration":1.807}
 {"cmd":{"type":"RobotarmCmd","program_name":"A13 put prep"},"datetime":"2024-02-21 14:33:47","duration":1.907}
 {"cmd":{"type":"RobotarmCmd","program_name":"A13 put prep"},"datetime":"2024-02-21 15:06:36","duration":1.906}
@@ -1424,6 +1429,7 @@
 {"cmd":{"type":"RobotarmCmd","program_name":"A13 put transfer"},"datetime":"2024-02-21 15:06:44","duration":8.634}
 {"cmd":{"type":"RobotarmCmd","program_name":"A13 put transfer"},"datetime":"2024-10-11 10:00:12","duration":8.131}
 {"cmd":{"type":"RobotarmCmd","program_name":"A13 put transfer"},"datetime":"2024-10-11 10:16:32","duration":8.031}
+{"cmd":{"type":"RobotarmCmd","program_name":"A13 put"},"datetime":"2024-12-05 10:24:13","duration":12.771}
 {"cmd":{"type":"RobotarmCmd","program_name":"A14 get prep"},"datetime":"2024-02-21 15:01:17","duration":3.505}
 {"cmd":{"type":"RobotarmCmd","program_name":"A14 get prep"},"datetime":"2024-10-11 09:55:26","duration":3.01}
 {"cmd":{"type":"RobotarmCmd","program_name":"A14 get prep"},"datetime":"2024-10-11 10:12:03","duration":3.042}
@@ -1589,6 +1595,7 @@
 {"cmd":{"type":"RobotarmCmd","program_name":"A19 get transfer"},"datetime":"2024-10-11 10:03:09","duration":7.229}
 {"cmd":{"type":"RobotarmCmd","program_name":"A19 get transfer"},"datetime":"2024-10-11 12:04:57","duration":8.533}
 {"cmd":{"type":"RobotarmCmd","program_name":"A19 get transfer"},"datetime":"2024-10-11 12:19:29","duration":8.333}
+{"cmd":{"type":"RobotarmCmd","program_name":"A19 get"},"datetime":"2024-12-05 10:25:13","duration":10.998}
 {"cmd":{"type":"RobotarmCmd","program_name":"A19 put prep"},"datetime":"2024-02-21 14:55:05","duration":2.008}
 {"cmd":{"type":"RobotarmCmd","program_name":"A19 put prep"},"datetime":"2024-10-11 09:49:47","duration":1.404}
 {"cmd":{"type":"RobotarmCmd","program_name":"A19 put prep"},"datetime":"2024-10-11 10:06:13","duration":1.507}
@@ -1604,6 +1611,7 @@
 {"cmd":{"type":"RobotarmCmd","program_name":"A19 put transfer"},"datetime":"2024-10-11 10:06:21","duration":7.526}
 {"cmd":{"type":"RobotarmCmd","program_name":"A19 put transfer"},"datetime":"2024-10-11 12:08:14","duration":7.937}
 {"cmd":{"type":"RobotarmCmd","program_name":"A19 put transfer"},"datetime":"2024-10-11 12:22:38","duration":8.035}
+{"cmd":{"type":"RobotarmCmd","program_name":"A19 put"},"datetime":"2024-12-05 10:25:02","duration":11.254}
 {"cmd":{"type":"RobotarmCmd","program_name":"A2 get prep"},"datetime":"2023-01-12 13:55:45","duration":4.115}
 {"cmd":{"type":"RobotarmCmd","program_name":"A2 get prep"},"datetime":"2023-01-12 14:31:54","duration":4.115}
 {"cmd":{"type":"RobotarmCmd","program_name":"A2 get return"},"datetime":"2023-01-12 13:55:55","duration":1.405}
