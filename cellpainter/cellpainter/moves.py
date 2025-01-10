@@ -16,8 +16,7 @@ from .ur_script import URScript
 
 # UR room:
 HotelLocs_A = [h+1 for h in range(21)]
-HotelLocs_B = [21, 19, 17, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1]
-# [h for h in HotelLocs_A if h % 2 == 1]
+HotelLocs_B = [21, 19, 17, 16, 14, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1]
 
 # PF room:
 HotelLocs_H = [h+1 for h in range(19) if h+1 != 12]
@@ -88,9 +87,13 @@ class MoveLin(Move):
     tag: str | None = None
     name: str = ""
     slow: bool = False
+    sleep_secs: float | None = None
 
     def to_ur_script(self) -> str:
-        return ur_call('MoveLin', *self.xyz, *self.rpy, **keep_true(slow=self.slow))
+        res = ur_call('MoveLin', *self.xyz, *self.rpy, **keep_true(slow=self.slow))
+        if self.sleep_secs:
+            res += f'\nsleep({self.sleep_secs})'
+        return res
 
     def to_pf_script(self) -> str:
         return pf_call('MoveC', '1', *self.xyz, self.rpy[-1], 90, 180)
@@ -220,23 +223,22 @@ class MoveList(list[Move]):
         "lid_B19_put" becomes "lid_B1_put" and so on.
         '''
         out: dict[str, MoveList] = {}
+        hotel_dist: float = 70.94 / 2
         if 'A' in name:
             hotel_locs = HotelLocs_A
-            hotel_dist: float = 70.94 / 2
+        elif 'dlid' in name:
+            hotel_locs = [12, 14]
         elif guess_robot(name) == 'pf':
             hotel_locs = HotelLocs_H
-            hotel_dist: float = 70.94 / 2
-            # hotel_dist: float = 70.94 / 2.0 - 3 / 11.0
         elif guess_robot(name) == 'ur':
             hotel_locs = HotelLocs_B
-            hotel_dist: float = 70.94 / 2
         else:
             raise ValueError(f'Unknown hotel in: {name}')
         for tag in set(self.tags()):
             if expand_base:
                 if tag == 'base 21':
                     ref_h = 21
-                    for h in [15]:
+                    for h in [16, 14, 12]:
                         dz = (h - ref_h) * hotel_dist
                         name_h = f'{name} [base B{h}]'
                         out[name_h] = self.adjust_tagged(tag, dname=f'[base B{h}]', dz=dz)
@@ -447,7 +449,7 @@ def guess_robot(name: str) -> Literal['ur', 'pf', 'ur or pf']:
     for x in 'pf squid fridge nikon H'.split():
         if x in name:
             return 'pf'
-    for x in 'ur A B C wash disp blue incu lid wave calib'.split():
+    for x in 'updown ur A B C wash disp blue incu lid wave calib'.split():
         if x in name:
             return 'ur'
 
@@ -504,7 +506,7 @@ def read_movelists() -> dict[str, MoveList]:
             continue
         if 'calib' in base:
             continue
-        if 'wave' in base:
+        if 'wave' in base or 'dlid' in base:
             out += [NamedMoveList(base, 'full', v)]
             continue
         if guess_robot(base) == 'pf':
@@ -599,7 +601,7 @@ movelists: dict[str, MoveList]
 movelists = read_movelists()
 
 B21 = 'B21'
-B15 = 'B15'
+B16 = 'B16'
 effects: dict[str, Effect] = {}
 
 for k, v in movelists.items():
@@ -624,8 +626,8 @@ for i in HotelLocs_A:
     effects[lid_Bi + ' get'] = PutLidOn(source=Bi, target=B21)
     effects[lid_Bi + ' put'] = TakeLidOff(source=B21, target=Bi)
 
-    effects[lid_Bi + ' get [base B15]'] = PutLidOn(source=Bi, target=B15)
-    effects[lid_Bi + ' put [base B15]'] = TakeLidOff(source=B15, target=Bi)
+    effects[lid_Bi + ' get [base B16]'] = PutLidOn(source=Bi, target=B16)
+    effects[lid_Bi + ' put [base B16]'] = TakeLidOff(source=B16, target=Bi)
 
 for k in list(effects.keys()):
     effects[k + ' transfer'] = effects[k]

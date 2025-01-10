@@ -487,10 +487,10 @@ def time_robotarm(_: SmallProtocolArgs):
         *RobotarmCmds('disp-to-B21'),
         *RobotarmCmds('B21-to-wash'),
         *RobotarmCmds('wash-to-B21'),
-        *RobotarmCmds('B15 put'),
-        *RobotarmCmds('B15-to-wash'),
-        *RobotarmCmds('wash-to-B15'),
-        *RobotarmCmds('B15 get'),
+        *RobotarmCmds('B16 put'),
+        *RobotarmCmds('B16-to-wash'),
+        *RobotarmCmds('wash-to-B16'),
+        *RobotarmCmds('B16 get'),
         *RobotarmCmds(plate.lid_get),
         *RobotarmCmds('B21-to-incu'),
     ]
@@ -900,7 +900,7 @@ def test_circuit_to_squid_and_fridge(args: SmallProtocolArgs) -> Program:
 
     '''
     cmds: list[Command] = []
-    cmds = [    
+    cmds = [
         SquidStageCmd('goto_loading').fork_and_wait(),
         PFCmd('H11-to-squid'),
         SquidStageCmd('leave_loading').fork_and_wait(),
@@ -916,17 +916,17 @@ def test_circuit_to_squid_and_fridge(args: SmallProtocolArgs) -> Program:
         *cmds,
 
         PFCmd('H11-to-H13'),
-        PFCmd('H13-to-H11'),    
+        PFCmd('H13-to-H11'),
         *cmds,
-        
+
         PFCmd('H11-to-fridge'),
         PFCmd('fridge-to-H11'),
         PFCmd('H11-to-H13'),
-        PFCmd('H13-to-H11'),    
+        PFCmd('H13-to-H11'),
         *cmds,
-                       
+
         PFCmd('H11-to-H13'),
-        PFCmd('H13-to-H11'),    
+        PFCmd('H13-to-H11'),
         PFCmd('H11-to-fridge'),
         PFCmd('fridge-to-H11'),
         *cmds,

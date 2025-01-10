@@ -65,8 +65,8 @@ class Plate:
         return f'lid-{self.lid_loc} get'
 
     @property
-    def lid_get_base_B15(self):
-        return f'lid-{self.lid_loc} get [base B15]'
+    def lid_get_base_B16(self):
+        return f'lid-{self.lid_loc} get [base B16]'
 
     @property
     def rt_put(self):
@@ -86,7 +86,7 @@ class Plate:
 
 class Locations:
     HA = [21, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1]
-    HB = [21, 19, 17, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1]
+    HB = [21, 19, 17, 16, 14, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1]
     I = [i+1 for i in range(22)]
 
     A: list[str] = [f'A{i}' for i in HA]
@@ -216,22 +216,22 @@ def make_interleaving(name: InterleavingName, linear: bool) -> Interleaving:
             '''
         case 'wash -> out' | 'blue -> out':
             lin = '''
-                incu -> B21 -> wash -> B15 -> B21 -> out
-                incu -> B21 -> wash -> B15 -> B21 -> out
+                incu -> B21 -> wash -> B16 -> B21 -> out
+                incu -> B21 -> wash -> B16 -> B21 -> out
             '''
             ilv = '''
                 incu -> B21
                         B21 -> wash
                 incu -> B21
-                               wash -> B15
+                               wash -> B16
                         B21 -> wash
-                                       B15 -> B21 -> out
+                                       B16 -> B21 -> out
                 incu -> B21
-                               wash -> B15
+                               wash -> B16
                         B21 -> wash
-                                       B15 -> B21 -> out
-                               wash -> B15
-                                       B15 -> B21 -> out
+                                       B16 -> B21 -> out
+                               wash -> B16
+                                       B16 -> B21 -> out
             '''
         case 'wash' | 'blue':
             lin = '''
@@ -241,15 +241,15 @@ def make_interleaving(name: InterleavingName, linear: bool) -> Interleaving:
             ilv = '''
                 incu -> B21 -> wash
                 incu -> B21
-                               wash -> B15
+                               wash -> B16
                         B21 -> wash
-                                       B15 -> B21 -> incu
+                                       B16 -> B21 -> incu
                 incu -> B21
-                               wash -> B15
+                               wash -> B16
                         B21 -> wash
-                                       B15 -> B21 -> incu
-                               wash -> B15
-                                       B15 -> B21 -> incu
+                                       B16 -> B21 -> incu
+                               wash -> B16
+                                       B16 -> B21 -> incu
             '''
         case 'disp':
             lin = '''
@@ -258,13 +258,13 @@ def make_interleaving(name: InterleavingName, linear: bool) -> Interleaving:
             '''
             ilv = '''
                 incu -> B21 -> disp
-                               disp -> B15
+                               disp -> B16
                 incu -> B21 -> disp
-                                       B15 -> B21 -> incu
-                               disp -> B15
+                                       B16 -> B21 -> incu
+                               disp -> B16
                 incu -> B21 -> disp
-                                       B15 -> B21 -> incu
-                               disp -> B15 -> B21 -> incu
+                                       B16 -> B21 -> incu
+                               disp -> B16 -> B21 -> incu
             '''
         case 'disp -> out':
             lin = '''
@@ -273,13 +273,13 @@ def make_interleaving(name: InterleavingName, linear: bool) -> Interleaving:
             '''
             ilv = '''
                 incu -> B21 -> disp
-                               disp -> B15
+                               disp -> B16
                 incu -> B21 -> disp
-                                       B15 -> B21 -> out
-                               disp -> B15
+                                       B16 -> B21 -> out
+                               disp -> B16
                 incu -> B21 -> disp
-                                       B15 -> B21 -> out
-                               disp -> B15 -> B21 -> out
+                                       B16 -> B21 -> out
+                               disp -> B16 -> B21 -> out
             '''
     if 'blue' in name:
         lin = lin.replace('wash', 'blue')
@@ -612,9 +612,9 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                 ),
             ]
 
-            lid_on_base_B15 = [
+            lid_on_base_B16 = [
                 *RobotarmCmds(
-                    plate_with_corrected_lid_pos.lid_get_base_B15,
+                    plate_with_corrected_lid_pos.lid_get_base_B16,
                     after_drop=[Duration(f'{plate_desc} lid off {ix}', OptPrio.without_lid)]
                 ),
             ]
@@ -662,21 +662,21 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                 ]
 
             if step.name == 'Mito':
-                B15_to_incu = [
-                    RobotarmCmd('B15-to-incu prep'),
+                B16_to_incu = [
+                    RobotarmCmd('B16-to-incu prep'),
                     WaitForResource('incu', assume='nothing'),
-                    RobotarmCmd('B15-to-incu transfer'),
+                    RobotarmCmd('B16-to-incu transfer'),
                     Fork(
                         Seq(
                             IncuCmd('put', plate.incu_loc),
                             Checkpoint(f'{plate_desc} 37C'),
                         ),
                     ),
-                    RobotarmCmd('B15-to-incu return'),
+                    RobotarmCmd('B16-to-incu return'),
                 ]
             else:
-                B15_to_incu = [
-                    *RobotarmCmds('B15 get'),
+                B16_to_incu = [
+                    *RobotarmCmds('B16 get'),
                     *RobotarmCmds(plate.rt_put),
                 ]
 
@@ -853,18 +853,18 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
             chunks[plate.id, step.name,  'B21 -> disp'] = [*lid_off, *B21_to_disp]
 
             chunks[plate.id, step.name, 'wash -> B21' ] = [*wash_to_B(21), *lid_on]
-            chunks[plate.id, step.name, 'wash -> B15' ] = [*wash_to_B(15)]
+            chunks[plate.id, step.name, 'wash -> B16' ] = [*wash_to_B(16)]
             chunks[plate.id, step.name, 'blue -> B21' ] = [*blue_to_B(21), *lid_on]
-            chunks[plate.id, step.name, 'blue -> B15' ] = [*blue_to_B(15)]
+            chunks[plate.id, step.name, 'blue -> B16' ] = [*blue_to_B(16)]
 
             if step.disp and not step.blue and not step.wash:
                 # put on the lid now
-                chunks[plate.id, step.name, 'disp -> B15' ] = [*disp_to_B(15), *lid_on_base_B15]
-                chunks[plate.id, step.name,  'B15 -> B21' ] = []
-                chunks[plate.id, step.name,  'B21 -> incu'] = [*RobotarmCmds('B15 get'), *B21_to_incu]
+                chunks[plate.id, step.name, 'disp -> B16' ] = [*disp_to_B(16), *lid_on_base_B16]
+                chunks[plate.id, step.name,  'B16 -> B21' ] = []
+                chunks[plate.id, step.name,  'B21 -> incu'] = [*RobotarmCmds('B16 get'), *B21_to_incu]
             else:
-                chunks[plate.id, step.name, 'disp -> B15' ] = [*disp_to_B(15)]
-                chunks[plate.id, step.name,  'B15 -> B21' ] = [*RobotarmCmds('B15 get'), *lid_on]
+                chunks[plate.id, step.name, 'disp -> B16' ] = [*disp_to_B(16)]
+                chunks[plate.id, step.name,  'B16 -> B21' ] = [*RobotarmCmds('B16 get'), *lid_on]
                 chunks[plate.id, step.name,  'B21 -> incu'] = [*B21_to_incu]
 
             chunks[plate.id, step.name,  'B21 -> out' ] = [*RobotarmCmds(plate.out_put)]
@@ -932,11 +932,11 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
         'B21 -> incu':  4,
         'wash -> B21':  3,
         'B21 -> out':   4,
-        'disp -> B15':  4,
-        'wash -> B15':  3,
-        'B15 -> B21':   4,
-        'B15 -> incu':  4,
-        'B15 -> out':   4,
+        'disp -> B16':  4,
+        'wash -> B16':  3,
+        'B16 -> B21':   4,
+        'B16 -> incu':  4,
+        'B16 -> out':   4,
     }
     for k, v in list(slots.items()):
         if 'wash' in k:
