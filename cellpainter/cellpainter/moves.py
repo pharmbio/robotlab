@@ -506,7 +506,7 @@ def read_movelists() -> dict[str, MoveList]:
             continue
         if 'calib' in base:
             continue
-        if 'wave' in base or 'dlid' in base:
+        if 'wave' in base:
             out += [NamedMoveList(base, 'full', v)]
             continue
         if guess_robot(base) == 'pf':
@@ -595,6 +595,17 @@ class PutLidOn(Effect):
         assert world[self.source] == 'lid ' + world[self.target]
         return {self.source: None}
 
+@dataclass(frozen=True)
+class DLid(Effect):
+    plate_loc: str
+    dlid_loc: str
+    def effect(self, world: World) -> dict[str, str | None]:
+        if self.dlid_loc in world.data:
+            assert world[self.dlid_loc] == 'lid ' + world[self.plate_loc]
+            return {self.dlid_loc: None}
+        else:
+            return {self.dlid_loc: 'lid ' + world[self.plate_loc]}
+
 pbutils.serializer.register(globals())
 
 movelists: dict[str, MoveList]
@@ -614,13 +625,22 @@ for i in HotelLocs_A:
     Ai = f'A{i}'
     Bi = f'B{i}'
     Ci = f'C{i}'
-    effects[Ai + ' get'] = MovePlate(source=Ai, target=B21)
-    effects[Bi + ' get'] = MovePlate(source=Bi, target=B21)
-    effects[Ci + ' get'] = MovePlate(source=Ci, target=B21)
+    effects[f'{Ai} get'] = MovePlate(source=Ai, target=B21)
+    effects[f'{Bi} get'] = MovePlate(source=Bi, target=B21)
+    effects[f'{Ci} get'] = MovePlate(source=Ci, target=B21)
 
-    effects[Ai + ' put'] = MovePlate(source=B21, target=Ai)
-    effects[Bi + ' put'] = MovePlate(source=B21, target=Bi)
-    effects[Ci + ' put'] = MovePlate(source=B21, target=Ci)
+    effects[f'{Ai} put'] = MovePlate(source=B21, target=Ai)
+    effects[f'{Bi} put'] = MovePlate(source=B21, target=Bi)
+    effects[f'{Ci} put'] = MovePlate(source=B21, target=Ci)
+
+    for Bb in 'B16 B14 B12'.split():
+        effects[f'{Ai} get [base {Bb}]'] = MovePlate(source=Ai, target=Bb)
+        effects[f'{Bi} get [base {Bb}]'] = MovePlate(source=Bi, target=Bb)
+        effects[f'{Ci} get [base {Bb}]'] = MovePlate(source=Ci, target=Bb)
+
+        effects[f'{Ai} put [base {Bb}]'] = MovePlate(source=Bb, target=Ai)
+        effects[f'{Bi} put [base {Bb}]'] = MovePlate(source=Bb, target=Bi)
+        effects[f'{Ci} put [base {Bb}]'] = MovePlate(source=Bb, target=Ci)
 
     lid_Bi = f'lid-B{i}'
     effects[lid_Bi + ' get'] = PutLidOn(source=Bi, target=B21)
@@ -628,6 +648,10 @@ for i in HotelLocs_A:
 
     effects[lid_Bi + ' get [base B16]'] = PutLidOn(source=Bi, target=B16)
     effects[lid_Bi + ' put [base B16]'] = TakeLidOff(source=B16, target=Bi)
+
+    effects['dlid B14'] = DLid(plate_loc='B14', dlid_loc='D2')
+    effects['dlid B12'] = DLid(plate_loc='B12', dlid_loc='D1')
+
 
 for k in list(effects.keys()):
     effects[k + ' transfer'] = effects[k]

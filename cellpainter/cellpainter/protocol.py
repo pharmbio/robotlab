@@ -53,6 +53,7 @@ class Plate:
     incu_loc: str
     rt_loc: str
     lid_loc: str
+    dlid_loc: str
     out_loc: str
     batch_index: int
 
@@ -65,24 +66,28 @@ class Plate:
         return f'lid-{self.lid_loc} get'
 
     @property
+    def dlid(self):
+        return f'dlid {self.dlid_loc}'
+
+    @property
     def lid_get_base_B16(self):
         return f'lid-{self.lid_loc} get [base B16]'
 
     @property
     def rt_put(self):
-        return f'{self.rt_loc} put'
+        return f'{self.rt_loc} put [base {self.dlid_loc}]'
 
     @property
     def rt_get(self):
-        return f'{self.rt_loc} get'
+        return f'{self.rt_loc} get [base {self.dlid_loc}]'
 
     @property
     def out_put(self):
-        return f'{self.out_loc} put'
+        return f'{self.out_loc} put [base {self.dlid_loc}]'
 
     @property
     def out_get(self):
-        return f'{self.out_loc} get'
+        return f'{self.out_loc} get [base {self.dlid_loc}]'
 
 class Locations:
     HA = [21, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1]
@@ -93,6 +98,7 @@ class Locations:
     B: list[str] = [f'B{i}' for i in HB]
 
     Lid:  list[str] = ['B19', 'B17']
+    DLid: list[str] = ['B14', 'B12']
     RT:   list[str] = A[:21] + B[4:]
 
     L: list[str] = [f'L{i}' for i in I]
@@ -144,6 +150,7 @@ def define_plates(batch_sizes: list[int]) -> list[list[Plate]]:
                 rt_loc=rt[index_in_batch],
                 # lid_loc=Locations.Lid[index_in_batch],
                 lid_loc=Locations.Lid[index_in_batch % 2],
+                dlid_loc=Locations.DLid[index_in_batch % 2],
                 # lid_loc=Locations.Lid[0],
                 out_loc=Out[index_in_batch],
                 batch_index=batch_index,
@@ -180,153 +187,142 @@ def make_interleaving(name: InterleavingName, linear: bool) -> Interleaving:
     match name:
         case 'wash -> disp -> out' | 'blue -> disp -> out':
             lin = '''
-                incu -> B21 -> wash -> disp -> B21 -> out
-                incu -> B21 -> wash -> disp -> B21 -> out
+                incu -> dlid -> wash -> disp -> dlid -> out
+                incu -> dlid -> wash -> disp -> dlid -> out
             '''
             ilv = '''
-                incu -> B21  -> wash
-                incu -> B21
+                incu -> dlid -> wash
+                incu -> dlid
                                 wash -> disp
-                        B21  -> wash
-                                        disp -> B21 -> out
-                incu -> B21
+                        dlid -> wash
+                                        disp -> dlid -> out
+                incu -> dlid
                                 wash -> disp
-                        B21  -> wash
-                                        disp -> B21 -> out
+                        dlid -> wash
+                                        disp -> dlid -> out
                                 wash -> disp
-                                        disp -> B21 -> out
+                                        disp -> dlid -> out
             '''
         case 'wash -> disp' | 'blue -> disp':
             lin = '''
-                incu -> B21 -> wash -> disp -> B21 -> incu
-                incu -> B21 -> wash -> disp -> B21 -> incu
+                incu -> dlid -> wash -> disp -> dlid -> incu
+                incu -> dlid -> wash -> disp -> dlid -> incu
             '''
             ilv = '''
-                incu -> B21  -> wash
-                incu -> B21
+                incu -> dlid -> wash
+                incu -> dlid
                                 wash -> disp
-                        B21  -> wash
-                                        disp -> B21 -> incu
-                incu -> B21
+                        dlid -> wash
+                                        disp -> dlid -> incu
+                incu -> dlid
                                 wash -> disp
-                        B21  -> wash
-                                        disp -> B21 -> incu
+                        dlid -> wash
+                                        disp -> dlid -> incu
                                 wash -> disp
-                                        disp -> B21 -> incu
+                                        disp -> dlid -> incu
             '''
         case 'wash -> out' | 'blue -> out':
             lin = '''
-                incu -> B21 -> wash -> B16 -> B21 -> out
-                incu -> B21 -> wash -> B16 -> B21 -> out
+                incu -> dlid -> wash -> dlid -> out
+                incu -> dlid -> wash -> dlid -> out
             '''
             ilv = '''
-                incu -> B21
-                        B21 -> wash
-                incu -> B21
-                               wash -> B16
-                        B21 -> wash
-                                       B16 -> B21 -> out
-                incu -> B21
-                               wash -> B16
-                        B21 -> wash
-                                       B16 -> B21 -> out
-                               wash -> B16
-                                       B16 -> B21 -> out
+                incu -> dlid
+                        dlid -> wash
+                incu -> dlid
+                                wash -> dlid
+                        dlid -> wash
+                                        dlid -> out
+                incu -> dlid
+                                wash -> dlid
+                        dlid -> wash
+                                        dlid -> out
+                                wash -> dlid
+                                        dlid -> out
             '''
         case 'wash' | 'blue':
             lin = '''
-                incu -> B21 -> wash -> B21 -> incu
-                incu -> B21 -> wash -> B21 -> incu
+                incu -> dlid -> wash -> dlid -> incu
+                incu -> dlid -> wash -> dlid -> incu
             '''
             ilv = '''
-                incu -> B21 -> wash
-                incu -> B21
-                               wash -> B16
-                        B21 -> wash
-                                       B16 -> B21 -> incu
-                incu -> B21
-                               wash -> B16
-                        B21 -> wash
-                                       B16 -> B21 -> incu
-                               wash -> B16
-                                       B16 -> B21 -> incu
+                incu -> dlid -> wash
+                incu -> dlid
+                                wash -> dlid
+                        dlid -> wash
+                                        dlid -> incu
+                incu -> dlid
+                                wash -> dlid
+                        dlid -> wash
+                                        dlid -> incu
+                                wash -> dlid
+                                        dlid -> incu
             '''
         case 'disp':
             lin = '''
-                incu -> B21 -> disp -> B21 -> incu
-                incu -> B21 -> disp -> B21 -> incu
+                incu -> dlid -> disp -> dlid -> incu
+                incu -> dlid -> disp -> dlid -> incu
             '''
             ilv = '''
-                incu -> B21 -> disp
-                               disp -> B16
-                incu -> B21 -> disp
-                                       B16 -> B21 -> incu
-                               disp -> B16
-                incu -> B21 -> disp
-                                       B16 -> B21 -> incu
-                               disp -> B16 -> B21 -> incu
+                incu -> dlid
+                        dlid -> disp
+                incu -> dlid
+                                disp -> dlid
+                                        dlid -> incu
+                        dlid -> disp
+                incu -> dlid
+                                disp -> dlid
+                                        dlid -> incu
+                        dlid -> disp
+                                disp -> dlid
+                                        dlid -> incu
+            '''
+            ilv = '''
+                incu -> dlid
+                        dlid -> disp
+                incu -> dlid
+                                disp -> dlid
+                                        dlid -> incu
+                        dlid -> disp
+                incu -> dlid
+                                disp -> dlid
+                                        dlid -> incu
+                        dlid -> disp
+                                disp -> dlid
+                                        dlid -> incu
+            '''
+            ilv = '''
+                incu -> dlid
+                        dlid -> disp
+                                disp -> dlid
+                incu -> dlid
+                                        dlid -> incu
+                        dlid -> disp
+                                disp -> dlid
+                incu -> dlid
+                                        dlid -> incu
+                        dlid -> disp
+                                disp -> dlid
+                                        dlid -> incu
             '''
         case 'disp -> out':
             lin = '''
-                incu -> B21 -> disp -> B21 -> out
-                incu -> B21 -> disp -> B21 -> out
+                incu -> dlid -> disp -> dlid -> out
+                incu -> dlid -> disp -> dlid -> out
             '''
             ilv = '''
-                incu -> B21 -> disp
-                               disp -> B16
-                incu -> B21 -> disp
-                                       B16 -> B21 -> out
-                               disp -> B16
-                incu -> B21 -> disp
-                                       B16 -> B21 -> out
-                               disp -> B16 -> B21 -> out
+                incu -> dlid -> disp
+                               disp -> dlid
+                incu -> dlid -> disp
+                                       dlid  -> out
+                               disp -> dlid
+                incu -> dlid -> disp
+                                       dlid  -> out
+                               disp -> dlid  -> out
             '''
     if 'blue' in name:
         lin = lin.replace('wash', 'blue')
         ilv = ilv.replace('wash', 'blue')
-    _mix = '''
-        incu -> B21 -> wash
-                       wash -> disp
-        incu -> B21 -> wash
-                               disp -> B21 -> incu
-                       wash -> disp
-        incu -> B21 -> wash
-                               disp -> B21 -> incu
-                       wash -> disp
-                               disp -> B21 -> incu
-    '''
-    _quad = '''
-        incu -> B21 -> wash
-                       wash -> disp
-        incu -> B21 -> wash
-                               disp -> B21
-                       wash -> disp
-                                       B21  -> incu
-        incu -> B21 -> wash
-                               disp -> B21
-                       wash -> disp
-                                       B21  -> incu
-                               disp -> B21
-                                       B21  -> incu
-    '''
-    _three = '''
-        incu -> B21 -> wash
-                       wash -> disp
-        incu -> B21 -> wash
-                               disp -> B21
-                       wash -> disp
-        incu -> B21 -> wash
-                                       B21 -> incu
-                               disp -> B21
-                       wash -> disp
-        incu -> B21 -> wash
-                                       B21 -> incu
-                               disp -> B21
-                       wash -> disp
-                                       B21 -> incu
-                               disp -> B21
-                                       B21 -> incu
-    '''
     return Interleaving.init(lin if linear else ilv, name=name)
 
 from pbutils.args import arg
@@ -344,6 +340,7 @@ class ProtocolConfig:
     wash_prime: list[str]
     blue_prime: list[str]
     use_blue: bool
+    use_dlid: bool = True
 
     '''
     def any_disp(self):
@@ -563,10 +560,6 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
 
     for i, (prev_step, step, next_step) in enumerate(pbutils.iterate_with_context(p.steps)):
         for plate in batch:
-
-            lid_loc = lid_locs[lid_index % len(lid_locs)]
-            lid_index += 1
-            plate_with_corrected_lid_pos = replace(plate, lid_loc=lid_loc)
             ix = i + 1
             plate_desc = f'plate {plate.id}'
             first_plate_desc = f'plate {batch[0].id}'
@@ -598,23 +591,16 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                     # Duration(f'{plate_desc} incubation {ix-1}', OptPrio.incu_slack),
                 ]
 
-            lid_off = [
+            dlid_off = [
                 *RobotarmCmds(
-                    plate_with_corrected_lid_pos.lid_put,
+                    plate.dlid,
                     before_pick=[Checkpoint(f'{plate_desc} lid off {ix}')]
                 ),
             ]
 
-            lid_on = [
+            dlid_on = [
                 *RobotarmCmds(
-                    plate_with_corrected_lid_pos.lid_get,
-                    after_drop=[Duration(f'{plate_desc} lid off {ix}', OptPrio.without_lid)]
-                ),
-            ]
-
-            lid_on_base_B16 = [
-                *RobotarmCmds(
-                    plate_with_corrected_lid_pos.lid_get_base_B16,
+                    plate.dlid,
                     after_drop=[Duration(f'{plate_desc} lid off {ix}', OptPrio.without_lid)]
                 ),
             ]
@@ -622,7 +608,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
             if step.name == 'Mito' or step.name == 'PFA':
                 incu_get = [
                     # Idle() + 'sep {plate_desc} {step.name}',
-                    RobotarmCmd('incu-to-B21 prep'),
+                    RobotarmCmd(f'incu-to-{plate.dlid_loc} prep'),
                     Fork(
                         Seq(
                             IncuCmd('get', plate.incu_loc),
@@ -633,10 +619,10 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                         align='end',
                     ),
                     Early(1),
-                    RobotarmCmd('incu-to-B21 transfer'),
+                    RobotarmCmd(f'incu-to-{plate.dlid_loc} transfer'),
                     Fork(IncuCmd('get_status', incu_loc=None)), # use incu thread to signal that plate has left incu
                     WaitForResource('incu'),
-                    RobotarmCmd('incu-to-B21 return'),
+                    RobotarmCmd(f'incu-to-{plate.dlid_loc} return'),
                 ]
             else:
                 incu_get = [
@@ -644,44 +630,26 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                 ]
 
             if step.name == 'Mito':
-                B21_to_incu = [
-                    RobotarmCmd('B21-to-incu prep'),
+                dlid_to_incu = [
+                    RobotarmCmd(f'{plate.dlid_loc}-to-incu prep'),
                     WaitForResource('incu', assume='nothing'),
-                    RobotarmCmd('B21-to-incu transfer'),
+                    RobotarmCmd(f'{plate.dlid_loc}-to-incu transfer'),
                     Fork(
                         Seq(
                             IncuCmd('put', plate.incu_loc),
                             Checkpoint(f'{plate_desc} 37C'),
                         ),
                     ),
-                    RobotarmCmd('B21-to-incu return'),
+                    RobotarmCmd(f'{plate.dlid_loc}-to-incu return'),
                 ]
             else:
-                B21_to_incu = [
+                dlid_to_incu = [
                     *RobotarmCmds(plate.rt_put),
                 ]
 
-            if step.name == 'Mito':
-                B16_to_incu = [
-                    RobotarmCmd('B16-to-incu prep'),
-                    WaitForResource('incu', assume='nothing'),
-                    RobotarmCmd('B16-to-incu transfer'),
-                    Fork(
-                        Seq(
-                            IncuCmd('put', plate.incu_loc),
-                            Checkpoint(f'{plate_desc} 37C'),
-                        ),
-                    ),
-                    RobotarmCmd('B16-to-incu return'),
-                ]
-            else:
-                B16_to_incu = [
-                    *RobotarmCmds('B16 get'),
-                    *RobotarmCmds(plate.rt_put),
-                ]
-
-            B21_to_wash = [
-                RobotarmCmd('B21-to-wash prep'),
+            dlid_to_wash = [
+                *dlid_off,
+                RobotarmCmd(f'{plate.dlid_loc}-to-wash prep'),
                 Fork(
                     Seq(
                         *[
@@ -695,7 +663,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                     ),
                     align='end',
                 ),
-                RobotarmCmd('B21-to-wash transfer'),
+                RobotarmCmd(f'{plate.dlid_loc}-to-wash transfer'),
                 Fork(
                     Seq(
                         *wash_delay,
@@ -705,10 +673,11 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                         Checkpoint(f'{plate_desc} transfer {ix}'),
                     )
                 ),
-                RobotarmCmd('B21-to-wash return'),
+                RobotarmCmd(f'{plate.dlid_loc}-to-wash return'),
             ]
-            B21_to_blue = [
-                RobotarmCmd('B21-to-blue prep'),
+            dlid_to_blue = [
+                *dlid_off,
+                RobotarmCmd(f'{plate.dlid_loc}-to-blue prep'),
                 Fork(
                     Seq(
                         *[
@@ -722,7 +691,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                     align='end',
                 ),
                 WaitForResource('blue'),
-                RobotarmCmd('B21-to-blue transfer'),
+                RobotarmCmd(f'{plate.dlid_loc}-to-blue transfer'),
                 Fork(
                     Seq(
                         *wash_delay,
@@ -732,7 +701,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                         Checkpoint(f'{plate_desc} transfer {ix}'),
                     )
                 ),
-                RobotarmCmd('B21-to-blue return'),
+                RobotarmCmd(f'{plate.dlid_loc}-to-blue return'),
             ]
 
             if step.disp_prime and plate is first_plate:
@@ -793,81 +762,63 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                 RobotarmCmd('blue-to-disp return'),
             ]
 
-            B21_to_disp = [
-                RobotarmCmd('B21-to-disp prep'),
+            dlid_to_disp = [
+                *dlid_off,
+                RobotarmCmd(f'{plate.dlid_loc}-to-disp prep'),
                 Early(1),
-                RobotarmCmd('B21-to-disp transfer'),
+                RobotarmCmd(f'{plate.dlid_loc}-to-disp transfer'),
                 run_disp,
-                RobotarmCmd('B21-to-disp return'),
+                RobotarmCmd(f'{plate.dlid_loc}-to-disp return'),
             ]
 
-            def disp_to_B(z: int):
+            def disp_to(Bb: str):
                 return [
-                    RobotarmCmd(f'disp-to-B{z} prep'),
+                    RobotarmCmd(f'disp-to-{Bb} prep'),
                     Early(1),
                     WaitForResource('disp') if step.disp else Idle(),
-                    RobotarmCmd(f'disp-to-B{z} transfer'),
+                    RobotarmCmd(f'disp-to-{Bb} transfer'),
                     DispCmd('TestCommunications', protocol_path=None).fork(), # use it so it doesn't start while moving from it
-                    RobotarmCmd(f'disp-to-B{z} return'),
+                    RobotarmCmd(f'disp-to-{Bb} return'),
                 ]
 
-            def wash_to_B(z: int):
+            def wash_to(Bb: str):
                 return [
-                    RobotarmCmd(f'wash-to-B{z} prep'),
+                    RobotarmCmd(f'wash-to-{Bb} prep'),
                     Early(1),
                     WaitForResource('wash') if step.wash else Idle(),
-                    RobotarmCmd(f'wash-to-B{z} transfer'),
+                    RobotarmCmd(f'wash-to-{Bb} transfer'),
                     WashCmd('TestCommunications', protocol_path=None).fork(), # use it so it doesn't start while moving from it
-                    RobotarmCmd(f'wash-to-B{z} return'),
+                    RobotarmCmd(f'wash-to-{Bb} return'),
                 ]
 
-            def blue_to_B(z: int):
+            def blue_to(Bb: str):
                 return [
-                    RobotarmCmd(f'blue-to-B{z} prep'),
+                    RobotarmCmd(f'blue-to-{Bb} prep'),
                     Early(1),
                     WaitForResource('blue') if step.blue else Idle(),
-                    RobotarmCmd(f'blue-to-B{z} transfer'),
+                    RobotarmCmd(f'blue-to-{Bb} transfer'),
                     BlueCmd('TestCommunications').fork(), # use it so it doesn't start while moving from it
-                    RobotarmCmd(f'blue-to-B{z} return'),
+                    RobotarmCmd(f'blue-to-{Bb} return'),
                 ]
 
-
-            chunks[plate.id, step.name, 'incu -> B21' ] = [
+            chunks[plate.id, step.name, 'incu -> dlid' ] = [
                 *incu_delay,
                 *incu_get,
-                *(
-                    lid_off
-                    if step.wash or step.blue else
-                    [Checkpoint(f'{plate_desc} transfer {ix}')]
-                ),
             ]
 
-            # disp|blue|wash|B15 -> B21 should end up with a lid
-            # disp|blue|wash     -> B15 should not have lid
-
-            chunks[plate.id, step.name,  'B21 -> wash'] = [*B21_to_wash]
-            chunks[plate.id, step.name,  'B21 -> blue'] = [*B21_to_blue]
+            chunks[plate.id, step.name, 'dlid -> wash'] = [*dlid_to_wash]
+            chunks[plate.id, step.name, 'dlid -> blue'] = [*dlid_to_blue]
             chunks[plate.id, step.name, 'wash -> disp'] = [*wash_to_disp]
             chunks[plate.id, step.name, 'blue -> disp'] = [*blue_to_disp]
-            chunks[plate.id, step.name, 'disp -> B21' ] = [*disp_to_B(21), *lid_on]
-            chunks[plate.id, step.name,  'B21 -> disp'] = [*lid_off, *B21_to_disp]
+            chunks[plate.id, step.name, 'dlid -> disp'] = [*dlid_to_disp]
 
-            chunks[plate.id, step.name, 'wash -> B21' ] = [*wash_to_B(21), *lid_on]
-            chunks[plate.id, step.name, 'wash -> B16' ] = [*wash_to_B(16)]
-            chunks[plate.id, step.name, 'blue -> B21' ] = [*blue_to_B(21), *lid_on]
-            chunks[plate.id, step.name, 'blue -> B16' ] = [*blue_to_B(16)]
+            chunks[plate.id, step.name, 'disp -> dlid'] = [*disp_to(plate.dlid_loc), *dlid_on]
+            chunks[plate.id, step.name, 'wash -> dlid'] = [*wash_to(plate.dlid_loc), *dlid_on]
+            chunks[plate.id, step.name, 'blue -> dlid'] = [*blue_to(plate.dlid_loc), *dlid_on]
 
-            if step.disp and not step.blue and not step.wash:
-                # put on the lid now
-                chunks[plate.id, step.name, 'disp -> B16' ] = [*disp_to_B(16), *lid_on_base_B16]
-                chunks[plate.id, step.name,  'B16 -> B21' ] = []
-                chunks[plate.id, step.name,  'B21 -> incu'] = [*RobotarmCmds('B16 get'), *B21_to_incu]
-            else:
-                chunks[plate.id, step.name, 'disp -> B16' ] = [*disp_to_B(16)]
-                chunks[plate.id, step.name,  'B16 -> B21' ] = [*RobotarmCmds('B16 get'), *lid_on]
-                chunks[plate.id, step.name,  'B21 -> incu'] = [*B21_to_incu]
+            chunks[plate.id, step.name, 'dlid -> incu'] = [*dlid_to_incu]
 
-            chunks[plate.id, step.name,  'B21 -> out' ] = [*RobotarmCmds(plate.out_put)]
+            chunks[plate.id, step.name, 'dlid -> out' ] = [*RobotarmCmds(plate.out_put)]
 
     adjacent: dict[Desc, set[Desc]] = DefaultDict(set)
 
@@ -888,8 +839,8 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
             ilv = step.interleaving
             next_ilv = next_step.interleaving
             seq([
-                desc(last_plate, step.name, 'B21 -> incu'),
-                desc(first_plate, next_step.name, 'incu -> B21'),
+                desc(last_plate, step.name, 'dlid -> incu'),
+                desc(first_plate, next_step.name, 'incu -> dlid'),
             ])
 
     for i, step in enumerate(p.steps):
@@ -924,19 +875,14 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
         ])
 
     slots = DefaultDict[str, int](int) | {
-        'incu -> B21':  1,
-        'B21 -> wash':  2,
-        'B21 -> disp':  3,
+        'incu -> dlid': 1,
+        'dlid -> wash': 2,
+        'dlid -> disp': 3,
         'wash -> disp': 3,
-        'disp -> B21':  4,
-        'B21 -> incu':  4,
-        'wash -> B21':  3,
-        'B21 -> out':   4,
-        'disp -> B16':  4,
-        'wash -> B16':  3,
-        'B16 -> B21':   4,
-        'B16 -> incu':  4,
-        'B16 -> out':   4,
+        'wash -> dlid': 3,
+        'disp -> dlid': 4,
+        'dlid -> incu': 4,
+        'dlid -> out':  4,
     }
     for k, v in list(slots.items()):
         if 'wash' in k:

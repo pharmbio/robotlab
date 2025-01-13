@@ -110,6 +110,7 @@ def incu_load(args: SmallProtocolArgs):
             incu_loc=incu_loc,
             out_loc=a_loc,
             rt_loc='',
+            dlid_loc='',
             lid_loc='',
             batch_index=0
         )
@@ -180,7 +181,7 @@ def test_circuit(args: SmallProtocolArgs):
             if isinstance(cmd, RobotarmCmd)
         ],
         *RobotarmCmds(plate.out_get),
-        *RobotarmCmds('B21-to-incu'),
+        *RobotarmCmds(f'{plate.dlid_loc}-to-incu'),
     )
     if protocol_config.steps and protocol_config.steps[0].name in ['Mito', 'PFA']:
         w0 = World({'incu': plate.id})
@@ -460,7 +461,15 @@ def time_robotarm(_: SmallProtocolArgs):
     arm: list[Command] = [
         *RobotarmCmds('incu-to-B21'),
     ]
-    plate = Plate('', '', '', '', '', 1)
+    plate = Plate(
+        id='',
+        incu_loc='',
+        out_loc='',
+        rt_loc='',
+        lid_loc='',
+        dlid_loc='',
+        batch_index=1
+    )
     for lid_loc in Locations.Lid[:2]:
         plate = replace(plate, lid_loc=lid_loc)
         arm += [
@@ -521,6 +530,7 @@ def incu_unload(args: SmallProtocolArgs):
             out_loc=a_loc,
             rt_loc='',
             lid_loc='',
+            dlid_loc='',
             batch_index=0
         )
         world0[p.incu_loc] = p.id
