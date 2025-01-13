@@ -236,8 +236,8 @@ class MoveList(list[Move]):
             raise ValueError(f'Unknown hotel in: {name}')
         for tag in set(self.tags()):
             if expand_base:
-                if tag == 'base 21':
-                    ref_h = 21
+                if tag == 'base 14':
+                    ref_h = 14
                     for h in [16, 14, 12]:
                         dz = (h - ref_h) * hotel_dist
                         name_h = f'{name} [base B{h}]'
@@ -245,7 +245,8 @@ class MoveList(list[Move]):
             if not expand_base:
                 if m := re.match(r'(\d+)/(11|21)$', tag):
                     ref_h = int(m.group(1))
-                    assert str(ref_h) in name
+                    if str(ref_h) not in name:
+                        continue
                     assert ref_h in hotel_locs
                     for h in hotel_locs:
                         dz = (h - ref_h) * hotel_dist
