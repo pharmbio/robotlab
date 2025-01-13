@@ -79,7 +79,7 @@ class DLid(Machine):
                     self.status[id] = status
                     self.serial_log(f'dlid.read() = {line!r}', line=line, id=id, status=status)
                     return
-                self.serial_log(f'dlid.read() = {line!r}', line=line)
+            self.serial_log(f'dlid.read() = {line!r}', line=line)
 
     def send(self, id: str, message: str):
         serial = self.serial_cell.value
