@@ -61,7 +61,7 @@ class DLid(Machine):
 
     def _dlid_thread(self):
         self.serial_log_cell.value = Log.make('dlid')
-        serial = self.serial_cell.value = Serial(self.com_port, timeout=60)
+        serial = self.serial_cell.value = Serial(self.com_port, baudrate=57600, timeout=60)
         self.serial_log('using com_port', self.com_port)
         while True:
             try:
