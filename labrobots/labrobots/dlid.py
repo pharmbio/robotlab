@@ -78,8 +78,8 @@ class DLid(Machine):
                 self.serial_log(f'dlid.read() = {line!r} ({id=!r}, {sep=!r}, {status=!r})', line=line, id=id, status=status)
                 if sep == ': ' and status.isalnum():
                     self.status[id] = status
-                return
-            self.serial_log(f'dlid.read() = {line!r}', line=line)
+            else:
+                self.serial_log(f'dlid.read() = {line!r}', line=line)
 
     def send(self, id: str, message: str):
         serial = self.serial_cell.value
