@@ -1,5 +1,6 @@
 {"type":"Section","section":"wave"}
-{"type":"MoveJoint","joints":[94.88,-110.59,90.31,19.45,95.29,179.84],"name":"B neu"}
+{"type":"MoveJoint","joints":[94.83,-113.91,119.54,-6.46,95.22,179.79],"name":"B neu"}
+{"type":"MoveJoint","joints":[94.88,-110.59,90.31,19.45,95.29,179.84],"name":"n"}
 {"type":"MoveJoint","joints":[42.8,-127.2,133.6,-95.2,91,170.6],"name":"w"}
 {"type":"MoveJoint","joints":[42.8,-127.3,134.3,-103.8,126.7,162],"name":"w"}
 {"type":"MoveJoint","joints":[42.8,-127.2,132.5,-87.1,60.5,162.1],"name":"w"}
@@ -9,4 +10,5 @@
 {"type":"MoveJoint","joints":[43.4,-127.2,132.3,-84.7,58.4,162.3],"name":"w"}
 {"type":"MoveJoint","joints":[42.8,-127.2,133.6,-95.2,91,170.6],"name":"w"}
 {"type":"MoveJoint","joints":[42.8,-127.2,133.6,-95.2,91,170.6],"name":"w"}
-{"type":"MoveJoint","joints":[94.88,-110.59,90.31,19.45,95.29,179.84],"name":"B neu"}
+{"type":"MoveJoint","joints":[94.88,-110.59,90.31,19.45,95.29,179.84],"name":"n"}
+{"type":"MoveJoint","joints":[94.83,-113.91,119.54,-6.46,95.22,179.79],"name":"B neu"}
