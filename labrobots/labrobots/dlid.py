@@ -90,6 +90,7 @@ class DLid(Machine):
         serial.write(line.encode('ascii'))
 
     def clear(self, id: str):
+        id = str(id)
         self.status[id] = '?'
         self.send_query(id, 'L')
 
@@ -102,5 +103,6 @@ class DLid(Machine):
         return self.get_status(id)
 
     def get_status(self, id: str) -> tuple[str, str]:
+        id = str(id)
         status = self.status.get(id, 'None')
         return status, descriptions.get(status, 'None')
