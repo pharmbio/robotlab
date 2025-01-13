@@ -73,12 +73,12 @@ class DLid(Machine):
                     self.serial_log('error:', err_line, err_line=err_line)
                 continue
             line = line.strip()
-            if line.startswith('>'):
-                id, sep, status = line.removeprefix('>').removesuffix('()').partition(': ')
+            if line.startswith('<'):
+                id, sep, status = line.removeprefix('<').removesuffix('()').partition(': ')
+                self.serial_log(f'dlid.read() = {line!r} ({id=!r}, {sep=!r}, {status=!r})', line=line, id=id, status=status)
                 if sep == ': ' and status.isalnum():
                     self.status[id] = status
-                    self.serial_log(f'dlid.read() = {line!r}', line=line, id=id, status=status)
-                    return
+                return
             self.serial_log(f'dlid.read() = {line!r}', line=line)
 
     def send(self, id: str, message: str):
