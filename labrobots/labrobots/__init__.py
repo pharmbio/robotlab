@@ -7,6 +7,7 @@ from .squid import Squid
 from .bluewash import BlueWash
 from .nikon_nis import NikonNIS
 from .nikon_stage import NikonStage
+from .dlid import DLid
 
 from dataclasses import *
 
@@ -23,6 +24,7 @@ class WindowsNUC(Machines):
     disp: Biotek = Biotek(name='disp', args=[LHC_CALLER_CLI_PATH, "MultiFloFX", "COM3", LHC_PROTOCOLS_ROOT])
     dir_list: DirList = DirList(root_dir=LHC_PROTOCOLS_ROOT, ext=['LHC', 'prog'])
     blue: BlueWash = BlueWash(root_dir=LHC_PROTOCOLS_ROOT, com_port='COM6')
+    dlid: DLid = DLid(com_port='COM8')
 
 @dataclass
 class WindowsGBG(Machines):
