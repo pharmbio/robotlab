@@ -573,6 +573,8 @@ def index() -> Iterator[Tag | dict[str, str]]:
                     m.rpy[0]:5.1f},{
                     m.rpy[1]:5.1f},{
                     m.rpy[2]:6.1f})'''
+                if m.in_joint_space:
+                    script += 'J'
                 if m.tag:
                     script += '*'
             row += V.pre(script,
