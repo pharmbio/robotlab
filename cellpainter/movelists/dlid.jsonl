@@ -1,13 +1,13 @@
-{"type":"Section","section":"dlid B14"}
+{"type":"Section","section":"dlid Base14"}
 {"type":"MoveJoint","joints":[94.83,-113.91,119.54,-6.46,95.22,179.79],"name":"B neu"}
-{"type":"MoveLin","xyz":[199.7,-421.8,567.0],"rpy":[0.0,0.8,89.6],"name":"B14 entrance","tag":"14/21"}
-{"type":"MoveLin","xyz":[199.6,-600.9,556.9],"rpy":[0.0,5.0,89.6],"name":"B14 neu","tag":"14/21"}
-{"type":"MoveLin","xyz":[199.5,-600.8,549.0],"rpy":[0.0,5.0,89.6],"name":"B14 pick","slow":true,"tag":"14/21"}
+{"type":"MoveLin","xyz":[199.7,-421.8,567.0],"rpy":[0.0,0.8,89.6],"name":"B14 entrance","tag":"Base14"}
+{"type":"MoveLin","xyz":[199.6,-600.9,556.9],"rpy":[0.0,5.0,89.6],"name":"B14 neu","tag":"Base14"}
+{"type":"MoveLin","xyz":[199.5,-600.8,549.0],"rpy":[0.0,5.0,89.6],"name":"B14 pick","slow":true,"tag":"Base14"}
 {"type":"GripperMove","pos":255}
-{"type":"MoveLin","xyz":[199.5,-600.8,574.0],"rpy":[0.0,5,89.6],"name":"B14 up","slow":true,"tag":"14/21"}
-{"type":"MoveLin","xyz":[199.5,-600.8,574.0],"rpy":[0.0,5,89.6],"name":"B14 wait","slow":true,"tag":"14/21","sleep_secs":0.7}
-{"type":"MoveLin","xyz":[199.6,-600.8,549],"rpy":[0.0,5.0,89.6],"name":"B14 drop","slow":true,"tag":"14/21"}
+{"type":"MoveLin","xyz":[199.5,-600.8,574.0],"rpy":[0.0,5,89.6],"name":"B14 up","slow":true,"tag":"Base14"}
+{"type":"MoveLin","xyz":[199.5,-600.8,574.0],"rpy":[0.0,5,89.6],"name":"B14 wait","slow":true,"tag":"Base14","sleep_secs":0.7}
+{"type":"MoveLin","xyz":[199.6,-600.8,549],"rpy":[0.0,5.0,89.6],"name":"B14 drop","slow":true,"tag":"Base14"}
 {"type":"GripperMove","pos":88}
-{"type":"MoveLin","xyz":[199.6,-600.9,556.9],"rpy":[0.0,5.0,89.6],"name":"B14 neu","slow":true,"tag":"14/21"}
-{"type":"MoveLin","xyz":[199.7,-421.8,567.0],"rpy":[0.0,0.8,89.6],"name":"B14 entrance","tag":"14/21"}
+{"type":"MoveLin","xyz":[199.6,-600.9,556.9],"rpy":[0.0,5.0,89.6],"name":"B14 neu","slow":true,"tag":"Base14"}
+{"type":"MoveLin","xyz":[199.7,-421.8,567.0],"rpy":[0.0,0.8,89.6],"name":"B14 entrance","tag":"Base14"}
 {"type":"MoveLin","xyz":[199.7,-421.8,566.9],"rpy":[0.0,0.8,89.6],"name":"B neu"}

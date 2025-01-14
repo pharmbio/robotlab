@@ -17,9 +17,17 @@ from .ur_script import URScript
 # UR room:
 HotelLocs_A = [h+1 for h in range(21)]
 HotelLocs_B = [21, 19, 17, 16, 14, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1]
+HotelLocs_Base = [14, 12]
 
 # PF room:
 HotelLocs_H = [h+1 for h in range(19) if h+1 != 12]
+
+HotelDict = {
+    'A': HotelLocs_A,
+    'B': HotelLocs_B,
+    'Base': HotelLocs_Base,
+    'H': HotelLocs_H,
+}
 
 class Move(abc.ABC):
     @abc.abstractmethod
@@ -192,7 +200,7 @@ class MoveList(list[Move]):
     def write_jsonl(self, filename: str | Path) -> None:
         pbutils.serializer.write_jsonl(self, filename)
 
-    def adjust_tagged(self, tag: str, *, dname: str, dz: float) -> MoveList:
+    def adjust_tagged(self, tag: str, *, dname: dict[str, str], dz: float) -> MoveList:
         '''
         Adjusts the z in room reference frame for all MoveLin with the given tag.
         '''
@@ -200,7 +208,15 @@ class MoveList(list[Move]):
         for m in self:
             if isinstance(m, MoveLin) and m.tag == tag:
                 x, y, z = list(m.xyz)
-                out += [replace(m, name=dname + ' ' + m.name, tag=None, xyz=[x, y, round(z + dz, 1)])]
+                name = m.name
+                for k, v in dname.items():
+                    name = name.replace(k, v)
+                out += [
+                    replace(m, name=name,
+                        tag=None,
+                        xyz=[x, y, round(z + dz, 1)]
+                    )
+                ]
             elif hasattr(m, 'tag') and getattr(m, 'tag') == tag:
                 raise ValueError('Tagged move must be MoveLin for adjust_tagged')
             else:
@@ -216,42 +232,30 @@ class MoveList(list[Move]):
                     out += [tag]
         return out
 
-    def expand_hotels(self, name: str, *, expand_base: bool) -> dict[str, MoveList]:
+    def expand_hotels(self, name: str) -> dict[str, MoveList]:
         '''
-        If there is a tag like 19/21 then expand to all heights 1/21, 3/21, .., 21/21
-        The first occurence of 19 in the name is replaced with 1, 3, .., 21, so
-        "lid_B19_put" becomes "lid_B1_put" and so on.
+        Expands tags like B14 to all positions in the B hotel.
+        There are also "Base" tags like Base14 which is expanded to the two base positions in B (14 and 12)
         '''
-        out: dict[str, MoveList] = {}
+
         hotel_dist: float = 70.94 / 2
-        if 'A' in name:
-            hotel_locs = HotelLocs_A
-        elif 'dlid' in name:
-            hotel_locs = [12, 14]
-        elif guess_robot(name) == 'pf':
-            hotel_locs = HotelLocs_H
-        elif guess_robot(name) == 'ur':
-            hotel_locs = HotelLocs_B
-        else:
-            raise ValueError(f'Unknown hotel in: {name}')
-        for tag in set(self.tags()):
-            if expand_base:
-                if tag == 'base 14':
-                    ref_h = 14
-                    for h in [16, 14, 12]:
-                        dz = (h - ref_h) * hotel_dist
-                        name_h = f'{name} [base B{h}]'
-                        out[name_h] = self.adjust_tagged(tag, dname=f'[base B{h}]', dz=dz)
-            if not expand_base:
-                if m := re.match(r'(\d+)/(11|21)$', tag):
-                    ref_h = int(m.group(1))
-                    if str(ref_h) not in name:
-                        continue
-                    assert ref_h in hotel_locs
-                    for h in hotel_locs:
-                        dz = (h - ref_h) * hotel_dist
-                        name_h = name.replace(str(ref_h), str(h), 1)
-                        out[name_h] = self.adjust_tagged(tag, dname=str(h), dz=dz)
+
+        out: Dict[str, MoveList] = {name: self}
+
+        for tag in sorted(set(self.tags()), key=lambda s: 'Base' in s):
+            if not (m := re.match(r'^(\D+)(\d+)$', tag)):
+                raise ValueError(f'Invalid tag name {tag=}')
+            tag_hotel, tag_h = m.groups()
+            tag_h = int(tag_h)
+            for out_name, out_list in list(out.items()):
+                del out[out_name]
+                for h in HotelDict[tag_hotel]:
+                    target_hotel = tag_hotel.replace('Base', 'B')
+                    target_loc = f'{target_hotel}{h}'
+                    name_h = out_name.replace(tag, target_loc)
+                    dz = (h - tag_h) * hotel_dist
+                    out[name_h] = out_list.adjust_tagged(tag, dname={tag: target_loc}, dz=dz)
+
         return out
 
     def with_sections(self, include_Section: bool=False) -> list[tuple[str, Move]]:
@@ -478,9 +482,12 @@ def read_and_expand(filename: Path) -> dict[str, MoveList]:
     ml = MoveList.read_jsonl(filename)
     expanded = ml.expand_sections()
     for k, v in list(expanded.items()):
-        expanded |= v.expand_hotels(k, expand_base=False)
-    for k, v in list(expanded.items()):
-        expanded |= v.expand_hotels(k, expand_base=True)
+        expanded |= v.expand_hotels(k)
+    expanded = {
+        k: v
+        for k, v in expanded.items()
+        if 'Base' not in k
+    }
     return expanded
 
 def read_movelists() -> dict[str, MoveList]:
@@ -622,37 +629,14 @@ for k, v in movelists.items():
         source, target = m.groups()
         effects[k] = MovePlate(source=source, target=target)
 
+effects['dlid B14'] = DLid(plate_loc='B14', dlid_loc='D2')
+effects['dlid B12'] = DLid(plate_loc='B12', dlid_loc='D1')
+
 for i in HotelLocs_A:
-    Ai = f'A{i}'
-    Bi = f'B{i}'
-    Ci = f'C{i}'
-    effects[f'{Ai} get'] = MovePlate(source=Ai, target=B21)
-    effects[f'{Bi} get'] = MovePlate(source=Bi, target=B21)
-    effects[f'{Ci} get'] = MovePlate(source=Ci, target=B21)
-
-    effects[f'{Ai} put'] = MovePlate(source=B21, target=Ai)
-    effects[f'{Bi} put'] = MovePlate(source=B21, target=Bi)
-    effects[f'{Ci} put'] = MovePlate(source=B21, target=Ci)
-
-    for Bb in 'B16 B14 B12'.split():
-        effects[f'{Ai} get [base {Bb}]'] = MovePlate(source=Ai, target=Bb)
-        effects[f'{Bi} get [base {Bb}]'] = MovePlate(source=Bi, target=Bb)
-        effects[f'{Ci} get [base {Bb}]'] = MovePlate(source=Ci, target=Bb)
-
-        effects[f'{Ai} put [base {Bb}]'] = MovePlate(source=Bb, target=Ai)
-        effects[f'{Bi} put [base {Bb}]'] = MovePlate(source=Bb, target=Bi)
-        effects[f'{Ci} put [base {Bb}]'] = MovePlate(source=Bb, target=Ci)
-
-    lid_Bi = f'lid-B{i}'
-    effects[lid_Bi + ' get'] = PutLidOn(source=Bi, target=B21)
-    effects[lid_Bi + ' put'] = TakeLidOff(source=B21, target=Bi)
-
-    effects[lid_Bi + ' get [base B16]'] = PutLidOn(source=Bi, target=B16)
-    effects[lid_Bi + ' put [base B16]'] = TakeLidOff(source=B16, target=Bi)
-
-    effects['dlid B14'] = DLid(plate_loc='B14', dlid_loc='D2')
-    effects['dlid B12'] = DLid(plate_loc='B12', dlid_loc='D1')
-
+    for b in HotelLocs_Base:
+        lid_Bi = f'lid-B{i}'
+        effects[f'lid-B{i} off [base B{b}]'] = TakeLidOff(source=f'B{b}', target=f'B{i}')
+        effects[f'lid-B{i} on [base B{b}]'] = PutLidOn(source=f'B{i}', target=f'B{b}')
 
 for k in list(effects.keys()):
     effects[k + ' transfer'] = effects[k]

@@ -59,35 +59,35 @@ class Plate:
 
     @property
     def lid_put(self):
-        return f'lid-{self.lid_loc} put'
+        return f'lid-{self.lid_loc} off [base B14]'
 
     @property
     def lid_get(self):
-        return f'lid-{self.lid_loc} get'
+        return f'lid-{self.lid_loc} on [base B14]'
+
+    @property
+    def lid_get_base_B14(self):
+        return f'lid-{self.lid_loc} on [base B14]'
 
     @property
     def dlid(self):
         return f'dlid {self.dlid_loc}'
 
     @property
-    def lid_get_base_B16(self):
-        return f'lid-{self.lid_loc} get [base B16]'
-
-    @property
     def rt_put(self):
-        return f'{self.rt_loc} put [base {self.dlid_loc}]'
+        return f'{self.dlid_loc}-to-{self.rt_loc}'
 
     @property
     def rt_get(self):
-        return f'{self.rt_loc} get [base {self.dlid_loc}]'
+        return f'{self.rt_loc}-to-{self.dlid_loc}'
 
     @property
     def out_put(self):
-        return f'{self.out_loc} put [base {self.dlid_loc}]'
+        return f'{self.dlid_loc}-to-{self.out_loc}'
 
     @property
     def out_get(self):
-        return f'{self.out_loc} get [base {self.dlid_loc}]'
+        return f'{self.out_loc}-to-{self.dlid_loc}'
 
 class Locations:
     HA = [21, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1]
