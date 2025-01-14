@@ -1,6 +1,6 @@
 {"type":"Section","section":"wash-to-disp"}
 {"type":"MoveJoint","joints":[94.83,-113.91,119.54,-6.46,95.22,179.79],"name":"B neu"}
-{"type":"MoveLin","xyz":[-2,-421.8,822.6],"rpy":[0.0,0.0,55.1],"name":"B safe"}
+{"type":"MoveLin","xyz":[22.6,-439,426.9],"rpy":[0.0,0.8,55.1],"name":"B safe"}
 {"type":"MoveLin","xyz":[-328.2,-321.5,515.0],"rpy":[0.1,1.1,-30.4],"name":"wash above"}
 {"type":"MoveLin","xyz":[-328.2,-321.5,199.4],"rpy":[0.1,1.1,-30.4],"name":"wash neu"}
 {"type":"MoveLin","xyz":[-328.2,-321.5,157.2],"rpy":[0.1,1.1,-30.4],"name":"wash pick"}
@@ -11,11 +11,11 @@
 {"type":"GripperMove","pos":89}
 {"type":"MoveLin","xyz":[-269.1,-67.1,441.2],"rpy":[0.0,0.8,-29.7],"name":"disp neu"}
 {"type":"MoveLin","xyz":[-269.1,-67.1,521.5],"rpy":[0.0,0.8,-29.7],"name":"disp above"}
-{"type":"MoveLin","xyz":[-2,-421.8,822.6],"rpy":[0.0,0.0,55.1],"name":"B safe"}
+{"type":"MoveLin","xyz":[22.6,-439,426.9],"rpy":[0.0,0.8,55.1],"name":"B safe"}
 {"type":"MoveLin","xyz":[199.7,-421.8,566.9],"rpy":[0.0,0.8,89.6],"name":"B neu"}
 {"type":"Section","section":"disp-to-wash"}
 {"type":"MoveLin","xyz":[199.7,-421.8,566.9],"rpy":[0.0,0.8,89.6],"name":"B neu"}
-{"type":"MoveLin","xyz":[-2,-421.8,822.6],"rpy":[0.0,0.0,55.1],"name":"B safe"}
+{"type":"MoveLin","xyz":[22.6,-439,426.9],"rpy":[0.0,0.8,55.1],"name":"B safe"}
 {"type":"MoveLin","xyz":[-269.1,-67.1,521.5],"rpy":[0.0,0.8,-29.7],"name":"disp above"}
 {"type":"MoveLin","xyz":[-269.1,-67.1,441.2],"rpy":[0.0,0.8,-29.7],"name":"disp neu"}
 {"type":"MoveLin","xyz":[-269.1,-67.1,418.5],"rpy":[0.0,0.8,-29.7],"name":"disp pick"}
@@ -26,5 +26,5 @@
 {"type":"GripperMove","pos":89}
 {"type":"MoveLin","xyz":[-328.2,-321.5,199.4],"rpy":[0.1,1.1,-30.4],"name":"wash neu"}
 {"type":"MoveLin","xyz":[-328.2,-321.5,515.0],"rpy":[0.1,1.1,-30.4],"name":"wash above"}
-{"type":"MoveLin","xyz":[-2,-421.8,822.6],"rpy":[0.0,0.0,55.1],"name":"B safe"}
+{"type":"MoveLin","xyz":[22.6,-439,426.9],"rpy":[0.0,0.8,55.1],"name":"B safe"}
 {"type":"MoveJoint","joints":[94.83,-113.91,119.54,-6.46,95.22,179.79],"name":"B neu"}

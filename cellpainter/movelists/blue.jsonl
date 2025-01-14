@@ -7,7 +7,6 @@
 {"type":"GripperMove","pos":255}
 {"type":"MoveLin","xyz":[199.7,-593.2,571.6],"rpy":[0.0,1.1,89.6],"tag":"Base14","name":"Base14 neu"}
 {"type":"MoveLin","xyz":[199.7,-421.9,571.6],"rpy":[0.0,1.1,89.6],"tag":"Base14","name":"Base14 entrance"}
-{"type":"MoveLin","xyz":[199.7,-421.9,571.6],"rpy":[0.0,1.1,89.6],"name":"B neu"}
 {"type":"MoveLin","xyz":[22.6,-439,426.9],"rpy":[0.0,0.8,55.1],"name":"B safe"}
 {"type":"MoveLin","xyz":[30.3,-624.9,314.5],"rpy":[0.0,0.8,-0.2],"name":"blue above"}
 {"type":"MoveLin","xyz":[30.2,-624.3,219.7],"rpy":[0.0,0.8,-0.2],"name":"blue neu"}
@@ -27,7 +26,6 @@
 {"type":"MoveLin","xyz":[30.2,-624.3,219.7],"rpy":[0.0,0.8,-0.2],"name":"blue neu"}
 {"type":"MoveLin","xyz":[30.3,-624.9,314.5],"rpy":[0.0,0.8,-0.2],"name":"blue above"}
 {"type":"MoveLin","xyz":[22.6,-439,426.9],"rpy":[0.0,0.8,55.1],"name":"B safe"}
-{"type":"MoveLin","xyz":[199.7,-421.9,571.6],"rpy":[0.0,1.1,89.6],"name":"B neu"}
 {"type":"MoveLin","xyz":[199.7,-421.9,571.6],"rpy":[0.0,1.1,89.6],"tag":"Base14","name":"Base14 entrance"}
 {"type":"MoveLin","xyz":[199.7,-593.2,571.6],"rpy":[0.0,1.1,89.6],"tag":"Base14","name":"Base14 neu"}
 {"type":"MoveLin","xyz":[199.7,-593.2,567.9],"rpy":[0.0,0.8,89.6],"tag":"Base14","name":"Base14 drop"}
