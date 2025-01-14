@@ -1,6 +1,6 @@
 {"type":"Section","section":"Base14-to-blue"}
 {"type":"MoveJoint","joints":[94.83,-113.91,119.54,-6.46,95.22,179.79],"name":"B neu"}
-{"type":"MoveLin","xyz":[199.7,-421.9,571.6],"rpy":[0.0,1.1,89.6],"name":"B neu"}
+{"type":"MoveLin","xyz":[199.7,-421.8,566.9],"rpy":[0.0,0.8,89.6],"name":"B neu"}
 {"type":"MoveLin","xyz":[199.7,-421.9,571.6],"rpy":[0.0,1.1,89.6],"tag":"Base14","name":"Base14 entrance"}
 {"type":"MoveLin","xyz":[199.7,-593.2,571.6],"rpy":[0.0,1.1,89.6],"tag":"Base14","name":"Base14 neu"}
 {"type":"MoveLin","xyz":[199.7,-593.2,567.9],"rpy":[0.0,0.8,89.6],"tag":"Base14","name":"Base14 pick"}
@@ -32,4 +32,4 @@
 {"type":"GripperMove","pos":89}
 {"type":"MoveLin","xyz":[199.7,-593.2,571.6],"rpy":[0.0,1.1,89.6],"tag":"Base14","name":"Base14 neu"}
 {"type":"MoveLin","xyz":[199.7,-421.9,571.6],"rpy":[0.0,1.1,89.6],"tag":"Base14","name":"Base14 entrance"}
-{"type":"MoveLin","xyz":[199.7,-421.9,571.6],"rpy":[0.0,1.1,89.6],"name":"B neu"}
+{"type":"MoveLin","xyz":[199.7,-421.8,566.9],"rpy":[0.0,0.8,89.6],"name":"B neu"}
