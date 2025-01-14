@@ -208,19 +208,41 @@ def make_interleaving(name: InterleavingName, linear: bool) -> Interleaving:
                 incu -> dlid -> wash -> disp -> dlid -> incu
                 incu -> dlid -> wash -> disp -> dlid -> incu
             '''
-            ilv = '''
-                incu -> dlid -> wash
-                incu -> dlid
-                                wash -> disp
-                        dlid -> wash
-                                        disp -> dlid -> incu
-                incu -> dlid
-                                wash -> disp
-                        dlid -> wash
-                                        disp -> dlid -> incu
-                                wash -> disp
-                                        disp -> dlid -> incu
-            '''
+            if 0:
+                # shorter cycle but lids are off for longer
+                ilv = '''
+                    incu -> dlid -> wash
+                    incu -> dlid
+                                    wash -> disp
+                            dlid -> wash
+                                            disp -> dlid
+                                                    dlid -> incu
+                    incu -> dlid
+                                    wash -> disp
+                            dlid -> wash
+                                            disp -> dlid
+                                                    dlid -> incu
+                                    wash -> disp
+                                            disp -> dlid
+                                                    dlid -> incu
+                '''
+            else:
+                ilv = '''
+                    incu -> dlid -> wash
+                                    wash -> disp
+                    incu -> dlid
+                                            disp -> dlid
+                            dlid -> wash
+                                                    dlid -> incu
+                                    wash -> disp
+                    incu -> dlid
+                                            disp -> dlid
+                            dlid -> wash
+                                                    dlid -> incu
+                                    wash -> disp
+                                            disp -> dlid
+                                                    dlid -> incu
+                '''
         case 'wash -> out' | 'blue -> out':
             lin = '''
                 incu -> dlid -> wash -> dlid -> out
@@ -263,48 +285,36 @@ def make_interleaving(name: InterleavingName, linear: bool) -> Interleaving:
                 incu -> dlid -> disp -> dlid -> incu
                 incu -> dlid -> disp -> dlid -> incu
             '''
-            ilv = '''
-                incu -> dlid
-                        dlid -> disp
-                incu -> dlid
-                                disp -> dlid
-                                        dlid -> incu
-                        dlid -> disp
-                incu -> dlid
-                                disp -> dlid
-                                        dlid -> incu
-                        dlid -> disp
-                                disp -> dlid
-                                        dlid -> incu
-            '''
-            ilv = '''
-                incu -> dlid
-                        dlid -> disp
-                incu -> dlid
-                                disp -> dlid
-                                        dlid -> incu
-                        dlid -> disp
-                incu -> dlid
-                                disp -> dlid
-                                        dlid -> incu
-                        dlid -> disp
-                                disp -> dlid
-                                        dlid -> incu
-            '''
-            ilv = '''
-                incu -> dlid
-                        dlid -> disp
-                                disp -> dlid
-                incu -> dlid
-                                        dlid -> incu
-                        dlid -> disp
-                                disp -> dlid
-                incu -> dlid
-                                        dlid -> incu
-                        dlid -> disp
-                                disp -> dlid
-                                        dlid -> incu
-            '''
+            if 0:
+                ilv = '''
+                    incu -> dlid
+                            dlid -> disp
+                    incu -> dlid
+                                    disp -> dlid
+                                            dlid -> incu
+                            dlid -> disp
+                    incu -> dlid
+                                    disp -> dlid
+                                            dlid -> incu
+                            dlid -> disp
+                                    disp -> dlid
+                                            dlid -> incu
+                '''
+            else:
+                ilv = '''
+                    incu -> dlid
+                            dlid -> disp
+                                    disp -> dlid
+                    incu -> dlid
+                                            dlid -> incu
+                            dlid -> disp
+                                    disp -> dlid
+                    incu -> dlid
+                                            dlid -> incu
+                            dlid -> disp
+                                    disp -> dlid
+                                            dlid -> incu
+                '''
         case 'disp -> out':
             lin = '''
                 incu -> dlid -> disp -> dlid -> out

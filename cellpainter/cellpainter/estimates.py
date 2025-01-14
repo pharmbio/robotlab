@@ -177,11 +177,12 @@ def estimate(cmd: PhysicalCommand) -> float:
                     guess = 3.5 * 3600.0
             case RobotarmCmd():
                 test = cmd.program_name
-                test = test.replace('B21-to-disp', 'disp-to-B21')
-                test = test.replace('blue', 'wash')
-                if 'incu' not in test:
-                    test = re.sub(r'A\d+', 'C21', test)
-                test = re.sub(r'\d+', '21', test)
+                test = test.replace('wash', 'blue')
+                if 'incu' in test:
+                    test = re.sub(r'A\d+', 'A3', test)
+                else:
+                    test = re.sub(r'A\d+', 'A18', test)
+                test = re.sub(r'B\d+', 'B14', test)
                 if test != cmd.program_name:
                     guess = estimate(RobotarmCmd(test))
                 else:
