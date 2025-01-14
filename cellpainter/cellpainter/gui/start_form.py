@@ -408,7 +408,7 @@ def start_form(*, config: RuntimeConfig):
 
     desc = store.str(name='description', desc='Example: "specs395-v1"')
     operators = store.str(name='operators', desc='Example: "Amelie and Christa"')
-    incu = store.str(name='incubation times', default='20:00', desc='The incubation times in seconds or minutes:seconds, separated by comma. If too few values are specified, the last value is repeated. Example: 21:00,20:00')
+    incu = store.str(name='incubation times', default='30:00', desc='The incubation times in seconds or minutes:seconds, separated by comma. If too few values are specified, the last value is repeated. Example: 21:00,20:00')
     batch_sizes = store.str(default='6', name='batch sizes', desc='The number of plates per batch, separated by comma. Example: 6,6')
 
     protocol_dir = store.str(
