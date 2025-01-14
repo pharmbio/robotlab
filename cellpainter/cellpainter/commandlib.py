@@ -169,6 +169,9 @@ def remove_stages(program: Program, until_stage: str) -> Program:
         *[Checkpoint(dang) for dang in dangling],
         cmd,
     )
+
+    cmd = RobotarmCmd('ur gripper init and check') >> cmd
+
     return program.replace(
         command=cmd,
         world0=world0,
