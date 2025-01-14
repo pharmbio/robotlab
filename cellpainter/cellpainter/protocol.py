@@ -546,6 +546,8 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
     prep_cmds += [
         program_test_comm(with_blue=p.use_blue),
         BlueCmd('get_working_plate').fork() if p.use_blue else Idle(),
+        Idle(3),
+        IncuCmd('get_status', incu_loc=None).fork(), # make sure that get working plate starts BEFORE any incu use
     ]
 
     post_cmds = [
