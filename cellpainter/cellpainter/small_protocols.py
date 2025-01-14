@@ -227,7 +227,7 @@ def test_circuit_with_incubator(args: SmallProtocolArgs):
     )
     return Program(cmds, world0=program.world0)
 
-@ur_protocols.append
+# @ur_protocols.append
 def measure_liquids(args: SmallProtocolArgs):
     '''
     Measure liquids from dispenser and washers by moving one plate several times around running all the protocols.
@@ -355,7 +355,7 @@ def incu_reset_and_activate(_: SmallProtocolArgs):
     )
     return Program(program.add(Metadata(gui_force_show=True)))
 
-@ur_protocols.append
+# @ur_protocols.append
 def validate_all_protocols(args: SmallProtocolArgs):
     '''
     Validate all biotek protocols.
