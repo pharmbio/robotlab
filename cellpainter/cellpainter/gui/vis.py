@@ -137,7 +137,7 @@ class AnalyzeResult:
             case commands.PFCmd():
                 return cmd.program_name
             case BiotekCmd() | BlueCmd():
-                if cmd.action == 'TestCommunications':
+                if cmd.action in 'TestCommunications' or not cmd.protocol_path:
                     return cmd.action
                 else:
                     path = str(cmd.protocol_path)

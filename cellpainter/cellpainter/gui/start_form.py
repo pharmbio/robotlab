@@ -300,8 +300,10 @@ form_css = '''
     & select.two option {
         padding-left: 8px;
     }
-    & select {
+    & select, & input {
         width: 100%;
+    }
+    & select {
         padding-left: 4px;
     }
     & input:focus-visible, & button:focus-visible, & select:focus-visible {
@@ -323,9 +325,6 @@ form_css = '''
     }
     & > label > span {
         justify-self: right;
-    }
-    & input, & select {
-        width: 300px;
     }
     & > label > span {
         grid-column: 1;
@@ -412,7 +411,7 @@ def start_form(*, config: RuntimeConfig):
     batch_sizes = store.str(default='6', name='batch sizes', desc='The number of plates per batch, separated by comma. Example: 6,6')
 
     protocol_dir = store.str(
-        default='automation_v5.0',
+        default='automation_v5.0_blue_MagBead_evacuate',
         name='protocol dir',
         desc='Directory on the windows computer to read biotek LHC files from',
         options=LazyIterate(lambda: sorted(external_state.painter_protocol_paths.keys())),
@@ -753,7 +752,7 @@ def start_form(*, config: RuntimeConfig):
         css='''
             & {
                 grid-template-rows: repeat(14, 40px);
-                grid-template-columns: 160px 300px;
+                grid-template-columns: 160px 360px;
             }
             & label > span {
                 text-align: right;
