@@ -22,14 +22,22 @@ prelude = '''
         last_lin = flag
     end
 
-    def MoveLin(x, y, z, r, p, yaw, slow=False):
+    def MoveLin(x, y, z, r, p, yaw, slow=False, in_joint_space=False):
         rv = rpy2rotvec([d2r(r), d2r(p), d2r(yaw)])
         pose = p[x/1000, y/1000, z/1000, rv[0], rv[1], rv[2]]
         set_last(x, y, z, r, p, yaw, True)
-        if slow:
-            movel(pose, a=0.3, v=0.10)
+        if in_joint_space:
+            if slow:
+                movej(pose, a=0.3, v=0.25)
+            else:
+                movej(pose, a=1.4, v=1.05)
+            end
         else:
-            movel(pose, a=1.2, v=0.25)
+            if slow:
+                movel(pose, a=0.3, v=0.10)
+            else:
+                movel(pose, a=1.2, v=0.25)
+            end
         end
     end
 

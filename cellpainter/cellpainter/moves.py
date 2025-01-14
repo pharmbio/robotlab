@@ -96,9 +96,10 @@ class MoveLin(Move):
     name: str = ""
     slow: bool = False
     sleep_secs: float | None = None
+    in_joint_space: bool = False
 
     def to_ur_script(self) -> str:
-        res = ur_call('MoveLin', *self.xyz, *self.rpy, **keep_true(slow=self.slow))
+        res = ur_call('MoveLin', *self.xyz, *self.rpy, **keep_true(slow=self.slow, in_joint_space=self.in_joint_space))
         if self.sleep_secs:
             res += f'\nsleep({self.sleep_secs})'
         return res
