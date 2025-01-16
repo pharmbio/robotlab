@@ -98,12 +98,12 @@ class DLid(Machine):
         id = str(id)
         self.send(id, 'L?')
         self.status[id] = status = '?'
-        for _ in range(20):
+        for _ in range(200):
             status = self.status.get(id, '?')
             if status != '?':
                 break
             else:
-                time.sleep(0.1)
+                time.sleep(0.01)
         match status:
             case 'L0':
                 return 'free'
