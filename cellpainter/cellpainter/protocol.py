@@ -8,6 +8,7 @@ import re
 import itertools as it
 
 from .commands import (
+    DLidCheckStatusCmd,
     Program,
     Command,
     Fork,
@@ -53,7 +54,7 @@ class Plate:
     incu_loc: str
     rt_loc: str
     lid_loc: str
-    dlid_loc: str
+    dlid_loc: Literal['B12', 'B14']
     out_loc: str
     batch_index: int
 
@@ -98,7 +99,7 @@ class Locations:
     B: list[str] = [f'B{i}' for i in HB]
 
     Lid:  list[str] = ['B19', 'B17']
-    DLid: list[str] = ['B14', 'B12']
+    DLid: list[Literal['B14', 'B12']] = ['B14', 'B12']
     RT:   list[str] = A[:21] + B[4:]
 
     L: list[str] = [f'L{i}' for i in I]
@@ -604,17 +605,21 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                 ]
 
             dlid_off = [
+                DLidCheckStatusCmd(plate.dlid_loc, 'free'),
                 *RobotarmCmds(
                     plate.dlid,
                     before_pick=[Checkpoint(f'{plate_desc} lid off {ix}')]
                 ),
+                DLidCheckStatusCmd(plate.dlid_loc, 'taken'),
             ]
 
             dlid_on = [
+                DLidCheckStatusCmd(plate.dlid_loc, 'taken'),
                 *RobotarmCmds(
                     plate.dlid,
                     after_drop=[Duration(f'{plate_desc} lid off {ix}', OptPrio.without_lid)]
                 ),
+                DLidCheckStatusCmd(plate.dlid_loc, 'free'),
             ]
 
             if step.name == 'Mito' or step.name == 'PFA':

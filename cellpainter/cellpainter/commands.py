@@ -549,6 +549,13 @@ class BlueCmd(PhysicalCommand):
         return 'blue'
 
 @dataclass(frozen=True)
+class DLidCheckStatusCmd(PhysicalCommand):
+    dlid_loc: Literal['B12', 'B14']
+    status: Literal['free', 'taken']
+    def normalize(self):
+        return DLidCheckStatusCmd(dlid_loc='B14', status='free')
+
+@dataclass(frozen=True)
 class IncuCmd(PhysicalCommand):
     action: Literal['put', 'get', 'get_status', 'reset_and_activate']
     incu_loc: str | None = None

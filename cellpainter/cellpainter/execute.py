@@ -108,6 +108,17 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
         case IncuCmd(action=action):
             incubator.execute(runtime, entry, action, cmd.incu_loc)
 
+        case DLidCheckStatusCmd():
+            for dlid in runtime.time_resource_use(entry, runtime.dlid):
+                dlid_ids = {
+                    'B12': '1',
+                    'B14': '2',
+                }
+                dlid_id = dlid_ids[cmd.dlid_loc]
+                actual_status = dlid.get_status(dlid_id)
+                if actual_status != cmd.status:
+                    raise ValueError(f'DLid D{dlid_id} on {cmd.dlid_loc} should be {cmd.status} but is {actual_status}!')
+
         case SquidAcquire():
             for squid in runtime.time_resource_use(entry, runtime.squid):
               if cmd.config_path != 'noop':

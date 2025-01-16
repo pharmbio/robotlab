@@ -189,6 +189,8 @@ def estimate(cmd: PhysicalCommand) -> float:
                     guess = 2.5
             case PFCmd(only_if_no_barcode=True):
                 guess = 0.0
+            case DLidCheckStatusCmd():
+                guess = 0.02
             case _:
                 guess = 2.5
         guesses[cmd] = estimates[cmd] = guess

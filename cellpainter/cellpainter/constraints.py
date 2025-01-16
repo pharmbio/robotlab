@@ -182,7 +182,7 @@ def optimal_env(cmd: Command, unsat_core: bool=False, explain_mode: bool=False, 
             case BarcodeClear():
                 return begin + estimate(cmd)
             case PhysicalCommand():
-                if isinstance(cmd, RobotarmCmd | PFCmd):
+                if isinstance(cmd, RobotarmCmd | PFCmd | DLidCheckStatusCmd):
                     assert is_main, f'Must be run in main thread {cmd=}'
                 else:
                     assert not is_main, f'Cannot run in main thread {cmd=}'

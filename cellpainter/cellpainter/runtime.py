@@ -26,6 +26,7 @@ from labrobots import (
     BarcodeReader,
     Biotek,
     BlueWash,
+    DLid,
     Fridge,
     MikroAsus,
     Squid,
@@ -68,6 +69,7 @@ class Runtime:
     wash: Biotek   | None = None
     disp: Biotek   | None = None
     blue: BlueWash | None = None
+    dlid: DLid     | None = None
 
     fridge: Fridge                | None = None
     barcode_reader: BarcodeReader | None = None
@@ -128,6 +130,7 @@ class Runtime:
             self.wash = nuc.wash
             self.disp = nuc.disp
             self.blue = nuc.blue
+            self.dlid = nuc.dlid
 
         if self.config.ur_env.mode != 'noop':
             self.ur = UR(
