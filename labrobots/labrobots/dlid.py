@@ -61,7 +61,7 @@ class DLid(Machine):
 
     def _dlid_thread(self):
         self.serial_log_cell.value = Log.make('dlid')
-        serial = self.serial_cell.value = Serial(self.com_port, baudrate=57600, timeout=60)
+        serial = self.serial_cell.value = Serial(self.com_port, baudrate=57600, timeout=None)
         self.serial_log('using com_port', self.com_port)
         while True:
             try:
@@ -75,7 +75,12 @@ class DLid(Machine):
             line = line.strip()
             if line.startswith('<'):
                 id, sep, status = line.removeprefix('<').removesuffix('()').partition(': ')
-                self.serial_log(f'dlid.read() = {line!r} ({id=!r}, {sep=!r}, {status=!r})', line=line, id=id, status=status)
+                self.serial_log(
+                    f'dlid.read() = {line!r} ({id=!r}, {status=!r}: {descriptions.get(status, "?")})',
+                    line=line,
+                    id=id,
+                    status=status
+                )
                 if sep == ': ' and status.isalnum():
                     self.status[id] = status
             else:
@@ -89,20 +94,20 @@ class DLid(Machine):
         self.serial_log(f'dlid.write({line!r})', line=line)
         serial.write(line.encode('ascii'))
 
-    def clear(self, id: str):
+    def get_status(self, id: str) -> Literal['free', 'taken', 'error']:
         id = str(id)
-        self.status[id] = '?'
-        self.send_query(id, 'L')
-
-    def send_query(self, id: str, q: str):
-        self.send(id, q + '?')
-
-    def query(self, id: str, q: str):
-        self.send_query(id, q)
-        time.sleep(0.1)
-        return self.get_status(id)
-
-    def get_status(self, id: str) -> tuple[str, str]:
-        id = str(id)
-        status = self.status.get(id, 'None')
-        return status, descriptions.get(status, 'None')
+        self.send(id, 'L?')
+        self.status[id] = status = '?'
+        for _ in range(20):
+            status = self.status.get(id, '?')
+            if status != '?':
+                break
+            else:
+                time.sleep(0.1)
+        match status:
+            case 'L0':
+                return 'free'
+            case 'L1':
+                return 'taken'
+            case _:
+                return 'error'
