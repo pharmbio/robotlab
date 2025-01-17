@@ -178,7 +178,7 @@ def test_circuit(args: SmallProtocolArgs):
         *[
             cmd.add(metadata)
             for cmd, metadata in cmds.collect(flatten_sections=True)
-            if isinstance(cmd, RobotarmCmd)
+            if isinstance(cmd, RobotarmCmd | DLidCheckStatusCmd)
         ],
         *RobotarmCmds(plate.out_get),
         *RobotarmCmds(f'{plate.dlid_loc}-to-incu'),
@@ -218,6 +218,7 @@ def test_circuit_with_incubator(args: SmallProtocolArgs):
             for cmd, metadata in cmds.collect(flatten_sections=True)
             if any([
                 isinstance(cmd, RobotarmCmd),
+                isinstance(cmd, DLidCheckStatusCmd),
                 isinstance(cmd, Fork) and cmd.resource == 'incu',
                 isinstance(cmd, WaitForResource) and cmd.resource == 'incu' ,
                 isinstance(cmd, WaitForCheckpoint) and re.search(r'\bincu\b', cmd.name),

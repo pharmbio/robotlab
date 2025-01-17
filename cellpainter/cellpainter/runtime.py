@@ -130,13 +130,14 @@ class Runtime:
             self.wash = nuc.wash
             self.disp = nuc.disp
             self.blue = nuc.blue
-            self.dlid = nuc.dlid
 
         if self.config.ur_env.mode != 'noop':
+            nuc = WindowsNUC.remote(timeout_secs=1800) # Spheroid washer protocols have long waits
             self.ur = UR(
                 host=self.config.ur_env.host,
                 port=self.config.ur_env.port,
             )
+            self.dlid = nuc.dlid
 
         if self.config.pf_env.mode != 'noop':
             self.pf = PF(
