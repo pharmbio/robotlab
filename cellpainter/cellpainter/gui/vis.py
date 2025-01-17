@@ -164,11 +164,11 @@ class AnalyzeResult:
                 else:
                     return cmd.action
             case commands.WaitForCheckpoint() if cmd.plus_seconds.unwrap() > 0.5:
-                return f'sleeping to {self.pp_time_at(e.t)}'
+                return f'waiting until {self.pp_time_at(e.t)}'
             case commands.WaitForCheckpoint():
                 return f'waiting for {cmd.name}'
             case commands.Idle() if e.t0:
-                return f'sleeping to {self.pp_time_at(e.t)}'
+                return f'waiting until {self.pp_time_at(e.t)}'
             case _:
                 return str(e.cmd_type)
 
