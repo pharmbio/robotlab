@@ -39,8 +39,7 @@ from . import commands
 import pbutils
 
 class OptPrio:
-    wash_to_disp  = Min(priority=8, weight=1)
-    incubation    = Min(priority=7, weight=1)
+    wash_to_disp  = Min(priority=7, weight=1)
     total_time    = Min(priority=6, weight=1)
     without_lid   = Min(priority=5, weight=1)
     inside_incu   = Max(priority=4, weight=1)
@@ -580,7 +579,6 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
             incu_delay: list[Command]
             wash_delay: list[Command]
             if not prev_step:
-                # idle_ref = WaitForCheckpoint(f'batch {batch_index}')
                 incu_delay = [
                     WaitForCheckpoint(f'batch {batch_index}') + f'{plate_desc} incu delay {ix}',
                 ]
@@ -588,20 +586,13 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                     WaitForCheckpoint(f'batch {batch_index}') + f'{plate_desc} first wash delay'
                 ]
             else:
-                # idle_ref = WaitForCheckpoint(f'{first_plate_desc} incubation {ix-1}')
                 incu_delay = [
                     WaitForCheckpoint(f'{first_plate_desc} incubation {ix-1}') + f'{plate_desc} incu delay {ix}'
                 ]
-                _slack = (
-                    Symbolic.var(f'{plate_desc} incubation {ix-1} slack')
-                    + prev_step.incu
-                )
                 wash_delay = [
                     Early(2),
                     WaitForCheckpoint(f'{plate_desc} incubation {ix-1}', assume='will wait') + prev_step.incu,
-                    Duration(f'{plate_desc} incubation {ix-1}', OptPrio.incubation),
-                    # WaitForCheckpoint(f'{plate_desc} incubation {ix-1}', assume='will wait') + slack,
-                    # Duration(f'{plate_desc} incubation {ix-1}', OptPrio.incu_slack),
+                    Duration(f'{plate_desc} incubation {ix-1}'),
                 ]
 
             dlid_off = [
@@ -645,6 +636,7 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
                 incu_get = [
                     *RobotarmCmds(plate.rt_get),
                 ]
+
 
             if step.name == 'Mito':
                 dlid_to_incu = [

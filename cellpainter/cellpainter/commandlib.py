@@ -159,7 +159,7 @@ def remove_stages(program: Program, until_stage: str) -> Program:
             dangling.add(name)
             replacement = WaitForCheckpoint(name, assume='nothing') + f'wiggle {i}'
             if isinstance(cmd, Duration):
-                replacement = Seq(replacement, Duration(name))
+                replacement = Seq(replacement, Duration(name, constraint=cmd.constraint))
             return replacement
         else:
             return cmd

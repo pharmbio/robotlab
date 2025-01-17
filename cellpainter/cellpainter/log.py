@@ -187,7 +187,7 @@ class Log:
         for k in q.select(CommandState.metadata.section):
             if k in out:
                 continue
-            out[k] = q.select(CommandState.t0).order(CommandState.t0).where(CommandState.metadata.section == k).one()
+            out[k] = q.order(CommandState.t0).where(CommandState.metadata.section == k).one().t0
         out = dict(sorted(out.items(), key=lambda kv: kv[1]))
         if '' in out and len(out) >= 2:
             empty = out.pop('')
@@ -206,7 +206,7 @@ class Log:
         for k in q.select(CommandState.metadata.section):
             if k in out:
                 continue
-            out[k] = q.select(CommandState.t0).order(CommandState.t0, dir='desc').where(CommandState.metadata.section == k).one()
+            out[k] = q.order(CommandState.t0, dir='desc').where(CommandState.metadata.section == k).one().t0
         out = dict(sorted(out.items(), key=lambda kv: kv[1]))
         if out:
             *_, last = out.keys()

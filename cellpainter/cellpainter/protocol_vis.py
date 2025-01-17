@@ -215,9 +215,20 @@ def add_to_serve(serve: Serve, cmdline0: str, cmdline_to_log: Callable[[str], Lo
                 -transform: translate(-25%, -25%) rotate(90deg) scaleX(-1);
             }
         ''')
+        ts: list[float] = []
+        eps = 0.0
+        for e in entries:
+            ts += [e.t0, e.t + eps]
+        t_dict: dict[float, list[int]] = DefaultDict(list)
+        for i, t in list(enumerate(sorted(ts))):
+            t_dict[t].insert(0, i)
         for e in reversed(entries):
-            t0 = e.t0
-            t = e.t
+            if 0:
+                t0 = t_dict[e.t0].pop()
+                t = t_dict[e.t + eps].pop() + 0.9
+            else:
+                t0 = e.t0
+                t = e.t
             cmd = e.cmd
             m = e.metadata
             slot = m.slot
