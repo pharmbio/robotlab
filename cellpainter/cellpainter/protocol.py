@@ -946,7 +946,7 @@ def cell_paint_program(batch_sizes: list[int], protocol_config: ProtocolConfig) 
             batch,
             protocol_config=protocol_config,
         )
-        program = OptimizeSection(program >> batch_cmds, name=f'batch {i+1}/{len(plates)}' if len(plates) > 1 else None)
+        program = program >> batch_cmds
     world0 = initial_world(pbutils.flatten(plates), protocol_config)
     return Program(
         command=program,
