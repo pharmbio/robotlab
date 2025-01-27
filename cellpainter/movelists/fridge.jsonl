@@ -9,22 +9,22 @@
 {"type":"MoveLin","xyz":[159.2,-522.1,448.2],"rpy":[0.0,0.0,0.0],"tag":"H11","name":"H11 neu"}
 {"type":"MoveLin","xyz":[-20.1,-503.9,448.2],"rpy":[0.0,0.0,0.0],"tag":"H11","name":"H11 entrance"}
 {"type":"MoveJoint","joints":[502.01,-70.74,273.53,157.58],"name":"hotel neu"}
-{"type":"MoveJoint","joints":[505.31,69.1,39.98,431.21],"name":"fridge neu"}
+{"type":"MoveJoint","joints":[505.3,68.55,41.1,430.64],"name":"fridge neu"}
 {"type":"MoveLin","xyz":[-148.8,552.4,505.3],"rpy":[0.0,0.0,-179.7],"name":"fridge above"}
 {"type":"MoveLin","xyz":[-148.8,552.4,405.3],"rpy":[0.0,0.0,-179.7],"name":"fridge drop"}
 {"type":"GripperMove","pos":100}
 {"type":"MoveLin","xyz":[-148.8,552.4,505.3],"rpy":[0.0,0.0,-179.7],"name":"fridge above"}
-{"type":"MoveJoint","joints":[505.31,69.1,39.98,431.21],"name":"fridge neu"}
+{"type":"MoveJoint","joints":[505.3,68.55,41.1,430.64],"name":"fridge neu"}
 {"type":"MoveJoint","joints":[601.9,-9.03,177.84,191.53],"name":"neu"}
 {"type":"Section","section":"fridge-to-H11"}
 {"type":"MoveJoint","joints":[601.9,-9.03,177.84,191.53],"name":"neu"}
 {"type":"GripperMove","pos":100}
-{"type":"MoveJoint","joints":[505.31,69.1,39.98,431.21],"name":"fridge neu"}
+{"type":"MoveJoint","joints":[505.3,68.55,41.1,430.64],"name":"fridge neu"}
 {"type":"MoveLin","xyz":[-148.8,552.4,505.3],"rpy":[0.0,0.0,-179.7],"name":"fridge above"}
 {"type":"MoveLin","xyz":[-148.8,552.4,405.3],"rpy":[0.0,0.0,-179.7],"name":"fridge pick"}
 {"type":"GripperMove","pos":75}
 {"type":"MoveLin","xyz":[-148.8,552.4,505.3],"rpy":[0.0,0.0,-179.7],"name":"fridge above"}
-{"type":"MoveJoint","joints":[505.31,69.1,39.98,431.21],"name":"fridge neu"}
+{"type":"MoveJoint","joints":[505.3,68.55,41.1,430.64],"name":"fridge neu"}
 {"type":"MoveJoint","joints":[502.01,-70.74,273.53,157.58],"name":"hotel neu"}
 {"type":"MoveLin","xyz":[-20.1,-503.9,448.2],"rpy":[0.0,0.0,0.0],"tag":"H11","name":"H11 entrance"}
 {"type":"MoveLin","xyz":[159.2,-522.1,448.2],"rpy":[0.0,0.0,0.0],"tag":"H11","name":"H11 neu"}
