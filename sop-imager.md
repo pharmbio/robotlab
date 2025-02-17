@@ -2,8 +2,7 @@
 
 ## Accessing the GUI <a href="http://10.10.0.55:3000" target=_blank>http://10.10.0.55:3000</a>
 
-- **Squid computer**: <a href="http://10.10.0.55:3000" target=_blank>http://10.10.0.55:3000</a>.
-- **Other network computers (e.g. Nikon)**: <a href="http://10.10.0.55:3000" target=_blank>http://10.10.0.55:3000</a>.
+- Use this IP and port: <a href="http://10.10.0.55:3000" target=_blank>http://10.10.0.55:3000</a>.
 
 <details>
 <summary>

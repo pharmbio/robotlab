@@ -4,8 +4,7 @@ Standard operating procedure for robot cellpainter.
 
 ## Access gui on <a href="http://10.10.0.55:5000" target=_blank>http://10.10.0.55:5000</a>
 
-From the windows computer use <a href="http://10.10.0.55:5000" target=_blank>http://10.10.0.55:5000</a>.
-From other computers on the network use <a href="http://10.10.0.55:5000" target=_blank>http://10.10.0.55:5000</a>.
+Use this IP and port: <a href="http://10.10.0.55:5000" target=_blank>http://10.10.0.55:5000</a>.
 
 This can fail if the windows nuc has been the restarted and the labrobots server is not running.
 Check if <a href="http://10.10.0.56:5050" target=_blank>http://10.10.0.56:5050</a> can be reached.
