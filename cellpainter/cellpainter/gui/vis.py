@@ -34,6 +34,7 @@ class AnalyzeResult:
     sections: dict[str, float]
     time_end: float
     vis: list[VisRow]
+    drop_after: float | None
 
     def has_error(self):
         if self.completed:
@@ -100,6 +101,7 @@ class AnalyzeResult:
             sections=sections,
             time_end=m.time_end(),
             vis=m.vis(t_now if not errors else None),
+            drop_after=drop_after,
         )
 
     def entry_desc_for_hover(self, e: CommandState):
@@ -431,8 +433,9 @@ class AnalyzeResult:
                 protocol_path=getattr(cs.cmd, 'protocol_path'),
                 plate_id=cs.metadata.plate_id,
                 completed=(
-                    cs.state == 'completed' or
-                    simulation_completed and t_end and cs.t < t_end.value
+                    cs.state == 'completed'
+                    if self.drop_after is None else
+                    cs.t < self.drop_after
                 ),
             )
             for cs in q.list()
