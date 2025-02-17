@@ -84,7 +84,6 @@ class AnalyzeResult:
             .list()
         )
 
-
         return AnalyzeResult(
             zero_time=zero_time,
             t_now=t_now,
@@ -203,8 +202,11 @@ class AnalyzeResult:
     def time_at(self, secs: float):
         return self.zero_time + timedelta(seconds=secs)
 
-    def pp_time_at(self, secs: float):
-        return self.time_at(secs).strftime('%H:%M:%S')
+    def pp_time_at(self, secs: float, with_ymd: bool=False):
+        if with_ymd:
+            return self.time_at(secs).strftime('%Y-%m-%d %H:%M:%S')
+        else:
+            return self.time_at(secs).strftime('%H:%M:%S')
 
     def countdown(self, to: float):
         return countdown(self.t_now, to)
@@ -401,3 +403,73 @@ class AnalyzeResult:
 
         return area
 
+    def summary_query(self, log: Log):
+        q = log.gui_query()
+        q = q.where_some(*[
+            CommandState.cmd_type == t
+            for t in 'BiotekCmd BlueCmd'.split()
+        ])
+        q = q.where(CommandState.metadata.plate_id != '')
+        q = q.where(CommandState.metadata.plate_id != None)
+        q = q.order(CommandState.t0)
+        return q
+
+    def has_summary_table(self, log: Log) -> bool:
+        q = self.summary_query(log)
+        return q.one_or(None) is not None
+
+    def summary_table(self, log: Log) -> list[dict[str, str]]:
+        q = self.summary_query(log)
+        cells = [
+            dict(
+                t0=cs.t0,
+                t=cs.t,
+                step=(
+                    cs.metadata.section.rstrip('0123456789 ') +
+                    ' ' + (cs.resource or '').replace('blue', 'wash')
+                ),
+                protocol_path=getattr(cs.cmd, 'protocol_path'),
+                plate_id=cs.metadata.plate_id,
+                completed=(
+                    cs.state == 'completed' or
+                    simulation_completed and t_end and cs.t < t_end.value
+                ),
+            )
+            for cs in q.list()
+        ]
+        import pbutils
+        pivot_lookup = {
+            (cell['plate_id'], cell['step']): cell
+            for cell in cells
+        }
+        pivot_ys = pbutils.uniq([y for y, x in pivot_lookup.keys()])
+        pivot_xs = pbutils.uniq([x for y, x in pivot_lookup.keys()])
+        remove = set[str]()
+        for x in pivot_xs:
+            if isinstance(x, str):
+                disp = x.replace('wash', 'disp')
+                wash = x.replace('disp', 'wash')
+                if disp in pivot_xs and wash in pivot_xs:
+                    remove |= {wash}
+        pivot_xs = [x for x in pivot_xs if x not in remove]
+        return [
+            dict(plate=str(y)) |
+            {
+                str(x): ''.join((
+                    '(' if not completed else '',
+                    self.pp_time_at(t0, with_ymd=True) if isinstance(t0, float) else '',
+                    ')' if not completed else '',
+                ))
+                for x in pivot_xs
+                for t0 in [pivot_lookup.get((y, x), {}).get('t0')]
+                for completed in [pivot_lookup.get((y, x), {}).get('completed')]
+            }
+            for y in pivot_ys
+        ]
+
+        if 0:
+            protocols = pbutils.uniq([
+                (('step', cell['step']), ('protocol', cell['protocol_path']))
+                for cell in cells
+            ])
+            table = list(map(dict, protocols))
