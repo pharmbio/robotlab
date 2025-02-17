@@ -188,6 +188,11 @@ def index(path_from_route: str | None = None) -> Iterator[Tag | V.Node | dict[st
             }
         ''',
     )
+
+
+    view_type = store.str(options=['overview', 'summary view'], name='view')
+
+    overview_tables: list[Tag] = []
     error_box: None | Tag = None
     yield info
     log: Log | None = None
@@ -294,9 +299,14 @@ def index(path_from_route: str | None = None) -> Iterator[Tag | V.Node | dict[st
             box += pre(stderr)
             info += box
     elif cast(Any, ar) is not None:
+        info += div(
+            view_type.input().extend(css='padding: 6px 8px; width: 140px'),
+            align='center'
+        )
+
         vis = ar.make_vis(t_end)
 
-        info += div(
+        overview_tables += [div(
             common.make_table(ar.running()),
             css='''
                 & table {
@@ -311,7 +321,8 @@ def index(path_from_route: str | None = None) -> Iterator[Tag | V.Node | dict[st
                     text-align: right
                 }
             '''
-        )
+        )]
+
         def world_key(d: dict[str, str]):
             loc = d.get('loc', '')
             s = ''.join(re.findall(r'\D', loc))
@@ -335,7 +346,7 @@ def index(path_from_route: str | None = None) -> Iterator[Tag | V.Node | dict[st
                 key=world_key
             )
         ).extend(css='& tbody td { text-align: right }')
-        info += div(
+        overview_tables += [div(
             world_table,
             sections(ar),
             css='''
@@ -347,7 +358,7 @@ def index(path_from_route: str | None = None) -> Iterator[Tag | V.Node | dict[st
                     margin: auto;
                 }
             '''
-        )
+        )]
         if ar.has_error():
             box = div(
                 _class='error',
@@ -397,6 +408,80 @@ def index(path_from_route: str | None = None) -> Iterator[Tag | V.Node | dict[st
                 opacity='0.85',
                 background='none',
             )
+
+        if view_type.value == 'overview':
+            if log and simulation_completed:
+                G = log.group_durations()
+                incubations = [times for event_name, times in G.items() if 'incubation' in event_name]
+                if incubations:
+                    incubation = incubations[0]
+                    incu_table = common.make_table([
+                        dict(event='incubation times:') | {str(i): t for i, t in enumerate(incubation)}
+                    ], header=False)
+                    overview_tables += [incu_table]
+            info.append(*overview_tables)
+        elif view_type.value == 'summary view':
+            if log:
+                from ..log import CommandState
+                q = log.gui_query()
+                q = q.where_some(*[
+                    CommandState.cmd_type == t
+                    for t in 'BiotekCmd BlueCmd'.split()
+                ])
+                q = q.where(CommandState.metadata.plate_id != '')
+                q = q.where(CommandState.metadata.plate_id != None)
+                q = q.order(CommandState.t0)
+                cells = [
+                    dict(
+                        t0=cs.t0,
+                        t=cs.t,
+                        step=(
+                            cs.metadata.section.rstrip('0123456789 ') +
+                            ' ' + (cs.resource or '').replace('blue', 'wash')
+                        ),
+                        protocol_path=getattr(cs.cmd, 'protocol_path'),
+                        plate_id=cs.metadata.plate_id,
+                        completed=(
+                            cs.state == 'completed' or
+                            simulation_completed and t_end and cs.t < t_end.value
+                        ),
+                    )
+                    for cs in q.list()
+                ]
+                import pbutils
+                pivot_lookup = {
+                    (cell['plate_id'], cell['step']): cell
+                    for cell in cells
+                }
+                pivot_ys = pbutils.uniq([y for y, x in pivot_lookup.keys()])
+                pivot_xs = pbutils.uniq([x for y, x in pivot_lookup.keys()])
+                table = [
+                    dict(plate=y) |
+                    {
+                        x: ''.join((
+                            '(' if not completed else '',
+                            ar.pp_time_at(t0) if isinstance(t0, float) else '',
+                            ')' if not completed else '',
+                        ))
+                        for x in pivot_xs
+                        for t0 in [pivot_lookup.get((y, x), {}).get('t0')]
+                        for completed in [pivot_lookup.get((y, x), {}).get('completed')]
+                    }
+                    for y in pivot_ys
+                ]
+                info += common.make_table(table).extend(css='''
+                    & td { text-align: right; }
+                ''')
+                if 0:
+                    protocols = pbutils.uniq([
+                        (('step', cell['step']), ('protocol', cell['protocol_path']))
+                        for cell in cells
+                    ])
+                    info += common.make_table(list(map(dict, protocols))).extend(css='''
+                        & td:first-child { white-space: pre; }
+                    ''')
+
+
         if ar.completed and not ar.has_error():
             if path_is_latest:
                 # skip showing buttons for endpoint /latest
@@ -449,15 +534,6 @@ def index(path_from_route: str | None = None) -> Iterator[Tag | V.Node | dict[st
             else:
                 start_button = ''
                 store_timings_button = ''
-            if log and simulation_completed:
-                G = log.group_durations()
-                incubations = [times for event_name, times in G.items() if 'incubation' in event_name]
-                if incubations:
-                    incubation = incubations[0]
-                    incu_table = common.make_table([
-                        dict(event='incubation times:') | {str(i): t for i, t in enumerate(incubation)}
-                    ], header=False)
-                    info += incu_table
             info += div(
                 div(
                     span(
@@ -574,6 +650,9 @@ def index(path_from_route: str | None = None) -> Iterator[Tag | V.Node | dict[st
 
     yield vis.extend(grid_area='vis')
 
+    if error_box is not None:
+        info += error_box
+
     if ar and path and not simulation:
         em = ar.experiment_metadata
         edit_em = Edit(path, em, enable_edit=not path_is_latest)
@@ -585,9 +664,6 @@ def index(path_from_route: str | None = None) -> Iterator[Tag | V.Node | dict[st
             white_space='pre-wrap',
             overflow_y='auto',
         )
-
-    if error_box is not None:
-        info += error_box
 
     if path and not (ar and ar.completed):
         if ar and ar.completed:
