@@ -2,9 +2,9 @@
 
 Standard operating procedure for robot cellpainter.
 
-## Access gui on <a href="http://cellpainter:5000" target=_blank>http://cellpainter:5000</a>
+## Access gui on <a href="http://10.10.0.55:5000" target=_blank>http://10.10.0.55:5000</a>
 
-From the windows computer use <a href="http://cellpainter:5000" target=_blank>http://cellpainter:5000</a>.
+From the windows computer use <a href="http://10.10.0.55:5000" target=_blank>http://10.10.0.55:5000</a>.
 From other computers on the network use <a href="http://10.10.0.55:5000" target=_blank>http://10.10.0.55:5000</a>.
 
 This can fail if the windows nuc has been the restarted and the labrobots server is not running.
@@ -85,7 +85,7 @@ Use the teach pendant (the handheld touchpad tablet).
 
 ## Test communications
 
-1. Use the windows computer and go to the gui at http://cellpainter:5000.
+1. Use the windows computer and go to the gui at http://10.10.0.55:5000.
 
 2. Run the test communications protocol, `test-comm` to verify that all machines can be communicated with.
 
@@ -122,7 +122,7 @@ For dry runs: make sure the plates are decontaminated since they are going into 
 
    Use the teach pendant and its freedrive button.
 
-3. Use the windows computer and go to the gui at http://cellpainter:5000.
+3. Use the windows computer and go to the gui at http://10.10.0.55:5000.
 
 4. Use the load incubator protocol, `incu-load`, and enter the number of plates. Press start!
 
@@ -132,7 +132,7 @@ For dry runs: make sure the plates are decontaminated since they are going into 
 
    Use the teach pendant and its freedrive button.
 
-2. Use the windows computer and go to the gui at http://cellpainter:5000.
+2. Use the windows computer and go to the gui at http://10.10.0.55:5000.
 
 3. Select the `cell-paint` protocol and enter the desired settings.
 
@@ -195,7 +195,7 @@ For dry runs: make sure the plates are decontaminated since they are going into 
 
 ## After painting: saving the log file
 
-1. Use the windows computer and go to the gui at http://cellpainter:5000.
+1. Use the windows computer and go to the gui at http://10.10.0.55:5000.
 
 2. Go to the _show logs_ section.
 
@@ -232,7 +232,7 @@ For dry runs: make sure the plates are decontaminated since they are going into 
    the dispenser on air, a plate is optional. Using liquids and a plate will
    not work, the plate will overflow.
 
-4. Use the windows computer and go to the gui at http://cellpainter:5000.
+4. Use the windows computer and go to the gui at http://10.10.0.55:5000.
 
 5. Select `time-protocols` and enter the protocol directory name. Start!
 
@@ -284,7 +284,7 @@ touched by hand without gloves they are not considered clean any more and must n
 
     2.4 Attach washer waste bottle, preferably an empty one or one just used with water and ethanol.
 
-4. Use the windows computer and go to the gui at http://cellpainter:5000.
+4. Use the windows computer and go to the gui at http://10.10.0.55:5000.
 
 5. Select `wash-plates-clean` and enter the number of plates. Press start!
 

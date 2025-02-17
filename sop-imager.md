@@ -1,8 +1,8 @@
 # Robot Imager Standard Operating Procedure
 
-## Accessing the GUI <a href="http://imager:3000" target=_blank>http://imager:3000</a>
+## Accessing the GUI <a href="http://10.10.0.55:3000" target=_blank>http://10.10.0.55:3000</a>
 
-- **Squid computer**: <a href="http://imager:3000" target=_blank>http://imager:3000</a>.
+- **Squid computer**: <a href="http://10.10.0.55:3000" target=_blank>http://10.10.0.55:3000</a>.
 - **Other network computers (e.g. Nikon)**: <a href="http://10.10.0.55:3000" target=_blank>http://10.10.0.55:3000</a>.
 
 <details>
