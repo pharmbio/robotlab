@@ -118,9 +118,9 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
                 actual_status = dlid.get_status(dlid_id)
                 if actual_status != cmd.status:
                     if actual_status == 'free':
-                        raise ValueError(f'Vacuum delidding machine error: DLid D{dlid_id} on {cmd.dlid_loc} should be holding a lid but is not.')
+                        raise ValueError(f'Vacuum delidder D{dlid_id} on {cmd.dlid_loc} should be holding a lid but is not.')
                     else:
-                        raise ValueError(f'Vacuum delidding machine error: DLid D{dlid_id} on {cmd.dlid_loc} should not be holding a lid but is not.')
+                        raise ValueError(f'Vacuum delidder D{dlid_id} on {cmd.dlid_loc} is still holding a lid but should not be.')
 
         case SquidAcquire():
             for squid in runtime.time_resource_use(entry, runtime.squid):
@@ -222,7 +222,7 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
                 if not barcode:
                     raise ValueError(f'No barcode registered')
                 if cmd.expected_barcode and cmd.expected_barcode != barcode:
-                    raise ValueError(f'Plate has {barcode=!r} but expected {cmd.expected_barcode=!r}')
+                    raise ValueError(f'Plate has barcode {barcode!r} but expected {cmd.expected_barcode!r}')
                 fridge.insert(barcode, cmd.project)
 
         case FridgeEject():
@@ -234,9 +234,9 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
                 if not cmd.check_barcode:
                     if barcode != cmd.plate:
                         import sys
-                        print(f'Plate has {barcode=!r} but expected {cmd.plate=!r}. Ignoring because {cmd=}.', file=sys.stderr)
+                        print(f'Plate has barcode {barcode!r} but expected {cmd.plate!r}. Ignoring because {cmd=}.', file=sys.stderr)
                 elif barcode != cmd.plate:
-                    raise ValueError(f'Plate has {barcode=!r} but expected {cmd.plate=!r}')
+                    raise ValueError(f'Plate has barcode {barcode!r} but expected {cmd.plate!r}')
 
         case FridgeCmd(action=action):
             for fridge in runtime.time_resource_use(entry, runtime.fridge):

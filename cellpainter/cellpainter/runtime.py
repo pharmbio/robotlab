@@ -202,7 +202,7 @@ class Runtime:
         except SystemExit:
             pass
         except BaseException as e:
-            self.log(Message(f'{type(e).__name__}: {e}', traceback=traceback.format_exc(), is_error=True))
+            self.log(Message(str(e), traceback=traceback.format_exc(), is_error=True))
             os.kill(os.getpid(), signal.SIGTERM)
 
     def log(self, message: Message) -> Message:

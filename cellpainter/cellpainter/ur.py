@@ -26,7 +26,7 @@ def ur_handler(log: Log):
         except:
             extra_info = {}
         log(str(e), **extra_info)
-        raise ValueError(f'UR robotarm communication error: {e}')
+        raise ValueError(f'UR robotarm: Communication error. {e}')
 
 @dataclass(frozen=True)
 class ConnectedUR:
