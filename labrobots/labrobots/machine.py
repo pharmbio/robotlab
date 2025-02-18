@@ -261,14 +261,17 @@ class Machine:
             )
             # from pprint import pp
             # pp((url, data, '...'))
-            res = json.loads(urlopen(req, timeout=timeout_secs).read())
+            try:
+                res = json.loads(urlopen(req, timeout=timeout_secs).read())
+            except OSError as e:
+                raise OSError(f'Communication error with {name}: {e} {getattr(e, "reason", "")}'.strip())
             # pp((url, data, '=', res))
             if 'value' in res:
                 return res['value']
             elif 'error' in res:
-                raise ValueError(res['error'])
+                raise ValueError(f'Error from {name}: {res["error"]}')
             else:
-                raise ValueError(f'Remote call failed! {url=} {data=}')
+                raise ValueError(f'Communication error with {name}: {res=}')
         if not skip_up_check:
             assert call(['up?'])
         return Proxy(cls, call) # type: ignore
