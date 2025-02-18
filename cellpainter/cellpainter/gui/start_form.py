@@ -60,7 +60,7 @@ class PlateTarget:
 def read_imager_plate_metadata(config: RuntimeConfig) -> tuple[tuple[Plate, PlateTarget], ...]:
     if (dir := config.plate_metadata_dir):
         out: list[tuple[Plate, PlateTarget]] = []
-        for csv in sorted(Path(dir).glob('**/*csv'), key=lambda path: path.stem):
+        for csv in sorted(Path(dir).glob('*.csv'), key=lambda path: path.stem):
             for line in csv.read_text().splitlines():
                 match [part.strip() for part in line.split(',')]:
                     case [project, barcode, *rest] if project == csv.stem :

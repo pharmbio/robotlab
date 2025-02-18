@@ -457,7 +457,7 @@ def index() -> Iterator[Tag | dict[str, str]]:
                 # ('p', f'{dP: 5.1f}', moves.MoveRel(xyz=[0, 0, 0],  rpy=[0, dP, 0])),
                 ('Y', f'{dY: 5.1f}', moves.MoveRel(xyz=[0, 0, 0],  rpy=[0, 0, dY])),
             ]
-            if any(abs(d) < 10.0 for d in dxyz):
+            if any(abs(d) < 100.0 for d in dxyz):
                 for col, k, v in buttons:
                     row += div(k,
                         style=f'grid-column: {col}',

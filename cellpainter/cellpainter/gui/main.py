@@ -32,7 +32,7 @@ config = RuntimeConfig.from_argv()
 print(f'Running with {config.name=}')
 
 serve = Serve(Flask(__name__))
-serve.suppress_flask_logging()
+# serve.suppress_flask_logging()
 
 protocol_vis.add_to_serve(serve, '', cli.cmdline_to_log, route='/vis')
 moves_gui.add_to_serve(serve, config, route='/moves')
