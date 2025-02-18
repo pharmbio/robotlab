@@ -296,7 +296,7 @@ def index(path_from_route: str | None = None) -> Iterator[Tag | V.Node | dict[st
             box += pre(stderr)
             info += box
     elif cast(Any, ar) is not None:
-        if log and ar.has_summary_table(log):
+        if log and ar.has_summary_table(log) and not path_is_latest:
             view_type = store.str(options=['overview', 'summary view'], name='view')
             info += div(
                 view_type.input().extend(css='padding: 6px 8px; width: 140px'),
