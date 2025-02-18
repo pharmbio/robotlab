@@ -9,10 +9,10 @@
 {"type":"MoveLin","xyz":[199.7,-421.9,571.6],"rpy":[0.0,1.1,89.6],"tag":"Base14","name":"Base14 entrance"}
 {"type":"MoveLin","xyz":[22.6,-439,426.9],"rpy":[0.0,0.8,55.1],"name":"B safe"}
 {"type":"MoveLin","xyz":[30.3,-624.9,314.5],"rpy":[0.0,0.8,-0.2],"name":"blue above"}
-{"type":"MoveLin","xyz":[30.2,-624.3,219.7],"rpy":[0.0,0.8,-0.2],"name":"blue neu"}
-{"type":"MoveLin","xyz":[30.1,-624.3,189.7],"rpy":[0.0,0.8,-0.2],"name":"blue drop"}
+{"type":"MoveLin","xyz":[30.6,-623.2,219.7],"rpy":[0.0,0.7,-0.2],"name":"blue neu"}
+{"type":"MoveLin","xyz":[30.7,-623.2,188.6],"rpy":[0.0,0.7,-0.2],"name":"blue drop"}
 {"type":"GripperMove","pos":89}
-{"type":"MoveLin","xyz":[30.2,-624.3,219.7],"rpy":[0.0,0.8,-0.2],"name":"blue neu"}
+{"type":"MoveLin","xyz":[30.6,-623.2,219.7],"rpy":[0.0,0.7,-0.2],"name":"blue neu"}
 {"type":"MoveLin","xyz":[30.3,-624.9,314.5],"rpy":[0.0,0.8,-0.2],"name":"blue above"}
 {"type":"MoveLin","xyz":[22.6,-439,426.9],"rpy":[0.0,0.8,55.1],"name":"B safe"}
 {"type":"MoveJoint","joints":[94.83,-113.91,119.54,-6.46,95.22,179.79],"name":"B neu"}
@@ -20,10 +20,10 @@
 {"type":"MoveJoint","joints":[94.83,-113.91,119.54,-6.46,95.22,179.79],"name":"B neu"}
 {"type":"MoveLin","xyz":[22.6,-439,426.9],"rpy":[0.0,0.8,55.1],"name":"B safe"}
 {"type":"MoveLin","xyz":[30.3,-624.9,314.5],"rpy":[0.0,0.8,-0.2],"name":"blue above"}
-{"type":"MoveLin","xyz":[30.2,-624.3,219.7],"rpy":[0.0,0.8,-0.2],"name":"blue neu"}
-{"type":"MoveLin","xyz":[30.1,-625.1,188.7],"rpy":[0.0,0.8,-0.2],"name":"blue pick"}
+{"type":"MoveLin","xyz":[30.6,-623.2,219.7],"rpy":[0.0,0.7,-0.2],"name":"blue neu"}
+{"type":"MoveLin","xyz":[30.1,-623.2,188.7],"rpy":[0.0,0.8,-0.2],"name":"blue pick"}
 {"type":"GripperMove","pos":255}
-{"type":"MoveLin","xyz":[30.2,-624.3,219.7],"rpy":[0.0,0.8,-0.2],"name":"blue neu"}
+{"type":"MoveLin","xyz":[30.6,-623.2,219.7],"rpy":[0.0,0.7,-0.2],"name":"blue neu"}
 {"type":"MoveLin","xyz":[30.3,-624.9,314.5],"rpy":[0.0,0.8,-0.2],"name":"blue above"}
 {"type":"MoveLin","xyz":[22.6,-439,426.9],"rpy":[0.0,0.8,55.1],"name":"B safe"}
 {"type":"MoveLin","xyz":[199.7,-421.9,571.6],"rpy":[0.0,1.1,89.6],"tag":"Base14","name":"Base14 entrance"}
