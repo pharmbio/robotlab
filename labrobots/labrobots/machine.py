@@ -264,7 +264,7 @@ class Machine:
             try:
                 res = json.loads(urlopen(req, timeout=timeout_secs).read())
             except OSError as e:
-                raise OSError(f'Communication error with {name}: {e} {getattr(e, "reason", "")}'.strip())
+                raise OSError(f'Communication error with {name}: {getattr(e, "reason", str(e))}')
             # pp((url, data, '=', res))
             if 'value' in res:
                 return res['value']
