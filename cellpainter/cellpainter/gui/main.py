@@ -384,7 +384,7 @@ def index(path_from_route: str | None = None) -> Iterator[Tag | V.Node | dict[st
                     tb = None
                 box += pre(f'{err.msg} {"(...)" if tb else ""}', title=tb)
             if not ar.process_is_alive:
-                box += pre('Controller process has terminated.')
+                box += pre('Controller has shut down. No more commands will be executed.')
             error_box = box
         desc = ar.experiment_metadata.desc
         if len(desc) > 120:

@@ -117,7 +117,10 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
                 dlid_id = dlid_ids[cmd.dlid_loc]
                 actual_status = dlid.get_status(dlid_id)
                 if actual_status != cmd.status:
-                    raise ValueError(f'DLid D{dlid_id} on {cmd.dlid_loc} should be {cmd.status} but is {actual_status}!')
+                    if actual_status == 'free':
+                        raise ValueError(f'Vacuum delidding machine error: DLid D{dlid_id} on {cmd.dlid_loc} should be holding a lid but is not.')
+                    else:
+                        raise ValueError(f'Vacuum delidding machine error: DLid D{dlid_id} on {cmd.dlid_loc} should not be holding a lid but is not.')
 
         case SquidAcquire():
             for squid in runtime.time_resource_use(entry, runtime.squid):
@@ -129,7 +132,7 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
                 )
                 ok = squid.acquire()
                 if not ok:
-                    raise ValueError(f'Failed to start squid acquire, is squid busy?')
+                    raise ValueError(f'Failed to start squid acquire. Is squid busy?')
 
                 # wait until it has started running:
                 while squid.status().get('interactive'):

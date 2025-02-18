@@ -113,7 +113,7 @@ class Runtime:
                 signal.signal(signal.SIGTERM, signal.SIG_DFL)
                 signal.signal(signal.SIGABRT, signal.SIG_DFL)
                 pid = os.getpid()
-                self.log(Message(f'Received {signal.strsignal(signum)}, shutting down ({pid=})', is_error=True))
+                self.log(Message(f'Shutting down... (signal={signal.strsignal(signum)}, {pid=})', is_error=True))
                 self.stop_arms()
                 sys.exit(1)
 
@@ -199,10 +199,11 @@ class Runtime:
     def excepthook(self):
         try:
             yield
+        except SystemExit:
+            pass
         except BaseException as e:
             self.log(Message(f'{type(e).__name__}: {e}', traceback=traceback.format_exc(), is_error=True))
-            if not isinstance(e, SystemExit):
-                os.kill(os.getpid(), signal.SIGTERM)
+            os.kill(os.getpid(), signal.SIGTERM)
 
     def log(self, message: Message) -> Message:
         with self.lock:
