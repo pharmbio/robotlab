@@ -200,7 +200,7 @@ def sleek_program(program: Command) -> Command:
         *[
             cmd.add(metadata)
             for cmd, metadata
-            in moves.sleek_movements(program.collect(), get_movelist, pair_ok)
+            in moves.sleek_movements(program.collect(flatten_sections=True), get_movelist, pair_ok)
         ]
     )
 
