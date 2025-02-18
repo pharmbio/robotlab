@@ -13,40 +13,59 @@ import sys
 import re
 import socket
 
+@contextlib.contextmanager
+def ur_handler(log: Log):
+    try:
+        yield
+    except OSError as e:
+        try:
+            extra_info = dict(
+                repr=repr(e),
+                as_dict=repr(e.__dict__),
+            )
+        except:
+            extra_info = {}
+        log(str(e), **extra_info)
+        raise ValueError(f'UR robotarm communication error: {e}')
+
 @dataclass(frozen=True)
 class ConnectedUR:
     sock: socket.socket
     log: Log
 
     def send(self, prog_str: str) -> None:
-        if not prog_str.endswith('\n'):
-            prog_str = prog_str + '\n'
-        self.log(f'arm.send({prog_str[:100]!r})  // length: {len(prog_str)}')
-        prog_bytes = prog_str.encode()
-        self.sock.sendall(prog_bytes)
+        with ur_handler(self.log):
+            if not prog_str.endswith('\n'):
+                prog_str = prog_str + '\n'
+            self.log(f'arm.send({prog_str[:100]!r})  // length: {len(prog_str)}')
+            prog_bytes = prog_str.encode()
+            self.sock.sendall(prog_bytes)
 
     def recv(self) -> Iterator[bytes]:
-        while True:
-            data = self.sock.recv(4096)
-            pattern = r'[\x20-\x7e]*(?:log|fatal|program|assert|\w+exception|error|\w+_\w+:)[\x20-\x7e]*'
-            for m in re.findall(pattern.encode('ascii'), data, re.IGNORECASE):
-                msg: str = m.decode(errors='replace')
-                self.log(f'arm.read() = {msg!r}')
-                if 'error' in msg:
-                    print('ur:', msg, file=sys.stderr)
-                if 'fatal' in msg:
-                    self.send('textmsg("log panic stop")\n')
-                    raise RuntimeError(msg)
-            yield data
+        with ur_handler(self.log):
+            while True:
+                data = self.sock.recv(4096)
+                pattern = r'[\x20-\x7e]*(?:log|fatal|program|assert|\w+exception|error|\w+_\w+:)[\x20-\x7e]*'
+                for m in re.findall(pattern.encode('ascii'), data, re.IGNORECASE):
+                    msg: str = m.decode(errors='replace')
+                    self.log(f'arm.read() = {msg!r}')
+                    if 'error' in msg:
+                        print('ur:', msg, file=sys.stderr)
+                    if 'fatal' in msg:
+                        self.send('textmsg("log panic stop")\n')
+                        raise RuntimeError(msg)
+                yield data
 
     def recv_until(self, needle: str) -> None:
-        for data in self.recv():
-            if needle.encode() in data:
-                self.log(f'received {needle}')
-                return
+        with ur_handler(self.log):
+            for data in self.recv():
+                if needle.encode() in data:
+                    self.log(f'received {needle}')
+                    return
 
     def close(self) -> None:
-        self.sock.close()
+        with ur_handler(self.log):
+            self.sock.close()
 
 @dataclass(frozen=True)
 class UR:
@@ -55,12 +74,13 @@ class UR:
 
     @contextlib.contextmanager
     def connect(self, quiet: bool=True, write_to_log_db: bool=True):
-        with contextlib.closing(socket.create_connection((self.host, self.port), timeout=60)) as sock:
-            if write_to_log_db:
-                log = Log.make('ur', stdout=not quiet)
-            else:
-                log = Log.without_db(stdout=not quiet)
-            yield ConnectedUR(sock, log=log)
+        if write_to_log_db:
+            log = Log.make('ur', stdout=not quiet)
+        else:
+            log = Log.without_db(stdout=not quiet)
+        with ur_handler(log):
+            with contextlib.closing(socket.create_connection((self.host, self.port), timeout=60)) as sock:
+                yield ConnectedUR(sock, log=log)
 
     def set_speed(self, value: int):
         if not (0 < value <= 100):
