@@ -269,6 +269,7 @@ def add_to_serve(serve: Serve, cmdline0: str, cmdline_to_log: Callable[[str], Lo
                 'idle':     'var(--yellow)',
                 'robotarm': 'var(--blue)',
                 'pf':       'var(--blue)',
+                'xarm':     'var(--blue)',
                 'wash':     'var(--cyan)',
                 'blue':     'var(--cyan)',
                 'disp':     'var(--purple)',

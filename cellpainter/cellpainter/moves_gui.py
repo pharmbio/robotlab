@@ -13,7 +13,7 @@ import re
 import time
 
 from .moves import Move, MoveList, guess_robot
-from .runtime import Runtime, RuntimeConfig, UR, PF
+from .runtime import Runtime, RuntimeConfig, UR, PF, XArm
 from . import moves
 from .ur_script import URScript
 import pbutils
@@ -30,6 +30,7 @@ class MovesGuiState:
     lock: Lock = field(default_factory=Lock)
     ur: UR | None = None
     pf: PF | None = None
+    xarm: XArm | None = None
     config: RuntimeConfig = RuntimeConfig.simulate()
 
     def set_config(self, config: RuntimeConfig):
@@ -48,11 +49,13 @@ class MovesGuiState:
             runtime = Runtime.init(self.config.only_arm())
             self.ur = runtime.ur
             self.pf = runtime.pf
+            self.xarm = runtime.xarm
 
             @pbutils.spawn
             def poll() -> None:
                 self.ur and poll_ur(self.ur)
                 self.pf and poll_pf(self.pf)
+                self.xarm and poll_xarm(self.xarm)
 
             self.init_done = True
 
@@ -64,6 +67,13 @@ server_start = datetime.now()
 
 def round_array(xs: list[float]):
     return [pbutils.round_nnz(v, 2) for v in xs]
+
+def poll_xarm(xarm: XArm):
+    with xarm.connect(verbose=False) as arm:
+        while True:
+            polled_info.update(arm.poll_info())
+            time.sleep(0.1)
+
 
 def poll_pf(pf: PF):
     i = 0
@@ -126,6 +136,7 @@ def poll_ur(ur: UR):
 def arm_do(*ms: Move):
     state.ur and state.ur.execute_moves(list(ms), name='gui', allow_partial_completion=True)
     state.pf and state.pf.execute_moves(list(ms))
+    state.xarm and state.xarm.execute_moves(list(ms))
 
 def arm_set_speed(value: int) -> None:
     state.ur and state.ur.set_speed(value)
@@ -189,7 +200,8 @@ def keydown(program_name: str, args: dict[str, Any]):
             '+':          moves.RawCode(f'MoveJ_Rel 1 0 0 0 0 {int(mm)}'),
         }
     else:
-        yaw += 180
+        if state.ur:
+            yaw += 180
         keymap = {
             'ArrowDown':  moves.MoveRel(xyz=[mm * cos(yaw + 180), mm * sin(yaw + 180), 0], rpy=[0, 0, 0]),
             'ArrowUp':    moves.MoveRel(xyz=[mm * cos(yaw),       mm * sin(yaw),       0], rpy=[0, 0, 0]),
@@ -258,7 +270,9 @@ def update(program_name: str, i: int | None, grouped: bool=False):
     ml.write_jsonl(filename)
 
 def get_programs() -> dict[str, Path]:
-    if state.pf:
+    if state.xarm:
+        filter = 'xarm'
+    elif state.pf:
         filter = 'pf'
     elif state.ur:
         filter = 'ur'
@@ -585,6 +599,22 @@ def index() -> Iterator[Tag | dict[str, str]]:
                 oncontextmenu='event.preventDefault();confirm("Delete?")&&' + call(edit_at, program_name, i, {}, action='delete')
             )
 
+    freedrive: list[Move]
+    stop_robot: list[Move]
+    if state.ur:
+        freedrive = [moves.RawCode('freedrive_mode() sleep(3600)')]
+        stop_robot = []
+    elif state.pf:
+        freedrive = [moves.RawCode('Freedrive')]
+        stop_robot = [moves.RawCode('StopFreedrive')]
+    elif state.xarm:
+        freedrive = [moves.XArmBuiltin('freedrive')]
+        stop_robot = [moves.XArmBuiltin('stop')]
+    else:
+        freedrive = []
+        stop_robot = []
+
+
     yield div(
         css="""
             & {
@@ -602,13 +632,13 @@ def index() -> Iterator[Tag | dict[str, str]]:
         """).append(
             button('run program',   tabindex='-1', onclick=call(arm_do, *visible_program),
                                                    oncontextmenu='event.preventDefault();' + call(arm_do, *(visible_program * 100)), css='width: 160px'),
-            button('init arm',      tabindex='-1', onclick=call(state.pf.init)) if state.pf else '',
-            button('freedrive',     tabindex='-1', onclick=call(arm_do, moves.RawCode("freedrive_mode() sleep(3600)" if state.ur else "Freedrive"))),
+            button('init pf',       tabindex='-1', onclick=call(state.pf.init)) if state.pf else '',
+            button('freedrive',     tabindex='-1', onclick=call(arm_do, *freedrive)),
             # button('snap',          tabindex='-1', onclick=call(snap)),
             # button('snap many',     tabindex='-1', onclick=call(snap_many, js('prompt("desc", "")'))),
-            button('stop robot',    tabindex='-1', onclick=call(arm_do, *([] if state.ur else [moves.RawCode("StopFreedrive")])), css='flex-grow: 1; color: red; font-size: 48px'),
+            button('stop robot',    tabindex='-1', onclick=call(arm_do, *stop_robot), css='flex-grow: 1; color: red; font-size: 48px'),
             button('gripper open',  tabindex='-1', onclick=call(arm_do, moves.RawCode("GripperMove(88)") if state.ur else moves.GripperMove(100))),
-            button('gripper close', tabindex='-1', onclick=call(arm_do, moves.RawCode("GripperMove(255)") if state.ur else moves.GripperMove(75))),
+            button('gripper close', tabindex='-1', onclick=call(arm_do, moves.RawCode("GripperMove(255)") if state.ur else moves.GripperMove(75 if state.pf else 255))),
             button('grip test',     tabindex='-1', onclick=call(arm_do, moves.RawCode("GripperTest()"))),
     )
 
@@ -636,18 +666,21 @@ def index() -> Iterator[Tag | dict[str, str]]:
                 text-align: left;
             }
         """)
-        if state.ur:
-            btns += button('roll -> 0° (level roll)',                  tabindex='-1', onclick=call(arm_do, EnsureRelPos, moves.MoveRel([0, 0, 0], [-r,  0,       0     ])))
-            btns += button('pitch -> 0° (face horizontally)',          tabindex='-1', onclick=call(arm_do, EnsureRelPos, moves.MoveRel([0, 0, 0], [ 0, -p,       0     ])))
-            btns += button('yaw -> 0° (towards washer and dispenser)', tabindex='-1', onclick=call(arm_do, EnsureRelPos, moves.MoveRel([0, 0, 0], [ 0,  0,      -y     ])))
-            btns += button('yaw -> 90° (towards hotels and incu)',     tabindex='-1', onclick=call(arm_do, EnsureRelPos, moves.MoveRel([0, 0, 0], [ 0,  0,      -y + 90])))
-        if state.pf:
+        if state.pf or state.xarm:
             for deg in [0, 90, 180, 270]:
                 btns += button(
                     f'yaw -> {deg}°',
                     tabindex='-1',
                     onclick=call(arm_do, moves.MoveRel([0,0,0], [0,0,-polled_info.get('rpy', [0,0,0])[-1] + deg]))
                 )
+        if state.ur:
+            btns += button('roll -> 0° (level roll)',                  tabindex='-1', onclick=call(arm_do, EnsureRelPos, moves.MoveRel([0, 0, 0], [-r,  0,       0     ])))
+            btns += button('pitch -> 0° (face horizontally)',          tabindex='-1', onclick=call(arm_do, EnsureRelPos, moves.MoveRel([0, 0, 0], [ 0, -p,       0     ])))
+            btns += button('yaw -> 0° (towards washer and dispenser)', tabindex='-1', onclick=call(arm_do, EnsureRelPos, moves.MoveRel([0, 0, 0], [ 0,  0,      -y     ])))
+            btns += button('yaw -> 90° (towards hotels and incu)',     tabindex='-1', onclick=call(arm_do, EnsureRelPos, moves.MoveRel([0, 0, 0], [ 0,  0,      -y + 90])))
+        if state.xarm:
+            btns += button('roll -> 0° (level roll)',                  tabindex='-1', onclick=call(arm_do, moves.MoveRel([0, 0, 0], [-r,  0,       0     ])))
+            btns += button('pitch -> 0° (face horizontally)',          tabindex='-1', onclick=call(arm_do, moves.MoveRel([0, 0, 0], [ 0, -p,       0     ])))
         foot += btns
 
     foot += pre(

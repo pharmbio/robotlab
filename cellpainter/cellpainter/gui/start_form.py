@@ -111,7 +111,7 @@ class ExternalState:
     @pbutils.throttle(1.0)
     @staticmethod
     def from_config(config: RuntimeConfig):
-        if config.name == 'pf-live':
+        if config.name in ['pf-live', 'xarm-live']:
             return ExternalState(
                 config = config,
                 imager_plate_metadata = read_imager_plate_metadata(config),

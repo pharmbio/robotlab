@@ -6,6 +6,7 @@ requirements = '''
     z3-solver
     labrobots
     apsw>=3.39.3
+    xarm-python-sdk
 '''
 
 console_scripts = '''

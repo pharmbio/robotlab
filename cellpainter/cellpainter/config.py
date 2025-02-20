@@ -34,11 +34,21 @@ class PFEnvs:
     dry       = PFEnv('noop', '', port_rw=0, port_ro=0)
 
 @dataclass(frozen=True)
+class XArmEnv:
+    mode: Literal['noop', 'execute']
+    host: str
+
+class XArmEnvs:
+    live = XArmEnv('execute', '10.10.0.84')
+    dry  = XArmEnv('noop', '')
+
+@dataclass(frozen=True)
 class RuntimeConfig(DBMixin):
     name:                   str = 'simulate'
     timelike:               Literal['WallTime', 'SimulatedTime'] = 'SimulatedTime'
     ur_env:                 UREnv = UREnvs.dry
     pf_env:                 PFEnv = PFEnvs.dry
+    xarm_env:               XArmEnv = XArmEnvs.dry
     signal_handlers:        Literal['install', 'noop'] = 'noop'
     _: KW_ONLY
     run_incu_wash_disp:     bool = False
@@ -89,15 +99,18 @@ class RuntimeConfig(DBMixin):
 configs: list[RuntimeConfig]
 configs = [
     # UR:
-    RuntimeConfig('live',         'WallTime', UREnvs.live,      PFEnvs.dry, run_incu_wash_disp=True,  run_fridge_squid_nikon=False, signal_handlers='install'),
-    RuntimeConfig('ur-simulator', 'WallTime', UREnvs.simulator, PFEnvs.dry, run_incu_wash_disp=False, run_fridge_squid_nikon=False),
-    RuntimeConfig('forward',      'WallTime', UREnvs.forward,   PFEnvs.dry, run_incu_wash_disp=False, run_fridge_squid_nikon=False, signal_handlers='install'),
+    RuntimeConfig('live',         'WallTime', UREnvs.live,      PFEnvs.dry, XArmEnvs.dry, run_incu_wash_disp=True,  run_fridge_squid_nikon=False, signal_handlers='install'),
+    RuntimeConfig('ur-simulator', 'WallTime', UREnvs.simulator, PFEnvs.dry, XArmEnvs.dry, run_incu_wash_disp=False, run_fridge_squid_nikon=False),
+    RuntimeConfig('forward',      'WallTime', UREnvs.forward,   PFEnvs.dry, XArmEnvs.dry, run_incu_wash_disp=False, run_fridge_squid_nikon=False, signal_handlers='install'),
 
     # PF:
-    RuntimeConfig('pf-live',       'WallTime',      UREnvs.dry,       PFEnvs.live,    run_incu_wash_disp=False,  run_fridge_squid_nikon=True,  signal_handlers='install', plate_metadata_dir='/mnt/imager-plate-metadata'),
-    RuntimeConfig('pf-forward',    'WallTime',      UREnvs.dry,       PFEnvs.forward, run_incu_wash_disp=False,  run_fridge_squid_nikon=False, signal_handlers='install', plate_metadata_dir='./example-plate-metadata'),
+    RuntimeConfig('pf-live',       'WallTime',      UREnvs.dry,       PFEnvs.live,    XArmEnvs.dry, run_incu_wash_disp=False,  run_fridge_squid_nikon=True,  signal_handlers='install', plate_metadata_dir='/mnt/imager-plate-metadata'),
+    RuntimeConfig('pf-forward',    'WallTime',      UREnvs.dry,       PFEnvs.forward, XArmEnvs.dry, run_incu_wash_disp=False,  run_fridge_squid_nikon=False, signal_handlers='install', plate_metadata_dir='./example-plate-metadata'),
+
+    # XArm
+    RuntimeConfig('xarm-live',     'WallTime',      UREnvs.dry,       PFEnvs.dry,     XArmEnvs.live, run_incu_wash_disp=False,  run_fridge_squid_nikon=True,  signal_handlers='install', plate_metadata_dir='/mnt/imager-plate-metadata'),
 
     # Simulate:
-    RuntimeConfig('simulate-wall', 'WallTime',      UREnvs.dry,       PFEnvs.dry,     run_incu_wash_disp=False,  run_fridge_squid_nikon=False, plate_metadata_dir='./example-plate-metadata'),
-    RuntimeConfig('simulate',      'SimulatedTime', UREnvs.dry,       PFEnvs.dry,     run_incu_wash_disp=False,  run_fridge_squid_nikon=False, plate_metadata_dir='./example-plate-metadata'),
+    RuntimeConfig('simulate-wall', 'WallTime',      UREnvs.dry,       PFEnvs.dry,     XArmEnvs.dry, run_incu_wash_disp=False,  run_fridge_squid_nikon=False, plate_metadata_dir='./example-plate-metadata'),
+    RuntimeConfig('simulate',      'SimulatedTime', UREnvs.dry,       PFEnvs.dry,     XArmEnvs.dry, run_incu_wash_disp=False,  run_fridge_squid_nikon=False, plate_metadata_dir='./example-plate-metadata'),
 ]

@@ -140,7 +140,8 @@ class MoveJoint(Move):
     Joint rotations in degrees
 
     For UR: All 6 are used
-    For PF: Only the 4 first are used
+    For PF: Uses only the first 4
+    For XArm: Uses only the first 5
     '''
     joints: list[float]
     name: str = ""
@@ -185,6 +186,19 @@ class RawCode(Move):
     def to_pf_script(self) -> str:
         return textwrap.dedent(self.code).strip()
 
+    def is_gripper(self) -> bool: raise ValueError
+    def is_open(self) -> bool: raise ValueError
+    def is_close(self) -> bool: raise ValueError
+
+@dataclass(frozen=True)
+class XArmBuiltin(Move):
+    '''
+    XAarm specific builtins for freedrive and stop
+    '''
+    cmd: Literal['freedrive', 'stop']
+
+    def to_ur_script(self) -> str: raise ValueError
+    def to_pf_script(self) -> str: raise ValueError
     def is_gripper(self) -> bool: raise ValueError
     def is_open(self) -> bool: raise ValueError
     def is_close(self) -> bool: raise ValueError
@@ -449,12 +463,13 @@ static: dict[str, MoveList] = {
 
 sleeking_not_allowed = set(static.keys())
 
-def guess_robot(name: str) -> Literal['ur', 'pf', 'ur or pf']:
+def guess_robot(name: str) -> Literal['ur', 'pf', 'ur or pf', 'xarm']:
     if name == 'noop':
         return 'ur or pf'
     for x in 'pf squid fridge nikon H'.split():
         if x in name:
-            return 'pf'
+            # return 'pf'
+            return 'xarm'
     for x in 'updown ur A B C wash disp blue incu lid wave calib'.split():
         if x in name:
             return 'ur'
@@ -518,7 +533,7 @@ def read_movelists() -> dict[str, MoveList]:
         if 'wave' in base:
             out += [NamedMoveList(base, 'full', v)]
             continue
-        if guess_robot(base) == 'pf':
+        if guess_robot(base) in ['pf', 'xarm']:
             out += [NamedMoveList(base, 'full', v)]
             continue
         out += [NamedMoveList(base, 'full', v)]

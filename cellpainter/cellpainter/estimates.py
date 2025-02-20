@@ -157,7 +157,9 @@ def estimate(cmd: PhysicalCommand) -> float:
                 guess = 60.0
             case BiotekCmd(machine='disp'):
                 guess = 30.0
-            case PFCmd():
+            case PFCmd(only_if_no_barcode=True) | XArmCmd(only_if_no_barcode=True):
+                guess = 0.0
+            case PFCmd() | XArmCmd():
                 guess = 10.0
             case FridgeCmd(action='reset_and_activate'):
                 guess = 60.0
@@ -187,8 +189,6 @@ def estimate(cmd: PhysicalCommand) -> float:
                     guess = estimate(RobotarmCmd(test))
                 else:
                     guess = 2.5
-            case PFCmd(only_if_no_barcode=True):
-                guess = 0.0
             case DLidCheckStatusCmd():
                 guess = 0.02
             case _:

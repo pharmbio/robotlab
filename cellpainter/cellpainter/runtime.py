@@ -18,6 +18,7 @@ from pbutils.mixins import DB
 
 from .ur import UR
 from .pf import PF
+from .xarm import XArm
 from .timelike import Timelike
 from .moves import World, Effect
 from .log import Message, CommandState, CommandWithMetadata, ProgressText, Log
@@ -64,6 +65,7 @@ class Runtime:
 
     ur: UR | None = None
     pf: PF | None = None
+    xarm: XArm | None = None
 
     incu: STX      | None = None
     wash: Biotek   | None = None
@@ -144,6 +146,11 @@ class Runtime:
                 host=self.config.pf_env.host,
                 port_rw=self.config.pf_env.port_rw,
                 port_ro=self.config.pf_env.port_ro,
+            )
+
+        if self.config.xarm_env.mode != 'noop':
+            self.xarm = XArm(
+                host=self.config.xarm_env.host,
             )
 
         if self.config.run_fridge_squid_nikon:

@@ -135,7 +135,7 @@ class AnalyzeResult:
         match cmd:
             case commands.RobotarmCmd():
                 return cmd.program_name
-            case commands.PFCmd():
+            case commands.PFCmd() | commands.XArmCmd():
                 return cmd.program_name
             case BiotekCmd() | BlueCmd():
                 if cmd.action in 'TestCommunications' or not cmd.protocol_path:

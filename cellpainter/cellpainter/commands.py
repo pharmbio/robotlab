@@ -577,8 +577,9 @@ class Program(DBMixin):
     def __post_init__(self):
         ur = sum(1 for cmd in self.command.universe() if isinstance(cmd, RobotarmCmd))
         pf = sum(1 for cmd in self.command.universe() if isinstance(cmd, PFCmd))
-        if ur and pf:
-            raise ValueError('Cannot use both UR and PF in the same program')
+        xarm = sum(1 for cmd in self.command.universe() if isinstance(cmd, XArmCmd))
+        if ur + pf + xarm > 1:
+            raise ValueError('Cannot use more than one robot in a program')
 
 @dataclass(frozen=True)
 class ProgramMetadata(DBMixin):
@@ -791,10 +792,21 @@ class PFCmd(PhysicalCommand):
     Run a program on the robotarm.
     '''
     program_name: str
-    only_if_no_barcode: bool = False
+    only_if_no_barcode: bool = False  # for showing the plate to the barcode reader an extra time
 
     def required_resource(self):
         return 'pf'
+
+@dataclass(frozen=True)
+class XArmCmd(PhysicalCommand):
+    '''
+    Run a program on the robotarm.
+    '''
+    program_name: str
+    only_if_no_barcode: bool = False  # for showing the plate to the barcode reader an extra time
+
+    def required_resource(self):
+        return 'xarm'
 
 class SquidABC(PhysicalCommand, abc.ABC):
     def required_resource(self):
