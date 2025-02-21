@@ -734,11 +734,11 @@ def fridge_load_from_hotel(args: SmallProtocolArgs) -> Program:
         assert 1 <= i <= 19, f'Internal error: trying to use shelf {i}'
         assert i != 12, f'Internal error: trying to use shelf {i}'
         cmds += [
-            PFCmd(f'H{i}-to-H11') if i != 11 else Seq(),
+            XArmCmd(f'H{i}-to-H11') if i != 11 else Seq(),
             WaitForResource('fridge'),
             BarcodeClear(),
-            PFCmd(f'H11-to-fridge'),
-            PFCmd('fridge-barcode-wave', only_if_no_barcode=True),
+            XArmCmd(f'H11-to-fridge'),
+            XArmCmd('fridge-barcode-wave', only_if_no_barcode=True),
             FridgeInsert(project).fork(),
         ]
     cmds += [
@@ -758,9 +758,9 @@ def fridge_unload_helper(plates: list[str]) -> Program:
         assert sep, 'Separate project and barcode with :'
         cmds += [
             FridgeEject(plate=barcode, project=project, check_barcode=False).fork_and_wait(align='end'),
-            PFCmd(f'fridge-to-H11'),
+            XArmCmd(f'fridge-to-H11'),
             FridgeCmd('get_status').fork_and_wait(), # after this the fridge can eject the next
-            PFCmd(f'H11-to-H{i}') if i != 11 else Idle(),
+            XArmCmd(f'H11-to-H{i}') if i != 11 else Idle(),
         ]
     return Program(Seq(*cmds))
 
@@ -806,13 +806,13 @@ def squid_acquire_H11(args: SmallProtocolArgs) -> Program:
     for plate_name in plate_names:
         cmds += [
             SquidStageCmd('goto_loading').fork_and_wait(),
-            PFCmd('H11-to-squid'),
+            XArmCmd('H11-to-squid'),
             Seq(
                 SquidStageCmd('leave_loading'),
                 SquidAcquire(protocol_path, project=project, plate=plate_name),
             ).fork_and_wait(),
             SquidStageCmd('goto_loading').fork_and_wait(),
-            PFCmd('squid-to-H11'),
+            XArmCmd('squid-to-H11'),
             SquidStageCmd('leave_loading').fork_and_wait(),
         ]
     return Program(Seq(*cmds))
@@ -832,14 +832,14 @@ def nikon_acquire_H11(args: SmallProtocolArgs) -> Program:
     for plate_name in plate_names:
         cmds += [
             NikonStageCmd('goto_loading').fork_and_wait(),
-            PFCmd(f'H11-to-nikon'),
+            XArmCmd(f'H11-to-nikon'),
             Seq(
                 NikonStageCmd('leave_loading'),
                 NikonAcquire(job_project=job_project, job_name=job_name, project=project, plate=plate_name),
             ).fork_and_wait(),
 
             NikonStageCmd('goto_loading').fork_and_wait(),
-            PFCmd(f'nikon-to-H11'),
+            XArmCmd(f'nikon-to-H11'),
             NikonStageCmd('leave_loading').fork_and_wait(),
         ]
     return Program(Seq(*cmds))
@@ -853,8 +853,8 @@ def test_circuit_to_squid(args: SmallProtocolArgs) -> Program:
     '''
     cmds: list[Command] = []
     cmds += [
-        PFCmd('H11-to-squid'),
-        PFCmd('squid-to-H11'),
+        XArmCmd('H11-to-squid'),
+        XArmCmd('squid-to-H11'),
     ]
     N = int((args.params or ['1'])[0])
     cmds = cmds * N
@@ -874,8 +874,8 @@ def test_circuit_to_nikon(args: SmallProtocolArgs) -> Program:
     '''
     cmds: list[Command] = []
     cmds += [
-        PFCmd('H11-to-nikon'),
-        PFCmd('nikon-to-H11'),
+        XArmCmd('H11-to-nikon'),
+        XArmCmd('nikon-to-H11'),
     ]
     N = int((args.params or ['1'])[0])
     cmds = cmds * N
@@ -895,11 +895,11 @@ def test_circuit_to_fridge(args: SmallProtocolArgs) -> Program:
     '''
     cmds: list[Command] = []
     cmds += [
-        PFCmd('H11-to-fridge'),
-        PFCmd('fridge-barcode-wave'),
-        PFCmd('fridge-to-H11'),
-        PFCmd('H11-to-H10'),
-        PFCmd('H10-to-H11'),
+        XArmCmd('H11-to-fridge'),
+        XArmCmd('fridge-barcode-wave'),
+        XArmCmd('fridge-to-H11'),
+        XArmCmd('H11-to-H10'),
+        XArmCmd('H10-to-H11'),
     ]
     return Program(Seq(*cmds))
 
@@ -913,33 +913,33 @@ def test_circuit_to_squid_and_fridge(args: SmallProtocolArgs) -> Program:
     cmds: list[Command] = []
     cmds = [
         SquidStageCmd('goto_loading').fork_and_wait(),
-        PFCmd('H11-to-squid'),
+        XArmCmd('H11-to-squid'),
         SquidStageCmd('leave_loading').fork_and_wait(),
         SquidStageCmd('goto_loading').fork_and_wait(),
-        PFCmd('squid-to-H11'),
+        XArmCmd('squid-to-H11'),
         SquidStageCmd('leave_loading').fork_and_wait(),
     ]
     cmds = [
         *cmds,
 
-        PFCmd('H11-to-fridge'),
-        PFCmd('fridge-to-H11'),
+        XArmCmd('H11-to-fridge'),
+        XArmCmd('fridge-to-H11'),
         *cmds,
 
-        PFCmd('H11-to-H13'),
-        PFCmd('H13-to-H11'),
+        XArmCmd('H11-to-H13'),
+        XArmCmd('H13-to-H11'),
         *cmds,
 
-        PFCmd('H11-to-fridge'),
-        PFCmd('fridge-to-H11'),
-        PFCmd('H11-to-H13'),
-        PFCmd('H13-to-H11'),
+        XArmCmd('H11-to-fridge'),
+        XArmCmd('fridge-to-H11'),
+        XArmCmd('H11-to-H13'),
+        XArmCmd('H13-to-H11'),
         *cmds,
 
-        PFCmd('H11-to-H13'),
-        PFCmd('H13-to-H11'),
-        PFCmd('H11-to-fridge'),
-        PFCmd('fridge-to-H11'),
+        XArmCmd('H11-to-H13'),
+        XArmCmd('H13-to-H11'),
+        XArmCmd('H11-to-fridge'),
+        XArmCmd('fridge-to-H11'),
         *cmds,
     ]
     N = int((args.params or ['1'])[0])
@@ -955,7 +955,7 @@ def H11_to_squid(args: SmallProtocolArgs) -> Program:
     '''
     cmds: list[Command] = [
         SquidStageCmd('goto_loading').fork_and_wait(),
-        PFCmd('H11-to-squid'),
+        XArmCmd('H11-to-squid'),
         SquidStageCmd('leave_loading').fork_and_wait(),
     ]
     cmd = Seq(*cmds)
@@ -968,7 +968,7 @@ def squid_to_H11(args: SmallProtocolArgs) -> Program:
     '''
     cmds: list[Command] = [
         SquidStageCmd('goto_loading').fork_and_wait(),
-        PFCmd('squid-to-H11'),
+        XArmCmd('squid-to-H11'),
         SquidStageCmd('leave_loading').fork_and_wait(),
     ]
     cmd = Seq(*cmds)
@@ -981,7 +981,7 @@ def H11_to_nikon(args: SmallProtocolArgs) -> Program:
     '''
     cmds: list[Command] = [
         NikonStageCmd('goto_loading').fork_and_wait(),
-        PFCmd('H11-to-nikon'),
+        XArmCmd('H11-to-nikon'),
         NikonStageCmd('leave_loading').fork_and_wait(),
     ]
     cmd = Seq(*cmds)
@@ -994,7 +994,7 @@ def nikon_to_H11(args: SmallProtocolArgs) -> Program:
     '''
     cmds: list[Command] = [
         NikonStageCmd('goto_loading').fork_and_wait(),
-        PFCmd('nikon-to-H11'),
+        XArmCmd('nikon-to-H11'),
         NikonStageCmd('leave_loading').fork_and_wait(),
     ]
     cmd = Seq(*cmds)
@@ -1074,14 +1074,14 @@ def squid_acquire_from_fridge(args: SmallProtocolArgs) -> Program:
         chunks['fridge -> H13', i] = [
             FridgeEject(plate=plate_group[0].barcode, project=plate_group[0].project, check_barcode=False).fork_and_wait(),
             Checkpoint(f'RT {i}'),
-            PFCmd(f'fridge-to-H11'),
-            PFCmd(f'H11-to-H13') if i > 1 else Noop(),
+            XArmCmd(f'fridge-to-H11'),
+            XArmCmd(f'H11-to-H13') if i > 1 else Noop(),
         ]
         chunks['H13 -> squid', i] = [
             SquidStageCmd('goto_loading').fork(),
-            PFCmd(f'H13-to-H11') if i > 1 else Noop(),
+            XArmCmd(f'H13-to-H11') if i > 1 else Noop(),
             WaitForResource('squid'),
-            PFCmd(f'H11-to-squid'),
+            XArmCmd(f'H11-to-squid'),
             Seq(
                 SquidStageCmd('leave_loading'),
                 SquidStageCmd('goto_loading'),   # go back and forth a few times
@@ -1099,10 +1099,10 @@ def squid_acquire_from_fridge(args: SmallProtocolArgs) -> Program:
             Checkpoint(f'Ok to start {i}'),
             WaitForCheckpoint(f'Done {i}', assume='nothing'),
             SquidStageCmd('goto_loading').fork_and_wait(),
-            PFCmd(f'squid-to-H11'),
+            XArmCmd(f'squid-to-H11'),
             SquidStageCmd('leave_loading').fork(),
             BarcodeClear(),
-            PFCmd(f'H11-to-fridge'),
+            XArmCmd(f'H11-to-fridge'),
             FridgeInsert(
                 plate_group[0].project,
                 assume_barcode=plate_group[0].barcode,
@@ -1155,9 +1155,9 @@ def nikon_acquire_from_fridge(args: SmallProtocolArgs) -> Program:
         cmds += [
             FridgeEject(plate=barcode, project=project, check_barcode=False).fork_and_wait(),
             Checkpoint(f'RT {i}'),
-            PFCmd(f'fridge-to-H11'),
+            XArmCmd(f'fridge-to-H11'),
             NikonStageCmd('goto_loading').fork_and_wait(),
-            PFCmd(f'H11-to-nikon'),
+            XArmCmd(f'H11-to-nikon'),
 
             Seq(
                 NikonStageCmd('leave_loading'),
@@ -1168,10 +1168,10 @@ def nikon_acquire_from_fridge(args: SmallProtocolArgs) -> Program:
             ).fork_and_wait(),
 
             NikonStageCmd('goto_loading').fork_and_wait(),
-            PFCmd(f'nikon-to-H11'),
+            XArmCmd(f'nikon-to-H11'),
             NikonStageCmd('leave_loading').fork_and_wait(),
             BarcodeClear(),
-            PFCmd(f'H11-to-fridge'),
+            XArmCmd(f'H11-to-fridge'),
             FridgeInsert(
                 project,
                 assume_barcode=barcode,
@@ -1194,7 +1194,7 @@ def nikon_acquire_from_fridge(args: SmallProtocolArgs) -> Program:
 #     return Program(
 #         Seq(
 #             NikonStageCmd('goto_loading').fork_and_wait(),
-#             PFCmd('H11-to-nikon'),
+#             XArmCmd('H11-to-nikon'),
 #             NikonStageCmd('leave_loading').fork_and_wait(),
 #         )
 #     )
@@ -1204,7 +1204,7 @@ def nikon_acquire_from_fridge(args: SmallProtocolArgs) -> Program:
 #     return Program(
 #         Seq(
 #             NikonStageCmd('goto_loading').fork_and_wait(),
-#             PFCmd('nikon-to-H11'),
+#             XArmCmd('nikon-to-H11'),
 #         )
 #     )
 
@@ -1241,16 +1241,16 @@ def nikon_from_fridge(args: SmallProtocolArgs) -> Program:
             # Duration(f'Delay eject {i}', Min(2)),
             FridgeEject(plate=barcode, project=project, check_barcode=False).fork_and_wait(),
             Checkpoint(f'RT {i}'),
-            PFCmd(f'fridge-to-H11'),
-            PFCmd(f'H11-to-H11'),
+            XArmCmd(f'fridge-to-H11'),
+            XArmCmd(f'H11-to-H11'),
         ]
         chunks['H11 -> nikon', i] = [
             WaitForCheckpoint(f'RT {i}', plus_secs=RT_time_secs, assume='nothing'),
             Duration(f'RT {i}', Min(3)),
-            PFCmd(f'H11-to-H11'),
+            XArmCmd(f'H11-to-H11'),
             NikonStageCmd('goto_loading').fork_and_wait(),
             NikonStageCmd('init_laser').fork_and_wait(),
-            PFCmd(f'H11-to-nikon'),
+            XArmCmd(f'H11-to-nikon'),
             Seq(
                 NikonStageCmd('leave_loading'),
                 *[
@@ -1262,10 +1262,10 @@ def nikon_from_fridge(args: SmallProtocolArgs) -> Program:
         chunks['nikon -> fridge', i] = [
             WaitForResource('nikon'),
             NikonStageCmd('goto_loading').fork_and_wait(),
-            PFCmd(f'nikon-to-H11'),
+            XArmCmd(f'nikon-to-H11'),
             NikonStageCmd('leave_loading').fork(),
             BarcodeClear(),
-            PFCmd(f'H11-to-fridge'),
+            XArmCmd(f'H11-to-fridge'),
             FridgeInsert(
                 project,
                 # expected_barcode=barcode
@@ -1310,21 +1310,21 @@ def pf_init(args: SmallProtocolArgs) -> Program:
     '''
     Initialize the PreciseFlex robotarm. Required after emergency stop.
     '''
-    return cmds_to_program([PFCmd('pf init')])
+    return cmds_to_program([XArmCmd('pf init')])
 
 @pf_protocols.append
 def pf_freedrive(args: SmallProtocolArgs) -> Program:
     '''
     Start freedrive on the PreciseFlex robotarm, making it easy to move around by hand.
     '''
-    return cmds_to_program([PFCmd('pf freedrive')])
+    return cmds_to_program([XArmCmd('pf freedrive')])
 
 @pf_protocols.append
 def pf_stop_freedrive(args: SmallProtocolArgs) -> Program:
     '''
     Stops freedrive on the PreciseFlex robotarm.
     '''
-    return cmds_to_program([PFCmd('pf stop freedrive')])
+    return cmds_to_program([XArmCmd('pf stop freedrive')])
 
 
 A = TypeVar('A')
@@ -1350,7 +1350,7 @@ def run_robotarm(args: SmallProtocolArgs):
         if moves.guess_robot(x) == 'ur':
             cmds += [RobotarmCmd(x)]
         elif moves.guess_robot(x) == 'pf':
-            cmds += [PFCmd(x)]
+            cmds += [XArmCmd(x)]
         else:
             raise ValueError(f'Unknown cmd: {x}')
     return Program(Seq(*cmds))
