@@ -466,6 +466,8 @@ sleeking_not_allowed = set(static.keys())
 def guess_robot(name: str) -> Literal['ur', 'pf', 'ur or pf', 'xarm']:
     if name == 'noop':
         return 'ur or pf'
+    if 'xarm' in name:
+        return 'xarm'
     for x in 'pf squid fridge nikon H'.split():
         if x in name:
             # return 'pf'

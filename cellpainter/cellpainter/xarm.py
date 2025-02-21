@@ -69,6 +69,7 @@ class ConnectedXArm:
         }
 
     def execute_move(self, m: Move):
+        X = 3.0
         match m:
             case moves.MoveLin([x, y, z], [r, p, a]):
                 self.arm.set_position(
