@@ -373,7 +373,7 @@ class LazyIterate(Generic[A]):
 def start_form(*, config: RuntimeConfig):
 
     imager = config.name != 'live'
-    painter = config.name != 'pf-live'
+    painter = config.name != 'pf-live' and config.name != 'xarm-live'
 
     custom_forms: list[str] = []
     if painter:
