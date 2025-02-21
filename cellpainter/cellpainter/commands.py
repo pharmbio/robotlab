@@ -575,9 +575,9 @@ class Program(DBMixin):
     id: int = -1
 
     def __post_init__(self):
-        ur = sum(1 for cmd in self.command.universe() if isinstance(cmd, RobotarmCmd))
-        pf = sum(1 for cmd in self.command.universe() if isinstance(cmd, PFCmd))
-        xarm = sum(1 for cmd in self.command.universe() if isinstance(cmd, XArmCmd))
+        ur =   int(bool(sum(1 for cmd in self.command.universe() if isinstance(cmd, RobotarmCmd))))
+        pf =   int(bool(sum(1 for cmd in self.command.universe() if isinstance(cmd, PFCmd))))
+        xarm = int(bool(sum(1 for cmd in self.command.universe() if isinstance(cmd, XArmCmd))))
         if ur + pf + xarm > 1:
             raise ValueError('Cannot use more than one robot in a program')
 
