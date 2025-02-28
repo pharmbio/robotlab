@@ -144,7 +144,7 @@ skip = set('''
     automation_v3.2
 '''.split())
 
-def update_protocol_paths():
+def update_protocol_paths() -> list[PathInfo]:
     path_infos = labrobots.WindowsNUC().remote(timeout_secs=10).dir_list.list()
     res: dict[str, ProtocolPaths] = {}
     for protocol_dir, infos in sorted(pbutils.group_by(path_infos, lambda info: info['path'].partition('/')[0]).items()):
@@ -156,6 +156,7 @@ def update_protocol_paths():
             res[protocol_dir] = protocol_paths
             # print('Adding', protocol_dir)
     pbutils.serializer.write_json(res, 'protocol_paths.json', indent=2)
+    return path_infos
 
 def paths_v5():
     return get_protocol_paths()['automation_v5.0']

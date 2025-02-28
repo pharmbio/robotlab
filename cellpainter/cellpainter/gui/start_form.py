@@ -102,6 +102,7 @@ class ExternalState:
     '''
     config: RuntimeConfig
     painter_protocol_paths: dict[str, protocol_paths.ProtocolPaths] = field(default_factory=dict)
+    bluewasher_protocols: list[str] = field(default_factory=list)
     imager_plate_metadata: tuple[tuple[Plate, PlateTarget], ...] = ()
     fridge_slots: FridgeSlots = field(default_factory=dict)
     last_barcode: str = ''
@@ -132,16 +133,28 @@ class ExternalState:
                 #)
             )
         elif config.name == 'live':
-            protocol_paths.update_protocol_paths()
+            path_infos = protocol_paths.update_protocol_paths()
+            bluewasher_protocols = [
+                path
+                for path_info in path_infos
+                for path in [path_info['path']]
+                if path.endswith('.prog')
+            ]
             return ExternalState(
                 config = config,
-                painter_protocol_paths = protocol_paths.get_protocol_paths()
+                painter_protocol_paths = protocol_paths.get_protocol_paths(),
+                bluewasher_protocols = bluewasher_protocols,
             )
         else:
             import random
             return ExternalState(
                 config = config,
                 painter_protocol_paths = protocol_paths.get_protocol_paths(),
+                bluewasher_protocols = [
+                    path
+                    for _, paths in protocol_paths.get_protocol_paths().items()
+                    for path in paths.all_blue_paths()
+                ],
                 imager_plate_metadata = read_imager_plate_metadata(config),
                 fridge_slots = {
                     **{
@@ -379,6 +392,7 @@ def start_form(*, config: RuntimeConfig):
     if painter:
         custom_forms += '''
             cell-paint
+            run-bluewasher
         '''.split()
     if imager:
         custom_forms += '''
@@ -415,6 +429,12 @@ def start_form(*, config: RuntimeConfig):
         name='protocol dir',
         desc='Directory on the windows computer to read biotek LHC files from',
         options=LazyIterate(lambda: sorted(external_state.painter_protocol_paths.keys())),
+    )
+
+    bluewasher_protocol  = store.str(
+        name='bluewasher prog',
+        desc='Protocol to run on bluewasher',
+        options=LazyIterate(lambda: sorted(external_state.bluewasher_protocols)),
     )
 
     final_washes = store.str(
@@ -583,6 +603,15 @@ def start_form(*, config: RuntimeConfig):
         custom_fields += [
             V.queue_refresh(1000),
         ]
+
+    elif protocol.value == 'run-bluewasher':
+        form_fields = [
+            bluewasher_protocol
+        ]
+        args = Args(
+            protocol='run_bluewasher',
+            params=[bluewasher_protocol.value]
+        )
 
     elif protocol.value == 'fridge-unload':
         form_fields = [

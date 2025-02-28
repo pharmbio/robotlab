@@ -379,6 +379,21 @@ def validate_all_protocols(args: SmallProtocolArgs):
     return Program(program.add(Metadata(gui_force_show=True)))
 
 @ur_protocols.append
+def run_bluewasher(args: SmallProtocolArgs):
+    '''
+    Run protocols on the bioteks or bluewasher from the protocol directory.
+
+    For each parameter $X runs all protocols that matches ${PROTOCOL_DIR}/$X.
+    For example with automation_v4.0, "2" will run
+    automation_v4.0/2.0_D_SB_PRIME_Mito and then
+    automation_v4.0/2.1_D_SB_30ul_Mito.
+    '''
+    cmds: list[Command] = []
+    for path in args.params:
+        cmds += [BlueCmd(action='Run', protocol_path=path).fork_and_wait()]
+    return Program(Seq(*cmds))
+
+@ur_protocols.append
 def run_biotek_bluewasher(args: SmallProtocolArgs):
     '''
     Run protocols on the bioteks or bluewasher from the protocol directory.
