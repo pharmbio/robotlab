@@ -14,7 +14,8 @@ from labrobots.log import Log
 from .moves import Move
 from . import moves
 
-from xarm.wrapper import XArmAPI
+if TYPE_CHECKING:
+    from xarm.wrapper import XArmAPI
 
 DEFAULT_HOST='10.10.0.84'
 
@@ -41,7 +42,7 @@ class ConnectedXArm:
     @property
     def arm(self) -> XArmAPI:
         if self.verbose:
-            return cast(XArmAPI, Intercept(self._arm, 'xarm'))
+            return cast('XArmAPI', Intercept(self._arm, 'xarm'))
         else:
             return self._arm
 
@@ -80,7 +81,7 @@ class ConnectedXArm:
                     pitch=0,
                     yaw=a,
                     relative=False,
-                    speed=250.0,
+                    speed=250.0 / X,
                     wait=True, # sync
                     radius=0,  # linear
                     is_radian=False,
@@ -103,7 +104,7 @@ class ConnectedXArm:
                 self.arm.set_servo_angle(
                     angle=joints[:5],
                     relative=False,
-                    speed=60.0,
+                    speed=60.0 / X,
                     wait=True, # sync
                     is_radian=False,
                 )
@@ -141,6 +142,7 @@ class XArm:
 
     @contextlib.contextmanager
     def connect(self, verbose: bool=True):
+        from xarm.wrapper import XArmAPI
         arm = XArmAPI(self.host)
         xarm = ConnectedXArm(arm, verbose=verbose)
         xarm.init()
