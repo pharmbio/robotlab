@@ -256,7 +256,7 @@ class BlueWash(Machine):
             lines = unroll_loops(program_text)
             self.log('\n'.join(lines), lines=lines)
             for line in lines:
-                if line.startswith('#'):
+                if line.strip().startswith('#') or line.strip() == '':
                     continue
                 if 'runservprog' in line or 'runprog' in line:
                     time.sleep(0.05)
