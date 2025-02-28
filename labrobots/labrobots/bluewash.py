@@ -258,6 +258,11 @@ class BlueWash(Machine):
             for line in lines:
                 if line.startswith('#'):
                     continue
+                if 'runservprog' in line or 'runprog' in line:
+                    time.sleep(0.05)
+                    con.write('$' + line.lstrip('$'))
+                    con.read_until_prog_end()
+                    continue
                 while True:
                     time.sleep(0.05) # Manual says sleep at least 50ms between commands
                     con.write('$' + line.lstrip('$'))
