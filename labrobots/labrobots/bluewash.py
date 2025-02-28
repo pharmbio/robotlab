@@ -278,7 +278,7 @@ class BlueWash(Machine):
     def run_from_file(self, *filename_parts: str):
         filename = '/'.join(filename_parts)
         path = Path(self.root_dir) / filename
-        program_text = path.read_text()
+        program_text = path.read_text(encoding='ascii', errors='replace')
         self.run_program(program_text)
 
     def write_prog(self, program_text: str, index: int):
