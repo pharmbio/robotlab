@@ -26,6 +26,11 @@ from datetime import datetime
 
 from pbutils.mixins import DB, DBMixin
 
+import labrobots
+from labrobots.dir_list import PathInfo
+
+import sys
+
 def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
     if isinstance(cmd, PhysicalCommand) and metadata.est is None:
         metadata = metadata.merge(Metadata(est=estimate(cmd)))
@@ -323,17 +328,32 @@ def execute_simulated_program(config: RuntimeConfig, sim_db: DB, metadata: list[
             if isinstance(k, BlueCmd) and k.protocol_path:
                 missing += [k]
         if missing:
-            from pprint import pformat
-            raise ValueError('Missing timings for the following biotek commands:\n' + pformat(missing))
+            # from pprint import pformat
+            # raise ValueError('Missing timings for the following commands:\n' + pformat(missing))
+            print('Missing timings for the following commands:', *missing, file=sys.stderr, sep='\n  ')
 
     with make_runtime(config, program) as runtime:
         if config.name == 'live':
             protocol_dirs = set[str]()
+            protocol_files = set[str]()
             for c in program.command.universe():
                 if isinstance(c, BiotekCmd | BlueCmd) and c.protocol_path:
+                    protocol_files.add(c.protocol_path)
                     protocol_dir, _, _ = c.protocol_path.partition('/')
                     if protocol_dir:
                         protocol_dirs.add(protocol_dir)
+
+            print(f'checking protocol files ({len(protocol_files)} files)...', file=sys.stderr)
+            path_infos = labrobots.WindowsNUC().remote(timeout_secs=10).dir_list.list()
+            existing_files = {path_info['path'] for path_info in path_infos}
+            missing_files = sorted([
+                protocol_file
+                for protocol_file in protocol_files
+                if protocol_file not in existing_files
+            ])
+            if missing_files:
+                print(f'error: missing protocols:', *protocol_files, file=sys.stderr, sep='\n  ')
+                raise ValueError(f'Missing {len(missing_files)} protocols')
 
             for protocol_dir in protocol_dirs:
                 with pbutils.timeit(f'saving {protocol_dir} protocol files'):
