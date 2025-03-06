@@ -443,6 +443,12 @@ def start_form(*, config: RuntimeConfig):
         desc='Number of final wash rounds. Either run 9_W_*.LHC once or run 9_10_W_*.LHC twice.',
     )
 
+    ad_hoc_changes = store.str(
+        name='ad hoc changes',
+        options=['none', 'bluewasher-eval'],
+        desc='Ad hoc changes.',
+    )
+
     fridge_projects_suggestions = store.str(
         name='project',
         default='',
@@ -536,7 +542,7 @@ def start_form(*, config: RuntimeConfig):
             batch_sizes,
             incu,
             protocol_dir,
-            two,
+            two or ad_hoc_changes,
         ]
         bs = batch_sizes.value
         incu_csv = incu.value
@@ -546,6 +552,7 @@ def start_form(*, config: RuntimeConfig):
             incu=incu_csv,
             interleave=interleave,
             two_final_washes=final_washes.value == 'two',
+            ad_hoc_changes=ad_hoc_changes.value,
             protocol_dir=protocol_dir.value,
             desc=desc.value,
             operators=operators.value,

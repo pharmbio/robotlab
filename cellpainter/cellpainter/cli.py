@@ -77,6 +77,7 @@ class Args(SmallProtocolArgs, CellPaintingArgs):
     pf_speed:                  int  = arg(default=50, help='Robot arm speed [1-100]')
     json_arg:                  str  = arg(help='Give arguments as json on the command line')
     yes:                       bool = arg(help='Assume yes in confirmation questions')
+    ad_hoc_changes:            str  = arg(default='none', help='Ad hoc modifications to protocol')
 
     desc: str = arg(help='Experiment description metadata, example: "specs935-v1"')
     operators:  str = arg(help='Experiment metadata, example: "Amelie and Christa"')
@@ -307,6 +308,8 @@ def args_to_program(args: Args) -> Program | None:
     if args.protocol == 'cell-paint':
         with pbutils.timeit('generating program'):
             protocol_config = protocol.make_protocol_config(paths, args)
+            if args.ad_hoc_changes == 'bluewasher-eval':
+                protocol_config = protocol_config.add_overrides(protocol.bluewasher_eval_overrides)
             batch_sizes = pbutils.read_commasep(args.batch_sizes, int)
             program = protocol.cell_paint_program(
                 batch_sizes=batch_sizes,

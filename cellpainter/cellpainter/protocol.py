@@ -37,6 +37,8 @@ from .symbolic import Symbolic
 from . import commands
 
 import pbutils
+import tomllib
+import textwrap
 
 class OptPrio:
     wash_to_disp  = Min(priority=7, weight=1)
@@ -350,7 +352,7 @@ class ProtocolConfig:
     wash_prime: list[str]
     blue_prime: list[str]
     use_blue: bool
-    use_dlid: bool = True
+    overrides: list[Override] = field(default_factory=list)
 
     '''
     def any_disp(self):
@@ -367,6 +369,11 @@ class ProtocolConfig:
         return self.use_blue or self.blue_prime or any([step.blue for step in self.steps])
     '''
 
+    def add_overrides(self, overrides: list[Override] | str) -> ProtocolConfig:
+        if isinstance(overrides, str):
+            overrides = Override.parse(overrides)
+        return replace(self, overrides=self.overrides + overrides)
+
 from .protocol_paths import ProtocolPaths, paths_v5
 
 @dataclass(frozen=True)
@@ -379,6 +386,94 @@ class Step:
     disp_prime: str | None
     disp_prep: str | None
     interleaving: Interleaving
+
+    def apply(self, override: Override, plate: int) -> Step:
+        if override.plate == plate and override.step_name == self.name:
+            substep_name_check = override.substep_name
+            if substep_name_check.startswith('disp_'):
+                substep_name_check = 'disp'
+            if getattr(self, substep_name_check) is None:
+                raise ValueError(f'Cannot replace substep {override.substep_name!r} to {override.protocol!r} because substep {substep_name_check!r} is unused in the prototype protocol. ({plate=} {override=} step={self})')
+            res = replace(self, **{override.substep_name: override.protocol})
+            # import sys
+            # print(self, res, file=sys.stderr)
+            return res
+        else:
+            # import sys
+            # print('nope', self.name, override.step_name, override.plate, plate, file=sys.stderr)
+            return self
+
+@dataclass(frozen=True)
+class Override:
+    plate: int          # 1-indexed
+    step_name: str      # Mito, PFA, Stains, Final
+    substep_name: Literal['blue', 'wash', 'disp', 'disp_prime', 'disp_prep']
+    protocol: str       # the protocol override
+
+    def __post_init__(self):
+        assert self.substep_name in ['blue', 'wash', 'disp', 'disp_prime', 'disp_prep']
+
+    @staticmethod
+    def parse(s: str):
+        def flatten_dict(d: dict[str, Any] | str) -> dict[tuple[str, ...], str]:
+            if isinstance(d, dict):
+                return {
+                    (k, *ks): v
+                    for k, d2 in d.items()
+                    for ks, v in flatten_dict(d2).items()
+                }
+            else:
+                return {(): d}
+
+        def parse_range(r: str) -> list[int]:
+            if ',' in r:
+                res = [
+                    i
+                    for part in r.split(',')
+                    for i in parse_range(part)
+                ]
+                return list(pbutils.uniq(res))
+            if '-' in r:
+                l, u = r.split('-')
+                return list(range(int(l), int(u) + 1))
+            else:
+                return [int(r)]
+
+        s = textwrap.dedent(s)
+        d = tomllib.loads(s)
+        res = [
+            Override(
+                plate=plate,
+                step_name=step_name,
+                substep_name=cast(Any, substep_name),
+                protocol=protocol,
+            )
+            for (plates, substep_name, step_name), protocol in flatten_dict(d).items()
+            for plate in parse_range(plates)
+        ]
+        # from pprint import pformat
+        # import sys
+        # print(pformat(res), file=sys.stderr)
+        return res
+
+bluewasher_eval_overrides = '''
+    5-9.disp.Mito   = 'automation_v5.0_blue_MagBead_evacuate/half_2.1_D_SB_20ul_Mito.LHC'
+    5-9.disp.PFA    = 'automation_v5.0_blue_MagBead_evacuate/half_4.1_D_SA_40ul_PFA.LHC'
+    5-9.disp.Stains = 'automation_v5.0_blue_MagBead_evacuate/half_6.1_D_P2_20ul_stains.LHC'
+
+    5.blue.Stains = 'automation_v5.0_blue_MagBead/5_W_MagBeadSpinWash-2X-80ul-Green.prog'
+    5.blue.Final  = 'automation_v5.0_blue_MagBead/7_W_MagBeadSpinWash-2X-100ul-Green-with-post-dispense.prog'
+
+    6.blue.Stains = 'automation_blue/spin-800rpm-5s.prog'
+    7.blue.Stains = 'automation_blue/spin-800rpm-5s-high-acc.prog'
+    8.blue.Stains = 'automation_blue/spin-1000rpm-5s.prog'
+    9.blue.Stains = 'automation_blue/spin-1000rpm-5s-high-acc.prog'
+
+    6.blue.Final = 'automation_blue/spin-800rpm-5s-then-100ul-Green.prog'
+    7.blue.Final = 'automation_blue/spin-800rpm-5s-high-acc-then-100ul-Green.prog'
+    8.blue.Final = 'automation_blue/spin-1000rpm-5s-then-100ul-Green.prog'
+    9.blue.Final = 'automation_blue/spin-1000rpm-5s-high-acc-then-100ul-Green.prog'
+'''
 
 def make_protocol_config(paths: ProtocolPaths, args: CellPaintingArgs = CellPaintingArgs()) -> ProtocolConfig:
     incu_csv = args.incu
@@ -472,7 +567,7 @@ def make_protocol_config(paths: ProtocolPaths, args: CellPaintingArgs = CellPain
         wash_prime = paths.wash_prime,
         blue_prime = paths.blue_prime,
         steps      = steps,
-        use_blue = paths.use_blue(),
+        use_blue   = paths.use_blue(),
     )
 
 def test_make_protocol_config():
@@ -570,11 +665,15 @@ def paint_batch(batch: list[Plate], protocol_config: ProtocolConfig) -> Command:
     ]
 
 
-    for i, (prev_step, step, next_step) in enumerate(pbutils.iterate_with_context(p.steps)):
+    for i, (prev_step, proto_step, next_step) in enumerate(pbutils.iterate_with_context(p.steps)):
         for plate in batch:
             ix = i + 1
             plate_desc = f'plate {plate.id}'
             first_plate_desc = f'plate {batch[0].id}'
+
+            step = proto_step
+            for override in p.overrides:
+                step = step.apply(override, int(plate.id))
 
             incu_delay: list[Command]
             wash_delay: list[Command]
