@@ -48,55 +48,6 @@
       ""
     ]
   },
-  "automation_blue_clean": {
-    "type": "ProtocolPaths",
-    "wash_prime": [
-      ""
-    ],
-    "wash_5": [
-      "",
-      "",
-      "",
-      "",
-      ""
-    ],
-    "wash_6": [
-      "",
-      "",
-      "",
-      "",
-      "",
-      ""
-    ],
-    "disp_prime": [
-      "",
-      "",
-      "",
-      ""
-    ],
-    "disp_prep": [
-      "",
-      "",
-      "",
-      ""
-    ],
-    "disp_main": [
-      "",
-      "",
-      "",
-      ""
-    ],
-    "blue_prime": [
-      "automation_blue_clean/0_W_IntenseClean.prog"
-    ],
-    "blue": [
-      "automation_blue_clean/1_W_IntenseClean.prog",
-      "",
-      "",
-      "",
-      ""
-    ]
-  },
   "automation_blue_cleanplates": {
     "type": "ProtocolPaths",
     "wash_prime": [
