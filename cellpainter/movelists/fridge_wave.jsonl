@@ -8,6 +8,7 @@
 {"type":"MoveLin","xyz":[-68.7,-527.9,448.6],"rpy":[-179.9,0.6,1.0],"name":"fridge slight above"}
 {"type":"MoveLin","xyz":[-54.2,-546.0,448.6],"rpy":[-179.9,0.6,13.2],"name":"fridge 15"}
 {"type":"MoveLin","xyz":[201.3,-527.9,448.6],"rpy":[179.8,-0.8,180.0],"name":"fridge 180"}
+{"type":"MoveLin","xyz":[211.2,-537.9,468.6],"rpy":[-179.7,-0.7,180.0],"name":"fridge 180"}
 {"type":"MoveLin","xyz":[-51.9,-555.7,448.6],"rpy":[-179.8,0.6,13.2],"name":"fridge 15"}
 {"type":"MoveLin","xyz":[-68.7,-527.9,448.6],"rpy":[-179.9,0.6,1.0],"name":"fridge slight above"}
 {"type":"MoveLin","xyz":[-68.7,-527.9,438.6],"rpy":[-179.9,0.6,1.0],"name":"fridge drop"}

@@ -9,8 +9,11 @@
 {"type":"MoveLin","xyz":[-83.4,544.9,485.6],"rpy":[179.8,1.0,-179.5],"tag":"H11","name":"H11 mini entrance"}
 {"type":"MoveLin","xyz":[-83.4,305.1,485.6],"rpy":[179.8,1.1,-179.5],"tag":"H11","name":"H11 beside"}
 {"type":"MoveJoint","joints":[104.47,-32.52,-52.51,84.91,-75.38,0.0,0.0],"name":"H11 beside"}
-{"type":"MoveJoint","joints":[257.71,-28.63,-55.74,84.24,-102.65,0.0,0.0],"name":"fridge beside"}
-{"type":"MoveLin","xyz":[-68.8,-527.9,488.7],"rpy":[-179.9,0.7,1.0],"name":"fridge above"}
+{"type":"MoveJoint","joints":[300.35,-17.08,-66.57,82.58,-239.02,0.0,0.0],"name":"fridge beside 180"}
+{"type":"MoveLin","xyz":[211.2,-547.9,452.5],"rpy":[-179.8,-0.6,180.0],"name":"fridge above 180"}
+{"type":"MoveLin","xyz":[251.1,-488.0,445.8],"rpy":[-179.7,-0.6,180.0],"name":"fridge above 180 2nd"}
+{"type":"MoveLin","xyz":[-44.4,-543.7,448.6],"rpy":[-179.8,0.6,13.2],"name":"fridge above 15"}
+{"type":"MoveLin","xyz":[-68.8,-527.9,448.8],"rpy":[-179.9,0.6,1.0],"name":"fridge above"}
 {"type":"MoveLin","xyz":[-69.0,-527.9,433.7],"rpy":[-179.9,0.5,1.0],"name":"fridge drop"}
 {"type":"GripperMove","pos":100}
 {"type":"MoveLin","xyz":[-68.8,-527.9,488.7],"rpy":[-179.9,0.7,1.0],"name":"fridge above"}
