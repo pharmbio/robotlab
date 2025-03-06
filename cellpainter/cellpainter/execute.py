@@ -352,7 +352,7 @@ def execute_simulated_program(config: RuntimeConfig, sim_db: DB, metadata: list[
                 if protocol_file not in existing_files
             ])
             if missing_files:
-                print(f'error: missing protocols:', *protocol_files, file=sys.stderr, sep='\n  ')
+                print(f'error: missing protocols:', *missing_files, file=sys.stderr, sep='\n  ')
                 raise ValueError(f'Missing {len(missing_files)} protocols')
 
             for protocol_dir in protocol_dirs:
