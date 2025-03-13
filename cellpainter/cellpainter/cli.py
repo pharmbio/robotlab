@@ -308,8 +308,10 @@ def args_to_program(args: Args) -> Program | None:
     if args.protocol == 'cell-paint':
         with pbutils.timeit('generating program'):
             protocol_config = protocol.make_protocol_config(paths, args)
-            if args.ad_hoc_changes == 'bluewasher-eval':
-                protocol_config = protocol_config.add_overrides(protocol.bluewasher_eval_overrides)
+            if args.ad_hoc_changes != 'none':
+                if args.ad_hoc_changes not in protocol.overrides:
+                    raise KeyError(f'Missing override {args.ad_hoc_changes}.\nAvailable overrides: {list(protocol.overrides.keys())}')
+                protocol_config = protocol_config.add_overrides(protocol.overrides[args.ad_hoc_changes])
             batch_sizes = pbutils.read_commasep(args.batch_sizes, int)
             program = protocol.cell_paint_program(
                 batch_sizes=batch_sizes,

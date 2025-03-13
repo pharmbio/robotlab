@@ -456,24 +456,36 @@ class Override:
         # print(pformat(res), file=sys.stderr)
         return res
 
-bluewasher_eval_overrides = '''
-    5-9.disp.Mito   = 'automation_v5.0_blue_MagBead_evacuate/half_2.1_D_SB_20ul_Mito.LHC'
-    5-9.disp.PFA    = 'automation_v5.0_blue_MagBead_evacuate/half_4.1_D_SA_40ul_PFA.LHC'
-    5-9.disp.Stains = 'automation_v5.0_blue_MagBead_evacuate/half_6.1_D_P2_20ul_stains.LHC'
+overrides = dict(
+    bluewasher_eval = '''
+        5-9.disp.Mito   = 'automation_v5.0_blue_MagBead_evacuate/half_2.1_D_SB_20ul_Mito.LHC'
+        5-9.disp.PFA    = 'automation_v5.0_blue_MagBead_evacuate/half_4.1_D_SA_40ul_PFA.LHC'
+        5-9.disp.Stains = 'automation_v5.0_blue_MagBead_evacuate/half_6.1_D_P2_20ul_stains.LHC'
 
-    9.blue.Stains = 'automation_v5.0_blue_MagBead/5_W_MagBeadSpinWash-2X-80ul-Green.prog'
-    9.blue.Final  = 'automation_v5.0_blue_MagBead/7_W_MagBeadSpinWash-2X-100ul-Green-with-post-dispense.prog'
+        9.blue.Stains = 'automation_v5.0_blue_MagBead/5_W_MagBeadSpinWash-2X-80ul-Green.prog'
+        9.blue.Final  = 'automation_v5.0_blue_MagBead/7_W_MagBeadSpinWash-2X-100ul-Green-with-post-dispense.prog'
 
-    5.blue.Stains = 'automation_blue/spin-800rpm-5s.prog'
-    6.blue.Stains = 'automation_blue/spin-800rpm-5s-high-acc.prog'
-    7.blue.Stains = 'automation_blue/spin-1000rpm-5s.prog'
-    8.blue.Stains = 'automation_blue/spin-1000rpm-5s-high-acc.prog'
+        5.blue.Stains = 'automation_blue/spin-800rpm-5s.prog'
+        6.blue.Stains = 'automation_blue/spin-800rpm-5s-high-acc.prog'
+        7.blue.Stains = 'automation_blue/spin-1000rpm-5s.prog'
+        8.blue.Stains = 'automation_blue/spin-1000rpm-5s-high-acc.prog'
 
-    5.blue.Final = 'automation_blue/spin-800rpm-5s-then-100ul-Green.prog'
-    6.blue.Final = 'automation_blue/spin-800rpm-5s-high-acc-then-100ul-Green.prog'
-    7.blue.Final = 'automation_blue/spin-1000rpm-5s-then-100ul-Green.prog'
-    8.blue.Final = 'automation_blue/spin-1000rpm-5s-high-acc-then-100ul-Green.prog'
-'''
+        5.blue.Final = 'automation_blue/spin-800rpm-5s-then-100ul-Green.prog'
+        6.blue.Final = 'automation_blue/spin-800rpm-5s-high-acc-then-100ul-Green.prog'
+        7.blue.Final = 'automation_blue/spin-1000rpm-5s-then-100ul-Green.prog'
+        8.blue.Final = 'automation_blue/spin-1000rpm-5s-high-acc-then-100ul-Green.prog'
+    ''',
+    skip_wash_4_and_5 = '''
+        4.blue.Stains = 'automation_blue/get_info.prog'
+        5.blue.Stains = 'automation_blue/get_info.prog'
+
+        4.disp.Stains = 'automation_blue/disp-noop.LHC'
+        5.disp.Stains = 'automation_blue/disp-noop.LHC'
+
+        4.blue.Final = 'automation_blue/get_info.prog'
+        5.blue.Final = 'automation_blue/get_info.prog'
+    ''',
+)
 
 def make_protocol_config(paths: ProtocolPaths, args: CellPaintingArgs = CellPaintingArgs()) -> ProtocolConfig:
     incu_csv = args.incu

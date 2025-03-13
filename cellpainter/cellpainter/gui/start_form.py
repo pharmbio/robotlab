@@ -18,6 +18,7 @@ import subprocess
 
 from ..cli import Args
 from .. import cli
+from .. import protocol as protocol_module
 
 import pbutils
 from ..small_protocols import small_protocols_dict, SmallProtocolData
@@ -445,7 +446,7 @@ def start_form(*, config: RuntimeConfig):
 
     ad_hoc_changes = store.str(
         name='ad hoc changes',
-        options=['none', 'bluewasher-eval'],
+        options=['none', *protocol_module.overrides.keys()],
         desc='Ad hoc changes.',
     )
 
