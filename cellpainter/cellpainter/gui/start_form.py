@@ -460,7 +460,11 @@ def start_form(*, config: RuntimeConfig):
         store.str(
             name='squid protocol',
             options=[
-                *external_state.squid_protocols,
+                *[
+                    path 
+                    for path in external_state.squid_protocols
+                    if path.count('/') <= 1
+                ],
                 'noop',
             ]
         ) if 'squid' in protocol.value else

@@ -253,7 +253,7 @@ class MoveList(list[Move]):
         There are also "Base" tags like Base14 which is expanded to the two base positions in B (14 and 12)
         '''
 
-        hotel_dist: float = 70.94 / 2
+        hotel_dist: float = 70.94 / 2 + (2.0 / 10)
 
         out: Dict[str, MoveList] = {name: self}
 

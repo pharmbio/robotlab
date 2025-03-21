@@ -167,7 +167,7 @@ def index(path_from_route: str | None = None) -> Iterator[Tag | V.Node | dict[st
         yield from show_logs()
         return
 
-    program_title = 'imager' if 'pf' in config.name else 'cell painter'
+    program_title = 'imager' if 'xarm' in config.name else 'cell painter'
     if path:
         yield V.head(V.title(f'{program_title}: ', path.removeprefix('logs/').removesuffix('.db')))
     else:

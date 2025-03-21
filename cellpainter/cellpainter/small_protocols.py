@@ -725,14 +725,14 @@ def example(args: SmallProtocolArgs):
     fill_estimates(cmd)
     return Program(cmd)
 
-LoadLocs   = [11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 13, 14, 15, 16, 17, 18, 19]
-UnloadLocs = [11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 13, 14, 15, 16, 17, 18, 19]
+LoadLocs   = [11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 13]
+UnloadLocs = [11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 13]
 
 @pf_protocols.append
 def fridge_load_from_hotel(args: SmallProtocolArgs) -> Program:
     '''
 
-        Loads --num-plates from hotel to fridge, from H11 and down and then from H13 and up to H19.
+        Loads --num-plates from hotel to fridge, from H11 and down and then H13.
 
         Specify the project of the plates in params[0].
 
@@ -1365,6 +1365,8 @@ def run_robotarm(args: SmallProtocolArgs):
         if moves.guess_robot(x) == 'ur':
             cmds += [RobotarmCmd(x)]
         elif moves.guess_robot(x) == 'pf':
+            cmds += [PFCmd(x)]
+        elif moves.guess_robot(x) == 'xarm':
             cmds += [XArmCmd(x)]
         else:
             raise ValueError(f'Unknown cmd: {x}')
