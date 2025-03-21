@@ -19,6 +19,53 @@ if TYPE_CHECKING:
 
 DEFAULT_HOST='10.10.0.84'
 
+API_CODE = {
+    -12: 'run blockly app exception',
+    -11: 'convert blockly app to pythen exception',
+    -9: 'emergency stop',
+    -8: 'out of range',
+    -7: 'joint angle limit',
+    -6: 'cartesian pos limit',
+    -5: 'revesed, no use',
+    -4: 'command is not exist',
+    -3: 'revesed, no use',
+    -2: 'xArm is not ready, may be the motion is not enable or not set state',
+    -1: 'xArm is disconnect or not connect',
+    0: 'success',
+    1: 'there are errors that have not been cleared',
+    2: 'there are warnings that have not been cleared',
+    3: 'get response timeout',
+    4: 'tcp reply length error',
+    5: 'tcp reply number error',
+    6: 'tcp protocol flag error',
+    7: 'tcp reply command and send command do not match',
+    8: 'send command error, may be network exception',
+    9: 'state is not ready to move',
+    10: 'the result is invalid',
+    11: 'other error',
+    12: 'parameter error',
+    20: 'host id error',
+    21: 'modbus baudrate not supported',
+    22: 'modbus baudrate not correct',
+    23: 'modbus reply length error',
+    31: 'trajectory read/write failed',
+    32: 'trajectory read/write timeout',
+    33: 'playback trajectory timeout',
+    34: 'playback trajectory failed',
+    41: 'wait to set suction cup timeout',
+    80: 'linear track has error',
+    81: 'linear track sci is low',
+    82: 'linear track is not init',
+    100: 'wait finish timeout',
+    101: 'too many consecutive failed tests',
+    102: 'end effector has error',
+    103: 'end effector is not enabled',
+    129: '(standard modbus tcp)illegal/unsupported function code',
+    120: '(standard modbus tcp)illegal target address',
+    131: '(standard modbus tcp)exection of requested data',
+}
+
+
 @dataclass(frozen=True)
 class Intercept:
     base: Any
@@ -71,9 +118,10 @@ class ConnectedXArm:
 
     def execute_move(self, m: Move):
         X = 1.0
+        code: None | int = None
         match m:
             case moves.MoveLin([x, y, z], [r, p, a]):
-                self.arm.set_position(
+                code = self.arm.set_position(
                     x=x,
                     y=y,
                     z=z,
@@ -87,7 +135,7 @@ class ConnectedXArm:
                     is_radian=False,
                 )
             case moves.MoveRel([x, y, z], [r, p, a]):
-                self.arm.set_position(
+                code = self.arm.set_position(
                     x=x,
                     y=y,
                     z=z,
@@ -101,7 +149,7 @@ class ConnectedXArm:
                     is_radian=False,
                 )
             case moves.MoveJoint(joints):
-                self.arm.set_servo_angle(
+                code = self.arm.set_servo_angle(
                     angle=joints[:5],
                     relative=False,
                     speed=60.0 / X,
@@ -109,13 +157,16 @@ class ConnectedXArm:
                     is_radian=False,
                 )
             case moves.GripperMove():
+                # with open('gripper_log.jsonl') as log:
+                #     _, status = self.arm.get_bio_gripper_status()
+                #     print('Gripper', m.is_close(),
                 if m.is_close():
-                    self.arm.close_bio_gripper(speed=1, wait=True)
+                    code = self.arm.close_bio_gripper(speed=1, wait=True)
                 else:
                     if 0:
-                        self.arm.open_bio_gripper(speed=1, wait=True)
+                        code = self.arm.open_bio_gripper(speed=1, wait=True)
                     else:
-                        self.arm.open_bio_gripper(speed=1, wait=False)
+                        code = self.arm.open_bio_gripper(speed=1, wait=False)
                         time.sleep(0.8)
                         self.arm.set_bio_gripper_enable(False)
                         self.arm.set_bio_gripper_enable(True)
@@ -134,6 +185,9 @@ class ConnectedXArm:
                         print('stopping robot!')
             case _:
                 raise ValueError(f'Unsupported XArm move: {m}')
+        if code is not None and isinstance(code, int):
+            if code != 0:
+                raise ValueError(f'XArm reports error {code=}: {API_CODE.get(code)}')
 
 
 @dataclass(frozen=True)
