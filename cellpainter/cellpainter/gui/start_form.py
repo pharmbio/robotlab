@@ -42,7 +42,9 @@ class Plate:
 
     def make_name_with_metadata(self, plate_target: PlateTarget):
         if plate_target.metadata:
-            return f'{self.barcode}_{self.project}_{plate_target.metadata}'.strip('_')
+            res = f'{self.barcode}_{self.project}_{plate_target.metadata}'.strip('_')
+            res = res.replace(f'_{self.project}_{self.project}', f'_{self.project}')
+            return res
         else:
             return f'{self.barcode}_{self.project}'
 
