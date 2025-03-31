@@ -15,21 +15,28 @@ P = ParamSpec('P')
 R = TypeVar('R')
 
 @dataclass(frozen=True)
+class QueueEntry:
+    msg: str
+    log: Log
+    event_ok: bool
+    reply_queue: Queue[Any]
+
+@dataclass(frozen=True)
 class Labeler(Machine):
     args: List[str] = field(default_factory=list)
-    input_queue: 'Queue[Tuple[str, Log, Queue[Any]]]' = field(default_factory=Queue)
+    input_queue: 'Queue[QueueEntry]' = field(default_factory=Queue)
 
     def init(self):
         threading.Thread(target=self._handler, daemon=True).start()
 
-    def _send(self, cmd: str, *args: str) -> dict[str, Any]:
+    def _send(self, cmd: str, *args: str, event_ok: bool = False) -> dict[str, Any]:
         with self.exclusive():
             reply_queue: Queue[Any] = Queue()
             msg = ' '.join([
                 part.replace(' ', '\\s').replace('\n', '\\s').encode('ascii', errors='replace').decode()
                 for part in [cmd, *args]
             ])
-            self.input_queue.put((msg, self.log, reply_queue))
+            self.input_queue.put(QueueEntry(msg, self.log, event_ok, reply_queue))
             return reply_queue.get()
 
     def _handler(self):
@@ -48,7 +55,7 @@ class Labeler(Machine):
             assert stdin
             assert stdout
 
-            def read_until_ready(t0: float, log: Log) -> List[Dict[str, Any]]:
+            def read_until_ready(t0: float, log: Log, event_ok: bool=False) -> List[Dict[str, Any]]:
                 lines: List[Dict[str, Any]] = []
                 while True:
                     exc = p.poll()
@@ -73,19 +80,22 @@ class Labeler(Machine):
                     log(t, 'labeler', **data)
                     if data.get('status') == 'ready':
                         return lines
+                    elif data.get('event') and event_ok:
+                        return [*lines, data]
                     else:
                         lines += [data]
 
             lines = read_until_ready(time.monotonic(), Machine.default_log)
             while True:
-                msg, log, reply_queue = self.input_queue.get()
+                queue_entry = self.input_queue.get()
                 t0 = time.monotonic()
-                stdin.write(msg + '\n')
-                stdin.flush()
-                lines = read_until_ready(t0, log)
+                if queue_entry.msg:
+                    stdin.write(queue_entry.msg + '\n')
+                    stdin.flush()
+                lines = read_until_ready(t0, queue_entry.log, event_ok=queue_entry.event_ok)
                 success = not any(data.get('error') for data in lines)
                 response = dict(**lines[-1], lines=lines, success=success)
-                reply_queue.put_nowait(response)
+                queue_entry.reply_queue.put_nowait(response)
 
     @staticmethod
     def _rpc(fn: Callable[Concatenate['Labeler', P], R]) -> Callable[Concatenate['Labeler', P], R]:
@@ -100,6 +110,14 @@ class Labeler(Machine):
             else:
                 return res.get('value') # type: ignore
         return inner
+
+    def wait_for_green_button(self) -> Literal['green_button'] | None:
+        res = self._send('', event_ok=True)
+        err = res.get('error')
+        if err:
+            raise ValueError(err)
+        else:
+            return res.get('event') # type: ignore
 
     @_rpc
     def abort(self) -> int: ...
