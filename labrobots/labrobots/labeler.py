@@ -7,6 +7,7 @@ from typing import *
 import threading
 import time
 import json
+import functools
 
 from .machine import Machine, Log
 
@@ -88,6 +89,7 @@ class Labeler(Machine):
 
     @staticmethod
     def _rpc(fn: Callable[Concatenate['Labeler', P], R]) -> Callable[Concatenate['Labeler', P], R]:
+        @functools.wraps(fn)
         def inner(self: Labeler, *args: P.args, **kwargs: P.kwargs) -> R:
             if kwargs:
                 raise ValueError(f'Must use positional arguments, not {kwargs=}')
