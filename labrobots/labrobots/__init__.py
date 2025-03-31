@@ -7,6 +7,7 @@ from .squid import Squid
 from .bluewash import BlueWash
 from .nikon_nis import NikonNIS
 from .nikon_stage import NikonStage
+from .labeler import Labeler
 from .dlid import DLid
 
 from dataclasses import *
@@ -64,6 +65,12 @@ class NikonPi(Machines):
     ip = '10.10.0.76'
     node_name = 'nikonpi'
     nikon_stage: NikonStage = NikonStage()
+
+@dataclass
+class LabelerComputer(Machines):
+    ip = '127.0.0.1'
+    node_name = 'DESKTOP-C3JFE20'
+    labeler: Labeler = Labeler(['C:\\Users\\admin\\PlateRepl.exe'])
 
 def main():
     import sys

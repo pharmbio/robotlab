@@ -62,17 +62,32 @@ class ExclusiveLock:
     '''
     A lock for exclusive use of a resource. If it is already taken raises an error.
     '''
-    rlock: RLock = field(default_factory=RLock)
+    _rlock: RLock = field(default_factory=RLock)
+    _depth: bool = 0
+    _taken_at: float | None = None
+
+    def is_taken(self):
+        return self._depth > 0
+
+    def time_since_taken(self) -> float | None:
+        if self._taken_at is not None:
+            return time.monotonic() - self._taken_at
+        else:
+            return None
 
     @contextlib.contextmanager
     def exclusive(self):
-        ok = self.rlock.acquire(blocking=False)
+        ok = self._rlock.acquire(blocking=False)
         if not ok:
             raise ValueError('Resource not available (exclusive lock taken)')
         try:
+            if self._depth == 0:
+                self._taken_at = time.monotonic()
+            self._depth += 1
             yield
         finally:
-            self.rlock.release()
+            self._depth -= 1
+            self._rlock.release()
 
 @dataclass(frozen=False)
 class Cell(Generic[A]):
@@ -83,6 +98,10 @@ class Cell(Generic[A]):
 
 T = TypeVar('T', bound='Machine')
 
+class Status(TypedDict):
+    ready: bool
+    time_since_last_start: float
+
 @dataclass(frozen=True, kw_only=True)
 class Machine:
     log_cell: Cell[Log] = field(default_factory=lambda: Cell(Machine.default_log), repr=False)
@@ -90,6 +109,12 @@ class Machine:
 
     def init(self):
         pass
+
+    def lock_status(self) -> Status:
+        return {
+            'ready': not self.exclusive_lock.is_taken(),
+            'time_since_last_start': round(self.exclusive_lock.time_since_taken() or 0.0, 3),
+        }
 
     @property
     def log(self) -> Log:
