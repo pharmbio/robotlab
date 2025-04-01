@@ -197,7 +197,28 @@ class XArm:
     @contextlib.contextmanager
     def connect(self, verbose: bool=True):
         from xarm.wrapper import XArmAPI
-        arm = XArmAPI(self.host)
+        arm: None | XArmAPI = None
+        for num_retry in range(10):
+            try:
+                arm = XArmAPI(self.host)
+                break
+            except Exception as e:
+                # xarm/x3/base.py
+                if str(e) == 'connect serial failed':
+                    import traceback as tb
+                    import sys
+                    print(
+                        'XArm connection error:',
+                        tb.format_exc(),
+                        'Retrying in 1s',
+                        sep='\n',
+                        file=sys.stderr,
+                    )
+                    time.sleep(0.5)
+                else:
+                    raise
+        if arm is None:
+            raise ValueError('Failed to connect to the XArm')
         xarm = ConnectedXArm(arm, verbose=verbose)
         xarm.init()
         yield xarm
