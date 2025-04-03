@@ -4,8 +4,8 @@
 {"type":"MoveLin","xyz":[199.6,-600.9,556.9],"rpy":[0.0,5.0,89.6],"tag":"Base14","name":"Base14 neu"}
 {"type":"MoveLin","xyz":[199.5,-600.8,549.0],"rpy":[0.0,5.0,89.6],"tag":"Base14","name":"Base14 pick","slow":true}
 {"type":"GripperMove","pos":255}
-{"type":"MoveLin","xyz":[199.5,-600.8,574.8],"rpy":[0.0,5,89.6],"tag":"Base14","name":"Base14 up","slow":true}
-{"type":"MoveLin","xyz":[199.5,-600.8,574.8],"rpy":[0.0,5,89.6],"tag":"Base14","name":"Base14 wait","slow":true,"sleep_secs":1.5}
+{"type":"MoveLin","xyz":[199.5,-600.8,575.0],"rpy":[0.0,5,89.6],"tag":"Base14","name":"Base14 up","slow":true}
+{"type":"MoveLin","xyz":[199.5,-600.8,575.1],"rpy":[0.0,5,89.6],"tag":"Base14","name":"Base14 wait","slow":true,"sleep_secs":1.5}
 {"type":"MoveLin","xyz":[199.6,-600.8,549],"rpy":[0.0,5.0,89.6],"tag":"Base14","name":"Base14 drop","slow":true}
 {"type":"GripperMove","pos":88}
 {"type":"MoveLin","xyz":[199.6,-600.9,556.9],"rpy":[0.0,5.0,89.6],"tag":"Base14","name":"Base14 neu","slow":true}
