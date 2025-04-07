@@ -68,7 +68,7 @@ class NikonPi(Machines):
 
 @dataclass
 class LabelerComputer(Machines):
-    ip = '127.0.0.1'
+    ip = '10.10.0.74'
     node_name = 'DESKTOP-C3JFE20'
     labeler: Labeler = Labeler(['C:\\Users\\admin\\PlateRepl.exe'])
 
