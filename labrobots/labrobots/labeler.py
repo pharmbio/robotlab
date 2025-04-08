@@ -91,7 +91,7 @@ class Labeler(Machine):
                     data = {'error': 'JSONDecodeError', 'details': str(e), 'line': line}
                 except Exception as e:
                     data = {'error': str(type(e)), 'details': str(e), 'line': line}
-                log(f'repl.read().as_json() = {data!r}', line=line, **data)
+                log(f'repl.read().as_json() = {data!r}', **dict(data, line=line))
                 if (event := data.get('event')):
                     with self.event_listeners_lock:
                         listeners = [*self.event_listeners]
