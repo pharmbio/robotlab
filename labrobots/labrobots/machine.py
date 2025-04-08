@@ -11,6 +11,7 @@ import json
 import textwrap
 import time
 import traceback as tb
+import threading
 
 from flask import jsonify, request
 import flask
@@ -200,7 +201,10 @@ class Machine:
             sig = make_sig(cmd, *args, **kwargs)
             self.log(sig, **data, type='call')
             try:
-                if cmd in Machine.__dict__.keys() or cmd.startswith('_') or cmd == 'init':
+                if cmd == 'lock_status':
+                    # ok to call remotely
+                    pass
+                elif cmd in Machine.__dict__.keys() or cmd.startswith('_') or cmd == 'init':
                     raise ValueError(f'Cannot call {cmd!r} on {name} remotely')
                 if cmd == 'up?':
                     return {'value': True}
@@ -305,6 +309,12 @@ class Machine:
 class Echo(Machine):
     def error(self, *args: str, **kwargs: Any):
         raise ValueError(f'error {args!r} {kwargs!r}')
+
+    def banner(self, *args: str):
+        def run_soon():
+            time.sleep(0.05)
+            print(*args)
+        threading.Thread(target=run_soon, daemon=True).start()
 
     def echo(self, *args: str, **kwargs: Any) -> str:
         '''
