@@ -94,7 +94,7 @@ class Labeler(Machine):
                 log(f'repl.read().as_json() = {data!r}', line=line, **data)
                 if (event := data.get('event')):
                     with self.event_listeners_lock:
-                        listeners = self.event_listeners
+                        listeners = [*self.event_listeners]
                         self.event_listeners.clear()
                     for listener in listeners:
                         log(f'Notifying listener {listener} of event {event!r}')
