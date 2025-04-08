@@ -22,7 +22,7 @@ class Labeler(Machine):
     input_queue: 'Queue[str]' = field(default_factory=Queue)
 
     event_listeners_lock: Lock = field(default_factory=Lock)
-    event_listeners: 'list[Queue[str]]' = field(default_factory=list)
+    event_listeners: 'dict[int, Queue[str]]' = field(default_factory=dict)
 
     stdout_forward: 'Queue[dict[str, Any]]' = field(default_factory=Queue)
     process_dead_error: dict[str, Any] = field(default_factory=dict)
@@ -94,7 +94,7 @@ class Labeler(Machine):
                 log(f'repl.read().as_json() = {data!r}', **dict(data, line=line))
                 if (event := data.get('event')):
                     with self.event_listeners_lock:
-                        listeners = [*self.event_listeners]
+                        listeners = [*self.event_listeners.values()]
                         self.event_listeners.clear()
                     for listener in listeners:
                         log(f'Notifying listener {listener} of event {event!r}')
@@ -121,7 +121,7 @@ class Labeler(Machine):
         listener = Queue[str]()
         self.log('Registering for event listener')
         with self.event_listeners_lock:
-            self.event_listeners.append(listener)
+            self.event_listeners[id(listener)] = listener
         try:
             self.log('Listening for event')
             event = listener.get(timeout=30.0)
@@ -131,6 +131,11 @@ class Labeler(Machine):
             else:
                 return 'error'
         except queue.Empty:
+            with self.event_listeners_lock:
+                try:
+                    del self.event_listeners[id(listener)]
+                except KeyError:
+                    pass
             return 'timeout'
 
     @_rpc
