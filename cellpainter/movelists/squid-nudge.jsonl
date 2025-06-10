@@ -1,0 +1,12 @@
+{"type":"Section","section":"squid-nudge"}
+{"type":"GripperMove","pos":80}
+{"type":"MoveLin","xyz":[152.7,138.3,457.6],"rpy":[178.9,-0.9,0.7],"name":"squid above"}
+{"type":"MoveLin","xyz":[152.7,118.1,379.4],"rpy":[178.9,-0.7,0.7],"name":"squid neu"}
+{"type":"MoveLin","xyz":[243.0,106.1,377.5],"rpy":[179.1,-0.5,3.6],"name":"squid front up"}
+{"type":"MoveLin","xyz":[243.0,106.1,366.5],"rpy":[179.1,-0.4,3.6],"name":"squid front","slow":true}
+{"type":"MoveLin","xyz":[243.1,102.6,366.5],"rpy":[179.1,-0.3,3.6],"name":"squid front push","slow":true}
+{"type":"MoveLin","xyz":[243.0,106.1,366.5],"rpy":[179.1,-0.4,3.6],"name":"squid front","slow":true}
+{"type":"MoveLin","xyz":[243.0,106.1,377.5],"rpy":[179.1,-0.5,3.6],"name":"squid front up"}
+{"type":"MoveLin","xyz":[152.7,118.1,379.4],"rpy":[178.9,-0.7,0.7],"name":"squid neu"}
+{"type":"MoveLin","xyz":[152.7,138.3,457.6],"rpy":[178.9,-0.9,0.7],"name":"squid above"}
+{"type":"MoveLin","xyz":[29.3,228.3,477.7],"rpy":[178.6,0.2,90.0],"name":"neu"}

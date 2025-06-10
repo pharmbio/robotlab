@@ -163,7 +163,7 @@ class ConnectedXArm:
                 if m.is_close():
                     code = self.arm.close_bio_gripper(speed=1, wait=True)
                 else:
-                    if 0:
+                    if 1:
                         code = self.arm.open_bio_gripper(speed=1, wait=True)
                     else:
                         code = self.arm.open_bio_gripper(speed=1, wait=False)

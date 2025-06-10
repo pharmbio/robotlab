@@ -871,6 +871,7 @@ def test_circuit_to_squid(args: SmallProtocolArgs) -> Program:
         SquidStageCmd('goto_loading').fork_and_wait(),
         XArmCmd('H11-to-squid'),
         SquidStageCmd('leave_loading').fork_and_wait(),
+        XArmCmd('squid-nudge'),
         SquidStageCmd('goto_loading').fork_and_wait(),
         XArmCmd('squid-to-H11'),
         SquidStageCmd('leave_loading').fork_and_wait(),
@@ -1100,6 +1101,7 @@ def squid_acquire_from_fridge(args: SmallProtocolArgs) -> Program:
                 SquidStageCmd('leave_loading'),
                 SquidStageCmd('goto_loading'),   # go back and forth a few times
                 SquidStageCmd('leave_loading'),  # go back and forth a few times
+                XArmCmd('squid-nudge'),
                 WaitForCheckpoint(f'RT {i}', plus_secs=plus_secs, assume='nothing'),
                 WaitForCheckpoint(f'Ok to start {i}', assume='nothing'),
                 *[
