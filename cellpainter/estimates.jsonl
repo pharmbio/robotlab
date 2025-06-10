@@ -1159,11 +1159,7 @@
 {"cmd":{"type":"BlueCmd","action":"Run","protocol_path":"automation_v5.0_blue_MagBead/7_W_MagBeadSpinWash-2X-100ul-Green-with-post-dispense.prog"},"datetime":"2025-03-13 12:26:48","duration":93.462}
 {"cmd":{"type":"BlueCmd","action":"Run","protocol_path":"automation_v5.0_blue_MagBead/7_W_MagBeadSpinWash-2X-100ul-Green-with-post-dispense.prog"},"datetime":"2025-03-13 12:29:05","duration":93.364}
 {"cmd":{"type":"BlueCmd","action":"Run","protocol_path":"automation_v5.0_blue_MagBead/7_W_MagBeadSpinWash-2X-100ul-Green-with-post-dispense.prog"},"datetime":"2025-03-13 12:31:24","duration":92.863}
-{"cmd":{"type":"BlueCmd","action":"Run","protocol_path":"automation_v5.0_blue_MagBead_evacuate/0_W_Prime-Green-Full.prog"},"datetime":"2025-02-20 11:54:20","duration":23.553}
-{"cmd":{"type":"BlueCmd","action":"Run","protocol_path":"automation_v5.0_blue_MagBead_evacuate/0_W_Prime-Green-Full.prog"},"datetime":"2025-02-20 14:49:29","duration":23.52}
-{"cmd":{"type":"BlueCmd","action":"Run","protocol_path":"automation_v5.0_blue_MagBead_evacuate/0_W_Prime-Green-Full.prog"},"datetime":"2025-02-20 15:20:20","duration":23.333}
-{"cmd":{"type":"BlueCmd","action":"Run","protocol_path":"automation_v5.0_blue_MagBead_evacuate/0_W_Prime-Green-Full.prog"},"datetime":"2025-02-21 14:38:46","duration":23.469}
-{"cmd":{"type":"BlueCmd","action":"Run","protocol_path":"automation_v5.0_blue_MagBead_evacuate/0_W_Prime-Green-Full.prog"},"datetime":"2025-02-21 15:09:39","duration":23.709}
+{"cmd":{"type":"BlueCmd","action":"Run","protocol_path":"automation_v5.0_blue_MagBead_evacuate/0_W_Prime-Green-Full.prog"},"datetime":"2025-05-23 16:45:39","duration":33.811}
 {"cmd":{"type":"BlueCmd","action":"Run","protocol_path":"automation_v5.0_blue_MagBead_evacuate/5_W_MagBeadSpinEvacuate-no-dispense.prog"},"datetime":"2025-02-21 14:54:10","duration":23.927}
 {"cmd":{"type":"BlueCmd","action":"Run","protocol_path":"automation_v5.0_blue_MagBead_evacuate/5_W_MagBeadSpinEvacuate-no-dispense.prog"},"datetime":"2025-02-21 14:55:48","duration":23.678}
 {"cmd":{"type":"BlueCmd","action":"Run","protocol_path":"automation_v5.0_blue_MagBead_evacuate/5_W_MagBeadSpinEvacuate-no-dispense.prog"},"datetime":"2025-02-21 14:57:27","duration":23.752}
