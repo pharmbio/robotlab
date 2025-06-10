@@ -129,7 +129,7 @@ class ConnectedXArm:
                     pitch=0,
                     yaw=a,
                     relative=False,
-                    speed=250.0 / X,
+                    speed=250.0 / X / (10.0 if m.slow else 1.0),
                     wait=True, # sync
                     radius=0,  # linear
                     is_radian=False,

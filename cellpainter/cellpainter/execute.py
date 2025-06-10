@@ -27,7 +27,11 @@ from datetime import datetime
 from pbutils.mixins import DB, DBMixin
 
 import labrobots
+import time
 from labrobots.dir_list import PathInfo
+
+
+from urllib.request import urlopen
 
 import sys
 
@@ -116,9 +120,30 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
                 reader = runtime.barcode_reader
                 do_move = reader and reader.read() == ''
 
+            def curl(url: str):
+                print(f'curl({url!r})', file=sys.stderr)
+                res = None
+                try:
+                    res = urlopen(url, timeout=2.5)
+                    res = res.read()
+                except Exception as e:
+                    print(f'curl({url!r}) error: {e=!r} {e=} {res=}', file=sys.stderr)
+                    return
+                print(f'curl({url!r}) = {res}', file=sys.stderr)
+
             if do_move:
-                for xarm in runtime.time_resource_use(entry, runtime.xarm):
-                    xarm.execute_moves(movelist)
+              for xarm in runtime.time_resource_use(entry, runtime.xarm):
+                shelly = 'http://10.10.0.155/rpc/Switch.Set?id=0'
+                if 'squid' in cmd.program_name:
+                    url = f'{shelly}&on=true&toggle_after=40'
+                    print(f'{cmd = }', file=sys.stderr)
+                    curl(url)
+                    time.sleep(2.0)
+                xarm.execute_moves(movelist)
+                if 'squid' in cmd.program_name:
+                    url = f'{shelly}&on=false'
+                    curl(url)                    
+                    time.sleep(0.2)
 
         case BiotekCmd():
             bioteks.execute(runtime, entry, cmd.machine, cmd.protocol_path, cmd.action)
@@ -225,8 +250,12 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
                 match cmd.action:
                     case 'goto_loading':
                         squid.goto_loading()
+                        if not squid.is_in_loading_position():
+                            raise ValueError('Failed to confirm that squid is in loading position')
                     case 'leave_loading':
                         squid.leave_loading()
+                        if squid.is_in_loading_position():
+                            raise ValueError('Failed to confirm that squid has left loading position')
                     case 'get_status':
                         squid.status()
                     case 'check_protocol_exists':
@@ -254,7 +283,6 @@ def execute(cmd: Command, runtime: Runtime, metadata: Metadata):
                 barcode = barcode_reader.read_and_clear()
                 if not cmd.check_barcode:
                     if barcode != cmd.plate:
-                        import sys
                         print(f'Plate has barcode {barcode!r} but expected {cmd.plate!r}. Ignoring because {cmd=}.', file=sys.stderr)
                 elif barcode != cmd.plate:
                     raise ValueError(f'Plate has barcode {barcode!r} but expected {cmd.plate!r}')

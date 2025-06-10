@@ -168,7 +168,7 @@ def estimate(cmd: PhysicalCommand) -> float:
             case SquidStageCmd():
                 guess = 5.0
             case SquidAcquire():
-                guess = 4.7 * 3600.0
+                guess = 3.2 * 3600.0
             case NikonAcquire():
                 x, s, n = cmd.job_name.partition('s')
                 if s == 's' and not n and x.isnumeric():

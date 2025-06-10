@@ -868,16 +868,15 @@ def test_circuit_to_squid(args: SmallProtocolArgs) -> Program:
     '''
     cmds: list[Command] = []
     cmds += [
+        SquidStageCmd('goto_loading').fork_and_wait(),
         XArmCmd('H11-to-squid'),
+        SquidStageCmd('leave_loading').fork_and_wait(),
+        SquidStageCmd('goto_loading').fork_and_wait(),
         XArmCmd('squid-to-H11'),
+        SquidStageCmd('leave_loading').fork_and_wait(),
     ]
     N = int((args.params or ['1'])[0])
     cmds = cmds * N
-    cmds = [
-        SquidStageCmd('goto_loading').fork_and_wait(),
-        *cmds,
-        SquidStageCmd('leave_loading').fork_and_wait(),
-    ]
     return Program(Seq(*cmds))
 
 # @pf_protocols.append
