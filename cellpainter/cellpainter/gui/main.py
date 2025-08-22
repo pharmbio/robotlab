@@ -11,6 +11,7 @@ from datetime import timedelta
 from pathlib import Path
 import platform
 import re
+import datetime
 
 from ..log import Log
 from ..cli import Args
@@ -387,10 +388,11 @@ def index(path_from_route: str | None = None) -> Iterator[Tag | V.Node | dict[st
                 box += pre('Controller has shut down. No more commands will be executed.')
             error_box = box
         desc = ar.experiment_metadata.desc
+        operators = ar.experiment_metadata.operators
         if len(desc) > 120:
-            desc = desc[:120] + '...'
+            desc = desc[:120] + f'... ({operators}),'
         if desc:
-            desc = f'{desc}, '
+            desc = f'{desc} ({operators}), '
         if ar.completed:
             text = desc.strip(', ')
             if t_end_form:
@@ -401,6 +403,7 @@ def index(path_from_route: str | None = None) -> Iterator[Tag | V.Node | dict[st
             text = f'{desc}pid: {ar.runtime_metadata.pid} on {platform.node()} with config {config.name}'
         else:
             text = f'{desc}pid: - on {platform.node()} with config {config.name}'
+        text = f'{text} | {datetime.datetime.now().replace(microsecond=0)}'
         if text:
             yield V.pre(text,
                 grid_area='info-foot',

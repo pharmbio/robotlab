@@ -144,6 +144,17 @@ def test_comm(_: SmallProtocolArgs):
     return Program(protocol.program_test_comm(with_blue=False).add(Metadata(gui_force_show=True)))
 
 @ur_protocols.append
+def open_gripper_and_freedrive(args: SmallProtocolArgs):
+    '''
+    Open the UR gripper and put the robot in freedrive
+    '''
+    program = Seq(
+        RobotarmCmd('ur open gripper'),
+        RobotarmCmd('ur freedrive'),
+    )
+    return Program(program)
+
+@ur_protocols.append
 def test_circuit(args: SmallProtocolArgs):
     '''
     Move one plate around to all its positions using the robotarm, without running incubator, bluewasher or bioteks.
