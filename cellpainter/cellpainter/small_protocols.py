@@ -192,7 +192,9 @@ def test_circuit(args: SmallProtocolArgs):
             if isinstance(cmd, RobotarmCmd | DLidCheckStatusCmd)
         ],
         *RobotarmCmds(plate.out_get),
-        *RobotarmCmds(f'{plate.dlid_loc}-to-incu'),
+        *RobotarmCmds('B14-to-A14'),
+        *RobotarmCmds('A14-to-incu'),
+        RobotarmCmd(f'A-neu-to-B-neu'),
     )
     if protocol_config.steps and protocol_config.steps[0].name in ['Mito', 'PFA']:
         w0 = World({'incu': plate.id})
