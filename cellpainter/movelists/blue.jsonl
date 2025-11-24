@@ -8,23 +8,23 @@
 {"type":"MoveLin","xyz":[199.7,-593.2,573.6],"rpy":[0.0,0.8,89.6],"tag":"Base14","name":"Base14 neu"}
 {"type":"MoveLin","xyz":[199.7,-421.9,571.6],"rpy":[0.0,1.1,89.6],"tag":"Base14","name":"Base14 entrance"}
 {"type":"MoveLin","xyz":[22.6,-439,426.9],"rpy":[0.0,0.8,55.1],"name":"B safe"}
-{"type":"MoveLin","xyz":[30.4,-626.1,314.2],"rpy":[0.2,0.6,-0.3],"name":"blue above"}
-{"type":"MoveLin","xyz":[30.4,-626.1,218.4],"rpy":[0.2,0.6,-0.3],"name":"blue neu"}
-{"type":"MoveLin","xyz":[30.4,-626.1,189.6],"rpy":[0.2,0.6,-0.3],"name":"blue drop"}
+{"type":"MoveLin","xyz":[30.2,-624.3,314.2],"rpy":[0.2,0.6,-0.2],"name":"blue above"}
+{"type":"MoveLin","xyz":[30.2,-624.3,218.4],"rpy":[0.2,0.6,-0.2],"name":"blue neu"}
+{"type":"MoveLin","xyz":[30.2,-624.3,189.6],"rpy":[0.2,0.6,-0.2],"name":"blue drop"}
 {"type":"GripperMove","pos":89}
-{"type":"MoveLin","xyz":[30.4,-626.1,218.4],"rpy":[0.2,0.6,-0.3],"name":"blue neu"}
-{"type":"MoveLin","xyz":[30.4,-626.1,314.2],"rpy":[0.2,0.6,-0.3],"name":"blue above"}
+{"type":"MoveLin","xyz":[30.2,-624.3,218.4],"rpy":[0.2,0.6,-0.2],"name":"blue neu"}
+{"type":"MoveLin","xyz":[30.2,-624.3,314.2],"rpy":[0.2,0.6,-0.2],"name":"blue above"}
 {"type":"MoveLin","xyz":[22.6,-439,426.9],"rpy":[0.0,0.8,55.1],"name":"B safe"}
 {"type":"MoveJoint","joints":[94.83,-113.91,119.54,-6.46,95.22,179.79],"name":"B neu"}
 {"type":"Section","section":"blue-to-Base14"}
 {"type":"MoveJoint","joints":[94.83,-113.91,119.54,-6.46,95.22,179.79],"name":"B neu"}
 {"type":"MoveLin","xyz":[22.6,-439,426.9],"rpy":[0.0,0.8,55.1],"name":"B safe"}
-{"type":"MoveLin","xyz":[30.4,-626.1,314.2],"rpy":[0.2,0.6,-0.3],"name":"blue above"}
-{"type":"MoveLin","xyz":[30.4,-626.1,218.4],"rpy":[0.2,0.6,-0.3],"name":"blue neu"}
-{"type":"MoveLin","xyz":[30.4,-626.1,188.7],"rpy":[0.2,0.6,-0.3],"name":"blue pick"}
+{"type":"MoveLin","xyz":[30.2,-624.3,314.2],"rpy":[0.2,0.6,-0.2],"name":"blue above"}
+{"type":"MoveLin","xyz":[30.2,-624.3,218.4],"rpy":[0.2,0.6,-0.2],"name":"blue neu"}
+{"type":"MoveLin","xyz":[30.2,-624.3,189.6],"rpy":[0.2,0.6,-0.2],"name":"blue pick"}
 {"type":"GripperMove","pos":255}
-{"type":"MoveLin","xyz":[30.4,-626.1,218.4],"rpy":[0.2,0.6,-0.3],"name":"blue neu"}
-{"type":"MoveLin","xyz":[30.4,-626.1,314.2],"rpy":[0.2,0.6,-0.3],"name":"blue above"}
+{"type":"MoveLin","xyz":[30.2,-624.3,218.4],"rpy":[0.2,0.6,-0.2],"name":"blue neu"}
+{"type":"MoveLin","xyz":[30.2,-624.3,314.2],"rpy":[0.2,0.6,-0.2],"name":"blue above"}
 {"type":"MoveLin","xyz":[22.6,-439,426.9],"rpy":[0.0,0.8,55.1],"name":"B safe"}
 {"type":"MoveLin","xyz":[199.7,-421.9,571.6],"rpy":[0.0,1.1,89.6],"tag":"Base14","name":"Base14 entrance"}
 {"type":"MoveLin","xyz":[199.7,-593.2,573.6],"rpy":[0.0,0.8,89.6],"tag":"Base14","name":"Base14 neu"}
