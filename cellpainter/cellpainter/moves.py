@@ -253,7 +253,8 @@ class MoveList(list[Move]):
         There are also "Base" tags like Base14 which is expanded to the two base positions in B (14 and 12)
         '''
 
-        hotel_dist: float = 70.94 / 2 + (2.0 / 10)
+        #hotel_dist: float = 70.94 / 2 + (2.0 / 10)
+        hotel_dist: float = 711 / 20 # meassured 711mm between A1 and A21 and between B1 and B21
 
         out: Dict[str, MoveList] = {name: self}
 
