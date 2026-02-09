@@ -235,44 +235,41 @@ class SilaLiconic(STX):
     client: LiconicSilaClient | None = None
 
     def init(self):
-        super().init()
         try:
             self.client = LiconicSilaClient.discover(insecure=True, timeout=5)
+            sub = self.client.ClimateController.CurrentClimate.subscribe()
+            sub.add_callback(self._parse_climate)
         except TimeoutError as e:
             self.log("Could not connect to Liconic Sila server")
             raise TimeoutError(f"Could not connect to Liconic Sila server: {e}")
 
-    def reset_and_activate():
-        pass
+    def reset_and_activate(self):
+        self.init()
 
     def get(self, pos: str):
-        pass
+        cassette, lvl = self._parse_pos(pos)
+        self.client.StackerController.UnloadContainerFromStacker(StackNumber=cassette-1, ContainerPosition=lvl-1)
 
     def put(self, pos: str):
-        pass
+        cassette, lvl = self._parse_pos(pos)
+        self.client.StackerController.LoadContainerToStacker(StackNumber=cassette-1, ContainerPosition=lvl-1)
 
     def get_target_climate(self) -> dict[str, float]:
         return {}
 
-
     def set_target_climate(self, temp: str, humid: str, co2: str, n2: str):
-        pass
+        self.client.ClimateController.ControlTemperature(TargetTemperature=float(temp))
+        self.client.ClimateController.ControlHumidity(TargetHumidity=float(humid))
+        self.client.ClimateController.ControlCO2(TargetConcentration=float(co2))
         
-    def _climate_thread(self):
-        log = Log.make('liconic')
-        while True:
-            try:
-                pass
-                #response = self._call_non_exclusive("STX2ReadActualClimate", log=log)
-                #climate = self._parse_climate(response)
-                #self.current_climate.value = climate
-                #log(**climate)
-            except Exception as e:
-                import traceback
-                for line in traceback.format_exc().splitlines():
-                    log(line)
-                log(str(e))
-            time.sleep(60.0)
+    def _parse_climate(self, response):
+        climate = {
+            "temp": response.Temperature,
+            "humid": response.Humidity,
+            "co2": response.CO2,
+            "n2": 0,
+        }
+        self.current_climate.value = climate
 
 
 class FridgeSlot(TypedDict):
@@ -316,7 +313,7 @@ class FridgeDB(SqliteCell[FridgeSlots]):
         return self.get_by_plate_project('', '')
 
 @dataclass(frozen=True)
-class Fridge(STX):
+class Fridge(SilaLiconic):
     fridge_db: str = 'fridge.db'
 
     @contextlib.contextmanager
