@@ -14,12 +14,11 @@ import time
 from .machine import Machine, Cell
 from .sqlitecell import SqliteCell
 from .log import Log
-
-@dataclass(frozen=True)
-class SilaLiconic(Machine):
-    id: str = "SilaLiconic"
-    host: str = "localhost"
-    port: int = 50052
+try:
+    from sila2.client import SilaClient
+    from liconic_server import Client as LiconicSilaClient
+except ImportError:
+    print("Could not import sila client, sila integration will not work")
     
 
 @dataclass(frozen=True)
@@ -226,6 +225,55 @@ class STX(Machine):
             'TrgPlType':    1,
         }
         assert self.call('STX2ServiceMovePlate', *args.values()) == "1"
+
+
+@dataclass(frozen=True)
+class SilaLiconic(STX):
+    id: str = "SilaLiconic"
+    host: str = "localhost"
+    port: int = 50052
+    client: LiconicSilaClient | None = None
+
+    def init(self):
+        super().init()
+        try:
+            self.client = LiconicSilaClient.discover(insecure=True, timeout=5)
+        except TimeoutError as e:
+            self.log("Could not connect to Liconic Sila server")
+            raise TimeoutError(f"Could not connect to Liconic Sila server: {e}")
+
+    def reset_and_activate():
+        pass
+
+    def get(self, pos: str):
+        pass
+
+    def put(self, pos: str):
+        pass
+
+    def get_target_climate(self) -> dict[str, float]:
+        return {}
+
+
+    def set_target_climate(self, temp: str, humid: str, co2: str, n2: str):
+        pass
+        
+    def _climate_thread(self):
+        log = Log.make('liconic')
+        while True:
+            try:
+                pass
+                #response = self._call_non_exclusive("STX2ReadActualClimate", log=log)
+                #climate = self._parse_climate(response)
+                #self.current_climate.value = climate
+                #log(**climate)
+            except Exception as e:
+                import traceback
+                for line in traceback.format_exc().splitlines():
+                    log(line)
+                log(str(e))
+            time.sleep(60.0)
+
 
 class FridgeSlot(TypedDict):
     plate: str
