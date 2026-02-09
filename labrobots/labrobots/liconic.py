@@ -16,6 +16,13 @@ from .sqlitecell import SqliteCell
 from .log import Log
 
 @dataclass(frozen=True)
+class SilaLiconic(Machine):
+    id: str = "SilaLiconic"
+    host: str = "localhost"
+    port: int = 50052
+    
+
+@dataclass(frozen=True)
 class STX(Machine):
     id: str = "STX"
     host: str = "localhost"
