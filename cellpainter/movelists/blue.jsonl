@@ -10,7 +10,7 @@
 {"type":"MoveLin","xyz":[22.6,-439,426.9],"rpy":[0.0,0.8,55.1],"name":"B safe"}
 {"type":"MoveLin","xyz":[30.2,-624.3,314.2],"rpy":[0.2,0.6,-0.2],"name":"blue above"}
 {"type":"MoveLin","xyz":[30.2,-624.3,218.4],"rpy":[0.2,0.6,-0.2],"name":"blue neu"}
-{"type":"MoveLin","xyz":[30.2,-624.3,189.6],"rpy":[0.2,0.6,-0.2],"name":"blue drop"}
+{"type":"MoveLin","xyz":[30.3,-624.8,191.4],"rpy":[0.2,0.0,-0.2],"name":"blue drop"}
 {"type":"GripperMove","pos":89}
 {"type":"MoveLin","xyz":[30.2,-624.3,218.4],"rpy":[0.2,0.6,-0.2],"name":"blue neu"}
 {"type":"MoveLin","xyz":[30.2,-624.3,314.2],"rpy":[0.2,0.6,-0.2],"name":"blue above"}

@@ -8,7 +8,7 @@
 {"type":"MoveLin","xyz":[199.7,-421.8,566.9],"rpy":[0.0,0.8,89.6],"tag":"Base14","name":"Base14 entrance"}
 {"type":"MoveLin","xyz":[392.4,-441,567.8],"rpy":[0.0,1.1,90.1],"tag":"A14","name":"A14 entrance"}
 {"type":"MoveLin","xyz":[392.4,-603.6,567.9],"rpy":[0.0,1.1,90.1],"tag":"A14","name":"A14 neu","sleep_secs":0.4}
-{"type":"MoveLin","xyz":[392.4,-603.7,563.7],"rpy":[0.0,1.1,90.1],"tag":"A14","name":"A14 drop","slow":true}
+{"type":"MoveLin","xyz":[392.4,-603.7,563.2],"rpy":[0.0,1.1,90.1],"tag":"A14","name":"A14 drop","slow":true}
 {"type":"GripperMove","pos":88}
 {"type":"MoveLin","xyz":[392.4,-603.6,567.9],"rpy":[0.0,1.1,90.1],"tag":"A14","name":"A14 neu","slow":true}
 {"type":"MoveLin","xyz":[392.4,-441,567.8],"rpy":[0.0,1.1,90.1],"tag":"A14","name":"A14 entrance"}

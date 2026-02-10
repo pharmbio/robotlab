@@ -12,7 +12,7 @@
 {"type":"MoveLin","xyz":[392.4,-441.0,568.7],"rpy":[0.0,1.1,90.1],"tag":"A14","name":"A14 entrance"}
 {"type":"MoveLin","xyz":[612.8,-437.8,288.5],"rpy":[0.0,0.7,89.5],"name":"incu neu"}
 {"type":"MoveLin","xyz":[613.9,-723.6,288.5],"rpy":[0.0,0.7,89.5],"name":"incu drop neu"}
-{"type":"MoveLin","xyz":[613.9,-723.6,246.1],"rpy":[0.0,0.7,89.5],"name":"incu drop"}
+{"type":"MoveLin","xyz":[613.4,-723.6,246.1],"rpy":[0.0,0.7,89.5],"name":"incu drop"}
 {"type":"GripperMove","pos":88}
 {"type":"MoveLin","xyz":[612.8,-724.7,288.5],"rpy":[0.0,0.7,89.5],"name":"incu drop neu"}
 {"type":"MoveLin","xyz":[612.8,-437.8,288.5],"rpy":[0.0,0.7,89.5],"name":"incu neu"}

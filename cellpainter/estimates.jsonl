@@ -62,11 +62,14 @@
 {"cmd":{"type":"BiotekCmd","machine":"disp","action":"RunValidated","protocol_path":"automation_spheroid_v1.0_day2/6.0_D_SB_PRIME_Clear.LHC"},"datetime":"2023-08-29 18:00:07","duration":11.554}
 {"cmd":{"type":"BiotekCmd","machine":"disp","action":"RunValidated","protocol_path":"automation_spheroid_v1.0_day2/6.0_D_SB_PRIME_Clear.LHC"},"datetime":"2023-09-01 08:50:30","duration":11.545}
 {"cmd":{"type":"BiotekCmd","machine":"disp","action":"RunValidated","protocol_path":"automation_spheroid_v1.0_day2/6.0_D_SB_PRIME_Clear.LHC"},"datetime":"2023-10-10 14:15:23","duration":13.052}
+{"cmd":{"type":"BiotekCmd","machine":"disp","action":"RunValidated","protocol_path":"automation_spheroid_v1.0_day2/6.0_D_SB_PRIME_Clear.LHC"},"datetime":"2026-01-29 11:03:45","duration":13.069}
 {"cmd":{"type":"BiotekCmd","machine":"disp","action":"RunValidated","protocol_path":"automation_spheroid_v1.0_day2/6.1_D_SB_70ul_Clear.LHC"},"datetime":"2023-10-10 14:24:18","duration":32.519}
 {"cmd":{"type":"BiotekCmd","machine":"disp","action":"RunValidated","protocol_path":"automation_spheroid_v1.0_day2/6.1_D_SB_70ul_Clear.LHC"},"datetime":"2023-10-10 14:32:35","duration":32.546}
 {"cmd":{"type":"BiotekCmd","machine":"disp","action":"RunValidated","protocol_path":"automation_spheroid_v1.0_day2/6.1_D_SB_70ul_Clear.LHC"},"datetime":"2023-10-10 14:40:54","duration":32.604}
 {"cmd":{"type":"BiotekCmd","machine":"disp","action":"RunValidated","protocol_path":"automation_spheroid_v1.0_day2/6.1_D_SB_70ul_Clear.LHC"},"datetime":"2023-10-10 14:49:12","duration":32.616}
 {"cmd":{"type":"BiotekCmd","machine":"disp","action":"RunValidated","protocol_path":"automation_spheroid_v1.0_day2/6.1_D_SB_70ul_Clear.LHC"},"datetime":"2023-10-10 14:57:29","duration":32.549}
+{"cmd":{"type":"BiotekCmd","machine":"disp","action":"RunValidated","protocol_path":"automation_spheroid_v1.0_day2/6.1_D_SB_70ul_Clear.LHC"},"datetime":"2026-01-29 11:04:24","duration":32.609}
+{"cmd":{"type":"BiotekCmd","machine":"disp","action":"RunValidated","protocol_path":"automation_spheroid_v1.0_day2/6.1_D_SB_70ul_Clear.LHC"},"datetime":"2026-01-29 11:12:41","duration":32.533}
 {"cmd":{"type":"BiotekCmd","machine":"disp","action":"RunValidated","protocol_path":"automation_v4.0/2.1_D_SB_30ul_Mito.LHC"},"datetime":"2022-01-19 14:06:45","duration":20.146}
 {"cmd":{"type":"BiotekCmd","machine":"disp","action":"RunValidated","protocol_path":"automation_v4.0/2.1_D_SB_30ul_Mito.LHC"},"datetime":"2022-01-19 14:10:18","duration":20.215}
 {"cmd":{"type":"BiotekCmd","machine":"disp","action":"RunValidated","protocol_path":"automation_v4.0/2.1_D_SB_30ul_Mito.LHC"},"datetime":"2022-01-19 14:13:50","duration":20.15}
@@ -396,6 +399,9 @@
 {"cmd":{"type":"BiotekCmd","machine":"disp","action":"TestCommunications"},"datetime":"2025-03-13 12:00:06","duration":0.772}
 {"cmd":{"type":"BiotekCmd","machine":"disp","action":"TestCommunications"},"datetime":"2025-03-13 12:01:50","duration":0.781}
 {"cmd":{"type":"BiotekCmd","machine":"disp","action":"TestCommunications"},"datetime":"2025-07-10 11:15:11","duration":0.754}
+{"cmd":{"type":"BiotekCmd","machine":"disp","action":"TestCommunications"},"datetime":"2026-01-29 10:56:18","duration":0.738}
+{"cmd":{"type":"BiotekCmd","machine":"disp","action":"TestCommunications"},"datetime":"2026-01-29 11:04:34","duration":0.761}
+{"cmd":{"type":"BiotekCmd","machine":"disp","action":"TestCommunications"},"datetime":"2026-01-29 11:12:51","duration":0.787}
 {"cmd":{"type":"BiotekCmd","machine":"disp","action":"Validate","protocol_path":"automation96_v1/2.0_D_SB_PRIME_Mito.LHC"},"datetime":"2022-03-29 14:45:18","duration":4.587}
 {"cmd":{"type":"BiotekCmd","machine":"disp","action":"Validate","protocol_path":"automation96_v1/2.1_D_SB_90ul_Mito.LHC"},"datetime":"2022-03-29 14:45:33","duration":4.265}
 {"cmd":{"type":"BiotekCmd","machine":"disp","action":"Validate","protocol_path":"automation96_v1/4.0_D_SA_PRIME_PFA.LHC"},"datetime":"2022-03-29 14:45:51","duration":4.247}
@@ -442,11 +448,14 @@
 {"cmd":{"type":"BiotekCmd","machine":"disp","action":"Validate","protocol_path":"automation_spheroid_v1.0_day2/6.0_D_SB_PRIME_Clear.LHC"},"datetime":"2023-08-29 17:59:56","duration":3.319}
 {"cmd":{"type":"BiotekCmd","machine":"disp","action":"Validate","protocol_path":"automation_spheroid_v1.0_day2/6.0_D_SB_PRIME_Clear.LHC"},"datetime":"2023-09-01 08:50:18","duration":3.323}
 {"cmd":{"type":"BiotekCmd","machine":"disp","action":"Validate","protocol_path":"automation_spheroid_v1.0_day2/6.0_D_SB_PRIME_Clear.LHC"},"datetime":"2023-10-10 14:15:10","duration":3.155}
+{"cmd":{"type":"BiotekCmd","machine":"disp","action":"Validate","protocol_path":"automation_spheroid_v1.0_day2/6.0_D_SB_PRIME_Clear.LHC"},"datetime":"2026-01-29 11:03:32","duration":3.289}
 {"cmd":{"type":"BiotekCmd","machine":"disp","action":"Validate","protocol_path":"automation_spheroid_v1.0_day2/6.1_D_SB_70ul_Clear.LHC"},"datetime":"2023-10-10 14:23:44","duration":3.463}
 {"cmd":{"type":"BiotekCmd","machine":"disp","action":"Validate","protocol_path":"automation_spheroid_v1.0_day2/6.1_D_SB_70ul_Clear.LHC"},"datetime":"2023-10-10 14:32:02","duration":3.425}
 {"cmd":{"type":"BiotekCmd","machine":"disp","action":"Validate","protocol_path":"automation_spheroid_v1.0_day2/6.1_D_SB_70ul_Clear.LHC"},"datetime":"2023-10-10 14:40:20","duration":3.24}
 {"cmd":{"type":"BiotekCmd","machine":"disp","action":"Validate","protocol_path":"automation_spheroid_v1.0_day2/6.1_D_SB_70ul_Clear.LHC"},"datetime":"2023-10-10 14:48:37","duration":3.391}
 {"cmd":{"type":"BiotekCmd","machine":"disp","action":"Validate","protocol_path":"automation_spheroid_v1.0_day2/6.1_D_SB_70ul_Clear.LHC"},"datetime":"2023-10-10 14:56:55","duration":3.472}
+{"cmd":{"type":"BiotekCmd","machine":"disp","action":"Validate","protocol_path":"automation_spheroid_v1.0_day2/6.1_D_SB_70ul_Clear.LHC"},"datetime":"2026-01-29 11:03:49","duration":3.277}
+{"cmd":{"type":"BiotekCmd","machine":"disp","action":"Validate","protocol_path":"automation_spheroid_v1.0_day2/6.1_D_SB_70ul_Clear.LHC"},"datetime":"2026-01-29 11:12:05","duration":3.386}
 {"cmd":{"type":"BiotekCmd","machine":"disp","action":"Validate","protocol_path":"automation_v4.0/2.1_D_SB_30ul_Mito.LHC"},"datetime":"2022-01-19 14:06:23","duration":4.049}
 {"cmd":{"type":"BiotekCmd","machine":"disp","action":"Validate","protocol_path":"automation_v4.0/2.1_D_SB_30ul_Mito.LHC"},"datetime":"2022-01-19 14:09:56","duration":4.184}
 {"cmd":{"type":"BiotekCmd","machine":"disp","action":"Validate","protocol_path":"automation_v4.0/2.1_D_SB_30ul_Mito.LHC"},"datetime":"2022-01-19 14:13:28","duration":4.189}
@@ -817,11 +826,14 @@
 {"cmd":{"type":"BiotekCmd","machine":"wash","action":"RunValidated","protocol_path":"automation_spheroid_v1.0_day2/0_W_D_prime_PBS.LHC"},"datetime":"2023-08-29 17:53:20","duration":30.428}
 {"cmd":{"type":"BiotekCmd","machine":"wash","action":"RunValidated","protocol_path":"automation_spheroid_v1.0_day2/0_W_D_prime_PBS.LHC"},"datetime":"2023-09-01 08:43:43","duration":30.419}
 {"cmd":{"type":"BiotekCmd","machine":"wash","action":"RunValidated","protocol_path":"automation_spheroid_v1.0_day2/0_W_D_prime_PBS.LHC"},"datetime":"2023-10-10 14:08:35","duration":29.937}
+{"cmd":{"type":"BiotekCmd","machine":"wash","action":"RunValidated","protocol_path":"automation_spheroid_v1.0_day2/0_W_D_prime_PBS.LHC"},"datetime":"2026-01-29 10:56:56","duration":29.85}
 {"cmd":{"type":"BiotekCmd","machine":"wash","action":"RunValidated","protocol_path":"automation_spheroid_v1.0_day2/5_W_2X_beforeClear_leaves11ul_PBS.LHC"},"datetime":"2023-10-10 14:23:38","duration":392.518}
 {"cmd":{"type":"BiotekCmd","machine":"wash","action":"RunValidated","protocol_path":"automation_spheroid_v1.0_day2/5_W_2X_beforeClear_leaves11ul_PBS.LHC"},"datetime":"2023-10-10 14:31:54","duration":392.107}
 {"cmd":{"type":"BiotekCmd","machine":"wash","action":"RunValidated","protocol_path":"automation_spheroid_v1.0_day2/5_W_2X_beforeClear_leaves11ul_PBS.LHC"},"datetime":"2023-10-10 14:40:13","duration":392.579}
 {"cmd":{"type":"BiotekCmd","machine":"wash","action":"RunValidated","protocol_path":"automation_spheroid_v1.0_day2/5_W_2X_beforeClear_leaves11ul_PBS.LHC"},"datetime":"2023-10-10 14:48:32","duration":392.7}
 {"cmd":{"type":"BiotekCmd","machine":"wash","action":"RunValidated","protocol_path":"automation_spheroid_v1.0_day2/5_W_2X_beforeClear_leaves11ul_PBS.LHC"},"datetime":"2023-10-10 14:56:48","duration":392.679}
+{"cmd":{"type":"BiotekCmd","machine":"wash","action":"RunValidated","protocol_path":"automation_spheroid_v1.0_day2/5_W_2X_beforeClear_leaves11ul_PBS.LHC"},"datetime":"2026-01-29 11:03:42","duration":392.101}
+{"cmd":{"type":"BiotekCmd","machine":"wash","action":"RunValidated","protocol_path":"automation_spheroid_v1.0_day2/5_W_2X_beforeClear_leaves11ul_PBS.LHC"},"datetime":"2026-01-29 11:11:59","duration":392.479}
 {"cmd":{"type":"BiotekCmd","machine":"wash","action":"RunValidated","protocol_path":"automation_v4.0/1_W_2X_beforeMito_leaves20ul_PBS.LHC"},"datetime":"2022-01-19 14:06:13","duration":69.966}
 {"cmd":{"type":"BiotekCmd","machine":"wash","action":"RunValidated","protocol_path":"automation_v4.0/1_W_2X_beforeMito_leaves20ul_PBS.LHC"},"datetime":"2022-01-19 14:09:46","duration":69.946}
 {"cmd":{"type":"BiotekCmd","machine":"wash","action":"RunValidated","protocol_path":"automation_v4.0/1_W_2X_beforeMito_leaves20ul_PBS.LHC"},"datetime":"2022-01-19 14:13:19","duration":69.949}
@@ -988,6 +1000,9 @@
 {"cmd":{"type":"BiotekCmd","machine":"wash","action":"TestCommunications"},"datetime":"2025-02-21 13:37:28","duration":0.537}
 {"cmd":{"type":"BiotekCmd","machine":"wash","action":"TestCommunications"},"datetime":"2025-03-13 10:49:51","duration":0.546}
 {"cmd":{"type":"BiotekCmd","machine":"wash","action":"TestCommunications"},"datetime":"2025-07-10 11:15:17","duration":0.521}
+{"cmd":{"type":"BiotekCmd","machine":"wash","action":"TestCommunications"},"datetime":"2026-01-29 10:56:25","duration":0.491}
+{"cmd":{"type":"BiotekCmd","machine":"wash","action":"TestCommunications"},"datetime":"2026-01-29 11:03:52","duration":0.45}
+{"cmd":{"type":"BiotekCmd","machine":"wash","action":"TestCommunications"},"datetime":"2026-01-29 11:12:08","duration":0.417}
 {"cmd":{"type":"BiotekCmd","machine":"wash","action":"Validate","protocol_path":"automation96_v1/0_W_PRIME_PBS.LHC"},"datetime":"2022-03-29 14:45:14","duration":2.407}
 {"cmd":{"type":"BiotekCmd","machine":"wash","action":"Validate","protocol_path":"automation96_v1/1_W_3X_beforeMito_leaves30ul_PBS.LHC"},"datetime":"2022-03-29 14:45:46","duration":1.756}
 {"cmd":{"type":"BiotekCmd","machine":"wash","action":"Validate","protocol_path":"automation96_v1/3_W_3X_beforePFA_leaves30ul_PBS.LHC"},"datetime":"2022-03-29 14:46:24","duration":1.83}
@@ -1019,11 +1034,14 @@
 {"cmd":{"type":"BiotekCmd","machine":"wash","action":"Validate","protocol_path":"automation_spheroid_v1.0_day2/0_W_D_prime_PBS.LHC"},"datetime":"2023-08-29 17:52:49","duration":1.241}
 {"cmd":{"type":"BiotekCmd","machine":"wash","action":"Validate","protocol_path":"automation_spheroid_v1.0_day2/0_W_D_prime_PBS.LHC"},"datetime":"2023-09-01 08:43:13","duration":1.237}
 {"cmd":{"type":"BiotekCmd","machine":"wash","action":"Validate","protocol_path":"automation_spheroid_v1.0_day2/0_W_D_prime_PBS.LHC"},"datetime":"2023-10-10 14:08:05","duration":1.25}
+{"cmd":{"type":"BiotekCmd","machine":"wash","action":"Validate","protocol_path":"automation_spheroid_v1.0_day2/0_W_D_prime_PBS.LHC"},"datetime":"2026-01-29 10:56:26","duration":1.231}
 {"cmd":{"type":"BiotekCmd","machine":"wash","action":"Validate","protocol_path":"automation_spheroid_v1.0_day2/5_W_2X_beforeClear_leaves11ul_PBS.LHC"},"datetime":"2023-10-10 14:16:55","duration":1.288}
 {"cmd":{"type":"BiotekCmd","machine":"wash","action":"Validate","protocol_path":"automation_spheroid_v1.0_day2/5_W_2X_beforeClear_leaves11ul_PBS.LHC"},"datetime":"2023-10-10 14:25:12","duration":1.253}
 {"cmd":{"type":"BiotekCmd","machine":"wash","action":"Validate","protocol_path":"automation_spheroid_v1.0_day2/5_W_2X_beforeClear_leaves11ul_PBS.LHC"},"datetime":"2023-10-10 14:33:30","duration":1.256}
 {"cmd":{"type":"BiotekCmd","machine":"wash","action":"Validate","protocol_path":"automation_spheroid_v1.0_day2/5_W_2X_beforeClear_leaves11ul_PBS.LHC"},"datetime":"2023-10-10 14:41:48","duration":1.232}
 {"cmd":{"type":"BiotekCmd","machine":"wash","action":"Validate","protocol_path":"automation_spheroid_v1.0_day2/5_W_2X_beforeClear_leaves11ul_PBS.LHC"},"datetime":"2023-10-10 14:50:06","duration":1.277}
+{"cmd":{"type":"BiotekCmd","machine":"wash","action":"Validate","protocol_path":"automation_spheroid_v1.0_day2/5_W_2X_beforeClear_leaves11ul_PBS.LHC"},"datetime":"2026-01-29 10:56:57","duration":1.217}
+{"cmd":{"type":"BiotekCmd","machine":"wash","action":"Validate","protocol_path":"automation_spheroid_v1.0_day2/5_W_2X_beforeClear_leaves11ul_PBS.LHC"},"datetime":"2026-01-29 11:05:14","duration":1.241}
 {"cmd":{"type":"BiotekCmd","machine":"wash","action":"Validate","protocol_path":"automation_v4.0/1_W_2X_beforeMito_leaves20ul_PBS.LHC"},"datetime":"2022-01-19 10:40:53","duration":1.572}
 {"cmd":{"type":"BiotekCmd","machine":"wash","action":"Validate","protocol_path":"automation_v4.0/1_W_2X_beforeMito_leaves20ul_PBS.LHC"},"datetime":"2022-01-19 14:01:22","duration":1.567}
 {"cmd":{"type":"BiotekCmd","machine":"wash","action":"Validate","protocol_path":"automation_v4.0/3_W_3X_beforePFA_leaves20ul_PBS.LHC"},"datetime":"2022-01-19 10:43:11","duration":1.578}
@@ -1310,6 +1328,14 @@
 {"cmd":{"type":"DLidCheckStatusCmd","dlid_loc":"B14","status":"free"},"datetime":"2025-11-24 09:58:42","duration":0.059}
 {"cmd":{"type":"DLidCheckStatusCmd","dlid_loc":"B14","status":"free"},"datetime":"2025-11-24 09:59:00","duration":0.047}
 {"cmd":{"type":"DLidCheckStatusCmd","dlid_loc":"B14","status":"free"},"datetime":"2025-11-24 09:59:11","duration":0.049}
+{"cmd":{"type":"DLidCheckStatusCmd","dlid_loc":"B14","status":"free"},"datetime":"2026-01-29 10:56:48","duration":0.037}
+{"cmd":{"type":"DLidCheckStatusCmd","dlid_loc":"B14","status":"free"},"datetime":"2026-01-29 10:56:56","duration":0.072}
+{"cmd":{"type":"DLidCheckStatusCmd","dlid_loc":"B14","status":"free"},"datetime":"2026-01-29 11:04:33","duration":0.066}
+{"cmd":{"type":"DLidCheckStatusCmd","dlid_loc":"B14","status":"free"},"datetime":"2026-01-29 11:04:42","duration":0.066}
+{"cmd":{"type":"DLidCheckStatusCmd","dlid_loc":"B14","status":"free"},"datetime":"2026-01-29 11:05:07","duration":0.046}
+{"cmd":{"type":"DLidCheckStatusCmd","dlid_loc":"B14","status":"free"},"datetime":"2026-01-29 11:05:15","duration":0.03}
+{"cmd":{"type":"DLidCheckStatusCmd","dlid_loc":"B14","status":"free"},"datetime":"2026-01-29 11:12:50","duration":0.039}
+{"cmd":{"type":"DLidCheckStatusCmd","dlid_loc":"B14","status":"free"},"datetime":"2026-01-29 11:12:59","duration":0.032}
 {"cmd":{"type":"FridgeCmd","action":"get_status"},"datetime":"2025-03-17 13:40:28","duration":0.266}
 {"cmd":{"type":"FridgeCmd","action":"get_status"},"datetime":"2025-03-17 13:41:22","duration":0.266}
 {"cmd":{"type":"FridgeCmd","action":"get_status"},"datetime":"2025-03-17 13:42:16","duration":0.264}
@@ -1337,6 +1363,8 @@
 {"cmd":{"type":"IncuCmd","action":"get_status"},"datetime":"2025-03-13 11:27:05","duration":0.261}
 {"cmd":{"type":"IncuCmd","action":"get_status"},"datetime":"2025-03-13 11:29:51","duration":0.31}
 {"cmd":{"type":"IncuCmd","action":"get_status"},"datetime":"2025-07-10 11:15:10","duration":0.183}
+{"cmd":{"type":"IncuCmd","action":"get_status"},"datetime":"2026-01-29 10:56:17","duration":0.188}
+{"cmd":{"type":"IncuCmd","action":"get_status"},"datetime":"2026-01-29 10:56:28","duration":0.18}
 {"cmd":{"type":"IncuCmd","action":"put"},"datetime":"2025-03-13 10:52:51","duration":17.616}
 {"cmd":{"type":"IncuCmd","action":"put"},"datetime":"2025-03-13 10:55:02","duration":17.344}
 {"cmd":{"type":"IncuCmd","action":"put"},"datetime":"2025-03-13 10:57:15","duration":17.286}
@@ -1796,6 +1824,7 @@
 {"cmd":{"type":"RobotarmCmd","program_name":"A20-to-B12 prep"},"datetime":"2025-02-21 15:09:54","duration":3.208}
 {"cmd":{"type":"RobotarmCmd","program_name":"A20-to-B12 prep"},"datetime":"2025-03-13 11:52:45","duration":3.914}
 {"cmd":{"type":"RobotarmCmd","program_name":"A20-to-B12 prep"},"datetime":"2025-03-13 12:23:06","duration":3.51}
+{"cmd":{"type":"RobotarmCmd","program_name":"A20-to-B12 prep"},"datetime":"2026-01-29 11:04:58","duration":3.315}
 {"cmd":{"type":"RobotarmCmd","program_name":"A20-to-B12 return"},"datetime":"2025-02-20 15:20:49","duration":2.308}
 {"cmd":{"type":"RobotarmCmd","program_name":"A20-to-B12 return"},"datetime":"2025-02-21 14:39:51","duration":1.908}
 {"cmd":{"type":"RobotarmCmd","program_name":"A20-to-B12 return"},"datetime":"2025-02-21 15:10:04","duration":1.703}
@@ -1806,6 +1835,7 @@
 {"cmd":{"type":"RobotarmCmd","program_name":"A20-to-B12 transfer"},"datetime":"2025-02-21 15:10:02","duration":8.235}
 {"cmd":{"type":"RobotarmCmd","program_name":"A20-to-B12 transfer"},"datetime":"2025-03-13 11:52:55","duration":9.539}
 {"cmd":{"type":"RobotarmCmd","program_name":"A20-to-B12 transfer"},"datetime":"2025-03-13 12:23:15","duration":9.136}
+{"cmd":{"type":"RobotarmCmd","program_name":"A20-to-B12 transfer"},"datetime":"2026-01-29 11:05:07","duration":9.155}
 {"cmd":{"type":"RobotarmCmd","program_name":"A20-to-incu prep"},"datetime":"2025-01-16 10:49:20","duration":3.912}
 {"cmd":{"type":"RobotarmCmd","program_name":"A20-to-incu prep"},"datetime":"2025-01-16 15:14:15","duration":3.914}
 {"cmd":{"type":"RobotarmCmd","program_name":"A20-to-incu prep"},"datetime":"2025-01-16 17:11:40","duration":3.812}
@@ -1824,6 +1854,7 @@
 {"cmd":{"type":"RobotarmCmd","program_name":"A21-to-B14 prep"},"datetime":"2025-03-13 11:50:55","duration":3.813}
 {"cmd":{"type":"RobotarmCmd","program_name":"A21-to-B14 prep"},"datetime":"2025-03-13 12:22:28","duration":3.824}
 {"cmd":{"type":"RobotarmCmd","program_name":"A21-to-B14 prep"},"datetime":"2025-11-24 09:59:28","duration":4.012}
+{"cmd":{"type":"RobotarmCmd","program_name":"A21-to-B14 prep"},"datetime":"2026-01-29 10:56:39","duration":3.86}
 {"cmd":{"type":"RobotarmCmd","program_name":"A21-to-B14 transfer"},"datetime":"2025-02-20 15:20:13","duration":8.942}
 {"cmd":{"type":"RobotarmCmd","program_name":"A21-to-B14 transfer"},"datetime":"2025-02-21 14:38:38","duration":8.931}
 {"cmd":{"type":"RobotarmCmd","program_name":"A21-to-B14 transfer"},"datetime":"2025-02-21 15:09:29","duration":8.89}
@@ -1832,6 +1863,7 @@
 {"cmd":{"type":"RobotarmCmd","program_name":"A21-to-B14 transfer"},"datetime":"2025-11-24 09:57:27","duration":10.037}
 {"cmd":{"type":"RobotarmCmd","program_name":"A21-to-B14 transfer"},"datetime":"2025-11-24 09:58:34","duration":10.031}
 {"cmd":{"type":"RobotarmCmd","program_name":"A21-to-B14 transfer"},"datetime":"2025-11-24 09:59:37","duration":9.238}
+{"cmd":{"type":"RobotarmCmd","program_name":"A21-to-B14 transfer"},"datetime":"2026-01-29 10:56:48","duration":9.056}
 {"cmd":{"type":"RobotarmCmd","program_name":"A21-to-incu prep"},"datetime":"2025-01-16 10:49:42","duration":4.011}
 {"cmd":{"type":"RobotarmCmd","program_name":"A21-to-incu prep"},"datetime":"2025-01-16 15:14:37","duration":4.013}
 {"cmd":{"type":"RobotarmCmd","program_name":"A21-to-incu prep"},"datetime":"2025-01-16 17:12:03","duration":4.014}
@@ -2182,11 +2214,13 @@
 {"cmd":{"type":"RobotarmCmd","program_name":"B12-to-A20 return"},"datetime":"2025-03-13 11:25:09","duration":3.413}
 {"cmd":{"type":"RobotarmCmd","program_name":"B12-to-A20 return"},"datetime":"2025-03-13 11:56:19","duration":3.312}
 {"cmd":{"type":"RobotarmCmd","program_name":"B12-to-A20 return"},"datetime":"2025-03-13 12:27:47","duration":3.26}
+{"cmd":{"type":"RobotarmCmd","program_name":"B12-to-A20 return"},"datetime":"2026-01-29 11:13:12","duration":3.361}
 {"cmd":{"type":"RobotarmCmd","program_name":"B12-to-A20 transfer"},"datetime":"2025-02-21 14:42:20","duration":8.833}
 {"cmd":{"type":"RobotarmCmd","program_name":"B12-to-A20 transfer"},"datetime":"2025-02-21 15:13:05","duration":8.834}
 {"cmd":{"type":"RobotarmCmd","program_name":"B12-to-A20 transfer"},"datetime":"2025-03-13 11:25:05","duration":11.143}
 {"cmd":{"type":"RobotarmCmd","program_name":"B12-to-A20 transfer"},"datetime":"2025-03-13 11:56:16","duration":9.489}
 {"cmd":{"type":"RobotarmCmd","program_name":"B12-to-A20 transfer"},"datetime":"2025-03-13 12:27:44","duration":9.536}
+{"cmd":{"type":"RobotarmCmd","program_name":"B12-to-A20 transfer"},"datetime":"2026-01-29 11:13:08","duration":9.629}
 {"cmd":{"type":"RobotarmCmd","program_name":"B12-to-A4 prep"},"datetime":"2025-01-16 14:23:05","duration":2.004}
 {"cmd":{"type":"RobotarmCmd","program_name":"B12-to-A4 prep"},"datetime":"2025-01-16 14:47:52","duration":2.108}
 {"cmd":{"type":"RobotarmCmd","program_name":"B12-to-A4 prep"},"datetime":"2025-01-16 16:03:56","duration":1.605}
@@ -2266,6 +2300,7 @@
 {"cmd":{"type":"RobotarmCmd","program_name":"B12-to-incu transfer"},"datetime":"2025-02-21 13:57:37","duration":9.234}
 {"cmd":{"type":"RobotarmCmd","program_name":"B12-to-incu transfer"},"datetime":"2025-03-13 10:54:45","duration":9.639}
 {"cmd":{"type":"RobotarmCmd","program_name":"B12-to-incu transfer"},"datetime":"2025-03-13 10:59:46","duration":9.988}
+{"cmd":{"type":"RobotarmCmd","program_name":"B12-to-wash transfer"},"datetime":"2026-01-29 11:05:27","duration":11.45}
 {"cmd":{"type":"RobotarmCmd","program_name":"B14-to-A1 return"},"datetime":"2025-01-16 14:26:55","duration":3.812}
 {"cmd":{"type":"RobotarmCmd","program_name":"B14-to-A1 return"},"datetime":"2025-01-16 14:51:06","duration":3.313}
 {"cmd":{"type":"RobotarmCmd","program_name":"B14-to-A1 return"},"datetime":"2025-01-16 16:07:15","duration":3.71}
@@ -2363,6 +2398,7 @@
 {"cmd":{"type":"RobotarmCmd","program_name":"B14-to-A21 return"},"datetime":"2025-03-13 11:54:00","duration":3.566}
 {"cmd":{"type":"RobotarmCmd","program_name":"B14-to-A21 return"},"datetime":"2025-03-13 12:25:29","duration":3.214}
 {"cmd":{"type":"RobotarmCmd","program_name":"B14-to-A21 return"},"datetime":"2025-11-24 09:59:24","duration":3.71}
+{"cmd":{"type":"RobotarmCmd","program_name":"B14-to-A21 return"},"datetime":"2026-01-29 11:04:55","duration":3.62}
 {"cmd":{"type":"RobotarmCmd","program_name":"B14-to-A21 transfer"},"datetime":"2025-02-21 14:40:43","duration":8.433}
 {"cmd":{"type":"RobotarmCmd","program_name":"B14-to-A21 transfer"},"datetime":"2025-02-21 15:11:23","duration":8.433}
 {"cmd":{"type":"RobotarmCmd","program_name":"B14-to-A21 transfer"},"datetime":"2025-03-13 11:22:51","duration":8.933}
@@ -2371,6 +2407,7 @@
 {"cmd":{"type":"RobotarmCmd","program_name":"B14-to-A21 transfer"},"datetime":"2025-11-24 09:57:17","duration":9.387}
 {"cmd":{"type":"RobotarmCmd","program_name":"B14-to-A21 transfer"},"datetime":"2025-11-24 09:58:24","duration":11.998}
 {"cmd":{"type":"RobotarmCmd","program_name":"B14-to-A21 transfer"},"datetime":"2025-11-24 09:59:20","duration":9.39}
+{"cmd":{"type":"RobotarmCmd","program_name":"B14-to-A21 transfer"},"datetime":"2026-01-29 11:04:51","duration":9.095}
 {"cmd":{"type":"RobotarmCmd","program_name":"B14-to-A3 prep"},"datetime":"2025-01-16 14:24:34","duration":1.606}
 {"cmd":{"type":"RobotarmCmd","program_name":"B14-to-A3 prep"},"datetime":"2025-01-16 14:49:04","duration":1.604}
 {"cmd":{"type":"RobotarmCmd","program_name":"B14-to-A3 prep"},"datetime":"2025-01-16 16:05:04","duration":1.605}
@@ -2467,6 +2504,7 @@
 {"cmd":{"type":"RobotarmCmd","program_name":"B14-to-incu transfer"},"datetime":"2025-03-13 10:56:58","duration":9.636}
 {"cmd":{"type":"RobotarmCmd","program_name":"B14-to-incu transfer"},"datetime":"2025-03-13 11:00:55","duration":10.271}
 {"cmd":{"type":"RobotarmCmd","program_name":"B14-to-incu transfer"},"datetime":"2025-11-24 09:56:20","duration":10.694}
+{"cmd":{"type":"RobotarmCmd","program_name":"B14-to-wash transfer"},"datetime":"2026-01-29 10:57:10","duration":13.065}
 {"cmd":{"type":"RobotarmCmd","program_name":"blue-to-B12 prep"},"datetime":"2025-02-21 15:21:38","duration":3.314}
 {"cmd":{"type":"RobotarmCmd","program_name":"blue-to-B12 prep"},"datetime":"2025-02-21 15:24:58","duration":3.311}
 {"cmd":{"type":"RobotarmCmd","program_name":"blue-to-B12 prep"},"datetime":"2025-02-21 15:28:13","duration":3.312}
@@ -2518,6 +2556,7 @@
 {"cmd":{"type":"RobotarmCmd","program_name":"disp-to-B12 transfer"},"datetime":"2025-03-13 11:28:09","duration":9.256}
 {"cmd":{"type":"RobotarmCmd","program_name":"disp-to-B12 transfer"},"datetime":"2025-03-13 11:55:31","duration":11.444}
 {"cmd":{"type":"RobotarmCmd","program_name":"disp-to-B12 transfer"},"datetime":"2025-03-13 12:00:05","duration":9.437}
+{"cmd":{"type":"RobotarmCmd","program_name":"disp-to-B12 transfer"},"datetime":"2026-01-29 11:12:50","duration":9.368}
 {"cmd":{"type":"RobotarmCmd","program_name":"disp-to-B14 prep"},"datetime":"2025-02-21 14:49:46","duration":3.661}
 {"cmd":{"type":"RobotarmCmd","program_name":"disp-to-B14 prep"},"datetime":"2025-02-21 14:53:05","duration":3.663}
 {"cmd":{"type":"RobotarmCmd","program_name":"disp-to-B14 prep"},"datetime":"2025-02-21 14:56:20","duration":3.614}
@@ -2531,6 +2570,7 @@
 {"cmd":{"type":"RobotarmCmd","program_name":"disp-to-B14 transfer"},"datetime":"2025-11-24 09:56:01","duration":9.435}
 {"cmd":{"type":"RobotarmCmd","program_name":"disp-to-B14 transfer"},"datetime":"2025-11-24 09:56:57","duration":9.641}
 {"cmd":{"type":"RobotarmCmd","program_name":"disp-to-B14 transfer"},"datetime":"2025-11-24 09:58:03","duration":8.932}
+{"cmd":{"type":"RobotarmCmd","program_name":"disp-to-B14 transfer"},"datetime":"2026-01-29 11:04:33","duration":9.483}
 {"cmd":{"type":"RobotarmCmd","program_name":"dlid B12 prep"},"datetime":"2025-03-13 11:27:23","duration":2.242}
 {"cmd":{"type":"RobotarmCmd","program_name":"dlid B12 prep"},"datetime":"2025-03-13 11:53:24","duration":2.801}
 {"cmd":{"type":"RobotarmCmd","program_name":"dlid B12 prep"},"datetime":"2025-03-13 11:58:02","duration":2.229}
@@ -2546,6 +2586,8 @@
 {"cmd":{"type":"RobotarmCmd","program_name":"dlid B12 transfer"},"datetime":"2025-03-13 12:27:06","duration":9.301}
 {"cmd":{"type":"RobotarmCmd","program_name":"dlid B12 transfer"},"datetime":"2025-03-13 12:29:34","duration":8.031}
 {"cmd":{"type":"RobotarmCmd","program_name":"dlid B12 transfer"},"datetime":"2025-03-13 12:31:41","duration":8.247}
+{"cmd":{"type":"RobotarmCmd","program_name":"dlid B12 transfer"},"datetime":"2026-01-29 11:05:15","duration":7.909}
+{"cmd":{"type":"RobotarmCmd","program_name":"dlid B12 transfer"},"datetime":"2026-01-29 11:12:59","duration":8.514}
 {"cmd":{"type":"RobotarmCmd","program_name":"dlid B12"},"datetime":"2025-01-10 15:50:42","duration":10.133}
 {"cmd":{"type":"RobotarmCmd","program_name":"dlid B12"},"datetime":"2025-01-10 15:51:23","duration":10.335}
 {"cmd":{"type":"RobotarmCmd","program_name":"dlid B12"},"datetime":"2025-01-10 15:51:43","duration":9.838}
@@ -2574,6 +2616,8 @@
 {"cmd":{"type":"RobotarmCmd","program_name":"dlid B14 transfer"},"datetime":"2025-11-24 09:58:11","duration":7.964}
 {"cmd":{"type":"RobotarmCmd","program_name":"dlid B14 transfer"},"datetime":"2025-11-24 09:58:42","duration":7.889}
 {"cmd":{"type":"RobotarmCmd","program_name":"dlid B14 transfer"},"datetime":"2025-11-24 09:59:11","duration":10.391}
+{"cmd":{"type":"RobotarmCmd","program_name":"dlid B14 transfer"},"datetime":"2026-01-29 10:56:56","duration":8.019}
+{"cmd":{"type":"RobotarmCmd","program_name":"dlid B14 transfer"},"datetime":"2026-01-29 11:04:42","duration":8.694}
 {"cmd":{"type":"RobotarmCmd","program_name":"dlid B14"},"datetime":"2025-01-10 15:51:33","duration":9.434}
 {"cmd":{"type":"RobotarmCmd","program_name":"dlid B14"},"datetime":"2025-01-10 15:51:52","duration":9.538}
 {"cmd":{"type":"RobotarmCmd","program_name":"dlid B14"},"datetime":"2025-01-10 15:52:12","duration":9.642}
@@ -2635,6 +2679,9 @@
 {"cmd":{"type":"RobotarmCmd","program_name":"ur gripper init and check"},"datetime":"2025-07-10 11:15:16","duration":6.059}
 {"cmd":{"type":"RobotarmCmd","program_name":"ur gripper init and check"},"datetime":"2025-11-24 09:54:59","duration":7.261}
 {"cmd":{"type":"RobotarmCmd","program_name":"ur gripper init and check"},"datetime":"2025-11-24 09:55:18","duration":6.831}
+{"cmd":{"type":"RobotarmCmd","program_name":"ur gripper init and check"},"datetime":"2026-01-29 10:56:24","duration":7.398}
+{"cmd":{"type":"RobotarmCmd","program_name":"wash-to-disp transfer"},"datetime":"2026-01-29 11:03:51","duration":8.96}
+{"cmd":{"type":"RobotarmCmd","program_name":"wash-to-disp transfer"},"datetime":"2026-01-29 11:12:08","duration":8.7}
 {"cmd":{"type":"SquidAcquire","config_path":"384.json","project":"","plate":""},"datetime":"2023-03-31 10:56:21","duration":46.202}
 {"cmd":{"type":"SquidAcquire","config_path":"384.json","project":"","plate":""},"datetime":"2023-03-31 10:59:47","duration":48.877}
 {"cmd":{"type":"SquidAcquire","config_path":"384.json","project":"","plate":""},"datetime":"2023-03-31 11:29:12","duration":43.146}

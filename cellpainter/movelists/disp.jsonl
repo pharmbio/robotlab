@@ -7,7 +7,7 @@
 {"type":"MoveLin","xyz":[199.7,-593.2,573.6],"rpy":[0.0,0.8,89.6],"tag":"Base14","name":"Base14 neu"}
 {"type":"MoveLin","xyz":[199.7,-421.9,572.6],"rpy":[0.0,1.1,89.6],"tag":"Base14","name":"Base14 entrance"}
 {"type":"MoveLin","xyz":[-268.1,-59.9,455.9],"rpy":[0.6,-0.4,-28.8],"name":"disp above","in_joint_space":true}
-{"type":"MoveLin","xyz":[-268.1,-59.9,426.4],"rpy":[0.6,-0.4,-28.8],"name":"disp drop"}
+{"type":"MoveLin","xyz":[-264.1,-61.0,423.4],"rpy":[0.6,-0.4,-28.8],"name":"disp drop"}
 {"type":"GripperMove","pos":89}
 {"type":"MoveLin","xyz":[-268.1,-59.9,455.9],"rpy":[0.6,-0.4,-28.8],"name":"disp neu"}
 {"type":"MoveLin","xyz":[-268.1,-59.9,455.9],"rpy":[0.6,-0.4,-28.8],"name":"disp above","in_joint_space":true}
@@ -16,12 +16,12 @@
 {"type":"MoveJoint","joints":[94.83,-113.91,119.54,-6.46,95.22,179.79],"name":"B neu"}
 {"type":"MoveLin","xyz":[-268.1,-59.9,455.9],"rpy":[0.6,-0.4,-28.8],"name":"disp above","in_joint_space":true}
 {"type":"MoveLin","xyz":[-268.1,-59.9,455.9],"rpy":[0.6,-0.4,-28.8],"name":"disp neu"}
-{"type":"MoveLin","xyz":[-268.1,-59.9,426.4],"rpy":[0.6,-0.4,-28.8],"name":"disp pick"}
+{"type":"MoveLin","xyz":[-264.1,-60.9,426.4],"rpy":[0.6,-0.4,-28.8],"name":"disp pick"}
 {"type":"GripperMove","pos":255}
 {"type":"MoveLin","xyz":[-268.1,-59.9,455.9],"rpy":[0.6,-0.4,-28.8],"name":"disp above","in_joint_space":true}
-{"type":"MoveLin","xyz":[199.7,-421.9,572.6],"rpy":[0.0,1.1,89.6],"tag":"Base14","name":"Base14 entrance","in_joint_space":true}
-{"type":"MoveLin","xyz":[199.7,-593.2,573.6],"rpy":[0.0,0.8,89.6],"tag":"Base14","name":"Base14 neu"}
-{"type":"MoveLin","xyz":[199.7,-593.2,567.9],"rpy":[0.0,0.8,89.6],"tag":"Base14","name":"Base14 drop"}
+{"type":"MoveLin","xyz":[199.7,-421.9,575.6],"rpy":[0.0,1.1,89.6],"tag":"Base14","name":"Base14 entrance","in_joint_space":true}
+{"type":"MoveLin","xyz":[199.7,-593.2,576.6],"rpy":[0.0,0.8,89.6],"tag":"Base14","name":"Base14 neu"}
+{"type":"MoveLin","xyz":[199.7,-593.2,568.9],"rpy":[0.0,0.8,89.6],"tag":"Base14","name":"Base14 drop"}
 {"type":"GripperMove","pos":88}
 {"type":"MoveLin","xyz":[199.7,-593.2,573.6],"rpy":[0.0,0.8,89.6],"tag":"Base14","name":"Base14 neu"}
 {"type":"MoveLin","xyz":[199.7,-421.9,572.6],"rpy":[0.0,1.1,89.6],"tag":"Base14","name":"Base14 entrance"}
