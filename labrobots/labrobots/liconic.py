@@ -229,9 +229,6 @@ class STX(Machine):
 
 @dataclass(frozen=True)
 class SilaLiconic(STX):
-    id: str = "SilaLiconic"
-    host: str = "localhost"
-    port: int = 50052
     client: LiconicSilaClient | None = None
 
     def init(self):
