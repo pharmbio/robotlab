@@ -257,6 +257,9 @@ class SilaLiconic(STX):
 
     def get_target_climate(self) -> dict[str, float]:
         return {}
+    
+    def get_status(self) -> dict[str, bool]:
+        return self.client.DeviceManagementService.Status.get()
 
     def set_target_climate(self, temp: str, humid: str, co2: str, n2: str):
         self.client.ClimateController.ControlTemperature(TargetTemperature=float(temp))
