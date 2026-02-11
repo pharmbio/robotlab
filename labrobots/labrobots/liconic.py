@@ -259,7 +259,17 @@ class SilaLiconic(STX):
         return {}
     
     def get_status(self) -> dict[str, bool]:
-        return self.client.DeviceManagementService.Status.get()
+        status = self.client.DeviceManagementService.Status.get()
+        return {
+            'System Ready':          status["SystemReady"],
+            'Plate Ready':           status["PlateReady"],
+            'System Initialized':    status["SystemInitialized"],
+            'XferStn status change': status["XferStnStatusChange"],
+            'Gate closed':           status["GateClosed"],
+            'User door':             status["UserDoor"],
+            'Warning':               status["Warning"],
+            'Error':                 status["Error"],
+            }
 
     def set_target_climate(self, temp: str, humid: str, co2: str, n2: str):
         self.client.ClimateController.ControlTemperature(TargetTemperature=float(temp))
