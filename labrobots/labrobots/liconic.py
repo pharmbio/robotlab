@@ -260,15 +260,16 @@ class SilaLiconic(STX):
     
     def get_status(self) -> dict[str, bool]:
         status = self.client.DeviceManagementService.Status.get()
+        # convert from named tuple to dict and adapt spacing and casing
         return {
-            'System Ready':          status["SystemReady"],
-            'Plate Ready':           status["PlateReady"],
-            'System Initialized':    status["SystemInitialized"],
-            'XferStn status change': status["XferStnStatusChange"],
-            'Gate closed':           status["GateClosed"],
-            'User door':             status["UserDoor"],
-            'Warning':               status["Warning"],
-            'Error':                 status["Error"],
+            'System Ready':          status.SystemReady,
+            'Plate Ready':           status.PlateReady,
+            'System Initialized':    status.SystemInitialized,
+            'XferStn status change': status.XferStnStatusChange,
+            'Gate closed':           status.GateClosed,
+            'User door':             status.UserDoor,
+            'Warning':               status.Warning,
+            'Error':                 status.Error,
             }
 
     def set_target_climate(self, temp: str, humid: str, co2: str, n2: str):
