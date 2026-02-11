@@ -245,6 +245,8 @@ class SilaLiconic(STX):
 
     def reset_and_activate(self):
         self.init()
+        self.client.DeviceManagementService.Reset()
+        self.client.DeviceManagementService.Initialize()
 
     def get(self, pos: str):
         cassette, lvl = self._parse_pos(pos)
