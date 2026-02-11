@@ -236,7 +236,7 @@ class SilaLiconic(STX):
 
     def init(self):
         try:
-            self.client = LiconicSilaClient.discover(insecure=True, timeout=5)
+            self.client = SilaClient.discover(insecure=True, timeout=5, server_name="Liconic")
             sub = self.client.ClimateController.CurrentClimate.subscribe()
             sub.add_callback(self._parse_climate)
         except TimeoutError as e:
