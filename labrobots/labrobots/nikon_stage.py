@@ -31,6 +31,7 @@ class NikonStage(Machine):
         GPIO.setup(Green, GPIO.OUT)
         GPIO.setup(Blue, GPIO.IN)
         GPIO.setup(Orange, GPIO.IN)
+        GPIO.setup(4, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 
     def close(self):
         # The logic looks for transitions rather than states
@@ -65,6 +66,9 @@ class NikonStage(Machine):
         for _ in range(10):
             self.log(self.status())
             time.sleep(0.5)
+
+    def get_all_values(self):
+        return {f"Pin {i}": GPIO.input(i) for i in [2,3,4]}
 
     def high(self):
         '''For troubleshooting: set GPIO 2 high'''
