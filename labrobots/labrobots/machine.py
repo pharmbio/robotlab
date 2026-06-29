@@ -6,6 +6,7 @@ from datetime import datetime
 from threading import RLock
 from urllib.request import urlopen, Request
 import contextlib
+import functools
 import inspect
 import json
 import textwrap
@@ -20,6 +21,7 @@ from .log import Log, try_json_dumps, system_default_log
 
 R = TypeVar('R')
 A = TypeVar('A')
+P = ParamSpec('P')
 
 def try_json_loads(s: str) -> Any:
     try:
@@ -105,6 +107,19 @@ class Status(TypedDict):
 
 @dataclass(frozen=True, kw_only=True)
 class Machine:
+    _no_log_functions: ClassVar[set[str]] = set()
+
+    @classmethod
+    def no_log(cls, fn: Callable[P, R]) -> Callable[P, R]:
+        """Skip logging for this function."""
+
+        @functools.wraps(fn)
+        def wrapped(*args: P.args, **kwargs: P.kwargs):
+            return fn(*args, **kwargs)
+
+        cls._no_log_functions.add(fn.__name__)
+        return wrapped
+
     log_cell: Cell[Log] = field(default_factory=lambda: Cell(Machine.default_log), repr=False)
     exclusive_lock: ExclusiveLock = field(default_factory=ExclusiveLock, repr=False)
 
@@ -199,7 +214,10 @@ class Machine:
             flask.g.log = Log.make(name, xs)
             data = dict(cmd=cmd, args=args) | kwargs
             sig = make_sig(cmd, *args, **kwargs)
-            self.log(sig, **data, type='call')
+            log = self.log
+            if cmd in self._no_log_functions:
+                log = lambda *_args, **_kwargs: None  # type: ignore
+            log(sig, **data, type='call')
             try:
                 if cmd == 'lock_status':
                     # ok to call remotely
@@ -211,12 +229,16 @@ class Machine:
                 fn = getattr(self, cmd, None)
                 if fn is None:
                     raise ValueError(f'No such command {cmd} on {name}')
-                with self.timeit(sig):
+                if cmd in self._no_log_functions:
+                    context = contextlib.nullcontext()
+                else:
+                    context = self.timeit(sig)
+                with context:
                     value = fn(*args, **kwargs)
                 if value is None:
-                    self.log('return', **data, type='return', value=small(value))
+                    log('return', **data, type='return', value=small(value))
                 else:
-                    self.log('return', repr(small(value)), **data, type='return', value=small(value))
+                    log('return', repr(small(value)), **data, type='return', value=small(value))
                 return {
                     'value': value,
                     'log': xs,

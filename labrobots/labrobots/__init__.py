@@ -9,8 +9,11 @@ from .nikon_nis import NikonNIS
 from .nikon_stage import NikonStage
 from .labeler import Labeler
 from .dlid import DLid
+from .pf import PF, local_pf, polka, rhumba
+from .shelly import Shelly
 
 from dataclasses import *
+from typing import Any, cast
 
 LHC_CALLER_CLI_PATH = "C:\\Program Files (x86)\\BioTek\\Liquid Handling Control 2.22\\LHC_CallerCLI.exe"
 LHC_PROTOCOLS_ROOT = "C:\\ProgramData\\BioTek\\Liquid Handling Control 2.22\\Protocols\\"
@@ -26,6 +29,13 @@ class WindowsNUC(Machines):
     dir_list: DirList = DirList(root_dir=LHC_PROTOCOLS_ROOT, ext=['LHC', 'prog'])
     blue: BlueWash = BlueWash(root_dir=LHC_PROTOCOLS_ROOT, com_port='COM6')
     dlid: DLid = DLid(com_port='COM8')
+
+@dataclass
+class UbuntuBMC(Machines):
+    ip = '10.10.0.55'
+    node_name = 'NUC-robotlab'
+    pf: PF = PF(ip=rhumba['ip'])
+    shelly: Shelly = Shelly(ip='10.10.0.155')
 
 @dataclass
 class WindowsGBG(Machines):
@@ -72,23 +82,52 @@ class LabelerComputer(Machines):
     node_name = 'DESKTOP-C3JFE20'
     labeler: Labeler = Labeler(['C:\\Users\\admin\\PlateRepl.exe'])
 
+@dataclass
+class PFPolkaForward(Machines):
+    ip = '127.0.0.1'
+    node_name = 'pf_' + polka['nick']
+    pf: PF = PF(ip=polka['ip'])
+
+@dataclass
+class PFRhumbaForward(Machines):
+    ip = '127.0.0.1'
+    node_name = 'pf_' + rhumba['nick']
+    pf: PF = PF(ip=rhumba['ip'])
+
+@dataclass
+class PFLocalForward(Machines):
+    ip = '127.0.0.1'
+    node_name = 'pf_' + local_pf['nick']
+    pf: PF = PF(ip=local_pf['ip'], command_line_port=10023, ftp_port=10021)
+
 def main():
     import sys
     import platform
     from argparse import ArgumentParser
 
     parser = ArgumentParser('labrobots_server')
+    parser.add_argument('--recompile', action='store_true', default=False)
     parser.add_argument('--port', type=int, default=5050)
     parser.add_argument('--host', type=str, default='default')
     parser.add_argument('--test', action='store_true', default=False)
+    parser.add_argument('--pf', type=str, default=False)
     parser.add_argument('--node-name', type=str, default=platform.node())
     args = parser.parse_args(sys.argv[1:])
     node_name = args.node_name
     if args.test:
         node_name = 'example'
+    if args.pf:
+        node_name = 'pf_' + args.pf
     print('node_name:', node_name)
 
     machines = Machines.lookup_node_name(node_name)
+
+    if args.recompile:
+        pf: PF = cast(Any, machines).pf
+        for line in pf.recompile():
+            print(line)
+        return
+
     machines.serve(port=args.port, host=machines.ip if args.host == 'default' else args.host)
 
 if __name__ == '__main__':
