@@ -11,7 +11,7 @@ from labrobots.log import Log
 
 from .moves import Move
 
-DEFAULT_HOST='10.10.0.98'
+DEFAULT_HOST='10.10.0.91'
 DEFAULT_HOST='127.0.0.1'
 
 @dataclass(frozen=True)
