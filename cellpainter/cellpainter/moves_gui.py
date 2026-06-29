@@ -76,15 +76,15 @@ def poll_xarm(xarm: XArm):
 
 
 def poll_pf(pf: PF):
-    i = 0
     while True:
-        i += 1
-        with pf.connect(quiet=bool(i >= 3), write_to_log_db=bool(i < 3), mode='ro') as arm:
-            info_str = arm.send_and_recv('wherejson')
-            info = json.loads(info_str)
+        info = pf.statejson()
+        if info:
+            info = dict(info)
+            angle = info.get('angle', info.get('yaw', 0))
+            info['yaw'] = angle
             info['xyz'] = [info[k] for k in 'xyz']
-            info['rpy'] = [0, 0, info['yaw']]
-            info['joints'] = [info[k] for k in 'q1 q2 q3 q4'.split()]
+            info['rpy'] = [0, 0, angle]
+            info['joints'] = [info['z'], info['q2'], info['q3'], info['q4']]
             info['pos'] = [info['q5']]
             polled_info.update(info)
         time.sleep(0.1)

@@ -470,8 +470,7 @@ def guess_robot(name: str) -> Literal['ur', 'pf', 'ur or pf', 'xarm']:
         return 'xarm'
     for x in 'pf squid fridge nikon H'.split():
         if x in name:
-            # return 'pf'
-            return 'xarm'
+            return 'pf'
     for x in 'updown ur A B C wash disp blue incu lid wave calib'.split():
         if x in name:
             return 'ur'
@@ -662,4 +661,3 @@ for k in list(effects.keys()):
 for i in HotelLocs_A:
     Ai = f'A{i}'
     effects[f'{Ai}-to-incu transfer from drop neu'] = MovePlate(source=Ai, target='incu')
-

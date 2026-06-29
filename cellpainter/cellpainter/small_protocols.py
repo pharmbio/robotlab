@@ -1339,21 +1339,21 @@ def pf_init(args: SmallProtocolArgs) -> Program:
     '''
     Initialize the PreciseFlex robotarm. Required after emergency stop.
     '''
-    return cmds_to_program([XArmCmd('pf init')])
+    return cmds_to_program([PFCmd('pf init')])
 
 @pf_protocols.append
 def pf_freedrive(args: SmallProtocolArgs) -> Program:
     '''
     Start freedrive on the PreciseFlex robotarm, making it easy to move around by hand.
     '''
-    return cmds_to_program([XArmCmd('pf freedrive')])
+    return cmds_to_program([PFCmd('pf freedrive')])
 
 @pf_protocols.append
 def pf_stop_freedrive(args: SmallProtocolArgs) -> Program:
     '''
     Stops freedrive on the PreciseFlex robotarm.
     '''
-    return cmds_to_program([XArmCmd('pf stop freedrive')])
+    return cmds_to_program([PFCmd('pf stop freedrive')])
 
 
 A = TypeVar('A')
